@@ -1,4 +1,5 @@
 version: "0.1.0"
 description: QR Code generator
+url: https://github.com/espressif/idf-extra-components/tree/master/qr_code
 dependencies:
   idf: ">=4.3"

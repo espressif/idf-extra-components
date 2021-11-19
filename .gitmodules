@@ -1,0 +1,6 @@
+[submodule "libsodium/libsodium"]
+	path = libsodium/libsodium
+	url = https://github.com/jedisct1/libsodium.git
+[submodule "cbor/tinycbor"]
+	path = cbor/tinycbor
+	url = https://github.com/intel/tinycbor.git
