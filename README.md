@@ -8,9 +8,12 @@ This repository is used only for Espressif components, it is not mean to store t
 
 ## Resources
 
- [IDF Component Manager](https://github.com/espressif/idf-component-manager) repository.
+[IDF Component Manager](https://github.com/espressif/idf-component-manager) repository.
 
- ## Contribution
- We welcome all contributors.
+## Contribution
 
- Please if you find some issue regarding IDF extra components, report it directly in IDF Component manager repository mentioned above.
+We welcome all contributions to the Component Manager project.
+
+You can contribute by fixing bugs, adding features, adding documentation or reporting an [issue](https://github.com/espressif/idf-extra-components/issues). We accept contributions via [Github Pull Requests](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests).
+
+Before reporting an issue, make sure you've searched for a similar one that was already created.
