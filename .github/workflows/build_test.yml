@@ -1,0 +1,26 @@
+name: Build Test Application
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        idf_ver: ["v4.3"]
+        idf_target: ["esp32"]
+    runs-on: ubuntu-20.04
+    container: espressif/idf:release-${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: 'true'
+      - name: Build Test Application
+        env:
+          IDF_TARGET: ${{ matrix.idf_target }}
+        shell: bash
+        run: |
+          cd test_app
+          . ${IDF_PATH}/export.sh
+          idf.py build
