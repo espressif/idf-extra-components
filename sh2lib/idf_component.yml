@@ -1,0 +1,6 @@
+version: "1.0.0"
+description: HTTP2 TLS Abstraction Layer
+url: https://github.com/espressif/idf-extra-components/tree/master/sh2lib
+dependencies:
+  idf: ">=5.0"
+  espressif/nghttp: ">=1.41.0"
