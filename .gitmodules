@@ -4,3 +4,6 @@
 [submodule "cbor/tinycbor"]
 	path = cbor/tinycbor
 	url = https://github.com/intel/tinycbor.git
+[submodule "nghttp/nghttp2"]
+	path = nghttp/nghttp2
+	url = https://github.com/nghttp2/nghttp2.git
