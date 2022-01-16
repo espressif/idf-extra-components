@@ -7,3 +7,6 @@
 [submodule "nghttp/nghttp2"]
 	path = nghttp/nghttp2
 	url = https://github.com/nghttp2/nghttp2.git
+[submodule "expat/expat"]
+	path = expat/expat
+	url = https://github.com/libexpat/libexpat.git
