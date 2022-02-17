@@ -378,8 +378,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t *ctx, pre_enc_decr
             return ESP_ERR_NOT_FINISHED;
         }
     /* falls through */
-    case ESP_PRE_ENC_IMG_READ_EXTRA_HEADER:
-    {
+    case ESP_PRE_ENC_IMG_READ_EXTRA_HEADER: {
         int temp = curr_index;
         curr_index += MIN(args->data_in_len - curr_index, RESERVED_HEADER - handle->binary_file_read);
         handle->binary_file_read += MIN(args->data_in_len - temp, RESERVED_HEADER - handle->binary_file_read);

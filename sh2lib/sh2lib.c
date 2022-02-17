@@ -182,8 +182,8 @@ static int callback_on_data_chunk_recv(nghttp2_session *session, uint8_t flags,
     data_recv_cb = nghttp2_session_get_stream_user_data(session, stream_id);
     if (data_recv_cb) {
         ESP_LOGD(TAG, "[data-chunk] C <---------------------------- S (DATA chunk)"
-                "%lu bytes",
-                (unsigned long int)len);
+                 "%lu bytes",
+                 (unsigned long int)len);
         struct sh2lib_handle *h2 = user_data;
         (*data_recv_cb)(h2, (char *)data, len, 0);
         /* TODO: What to do with the return value: look for pause/abort */

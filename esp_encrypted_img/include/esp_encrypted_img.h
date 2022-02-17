@@ -9,6 +9,7 @@
 
 #if 0   //High level layout for state machine
 
+// *INDENT-OFF*
 @startuml
 [*] --> READ_MAGIC
 READ_MAGIC --> READ_MAGIC : READ LEN < 4
@@ -34,7 +35,7 @@ PROCESS_BINARY --> ESP_OK : READ LEN = BIN_SIZE
 ESP_OK --> [*]
 ESP_FAIL --> [*]
 @enduml
-
+// *INDENT-OFF*
 #endif
 
 #ifdef __cplusplus
