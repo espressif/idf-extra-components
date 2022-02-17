@@ -1,0 +1,55 @@
+name: Build and Run Test Application
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        idf_ver: ["release-v4.3", "release-v4.4", "latest"]
+        idf_target: ["esp32", "esp32c3", "esp32s3"] # @todo ESP32S2 has less RAM and the test_app will not fit
+        exclude:
+          - idf_ver: "release-v4.3"
+            idf_target: esp32s3 # ESP32S3 support started with version 4.4
+    runs-on: ubuntu-20.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: 'true'
+      - name: Build Test Application
+        env:
+          IDF_TARGET: ${{ matrix.idf_target }}
+        shell: bash
+        run: |
+          cd test_app
+          . ${IDF_PATH}/export.sh
+          idf.py build
+      - name: Merge binaries
+        run: |
+          pip install esptool
+          cd test_app/build
+          python -m esptool --chip esp32 merge_bin --fill-flash-size 4MB -o flash_image.bin @flash_args
+      - uses: actions/upload-artifact@v2
+        with:
+          name: test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+          path: |
+            test_app/build/flash_image.bin
+
+  run-qemu:
+    name: Run Test App in QEMU
+    needs: build
+    strategy:
+      matrix:
+        idf_ver: ["release-v4.3", "release-v4.4", "latest"]
+    runs-on: ubuntu-20.04
+    container: ageon/pytest_env
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: test_app_bin_esp32_${{ matrix.idf_ver }}
+
+      - name: Display structure of downloaded files
+        run: ls -R
