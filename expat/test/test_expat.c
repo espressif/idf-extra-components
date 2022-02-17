@@ -36,8 +36,8 @@ static void XMLCALL start_element(void *userData, const XML_Char *name, const XM
     insert_space(user_data);
 
     const int ret = snprintf(user_data->output + user_data->output_off,
-            sizeof(user_data->output) - user_data->output_off,
-            "<%s>", name);
+                             sizeof(user_data->output) - user_data->output_off,
+                             "<%s>", name);
     TEST_ASSERT_EQUAL(strlen(name) + 2, ret); // 2 are the tag characters: "<>"
     user_data->output_off += ret;
     ++user_data->depth;
@@ -51,7 +51,7 @@ static void XMLCALL end_element(void *userData, const XML_Char *name)
     insert_space(user_data);
 
     int ret = snprintf(user_data->output + user_data->output_off, sizeof(user_data->output) - user_data->output_off,
-                "</%s>", name);
+                       "</%s>", name);
     TEST_ASSERT_EQUAL(strlen(name) + 3, ret); // 3 are the tag characters: "</>"
     user_data->output_off += ret;
 }
@@ -63,11 +63,11 @@ static void data_handler(void *userData, const XML_Char *s, int len)
     insert_space(user_data);
 
     // s is not zero-terminated
-    char tmp_str[len+1];
-    strlcpy(tmp_str, s, len+1);
+    char tmp_str[len + 1];
+    strlcpy(tmp_str, s, len + 1);
 
     int ret = snprintf(user_data->output + user_data->output_off, sizeof(user_data->output) - user_data->output_off,
-                "%s", tmp_str);
+                       "%s", tmp_str);
     TEST_ASSERT_EQUAL(strlen(tmp_str), ret);
     user_data->output_off += ret;
 }

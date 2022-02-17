@@ -10,7 +10,7 @@
 #include "string.h"
 
 #if (!defined(nghttp_unlikely))
-#define nghttp_unlikely(Expression)	!!(Expression)
+#define nghttp_unlikely(Expression) !!(Expression)
 #endif
 
 #define nghttp_ASSERT(Expression) do{if (!(Expression)) printf("%d\n", __LINE__);}while(0)

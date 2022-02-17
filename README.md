@@ -1,3 +1,5 @@
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+
 # Espressif IDF Extra Components
 
 This repository aims to store [ESP-IDF](https://github.com/espressif/esp-idf) extra components 
