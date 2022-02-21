@@ -2,7 +2,16 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.5)
 
-set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../esp_encrypted_img)
+set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../esp_encrypted_img ../cbor ../jsmn ../qrcode)
+
+if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "4.4")
+    list(APPEND EXTRA_COMPONENT_DIRS ../pid_ctrl)
+endif()
+
+if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.0")
+    list(APPEND EXTRA_COMPONENT_DIRS ../sh2lib ../nghttp)
+endif()
+
 
 # Set the components to include the tests for.
 set(TEST_COMPONENTS libsodium expat esp_encrypted_img CACHE STRING "List of components to test")
