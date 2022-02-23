@@ -10,3 +10,6 @@
 [submodule "expat/expat"]
 	path = expat/expat
 	url = https://github.com/libexpat/libexpat.git
+[submodule "coap/libcoap"]
+	path = coap/libcoap
+	url = https://github.com/obgm/libcoap.git
