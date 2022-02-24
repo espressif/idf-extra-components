@@ -180,7 +180,9 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
 {
     size_t data_len = args->data_in_len;
     size_t data_out_size = args->data_out_len;
+#if !(MBEDTLS_VERSION_NUMBER < 0x03000000)
     size_t olen;
+#endif
     handle->binary_file_read += data_len - curr_index;
     int dec_len = 0;
     if (handle->binary_file_read != handle->binary_file_len) {
