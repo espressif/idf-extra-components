@@ -7,8 +7,7 @@ This component can help in integrating pre encrypted firmware in over-the-air up
 
 ## Image Format
 
-![Image Format](image_format.png)
-
+![Image Format](https://raw.githubusercontent.com/espressif/idf-extra-components/master/esp_encrypted_img/image_format.png)
     typedef struct {
         char magic[4];
         char enc_gcm[384];
@@ -29,7 +28,7 @@ Note:
 
 ## Tool Info
 
-This component also contains tool ([esp_enc_img_gen.py](tools/esp_enc_img_gen.py)) to generate encrypted images using RSA3072 public key.
+This component also contains tool ([esp_enc_img_gen.py](https://github.com/espressif/idf-extra-components/blob/master/esp_encrypted_img/tools/esp_enc_img_gen.py)) to generate encrypted images using RSA3072 public key.
 
 To know more about the tool, use command:
 `python esp_enc_img-gen.py --help`
@@ -37,4 +36,4 @@ To know more about the tool, use command:
 
 ## API Reference
 
-To learn more about how to use this component, please check API Documentation from header file [esp_encrypted_img.h](include/esp_encrypted_img.h)
+To learn more about how to use this component, please check API Documentation from header file [esp_encrypted_img.h](https://github.com/espressif/idf-extra-components/blob/master/esp_encrypted_img/include/esp_encrypted_img.h)
