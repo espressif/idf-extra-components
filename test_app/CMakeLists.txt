@@ -1,25 +1,30 @@
 # The following lines of boilerplate have to be in your project's
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.5)
+include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
-set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../esp_encrypted_img ../cbor ../jsmn ../qrcode)
+# Add newly added components to one of these lines:
+# 1. Add here if the component is compatible with IDF >= v4.3
+set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../cbor ../jsmn ../qrcode)
 
+# 2. Add here if the component is compatible with IDF >= v4.4
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "4.4")
-    list(APPEND EXTRA_COMPONENT_DIRS ../pid_ctrl)
+    list(APPEND EXTRA_COMPONENT_DIRS ../pid_ctrl ../esp_encrypted_img)
 endif()
 
+# 3. Add here if the component is compatible with IDF >= v5.0
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.0")
     list(APPEND EXTRA_COMPONENT_DIRS ../sh2lib ../nghttp)
 endif()
 
-
-# Set the components to include the tests for.
-set(TEST_COMPONENTS libsodium expat esp_encrypted_img CACHE STRING "List of components to test")
-
-include($ENV{IDF_PATH}/tools/cmake/version.cmake) # $ENV{IDF_VERSION} was added after v4.3...
-if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_LESS "4.4")
-    set(EXCLUDE_COMPONENTS esp_encrypted_img)
-endif()
+# !This section should NOT be touched when adding new component!
+# Take all components in EXTRA_COMPONENT_DIRS, strip leading '../' and add it to TEST_COMPONENTS
+# The build system will build and link unit tests, if the component contains 'test' subdirectory
+set(TEST_COMPONENTS "" CACHE STRING "List of components to test")
+foreach (CMP_DIR ${EXTRA_COMPONENT_DIRS})
+    string(SUBSTRING ${CMP_DIR} 3 100 STRIPPED_CMP) # There should be no component name longer than 100 bytes...
+    list(APPEND TEST_COMPONENTS ${STRIPPED_CMP})
+endforeach()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(idf_extra_test_app)
