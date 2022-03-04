@@ -160,7 +160,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
     handle->rsa_len = cfg->rsa_pub_key_len;
     handle->state = ESP_PRE_ENC_IMG_READ_MAGIC;
 
-    esp_decrypt_handle_t *ctx = (esp_decrypt_handle_t *)handle;
+    esp_decrypt_handle_t ctx = (esp_decrypt_handle_t)handle;
     return ctx;
 
 failure:
@@ -280,7 +280,7 @@ static void read_and_cache_data(esp_encrypted_img_t *handle, pre_enc_decrypt_arg
     handle->binary_file_read += MIN(args->data_in_len - temp, data_left);
 }
 
-esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t *ctx, pre_enc_decrypt_arg_t *args)
+esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decrypt_arg_t *args)
 {
     if (ctx == NULL || args == NULL || args->data_in == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -427,7 +427,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t *ctx, pre_enc_decr
     return ESP_OK;
 }
 
-esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t *ctx)
+esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t ctx)
 {
     if (ctx == NULL) {
         return ESP_ERR_INVALID_ARG;

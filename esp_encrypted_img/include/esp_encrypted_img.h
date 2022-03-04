@@ -86,7 +86,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 *    - ESP_ERR_DECRYPT_IN_PROGRESS      Decryption is in process
 *    - ESP_OK                           Success
 */
-esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t *ctx, pre_enc_decrypt_arg_t *args);
+esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decrypt_arg_t *args);
 
 
 /**
@@ -98,7 +98,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t *ctx, pre_enc_decr
 *    - ESP_FAIL    On failure
 *    - ESP_OK
 */
-esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t *ctx);
+esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t ctx);
 
 
 #ifdef __cplusplus
