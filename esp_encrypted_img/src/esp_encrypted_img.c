@@ -38,7 +38,7 @@ typedef enum {
 #define RESERVED_HEADER     88
 
 struct esp_encrypted_img_handle {
-    const char *rsa_pem;
+    char *rsa_pem;
     size_t rsa_len;
     uint32_t binary_file_len;
     uint32_t binary_file_read;
@@ -113,7 +113,8 @@ exit:
     mbedtls_pk_free( &pk );
     mbedtls_entropy_free( &entropy );
     mbedtls_ctr_drbg_free( &ctr_drbg );
-    free((void *)handle->rsa_pem);
+    free(handle->rsa_pem);
+    handle->rsa_pem = NULL;
 
     return (ret);
 }
@@ -144,7 +145,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
         goto failure;
     }
 
-    memcpy((void *)handle->rsa_pem, cfg->rsa_pub_key, cfg->rsa_pub_key_len);
+    memcpy(handle->rsa_pem, cfg->rsa_pub_key, cfg->rsa_pub_key_len);
     handle->rsa_len = cfg->rsa_pub_key_len;
     handle->state = ESP_PRE_ENC_IMG_READ_MAGIC;
 
@@ -152,13 +153,8 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
     return ctx;
 
 failure:
-    if (!handle) {
-        return NULL;
-    }
-    if (handle->rsa_pem) {
-        free((void *)handle->rsa_pem);
-    }
     if (handle) {
+        free(handle->rsa_pem);
         free(handle);
     }
     return NULL;
@@ -289,7 +285,8 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
 
             if (recv_magic != esp_enc_img_magic) {
                 ESP_LOGE(TAG, "Magic Verification failed");
-                free((void *)handle->rsa_pem);
+                free(handle->rsa_pem);
+                handle->rsa_pem = NULL;
                 return ESP_FAIL;
             }
             curr_index += MAGIC_SIZE;
@@ -300,7 +297,8 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
 
                 if (recv_magic != esp_enc_img_magic) {
                     ESP_LOGE(TAG, "Magic Verification failed");
-                    free((void *)handle->rsa_pem);
+                    free(handle->rsa_pem);
+                    handle->rsa_pem = NULL;
                     return ESP_FAIL;
                 }
                 handle->binary_file_read = 0;
@@ -452,6 +450,7 @@ esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t ctx)
 exit:
     mbedtls_gcm_free(&handle->gcm_ctx);
     free(handle->cache_buf);
+    free(handle->rsa_pem);
     free(handle);
     return err;
 }
