@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
 #include <stdio.h>
+#include <freertos/FreeRTOS.h>
+
 #include "unity.h"
 #include "esp_system.h"
 #include "esp_encrypted_img.h"
@@ -303,4 +305,21 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
         free(args->data_out);
     }
     free(args);
+}
+
+TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
+{
+    esp_decrypt_cfg_t cfg = {
+        .rsa_pub_key = (char *)rsa_private_pem_start,
+        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+    };
+    int free_bytes_start = xPortGetFreeHeapSize();
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NOT_NULL(ctx);
+
+    (void) esp_encrypted_img_decrypt_end(ctx);
+    int free_bytes_end = xPortGetFreeHeapSize();
+
+    // +/- 16 bytes to allow for some small fluctuations
+    TEST_ASSERT(abs(free_bytes_start - free_bytes_end) <= 16);
 }
