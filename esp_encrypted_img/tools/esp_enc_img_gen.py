@@ -56,7 +56,7 @@ def encrypt(input_file: str, rsa_key_file_name: str, output_file: str) -> None:
     encrypted_gcm_key = public_key.encrypt(gcm_key, padding.PKCS1v15())
     ciphertext, authtag = encrypt_binary(data, gcm_key, iv)
 
-    with open(output_file, 'ab') as image:
+    with open(output_file, 'wb') as image:
         image.write(esp_enc_img_magic.to_bytes(MAGIC_SIZE, 'little'))
         image.write((encrypted_gcm_key))
         image.write((iv))
@@ -98,7 +98,7 @@ def decrypt(input_file: str, rsa_key: str, output_file: str) -> None:
 
     decrypted_binary = decrypt_binary(enc_bin, auth, gcm_key, iv)
 
-    with open(output_file, 'ab') as file:
+    with open(output_file, 'wb') as file:
         file.write(decrypted_binary)
     print('Done')
 
