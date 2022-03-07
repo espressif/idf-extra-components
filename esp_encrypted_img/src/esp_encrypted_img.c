@@ -402,7 +402,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
             return ESP_ERR_NOT_FINISHED;
         }
     }
-/* falls through */
+    /* falls through */
     case ESP_PRE_ENC_DATA_DECODE_STATE:
         err = process_bin(handle, args, curr_index);
         return err;

@@ -20,7 +20,7 @@ TEST_CASE("Sending all data at once", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -50,7 +50,7 @@ TEST_CASE("Sending 1 byte data at once", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -151,7 +151,7 @@ TEST_CASE("Invalid Magic", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -244,7 +244,7 @@ TEST_CASE("Invalid Image", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -272,7 +272,7 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
