@@ -8,9 +8,9 @@
 
 #include "unity.h"
 #if __has_include("esp_random.h")
-  #include "esp_random.h"
+#include "esp_random.h"
 #else
-  #include "esp_system.h"
+#include "esp_system.h"
 #endif
 #include "esp_encrypted_img.h"
 

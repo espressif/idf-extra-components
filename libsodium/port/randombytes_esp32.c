@@ -5,9 +5,9 @@
  */
 #include "sdkconfig.h"
 #if __has_include("esp_random.h")
-  #include "esp_random.h"
+#include "esp_random.h"
 #else
-  #include "esp_system.h"
+#include "esp_system.h"
 #endif
 #include "randombytes_internal.h"
 
