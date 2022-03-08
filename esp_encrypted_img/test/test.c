@@ -7,7 +7,7 @@
 #include <freertos/FreeRTOS.h>
 
 #include "unity.h"
-#include "esp_system.h"
+#include "esp_random.h"
 #include "esp_encrypted_img.h"
 
 extern const uint8_t rsa_private_pem_start[] asm("_binary_test_rsa_private_key_pem_start");

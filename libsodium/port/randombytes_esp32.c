@@ -3,8 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include "sdkconfig.h"
+#include "esp_random.h"
 #include "randombytes_internal.h"
-#include "esp_system.h"
 
 static const char *randombytes_esp32xx_implementation_name(void)
 {
