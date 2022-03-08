@@ -4,13 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stdio.h>
-#include <string.h>
 #include "unity.h"
 
 void app_main(void)
 {
     UNITY_BEGIN();
-    unity_run_menu();
+    unity_run_all_tests();
     UNITY_END();
 }
