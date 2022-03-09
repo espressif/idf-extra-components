@@ -4,8 +4,14 @@
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
 #include <stdio.h>
+#include <freertos/FreeRTOS.h>
+
 #include "unity.h"
+#if __has_include("esp_random.h")
+#include "esp_random.h"
+#else
 #include "esp_system.h"
+#endif
 #include "esp_encrypted_img.h"
 
 extern const uint8_t rsa_private_pem_start[] asm("_binary_test_rsa_private_key_pem_start");
@@ -20,7 +26,7 @@ TEST_CASE("Sending all data at once", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -50,7 +56,7 @@ TEST_CASE("Sending 1 byte data at once", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -151,7 +157,7 @@ TEST_CASE("Invalid Magic", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -244,7 +250,7 @@ TEST_CASE("Invalid Image", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -272,7 +278,7 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
         .rsa_pub_key = (char *)rsa_private_pem_start,
         .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
-    esp_decrypt_handle_t *ctx = esp_encrypted_img_decrypt_start(&cfg);
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
     pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
@@ -303,4 +309,21 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
         free(args->data_out);
     }
     free(args);
+}
+
+TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
+{
+    esp_decrypt_cfg_t cfg = {
+        .rsa_pub_key = (char *)rsa_private_pem_start,
+        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+    };
+    int free_bytes_start = xPortGetFreeHeapSize();
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NOT_NULL(ctx);
+
+    (void) esp_encrypted_img_decrypt_end(ctx);
+    int free_bytes_end = xPortGetFreeHeapSize();
+
+    // +/- 16 bytes to allow for some small fluctuations
+    TEST_ASSERT(abs(free_bytes_start - free_bytes_end) <= 16);
 }
