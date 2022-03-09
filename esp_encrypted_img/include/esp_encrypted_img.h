@@ -78,7 +78,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 *
 * @note args->data_out must be freed after use provided args->data_out_len is greater than 0
 *
-* @param[in]        ctx                 pointer to esp_decrypt_handle_t
+* @param[in]        ctx                 esp_decrypt_handle_t handle
 * @param[in/out]    args                pointer to pre_enc_decrypt_arg_t
 *
 * @return
@@ -92,7 +92,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
 /**
 * @brief  Clean-up decryption process.
 *
-* @param[in]   ctx   pointer to esp_decrypt_handle_t structure
+* @param[in]   ctx   esp_decrypt_handle_t handle
 *
 * @return
 *    - ESP_FAIL    On failure

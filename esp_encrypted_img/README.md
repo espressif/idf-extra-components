@@ -8,14 +8,17 @@ This component can help in integrating pre encrypted firmware in over-the-air up
 ## Image Format
 
 ![Image Format](https://raw.githubusercontent.com/espressif/idf-extra-components/master/esp_encrypted_img/image_format.png)
-    typedef struct {
-        char magic[4];
-        char enc_gcm[384];
-        char iv[16];
-        char bin_size[4];
-        char auth[16];
-        char extra_header[88];
-    } pre_enc_bin_header;
+
+```c
+typedef struct {
+    char magic[4];
+    char enc_gcm[384];
+    char iv[16];
+    char bin_size[4];
+    char auth[16];
+    char extra_header[88];
+} pre_enc_bin_header;
+```
 
 The above struct represents encrypted image header.
 
