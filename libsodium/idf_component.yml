@@ -1,6 +1,6 @@
 
-version: "1.0.18"
-description: libsodium port to ESP32
+version: "1.0.19"
+description: libsodium port to ESP
 url: https://github.com/espressif/idf-extra-components/tree/master/libsodium
 dependencies:
   idf: ">=4.2"
