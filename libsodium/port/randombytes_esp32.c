@@ -5,6 +5,7 @@
  */
 #include "randombytes_internal.h"
 #include "esp_system.h"
+#include "esp_random.h"
 
 static const char *randombytes_esp32xx_implementation_name(void)
 {
