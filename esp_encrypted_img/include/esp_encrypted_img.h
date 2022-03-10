@@ -50,7 +50,7 @@ typedef struct {
 } esp_decrypt_cfg_t;
 
 typedef struct {
-    char *data_in;          /*!< Pointer to data to be decrypted */
+    const char *data_in;    /*!< Pointer to data to be decrypted */
     size_t data_in_len;     /*!< Input data length */
     char *data_out;         /*!< Pointer to decrypted data */
     size_t data_out_len;    /*!< Output data length */

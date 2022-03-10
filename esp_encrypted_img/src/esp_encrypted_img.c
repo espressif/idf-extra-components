@@ -66,7 +66,7 @@ static uint32_t esp_enc_img_magic = 0x0788b6cf;
 
 typedef struct esp_encrypted_img_handle esp_encrypted_img_t;
 
-static int decipher_gcm_key(char *enc_gcm, esp_encrypted_img_t *handle)
+static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
 {
     int ret = 1;
     size_t olen = 0;
