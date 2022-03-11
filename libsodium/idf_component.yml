@@ -1,5 +1,5 @@
 
-version: "1.0.19"
+version: "1.0.20"
 description: libsodium port to ESP
 url: https://github.com/espressif/idf-extra-components/tree/master/libsodium
 dependencies:

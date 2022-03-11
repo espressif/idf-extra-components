@@ -4,6 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <mbedtls/version.h>
+
+/* Keep forward-compatibility with Mbed TLS 3.x */
+#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
+#define MBEDTLS_2_X_COMPAT
+#else /* !(MBEDTLS_VERSION_NUMBER < 0x03000000) */
+/* Macro wrapper for struct's private members */
+#ifndef MBEDTLS_ALLOW_PRIVATE_ACCESS
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+#endif /* MBEDTLS_ALLOW_PRIVATE_ACCESS */
+#endif /* !(MBEDTLS_VERSION_NUMBER < 0x03000000) */
+
 #include "crypto_hash_sha512.h"
 #include "mbedtls/sha512.h"
 #include <string.h>
@@ -59,7 +71,11 @@ crypto_hash_sha512_init(crypto_hash_sha512_state *state)
 {
     mbedtls_sha512_context ctx;
     mbedtls_sha512_init(&ctx);
+#ifdef MBEDTLS_2_X_COMPAT
     int ret = mbedtls_sha512_starts_ret(&ctx, 0);
+#else
+    int ret = mbedtls_sha512_starts(&ctx, 0);
+#endif /* MBEDTLS_2_X_COMPAT */
     if (ret != 0) {
         return ret;
     }
@@ -73,7 +89,11 @@ crypto_hash_sha512_update(crypto_hash_sha512_state *state,
 {
     mbedtls_sha512_context ctx;
     sha512_libsodium_to_mbedtls(&ctx, state);
+#ifdef MBEDTLS_2_X_COMPAT
     int ret = mbedtls_sha512_update_ret(&ctx, in, inlen);
+#else
+    int ret = mbedtls_sha512_update(&ctx, in, inlen);
+#endif /* MBEDTLS_2_X_COMPAT */
     if (ret != 0) {
         return ret;
     }
@@ -86,12 +106,20 @@ crypto_hash_sha512_final(crypto_hash_sha512_state *state, unsigned char *out)
 {
     mbedtls_sha512_context ctx;
     sha512_libsodium_to_mbedtls(&ctx, state);
+#ifdef MBEDTLS_2_X_COMPAT
     return mbedtls_sha512_finish_ret(&ctx, out);
+#else
+    return mbedtls_sha512_finish(&ctx, out);
+#endif /* MBEDTLS_2_X_COMPAT */
 }
 
 int
 crypto_hash_sha512(unsigned char *out, const unsigned char *in,
                    unsigned long long inlen)
 {
+#ifdef MBEDTLS_2_X_COMPAT
     return mbedtls_sha512_ret(in, inlen, out, 0);
+#else
+    return mbedtls_sha512(in, inlen, out, 0);
+#endif /* MBEDTLS_2_X_COMPAT */
 }
