@@ -1,6 +1,8 @@
 name: Build and Run Test Application
 
 on:
+  schedule:
+    - cron: '0 0 * * *' # Once per day at midnight
   pull_request:
     types: [opened, reopened, synchronize]
 
@@ -8,6 +10,7 @@ jobs:
   build:
     name: Build Test App
     strategy:
+      fail-fast: false
       matrix:
         idf_ver: ["release-v4.3", "release-v4.4", "latest"]
         idf_target: ["esp32", "esp32c3", "esp32s3"] # @todo ESP32S2 has less RAM and the test_app will not fit
@@ -29,6 +32,7 @@ jobs:
           . ${IDF_PATH}/export.sh
           idf.py build
       - name: Merge binaries
+        shell: bash
         working-directory: test_app/build
         run: |
           . ${IDF_PATH}/export.sh
