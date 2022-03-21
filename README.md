@@ -1,5 +1,6 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![Build and Run Test Application](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_test_app.yml/badge.svg)](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_test_app.yml)
+[![Build and Run Test Application](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_test_app.yml/badge.svg?branch=master)](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_test_app.yml)
+[![Clang-Tidy](https://github.com/espressif/idf-extra-components/actions/workflows/clang-tidy.yml/badge.svg?branch=master)](https://github.com/espressif/idf-extra-components/security/code-scanning?query=is%3Aopen+branch%3Amaster)
 
 # Espressif IDF Extra Components
 
