@@ -74,7 +74,7 @@ jobs:
         exclude:
           - idf_ver: "release-v4.3"
             idf_target: esp32s3 # ESP32S3 support started with version 4.4
-    runs-on: [self-hosted, linux, docker, esp32] # Unfortunately `${{ matrix.idf_target }}` is not accepted here
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
     container:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
