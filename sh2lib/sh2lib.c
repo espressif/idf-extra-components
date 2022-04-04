@@ -246,10 +246,23 @@ int sh2lib_connect(struct sh2lib_config_t *cfg, struct sh2lib_handle *hd)
         .non_block = true,
         .timeout_ms = 10 * 1000,
     };
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    hd->http2_tls = esp_tls_init();
+    if (!hd->http2_tls) {
+        ESP_LOGE(TAG, "Failed to allocate esp_tls handle!");
+        goto error;
+    }
+
+    // NOTE: This API is an alternative to previous `esp_tls_conn_http_new` from ESP-IDF v5.0 onwards.
+    if (esp_tls_conn_http_new_sync(cfg->uri, &tls_cfg, hd->http2_tls) != 1) {
+#else
     if ((hd->http2_tls = esp_tls_conn_http_new(cfg->uri, &tls_cfg)) == NULL) {
+#endif
         ESP_LOGE(TAG, "[sh2-connect] esp-tls connection failed");
         goto error;
     }
+
     struct http_parser_url u;
     http_parser_url_init(&u);
     http_parser_parse_url(cfg->uri, strlen(cfg->uri), 0, &u);
