@@ -5,12 +5,18 @@ menu "jsmn"
         bool "Enable parent links"
         default n
         help
-            You can access to parent node of parsed json
+            You can access parent node of parsed json
 
     config JSMN_STRICT
         bool "Enable strict mode"
         default n
         help
             In strict mode primitives are: numbers and booleans
+
+    config JSMN_STATIC
+        bool "Declare JSMN API as static"
+        default node
+        help
+            Declar JSMN API as static (instead of extern)
 
 endmenu
