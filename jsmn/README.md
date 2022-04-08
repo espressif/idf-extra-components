@@ -76,21 +76,35 @@ object hierarchy.
 This approach provides enough information for parsing any JSON data and makes
 it possible to use zero-copy techniques.
 
-Install
--------
+Usage
+-----
 
-To clone the repository you should have Git installed. Just run:
+Download `jsmn.h`, include it, done.
 
-	$ git clone https://github.com/zserge/jsmn
+```
+#include "jsmn.h"
 
-Repository layout is simple: jsmn.c and jsmn.h are library files, tests are in
-the jsmn\_test.c, you will also find README, LICENSE and Makefile files inside.
+...
+jsmn_parser p;
+jsmntok_t t[128]; /* We expect no more than 128 JSON tokens */
 
-To build the library, run `make`. It is also recommended to run `make test`.
-Let me know, if some tests fail.
+jsmn_init(&p);
+r = jsmn_parse(&p, s, strlen(s), t, 128); // "s" is the char array holding the json content
+```
 
-If build was successful, you should get a `libjsmn.a` library.
-The header file you should include is called `"jsmn.h"`.
+Since jsmn is a single-header, header-only library, for more complex use cases
+you might need to define additional macros. `#define JSMN_STATIC` hides all
+jsmn API symbols by making them static. Also, if you want to include `jsmn.h`
+from multiple C files, to avoid duplication of symbols you may define  `JSMN_HEADER` macro.
+
+```
+/* In every .c file that uses jsmn include only declarations: */
+#define JSMN_HEADER
+#include "jsmn.h"
+
+/* Additionally, create one jsmn.c file for jsmn implementation: */
+#include "jsmn.h"
+```
 
 API
 ---
@@ -99,10 +113,10 @@ Token types are described by `jsmntype_t`:
 
 	typedef enum {
 		JSMN_UNDEFINED = 0,
-		JSMN_OBJECT = 1,
-		JSMN_ARRAY = 2,
-		JSMN_STRING = 3,
-		JSMN_PRIMITIVE = 4
+		JSMN_OBJECT = 1 << 0,
+		JSMN_ARRAY = 1 << 1,
+		JSMN_STRING = 1 << 2,
+		JSMN_PRIMITIVE = 1 << 3
 	} jsmntype_t;
 
 **Note:** Unlike JSON data types, primitive tokens are not divided into
@@ -144,7 +158,7 @@ the `js` string.
 A non-negative return value of `jsmn_parse` is the number of tokens actually
 used by the parser.
 Passing NULL instead of the tokens array would not store parsing results, but
-instead the function will return the value of tokens needed to parse the given
+instead the function will return the number of tokens needed to parse the given
 string. This can be useful if you don't know yet how many tokens to allocate.
 
 If something goes wrong, you will get an error. Error will be one of these:
