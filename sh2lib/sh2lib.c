@@ -242,6 +242,7 @@ int sh2lib_connect(struct sh2lib_config_t *cfg, struct sh2lib_handle *hd)
         .alpn_protos = proto,
         .cacert_buf = cfg->cacert_buf,
         .cacert_bytes = cfg->cacert_bytes,
+        .crt_bundle_attach = cfg->crt_bundle_attach,
         .non_block = true,
         .timeout_ms = 10 * 1000,
     };

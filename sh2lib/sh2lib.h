@@ -41,6 +41,9 @@ struct sh2lib_config_t {
     const char *uri;                    /*!< Pointer to the URI that should be connected to */
     const unsigned char *cacert_buf;    /*!< Pointer to the buffer containing CA certificate */
     unsigned int cacert_bytes;          /*!< Size of the CA certifiacte pointed by cacert_buf */
+    esp_err_t (*crt_bundle_attach)(void *conf);
+    /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification
+         bundle for server verification, must be enabled in menuconfig */
 };
 
 /** Flag indicating receive stream is reset */
