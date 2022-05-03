@@ -5,11 +5,11 @@ include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
 # Add newly added components to one of these lines:
 # 1. Add here if the component is compatible with IDF >= v4.3
-set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../cbor ../jsmn ../qrcode)
+set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../cbor ../jsmn ../qrcode ../coap)
 
 # 2. Add here if the component is compatible with IDF >= v4.4
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "4.4")
-    list(APPEND EXTRA_COMPONENT_DIRS ../pid_ctrl ../esp_encrypted_img)
+    list(APPEND EXTRA_COMPONENT_DIRS ../pid_ctrl ../esp_encrypted_img ../pcap)
 endif()
 
 # 3. Add here if the component is compatible with IDF >= v5.0
