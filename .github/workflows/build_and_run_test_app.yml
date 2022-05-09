@@ -31,16 +31,15 @@ jobs:
         run: |
           . ${IDF_PATH}/export.sh
           idf.py build
-      - name: Merge binaries
-        shell: bash
-        working-directory: test_app/build
-        run: |
-          . ${IDF_PATH}/export.sh
-          esptool.py --chip ${{ matrix.idf_target }} merge_bin --fill-flash-size 4MB -o flash_image.bin @flash_args
       - uses: actions/upload-artifact@v2
         with:
           name: test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
-          path: test_app/build/flash_image.bin
+          path: |
+            test_app/build/bootloader/bootloader.bin
+            test_app/build/partition_table/partition-table.bin
+            test_app/build/idf_extra_test_app.bin
+            test_app/build/idf_extra_test_app.elf
+            test_app/build/flasher_args.json
 
   # Keeping this here for future reference. QEMU tests are not passing now
   #run-qemu:
@@ -87,19 +86,17 @@ jobs:
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://www.piwheels.org/simple"
-        run: pip install esptool pytest-embedded==0.6.0rc0 pytest-embedded-serial-esp==0.6.0rc0
-      - name: Download Test App to target
-        run: python -m esptool --chip ${{ matrix.idf_target }} write_flash 0x0 test_app/build/flash_image.bin
+        run: pip install pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
       - name: Run Test App on target
         working-directory: test_app
-        run: pytest -s --junit-xml=./test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}.xml --embedded-services esp --target=${{ matrix.idf_target }}
+        run: pytest -s --junit-xml=./test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}.xml --embedded-services esp,idf --target=${{ matrix.idf_target }}
       - uses: actions/upload-artifact@v2
         if: always()
         with:
           name: test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
           path: test_app/*.xml
 
-  publish-results:
+  publish-results: # @todo fix this for public forks
     name: Publish Test App results
     needs: run-target
     if: always() # Run even if the previous step failed
