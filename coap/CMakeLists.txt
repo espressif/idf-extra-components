@@ -42,3 +42,4 @@ idf_component_register(SRCS "${srcs}"
 #
 # TODO: find a way to move this to a port header
 target_compile_definitions(${COMPONENT_LIB} PUBLIC WITH_POSIX)
+target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
