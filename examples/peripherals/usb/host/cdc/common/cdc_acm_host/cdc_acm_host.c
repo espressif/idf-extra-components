@@ -784,23 +784,22 @@ esp_err_t cdc_acm_host_open_vendor_specific(uint16_t vid, uint16_t pid, uint8_t 
     const usb_ep_desc_t *in_ep = NULL;
     const usb_ep_desc_t *out_ep = NULL;
     const usb_ep_desc_t *notif_ep = NULL;
-    int ep_idx = 0;
-    if (cdc_dev->data.intf_desc->bNumEndpoints == 3) {
-        // Notification channel does not have its dedicated interface (data and notif interface is the same)
-        // First endpoint of this interface is used as notification channel
-        cdc_dev->notif.intf_desc = cdc_dev->data.intf_desc;
-        notif_ep = usb_parse_endpoint_descriptor_by_index(cdc_dev->data.intf_desc, 0, config_desc->wTotalLength, &desc_offset);
-        desc_offset = temp_offset;
-        ep_idx++;
-    }
 
-    for (int i = ep_idx; i < ep_idx + 2; i++) {
+    // Go through all interface's endpoints and parse Interrupt and Bulk endpoints
+    for (int i = 0; i < cdc_dev->data.intf_desc->bNumEndpoints; i++) {
         const usb_ep_desc_t *this_ep = usb_parse_endpoint_descriptor_by_index(cdc_dev->data.intf_desc, i, config_desc->wTotalLength, &desc_offset);
         assert(this_ep);
-        if (USB_EP_DESC_GET_EP_DIR(this_ep)) {
-            in_ep = this_ep;
-        } else {
-            out_ep = this_ep;
+
+        if (USB_EP_DESC_GET_XFERTYPE(this_ep) == USB_TRANSFER_TYPE_INTR) {
+            // Notification channel does not have its dedicated interface (data and notif interface is the same)
+            cdc_dev->notif.intf_desc = cdc_dev->data.intf_desc;
+            notif_ep = this_ep;
+        } else if (USB_EP_DESC_GET_XFERTYPE(this_ep) == USB_TRANSFER_TYPE_BULK) {
+            if (USB_EP_DESC_GET_EP_DIR(this_ep)) {
+                in_ep = this_ep;
+            } else {
+                out_ep = this_ep;
+            }
         }
         desc_offset = temp_offset;
     }
