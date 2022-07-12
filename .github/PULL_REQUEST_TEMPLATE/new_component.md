@@ -7,3 +7,6 @@
 - [ ] Component was added to [build job](https://github.com/espressif/idf-extra-components/blob/master/test_app/CMakeLists.txt#L8)
 - [ ] _Optional:_ Component contains unit tests
 - [ ] CI passing
+
+# Change description
+_Please describe your change here_
