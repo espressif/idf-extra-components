@@ -89,7 +89,7 @@ jobs:
         run: pip install pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
       - name: Run Test App on target
         working-directory: test_app
-        run: pytest -s --junit-xml=./test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}.xml --embedded-services esp,idf --target=${{ matrix.idf_target }}
+        run: pytest --junit-xml=./test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}.xml --target=${{ matrix.idf_target }}
       - uses: actions/upload-artifact@v2
         if: always()
         with:
