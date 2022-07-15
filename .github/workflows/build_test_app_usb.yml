@@ -1,0 +1,37 @@
+name: Build USB Test Application
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Once per day at midnight
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  build:
+    name: Build USB Test App
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v5.0", "latest"]
+        idf_target: ["esp32s2", "esp32s3"]
+    runs-on: ubuntu-20.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build USB Test Application
+        env:
+          IDF_TARGET: ${{ matrix.idf_target }}
+        shell: bash
+        working-directory: usb/test_app
+        run: |
+          . ${IDF_PATH}/export.sh
+          idf.py build
+      - uses: actions/upload-artifact@v2
+        with:
+          name: usb_test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+          path: |
+            usb/test_app/build/bootloader/bootloader.bin
+            usb/test_app/build/partition_table/partition-table.bin
+            usb/test_app/build/usb_test_app.bin
+            usb/test_app/build/usb_test_app.elf
+            usb/test_app/build/flasher_args.json
