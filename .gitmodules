@@ -13,3 +13,6 @@
 [submodule "coap/libcoap"]
 	path = coap/libcoap
 	url = https://github.com/obgm/libcoap.git
+[submodule "usb/usb_host_uvc/libuvc"]
+	path = usb/usb_host_uvc/libuvc
+	url = https://github.com/libuvc/libuvc.git
