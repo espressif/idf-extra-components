@@ -47,7 +47,7 @@ struct in6_pktinfo {
 #define IPV6_PKTINFO IPV6_CHECKSUM
 
 #define PACKAGE_NAME "libcoap-posix"
-#define PACKAGE_VERSION "4.3.0"
+#define PACKAGE_VERSION "4.3.1-rc1"
 
 #ifdef CONFIG_MBEDTLS_TLS_ENABLED
 #define HAVE_MBEDTLS
