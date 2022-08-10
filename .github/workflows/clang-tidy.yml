@@ -28,7 +28,7 @@ jobs:
           pip install pyclang~=0.2.0
           curl -sSL https://raw.githubusercontent.com/espressif/llvm-project/xtensa_release_12.0.1/clang-tools-extra/clang-tidy/tool/run-clang-tidy.py -o run-clang-tidy.py
           chmod +x run-clang-tidy.py
-          curl -sSL https://github.com/psastras/sarif-rs/releases/download/clang-tidy-sarif-v0.3.1/clang-tidy-sarif-x86_64-unknown-linux-gnu -o clang-tidy-sarif
+          curl -sSL https://github.com/psastras/sarif-rs/releases/download/clang-tidy-sarif-v0.3.3/clang-tidy-sarif-x86_64-unknown-linux-gnu -o clang-tidy-sarif
           chmod +x clang-tidy-sarif
           export PATH=$PWD:$PATH
           idf.py clang-check --include-paths $GITHUB_WORKSPACE --exclude-paths $PWD
