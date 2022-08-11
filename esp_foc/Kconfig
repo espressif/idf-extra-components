@@ -1,0 +1,37 @@
+menu "espFoC Settings"
+
+    config ESP_FOC_ALIGN_STEP_DELAY_MS
+        int "Delay between rotor alignment step in ms"
+        default 5
+        help
+            Keeps the bridge active with step calculated 
+            voltages to ensure the Q and D vectors to
+            align, higher values increase better alignment
+            in excheange of rotor core saturation.
+
+    config NOOF_AXIS
+        int "Number of motor outputs"
+        range 1 4
+        default 1
+        help
+            The number of motor outputs available, this option
+            is the number of motor sets, each set is composed 
+            by total PWM outputs and sensor inputs.
+
+    config FOC_TASK_PRIORITY
+        int "Priority task of foc controller"
+        range 16 25
+        default 25
+
+    config FOC_TASK_STACK_SIZE
+        int "Task stack size of foc controller"
+        default 3072
+    
+    config ESP_FOC_CUSTOM_MATH
+        bool "Use custom espFoC fast math"
+        default y
+
+endmenu
+    
+    
+    
