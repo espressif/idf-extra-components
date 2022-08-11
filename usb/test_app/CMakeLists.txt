@@ -3,9 +3,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(EXTRA_COMPONENT_DIRS ../usb_host_cdc_acm
-                         ../usb_host_msc)
-                         ../usb_host_uvc
-                         $ENV{IDF_PATH}/examples/peripherals/usb/host/msc/components/)
+                         ../usb_host_msc
+                         ../usb_host_uvc)
 
 # Set the components to include the tests for.
 set(TEST_COMPONENTS "usb_host_cdc_acm" "usb_host_msc" "usb_host_uvc" CACHE STRING "List of components to test")

@@ -7,7 +7,7 @@ This directory contains USB host UVC driver based on [libuvc](https://github.com
 Reference [uvc_host_example](https://github.com/espressif/esp-idf/tree/master/examples/peripherals/usb/host/uvc) is similar to one found in `libuvc` repository with few additions:
 1. Before calling `uvc_init()`, `initialize_usb_host_lib()` has to be called in order to initialize usb host library.
 2. Since `libuvc` selects highest possible `dwMaxPayloadTransferSize` by default, user has to manually overwrite obatained value to 512 bytes (maximum transfer size supported by ESP32-S2/S3) before passing it to `uvc_print_stream_ctrl()` function.
-3. Optionally, user can configure `libusb adaprer` by passing appropriate parameters to `libuvc_adapter_set_config()`.
+3. Optionally, user can configure `libusb adapter` by passing appropriate parameters to `libuvc_adapter_set_config()`.
 
 ## Known limitations
 
