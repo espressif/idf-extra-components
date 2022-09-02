@@ -5,6 +5,7 @@
  */
 
 #include "esp_log.h"
+#include "inttypes.h"
 #include <stdio.h>
 #include <string.h>
 #include <sys/queue.h>
@@ -17,7 +18,7 @@
 #include "esp_check.h"
 #include "esp_system.h"
 
-#define TAG "cdc_acm"
+static const char *TAG = "cdc_acm";
 
 // CDC devices often implement Interface Association Descriptor (IAD). Parse IAD only when
 // bDeviceClass = 0xEF (Miscellaneous Device Class), bDeviceSubClass = 0x02 (Common Class), bDeviceProtocol = 0x01 (Interface Association Descriptor)
@@ -1102,7 +1103,7 @@ esp_err_t cdc_acm_host_line_coding_get(cdc_acm_dev_hdl_t cdc_hdl, cdc_acm_line_c
     ESP_RETURN_ON_ERROR(
         send_cdc_request((cdc_dev_t *)cdc_hdl, true, USB_CDC_REQ_GET_LINE_CODING, (uint8_t *)line_coding, sizeof(cdc_acm_line_coding_t), 0),
         TAG,);
-    ESP_LOGD(TAG, "Line Get: Rate: %d, Stop bits: %d, Parity: %d, Databits: %d", line_coding->dwDTERate,
+    ESP_LOGD(TAG, "Line Get: Rate: %"PRIu32", Stop bits: %d, Parity: %d, Databits: %d", line_coding->dwDTERate,
              line_coding->bCharFormat, line_coding->bParityType, line_coding->bDataBits);
     return ESP_OK;
 }
@@ -1114,7 +1115,7 @@ esp_err_t cdc_acm_host_line_coding_set(cdc_acm_dev_hdl_t cdc_hdl, const cdc_acm_
     ESP_RETURN_ON_ERROR(
         send_cdc_request((cdc_dev_t *)cdc_hdl, false, USB_CDC_REQ_SET_LINE_CODING, (uint8_t *)line_coding, sizeof(cdc_acm_line_coding_t), 0),
         TAG,);
-    ESP_LOGD(TAG, "Line Set: Rate: %d, Stop bits: %d, Parity: %d, Databits: %d", line_coding->dwDTERate,
+    ESP_LOGD(TAG, "Line Set: Rate: %"PRIu32", Stop bits: %d, Parity: %d, Databits: %d", line_coding->dwDTERate,
              line_coding->bCharFormat, line_coding->bParityType, line_coding->bDataBits);
     return ESP_OK;
 }
