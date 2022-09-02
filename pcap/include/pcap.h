@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -41,7 +41,8 @@ typedef enum {
     PCAP_LINK_TYPE_CISCO_HDLC = 104,   /*!< Cisco HDLC */
     PCAP_LINK_TYPE_802_11 = 105,       /*!< 802.11 */
     PCAP_LINK_TYPE_BSD_LOOPBACK = 108, /*!< OpenBSD loopback devices(with AF_value in network byte order) */
-    PCAP_LINK_TYPE_LOCAL_TALK = 114    /*!< LocalTalk */
+    PCAP_LINK_TYPE_LOCAL_TALK = 114,   /*!< LocalTalk */
+    PCAP_LINK_TYPE_USBPCAP = 249,      /*!< USB packets, beginning with a USBPcap header */
 } pcap_link_type_t;
 
 /**

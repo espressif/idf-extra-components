@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include "esp_log.h"
 #include "esp_check.h"
 #include "pcap.h"
@@ -152,11 +153,11 @@ esp_err_t pcap_print_summary(pcap_file_handle_t pcap, FILE *print_file)
     fprintf(print_file, "------------------------------------------------------------------------\n");
     fprintf(print_file, "Pcap packet Head:\n");
     fprintf(print_file, "------------------------------------------------------------------------\n");
-    fprintf(print_file, "Magic Number: %x\n", file_header.magic);
+    fprintf(print_file, "Magic Number: %"PRIx32"\n", file_header.magic);
     fprintf(print_file, "Major Version: %d\n", file_header.major);
     fprintf(print_file, "Minor Version: %d\n", file_header.minor);
-    fprintf(print_file, "SnapLen: %d\n", file_header.snaplen);
-    fprintf(print_file, "LinkType: %d\n", file_header.link_type);
+    fprintf(print_file, "SnapLen: %"PRIu32"\n", file_header.snaplen);
+    fprintf(print_file, "LinkType: %"PRIu32"\n", file_header.link_type);
     fprintf(print_file, "------------------------------------------------------------------------\n");
     uint32_t packet_num = 0;
     pcap_packet_header_t packet_header;
@@ -164,11 +165,11 @@ esp_err_t pcap_print_summary(pcap_file_handle_t pcap, FILE *print_file)
         real_read = fread(&packet_header, sizeof(pcap_packet_header_t), 1, pcap->file);
         ESP_GOTO_ON_FALSE(real_read == 1, ESP_FAIL, err, TAG, "read pcap packet header failed");
         // print packet header information
-        fprintf(print_file, "Packet %d:\n", packet_num);
-        fprintf(print_file, "Timestamp (Seconds): %d\n", packet_header.seconds);
-        fprintf(print_file, "Timestamp (Microseconds): %d\n", packet_header.microseconds);
-        fprintf(print_file, "Capture Length: %d\n", packet_header.capture_length);
-        fprintf(print_file, "Packet Length: %d\n", packet_header.packet_length);
+        fprintf(print_file, "Packet %"PRIu32":\n", packet_num);
+        fprintf(print_file, "Timestamp (Seconds): %"PRIu32"\n", packet_header.seconds);
+        fprintf(print_file, "Timestamp (Microseconds): %"PRIu32"\n", packet_header.microseconds);
+        fprintf(print_file, "Capture Length: %"PRIu32"\n", packet_header.capture_length);
+        fprintf(print_file, "Packet Length: %"PRIu32"\n", packet_header.packet_length);
         size_t payload_length = packet_header.capture_length;
         packet_payload = malloc(payload_length);
         ESP_GOTO_ON_FALSE(packet_payload, ESP_ERR_NO_MEM, err, TAG, "no mem to save packet payload");
@@ -204,7 +205,7 @@ esp_err_t pcap_print_summary(pcap_file_handle_t pcap, FILE *print_file)
             fprintf(print_file, "Type: 0x%x\n", packet_payload[13] | (packet_payload[12] << 8));
             fprintf(print_file, "------------------------------------------------------------------------\n");
         } else {
-            fprintf(print_file, "Unknown link type:%d\n", file_header.link_type);
+            fprintf(print_file, "Unknown link type:%"PRIu32"\n", file_header.link_type);
             fprintf(print_file, "------------------------------------------------------------------------\n");
         }
         free(packet_payload);
@@ -212,7 +213,7 @@ esp_err_t pcap_print_summary(pcap_file_handle_t pcap, FILE *print_file)
         index += packet_header.capture_length + sizeof(pcap_packet_header_t);
         packet_num ++;
     }
-    fprintf(print_file, "Pcap packet Number: %d\n", packet_num);
+    fprintf(print_file, "Pcap packet Number: %"PRIu32"\n", packet_num);
     fprintf(print_file, "------------------------------------------------------------------------\n");
     return ret;
 err:
