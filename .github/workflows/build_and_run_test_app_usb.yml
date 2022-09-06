@@ -1,10 +1,12 @@
-name: Build USB Test Application
+name: Build and Run USB Test Application
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Once per day at midnight
+    - cron: '0 0 * * SAT' # Saturday midnight
   pull_request:
     types: [opened, reopened, synchronize]
+    paths:
+      - 'usb/**'
 
 jobs:
   build:
@@ -40,3 +42,29 @@ jobs:
             usb/test_app/build/usb_test_app.bin
             usb/test_app/build/usb_test_app.elf
             usb/test_app/build/flasher_args.json
+
+  run-target:
+    name: Run USB Test App on target
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v5.0", "latest"]
+        idf_target: ["esp32s2"]
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "usb_host"]
+    container:
+      image: python:3.7-buster
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v2
+        with:
+          name: usb_test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+          path: usb/test_app/build
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://www.piwheels.org/simple"
+        run: pip install pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+      - name: Run USB Test App on target
+        working-directory: usb/test_app
+        run: pytest --target=${{ matrix.idf_target }}
