@@ -5,6 +5,10 @@ cmake_minimum_required(VERSION 3.16)
 set(EXTRA_COMPONENT_DIRS ../usb_host_cdc_acm
                          ../usb_host_msc
                          ../usb_host_uvc
+                         ../usb_host_ch34x_vcp
+                         ../usb_host_cp210x_vcp
+                         ../usb_host_ftdi_vcp
+                         ../usb_host_vcp
                          ../esp_modem_usb_dte
                          )
 
