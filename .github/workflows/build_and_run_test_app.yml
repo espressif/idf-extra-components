@@ -88,8 +88,8 @@ jobs:
           path: test_app/build
       - name: Install Python packages
         env:
-          PIP_EXTRA_INDEX_URL: "https://www.piwheels.org/simple"
-        run: pip install pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
       - name: Run Test App on target
         working-directory: test_app
         run: pytest --junit-xml=./test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}.xml --target=${{ matrix.idf_target }}

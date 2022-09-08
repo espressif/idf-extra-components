@@ -63,8 +63,8 @@ jobs:
           path: usb/test_app/build
       - name: Install Python packages
         env:
-          PIP_EXTRA_INDEX_URL: "https://www.piwheels.org/simple"
-        run: pip install pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
       - name: Run USB Test App on target
         working-directory: usb/test_app
         run: pytest --target=${{ matrix.idf_target }}
