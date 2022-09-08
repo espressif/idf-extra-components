@@ -14,6 +14,7 @@
 #include "usb/usb_host.h"
 #include "usb/usb_types_ch9.h"
 #include "sys/param.h"
+#include <inttypes.h>
 
 typedef struct {
     uint8_t bLength;
@@ -497,7 +498,7 @@ static void print_class_header_desc(const uint8_t *buff)
         printf("\tbDescriptorSubType %u\n", desc->bDescriptorSubType);
         printf("\tbcdUVC %x\n", desc->bcdUVC);
         printf("\twTotalLength %u\n", desc->wTotalLength);
-        printf("\tdwClockFrequency %lu\n", desc->dwClockFrequency);
+        printf("\tdwClockFrequency %"PRIu32"\n", desc->dwClockFrequency);
         printf("\tbFunctionProtocol %u\n", desc->bFunctionProtocol);
         printf("\tbInCollection %u\n", desc->bInCollection);
         printf("\tbaInterfaceNr %u\n", desc->baInterfaceNr);
@@ -643,23 +644,23 @@ static void print_vs_frame_mjpeg_desc(const uint8_t *buff)
     printf("\tbmCapabilities 0x%x\n", desc->bmCapabilities);
     printf("\twWidth %u\n", desc->wWidth);
     printf("\twHeigh %u\n", desc->wHeigh);
-    printf("\tdwMinBitRate %lu\n", desc->dwMinBitRate);
-    printf("\tdwMaxBitRate %lu\n", desc->dwMaxBitRate);
-    printf("\tdwMaxVideoFrameBufSize %lu\n", desc->dwMaxVideoFrameBufSize);
-    printf("\tdwDefaultFrameInterval %lu\n", desc->dwDefaultFrameInterval);
+    printf("\tdwMinBitRate %"PRIu32"\n", desc->dwMinBitRate);
+    printf("\tdwMaxBitRate %"PRIu32"\n", desc->dwMaxBitRate);
+    printf("\tdwMaxVideoFrameBufSize %"PRIu32"\n", desc->dwMaxVideoFrameBufSize);
+    printf("\tdwDefaultFrameInterval %"PRIu32"\n", desc->dwDefaultFrameInterval);
     printf("\tbFrameIntervalType %u\n", desc->bFrameIntervalType);
 
     if (desc->bFrameIntervalType == 0) {
         // Continuous Frame Intervals
-        printf("\tdwMinFrameInterval %lu\n",  desc->dwMinFrameInterval);
-        printf("\tdwMaxFrameInterval %lu\n",  desc->dwMaxFrameInterval);
-        printf("\tdwFrameIntervalStep %lu\n", desc->dwFrameIntervalStep);
+        printf("\tdwMinFrameInterval %"PRIu32"\n",  desc->dwMinFrameInterval);
+        printf("\tdwMaxFrameInterval %"PRIu32"\n",  desc->dwMaxFrameInterval);
+        printf("\tdwFrameIntervalStep %"PRIu32"\n", desc->dwFrameIntervalStep);
     } else {
         // Discrete Frame Intervals
         size_t max_intervals = sizeof(desc->dwFrameInterval) / sizeof(desc->dwFrameInterval[0]);
         size_t num_of_intervals = MIN((desc->bLength - 26) / 4, max_intervals);
         for (int i = 0; i < num_of_intervals; ++i) {
-            printf("\tFrameInterval[%d] %lu\n", i, desc->dwFrameInterval[i]);
+            printf("\tFrameInterval[%d] %"PRIu32"\n", i, desc->dwFrameInterval[i]);
         }
     }
 }
