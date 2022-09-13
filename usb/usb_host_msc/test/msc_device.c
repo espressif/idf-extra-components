@@ -39,6 +39,7 @@
 #include "tinyusb.h"
 #include "test_common.h"
 #include "soc/soc_caps.h"
+#include "esp_idf_version.h"
 
 #if SOC_USB_OTG_SUPPORTED
 
@@ -48,7 +49,7 @@
 
 static const char *TAG = "msc_example";
 
-
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 /**** Kconfig driven Descriptor ****/
 static const tusb_desc_device_t device_descriptor = {
     .bLength = sizeof(device_descriptor),
@@ -72,15 +73,18 @@ static const uint8_t msc_desc_configuration[] = {
     TUD_CONFIG_DESCRIPTOR(1, 4, 0, msc_desc_config_len, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
     TUD_MSC_DESCRIPTOR(0, 5, 1, 0x80 | 1, 64),
 };
-
+#endif
 
 void device_app(void)
 {
     ESP_LOGI(TAG, "USB initialization");
 
     tinyusb_config_t tusb_cfg = {
+        .external_phy = false,
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         .device_descriptor = &device_descriptor,
         .configuration_descriptor = msc_desc_configuration
+#endif
     };
 
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));

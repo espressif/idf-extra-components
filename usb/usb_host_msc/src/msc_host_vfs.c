@@ -13,6 +13,7 @@
 #include "diskio_impl.h"
 #include "ffconf.h"
 #include "ff.h"
+#include "esp_idf_version.h"
 
 #define DRIVE_STR_LEN 3
 
@@ -33,8 +34,14 @@ static esp_err_t msc_format_storage(size_t block_size, size_t allocation_size, c
 
     // Valid value of cluster size is between sector_size and 128 * sector_size.
     size_t cluster_size = MIN(MAX(allocation_size, block_size), 128 * block_size);
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+    FRESULT err = f_mkfs(drv, FM_ANY | FM_SFD, cluster_size, workbuf, workbuf_size);
+#else
     const MKFS_PARM opt = {(BYTE)(FM_ANY | FM_SFD), 0, 0, 0, cluster_size};
     FRESULT err = f_mkfs(drv, &opt, workbuf, workbuf_size);
+#endif
+
     if (err) {
         ESP_LOGE(TAG, "Formatting failed with error: %d", err);
         free(workbuf);

@@ -8,6 +8,7 @@
 #include "sdkconfig.h"
 #include "tinyusb.h"
 #include "tusb_cdc_acm.h"
+#include "esp_idf_version.h"
 
 static uint8_t buf[CONFIG_TINYUSB_CDC_RX_BUFSIZE + 1];
 void tinyusb_cdc_rx_callback(int itf, cdcacm_event_t *event)
@@ -19,6 +20,7 @@ void tinyusb_cdc_rx_callback(int itf, cdcacm_event_t *event)
     tinyusb_cdcacm_write_flush(itf, 0);
 }
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 static const tusb_desc_device_t cdc_device_descriptor = {
     .bLength = sizeof(cdc_device_descriptor),
     .bDescriptorType = TUSB_DESC_DEVICE,
@@ -42,12 +44,16 @@ static const uint8_t cdc_desc_configuration[] = {
     TUD_CDC_DESCRIPTOR(0, 4, 0x81, 8, 0x02, 0x82, 64),
     TUD_CDC_DESCRIPTOR(2, 4, 0x83, 8, 0x04, 0x84, 64),
 };
+#endif
 
 void run_usb_dual_cdc_device(void)
 {
     const tinyusb_config_t tusb_cfg = {
+        .external_phy = false,
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         .device_descriptor = &cdc_device_descriptor,
         .configuration_descriptor = cdc_desc_configuration
+#endif
     };
     ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
 
