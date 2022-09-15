@@ -1,0 +1,5 @@
+version: "4.6.0~1"
+description: OpenCV build for esp-idf
+url: https://github.com/espressif/idf-extra-components/tree/master/opencv
+dependencies:
+  idf: "==4.4"
