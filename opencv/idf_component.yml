@@ -3,3 +3,7 @@ description: OpenCV build for esp-idf
 url: https://github.com/espressif/idf-extra-components/tree/master/opencv
 dependencies:
   idf: "==4.4"
+targets:
+  - esp32
+  - esp32s2
+  - esp32s3

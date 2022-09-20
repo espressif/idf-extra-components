@@ -19,21 +19,22 @@ set(extra_defines -D_DEFAULT_SOURCE)
 # Final flags for C and C++:
 set(c_flags "${includes} ${extra_defines}")
 set(cxx_flags "${includes} ${extra_defines}")
-## These flags for lates GCC to enable -DCV_INT32_T_IS_LONG_INT=ON
-# set(c_flags "${includes} ${extra_defines} -DCV_INT32_T_IS_LONG_INT=ON")
-# set(cxx_flags "${includes} ${extra_defines} -DCV_INT32_T_IS_LONG_INT=ON")
+
+set(common_flags "-ggdb  -ffunction-sections -fdata-sections")
 
 # Calculate flags for optimizations, assertions, debug info:
-#if(COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE)
-#    set(assert_flags "-DNDEBUG")
-#else()
-#    set(assert_flags "-DDEBUG -D_DEBUG")
-#endif()
+if(COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE)
+   set(assert_flags "-DNDEBUG")
+else()
+   set(assert_flags "-DDEBUG -D_DEBUG")
+endif()
 
-set(assert_flags "${assert_flags} -DDEBUG -D_DEBUG -ffunction-sections -fdata-sections")
+if(CONFIG_IDF_TARGET_ARCH_XTENSA)
+    set(assert_flags "${assert_flags} -mlongcalls")
+endif()
 
 if(CONFIG_COMPILER_OPTIMIZATION_DEFAULT)
-    set(opt_flags "-Og -ggdb -mlongcalls ${assert_flags}")
+    set(opt_flags "-Og ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=Debug
                  -DCMAKE_C_FLAGS_DEBUG=${opt_flags}
                  -DCMAKE_CXX_FLAGS_DEBUG=${opt_flags})
@@ -42,7 +43,7 @@ elseif(CONFIG_COMPILER_OPTIMIZATION_SIZE)
     # however OpenCV CMake files only handle Debug and Release
     # (see e.g. opencv/cmake/OpenCVCompilerOptions.cmake).
     # So we redefine the flags for Release instead.
-    set(opt_flags "-Os -ggdb -mlongcalls ${assert_flags}")
+    set(opt_flags "-Os ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=Release
                  -DCMAKE_C_FLAGS_RELEASE=${opt_flags}
                  -DCMAKE_CXX_FLAGS_RELEASE=${opt_flags})
@@ -50,12 +51,12 @@ elseif(COMPILER_OPTIMIZATION_PERF)
     # Currently OpenCV fails to compile at -O2 level on Xtensa due to a compiler issue,
     # details in https://github.com/jcmvbkbc/gcc-xtensa/issues/14.
     # Compiling at -O3 happens to be okay.
-    set(opt_flags "-O3 -ggdb -mlongcalls ${assert_flags}")
+    set(opt_flags "-O3 ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=Release
                  -DCMAKE_C_FLAGS_RELEASE=${opt_flags}
                  -DCMAKE_CXX_FLAGS_RELEASE=${opt_flags})
 elseif(COMPILER_OPTIMIZATION_NONE)
-    set(opt_flags "-O0 -ggdb -mlongcalls ${assert_flags}")
+    set(opt_flags "-O0 ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=Debug
                  -DCMAKE_C_FLAGS_DEBUG=${opt_flags}
                  -DCMAKE_CXX_FLAGS_DEBUG=${opt_flags})
