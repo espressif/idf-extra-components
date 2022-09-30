@@ -16,3 +16,9 @@
 [submodule "usb/usb_host_uvc/libuvc"]
 	path = usb/usb_host_uvc/libuvc
 	url = https://github.com/libuvc/libuvc.git
+[submodule "opencv/opencv"]
+	path = opencv/opencv
+	url = https://github.com/opencv/opencv.git
+[submodule "opencv/opencv_contrib"]
+	path = opencv/opencv_contrib
+	url = https://github.com/opencv/opencv_contrib.git
