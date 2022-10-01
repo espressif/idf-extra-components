@@ -532,7 +532,7 @@ esp_err_t msc_bulk_transfer(msc_device_t *device, uint8_t *data, size_t size, ms
     xfer->device_handle = device->handle;
     xfer->bEndpointAddress = endpoint;
     xfer->callback = transfer_callback;
-    xfer->timeout_ms = 1000;
+    xfer->timeout_ms = 5000;
     xfer->context = device;
 
     MSC_RETURN_ON_ERROR( usb_host_transfer_submit(xfer) );
@@ -550,7 +550,7 @@ esp_err_t msc_control_transfer(msc_device_t *device, usb_transfer_t *xfer, size_
     xfer->device_handle = device->handle;
     xfer->bEndpointAddress = 0;
     xfer->callback = transfer_callback;
-    xfer->timeout_ms = 1000;
+    xfer->timeout_ms = 5000;
     xfer->num_bytes = len;
     xfer->context = device;
 
