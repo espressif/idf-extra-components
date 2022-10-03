@@ -16,12 +16,10 @@ jobs:
         uses: espressif/upload-components-ci-action@v1
         with:
           directories: >
-            "
             bdc_motor;cbor;jsmn;led_strip;libsodium;pid_ctrl;qrcode;nghttp;sh2lib;expat;esp_encrypted_img;coap;pcap;json_generator;json_parser;esp_serial_slave_link;esp_jpeg;eigen;
             usb/usb_host_cdc_acm;
             usb/usb_host_msc;
             usb/usb_host_uvc;
             usb/esp_modem_usb_dte;
-            "
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
