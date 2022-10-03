@@ -275,7 +275,7 @@ class CdcAcmDevice {
 public:
     // Operators
     CdcAcmDevice() : cdc_hdl(NULL) {};
-    ~CdcAcmDevice()
+    virtual ~CdcAcmDevice()
     {
         // Close CDC-ACM device, if it wasn't explicitly closed
         if (this->cdc_hdl != NULL) {
@@ -300,29 +300,29 @@ public:
 
     inline esp_err_t close()
     {
-        esp_err_t err = cdc_acm_host_close(this->cdc_hdl);
+        const esp_err_t err = cdc_acm_host_close(this->cdc_hdl);
         if (err == ESP_OK) {
             this->cdc_hdl = NULL;
         }
         return err;
     }
 
-    inline esp_err_t line_coding_get(cdc_acm_line_coding_t *line_coding)
+    virtual inline esp_err_t line_coding_get(cdc_acm_line_coding_t *line_coding) const
     {
         return cdc_acm_host_line_coding_get(this->cdc_hdl, line_coding);
     }
 
-    inline esp_err_t line_coding_set(cdc_acm_line_coding_t *line_coding)
+    virtual inline esp_err_t line_coding_set(cdc_acm_line_coding_t *line_coding)
     {
         return cdc_acm_host_line_coding_set(this->cdc_hdl, line_coding);
     }
 
-    inline esp_err_t set_control_line_state(bool dtr, bool rts)
+    virtual inline esp_err_t set_control_line_state(bool dtr, bool rts)
     {
         return cdc_acm_host_set_control_line_state(this->cdc_hdl, dtr, rts);
     }
 
-    inline esp_err_t send_break(uint16_t duration_ms)
+    virtual inline esp_err_t send_break(uint16_t duration_ms)
     {
         return cdc_acm_host_send_break(this->cdc_hdl, duration_ms);
     }

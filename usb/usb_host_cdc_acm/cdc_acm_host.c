@@ -357,7 +357,7 @@ static esp_err_t cdc_acm_find_and_open_usb_device(uint16_t vid, uint16_t pid, in
     TimeOut_t connection_timeout;
     vTaskSetTimeOutState(&connection_timeout);
 
-    while (true) {
+    do {
         ESP_LOGD(TAG, "Checking list of connected USB devices");
         uint8_t dev_addr_list[10];
         int num_of_devices;
@@ -380,12 +380,8 @@ static esp_err_t cdc_acm_find_and_open_usb_device(uint16_t vid, uint16_t pid, in
             }
             usb_host_device_close(p_cdc_acm_obj->cdc_acm_client_hdl, current_device);
         }
-
-        if (xTaskCheckForTimeOut(&connection_timeout, &timeout_ticks) != pdFALSE) {
-            break; // Timeout elapsed and the device is not connected
-        }
         vTaskDelay(pdMS_TO_TICKS(50));
-    }
+    } while (xTaskCheckForTimeOut(&connection_timeout, &timeout_ticks) == pdFALSE);
 
     // Timeout was reached, clean-up
     free(*dev);
@@ -769,9 +765,10 @@ esp_err_t cdc_acm_host_open_vendor_specific(uint16_t vid, uint16_t pid, uint8_t 
 
     // Find underlying USB device
     cdc_dev_t *cdc_dev;
-    ESP_GOTO_ON_ERROR(
-        cdc_acm_find_and_open_usb_device(vid, pid, dev_config->connection_timeout_ms, &cdc_dev),
-        exit, TAG, "USB device with VID: 0x%04X, PID: 0x%04X not found", vid, pid);
+    ret = cdc_acm_find_and_open_usb_device(vid, pid, dev_config->connection_timeout_ms, &cdc_dev);
+    if (ESP_OK != ret) {
+        goto exit;
+    }
 
     // Open procedure for CDC-ACM non-compliant devices:
     const usb_config_desc_t *config_desc;
