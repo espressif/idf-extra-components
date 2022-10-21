@@ -12,7 +12,7 @@
 #include "essl_internal.h"
 #include "essl_sdio.h"
 
-#if SOC_SDIO_SLAVE_SUPPORTED
+#if SOC_SDMMC_HOST_SUPPORTED
 #include "soc/host_reg.h"
 
 static const char TAG[] = "essl_sdio";
