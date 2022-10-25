@@ -14,10 +14,9 @@
 
 #if SOC_SDMMC_HOST_SUPPORTED
 #include "soc/host_reg.h"
+#endif // #if SOC_SDMMC_HOST_SUPPORTED
 
 static const char TAG[] = "essl_sdio";
-
-#define HOST_SLCHOST_CONF_W_REG(pos) (HOST_SLCHOST_CONF_W0_REG+pos+(pos>23?4:0)+(pos>31?12:0))
 
 #define ESSL_CMD53_END_ADDR    0x1f800
 
@@ -89,6 +88,12 @@ static inline esp_err_t essl_sdio_read_byte(sdmmc_card_t *card, uint32_t addr, u
 static inline esp_err_t essl_sdio_read_bytes(sdmmc_card_t *card, uint32_t addr, uint8_t *val_o, int len)
 {
     return sdmmc_io_read_bytes(card, 1, addr & 0x3FF, val_o, len);
+}
+
+static const essl_sdio_def_t *get_sdio_defs(essl_sdio_context_t *ctx)
+{
+    //TODO: configure the defs via context
+    return &ESSL_SDIO_DEF_ESP32;
 }
 
 esp_err_t essl_sdio_init_dev(essl_handle_t *out_handle, const essl_sdio_config_t *config)
@@ -364,10 +369,11 @@ uint32_t essl_sdio_get_tx_buffer_num(void *arg)
 esp_err_t essl_sdio_update_tx_buffer_num(void *arg, uint32_t wait_ms)
 {
     essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
     uint32_t len;
     esp_err_t err;
 
-    err = essl_sdio_read_bytes(ctx->card, HOST_SLC0HOST_TOKEN_RDATA_REG, (uint8_t *) &len, 4);
+    err = essl_sdio_read_bytes(ctx->card, defs->token_rdata_reg, (uint8_t *) &len, 4);
     if (err != ESP_OK) {
         return err;
     }
@@ -387,11 +393,13 @@ uint32_t essl_sdio_get_rx_data_size(void *arg)
 esp_err_t essl_sdio_update_rx_data_size(void *arg, uint32_t wait_ms)
 {
     essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
+    ESP_LOGV(TAG, "rx latest: %d, read: %d", ctx->rx_got_bytes_latest, ctx->rx_got_bytes);
     uint32_t len;
     esp_err_t err;
 
     ESP_LOGV(TAG, "get_rx_data_size: got_bytes: %d", ctx->rx_got_bytes);
-    err = essl_sdio_read_bytes(ctx->card, HOST_SLCHOST_PKT_LEN_REG, (uint8_t *) &len, 4);
+    err = essl_sdio_read_bytes(ctx->card, defs->pkt_len_reg, (uint8_t *) &len, 4);
     if (err != ESP_OK) {
         return err;
     }
@@ -403,6 +411,9 @@ esp_err_t essl_sdio_update_rx_data_size(void *arg, uint32_t wait_ms)
 
 esp_err_t essl_sdio_write_reg(void *arg, uint8_t addr, uint8_t value, uint8_t *value_o, uint32_t wait_ms)
 {
+    essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
+
     ESP_LOGV(TAG, "write_reg: 0x%02"PRIX8, value);
     // addrress over range
     if (addr >= 60) {
@@ -412,11 +423,14 @@ esp_err_t essl_sdio_write_reg(void *arg, uint8_t addr, uint8_t value, uint8_t *v
     if (addr >= 28) {
         addr += 4;
     }
-    return essl_sdio_write_byte(((essl_sdio_context_t *)arg)->card, HOST_SLCHOST_CONF_W_REG(addr), value, value_o);
+    return essl_sdio_write_byte(((essl_sdio_context_t *)arg)->card, defs->get_reg_addr(addr), value, value_o);
 }
 
 esp_err_t essl_sdio_read_reg(void *arg, uint8_t add, uint8_t *value_o, uint32_t wait_ms)
 {
+    essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
+
     ESP_LOGV(TAG, "read_reg");
     // address over range
     if (add >= 60) {
@@ -426,34 +440,39 @@ esp_err_t essl_sdio_read_reg(void *arg, uint8_t add, uint8_t *value_o, uint32_t 
     if (add >= 28) {
         add += 4;
     }
-    esp_err_t ret = essl_sdio_read_byte(((essl_sdio_context_t *)arg)->card, HOST_SLCHOST_CONF_W_REG(add), value_o);
+    esp_err_t ret = essl_sdio_read_byte(((essl_sdio_context_t *)arg)->card, defs->get_reg_addr(add), value_o);
     ESP_LOGV(TAG, "reg: %02"PRIX8, *value_o);
     return ret;
 }
 
 esp_err_t essl_sdio_clear_intr(void *arg, uint32_t intr_mask, uint32_t wait_ms)
 {
+    essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
+
     ESP_LOGV(TAG, "clear_intr: %08"PRIX32, intr_mask);
-    return essl_sdio_write_bytes(((essl_sdio_context_t *) arg)->card, HOST_SLC0HOST_INT_CLR_REG, (uint8_t *) &intr_mask, 4);
+    return essl_sdio_write_bytes(((essl_sdio_context_t *) arg)->card, defs->int_clr_reg, (uint8_t *) &intr_mask, 4);
 }
 
 esp_err_t essl_sdio_get_intr(void *arg, uint32_t *intr_raw, uint32_t *intr_st, uint32_t wait_ms)
 {
     essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
     esp_err_t r;
+
     ESP_LOGV(TAG, "get_intr");
     if (intr_raw == NULL && intr_st == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     if (intr_raw != NULL) {
-        r = essl_sdio_read_bytes(ctx->card, HOST_SLC0HOST_INT_RAW_REG, (uint8_t *) intr_raw, 4);
+        r = essl_sdio_read_bytes(ctx->card, defs->int_raw_reg, (uint8_t *) intr_raw, 4);
         if (r != ESP_OK) {
             return r;
         }
     }
     if (intr_st != NULL) {
-        r = essl_sdio_read_bytes(ctx->card, HOST_SLC0HOST_INT_ST_REG, (uint8_t *) intr_st, 4);
+        r = essl_sdio_read_bytes(ctx->card, defs->int_st_reg, (uint8_t *) intr_st, 4);
         if (r != ESP_OK) {
             return r;
         }
@@ -463,15 +482,21 @@ esp_err_t essl_sdio_get_intr(void *arg, uint32_t *intr_raw, uint32_t *intr_st, u
 
 esp_err_t essl_sdio_set_intr_ena(void *arg, uint32_t ena_mask, uint32_t wait_ms)
 {
+    essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
+
     ESP_LOGV(TAG, "set_intr_ena: %08"PRIX32, ena_mask);
-    return essl_sdio_write_bytes(((essl_sdio_context_t *)arg)->card, HOST_SLC0HOST_FUNC1_INT_ENA_REG,
+    return essl_sdio_write_bytes(((essl_sdio_context_t *)arg)->card, defs->func1_int_ena_reg,
                                  (uint8_t *) &ena_mask, 4);
 }
 
 esp_err_t essl_sdio_get_intr_ena(void *arg, uint32_t *ena_mask_o, uint32_t wait_ms)
 {
+    essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
+
     ESP_LOGV(TAG, "get_intr_ena");
-    esp_err_t ret = essl_sdio_read_bytes(((essl_sdio_context_t *)arg)->card, HOST_SLC0HOST_FUNC1_INT_ENA_REG,
+    esp_err_t ret = essl_sdio_read_bytes(((essl_sdio_context_t *)arg)->card, defs->func1_int_ena_reg,
                                          (uint8_t *) ena_mask_o, 4);
     ESP_LOGV(TAG, "ena: %08"PRIX32, *ena_mask_o);
     return ret;
@@ -479,9 +504,12 @@ esp_err_t essl_sdio_get_intr_ena(void *arg, uint32_t *ena_mask_o, uint32_t wait_
 
 esp_err_t essl_sdio_send_slave_intr(void *arg, uint32_t intr_mask, uint32_t wait_ms)
 {
+    essl_sdio_context_t *ctx = arg;
+    const essl_sdio_def_t *defs = get_sdio_defs(ctx);
+
     //Only 8 bits available
     ESP_LOGV(TAG, "send_slave_intr: %02"PRIx8, (uint8_t)intr_mask);
-    return essl_sdio_write_byte(((essl_sdio_context_t *)arg)->card, HOST_SLCHOST_CONF_W7_REG + 0, (uint8_t)intr_mask, NULL);
+    return essl_sdio_write_byte(((essl_sdio_context_t *)arg)->card, defs->slave_intr_reg, (uint8_t)intr_mask, NULL);
 }
 
 esp_err_t essl_sdio_wait_int(void *arg, uint32_t wait_ms)
@@ -495,5 +523,3 @@ void essl_sdio_reset_cnt(void *arg)
     ctx->rx_got_bytes = 0;
     ctx->tx_sent_buffers = 0;
 }
-
-#endif // #if SOC_SDIO_SLAVE_SUPPORTED
