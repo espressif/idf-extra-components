@@ -1,0 +1,5 @@
+version: "9.1.0"
+description: Formatting library providing a fast and safe alternative to C stdio and C++ iostreams.
+url: https://github.com/espressif/idf-extra-components/tree/master/fmt
+dependencies:
+  idf: ">=4.1"

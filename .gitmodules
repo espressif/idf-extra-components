@@ -19,3 +19,6 @@
 [submodule "eigen/eigen"]
 	path = eigen/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+[submodule "fmt/fmt"]
+	path = fmt/fmt
+	url = https://github.com/fmtlib/fmt.git
