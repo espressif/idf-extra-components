@@ -1,8 +1,18 @@
 menu "CoAP Configuration"
     visible if LWIP_IPV6
 
+    config COAP_MBEDTLS_SUPPORT
+        bool "Enable mbedTLS within CoAP"
+        depends on MBEDTLS_TLS_ENABLED
+        default y
+        help
+            Enable mbedTLS functionality for CoAP.
+
+            If this option is disabled, redundent CoAP mbedTLS code is removed.
+
     choice COAP_MBEDTLS_ENCRYPTION_MODE
         prompt "CoAP Encryption method"
+        depends on COAP_MBEDTLS_SUPPORT
         default COAP_MBEDTLS_PSK
         help
             If the CoAP information is to be encrypted, the encryption environment

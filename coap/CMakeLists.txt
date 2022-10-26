@@ -14,7 +14,6 @@ set(srcs
     "libcoap/src/coap_asn1.c"
     "libcoap/src/coap_async.c"
     "libcoap/src/coap_cache.c"
-    "libcoap/src/coap_debug.c"
     "libcoap/src/coap_event.c"
     "libcoap/src/coap_hashkey.c"
     "libcoap/src/coap_io.c"
@@ -33,6 +32,15 @@ set(srcs
     "libcoap/src/str.c"
     "libcoap/src/uri.c"
     "libcoap/src/coap_mbedtls.c")
+
+
+if(CONFIG_COAP_MBEDTLS_DEBUG)
+    list(APPEND srcs
+        "libcoap/src/coap_debug.c")
+else()
+    list(APPEND srcs
+        "port/src/esp_coap_debug.c")
+endif()
 
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS "${include_dirs}"

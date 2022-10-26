@@ -49,9 +49,9 @@ struct in6_pktinfo {
 #define PACKAGE_NAME "libcoap-posix"
 #define PACKAGE_VERSION "4.3.1-rc1"
 
-#ifdef CONFIG_MBEDTLS_TLS_ENABLED
+#ifdef CONFIG_COAP_MBEDTLS_SUPPORT
 #define HAVE_MBEDTLS
-#endif /* CONFIG_MBEDTLS_TLS_ENABLED */
+#endif /* CONFIG_COAP_MBEDTLS_SUPPORT */
 #define COAP_CONSTRAINED_STACK 1
 #define ESPIDF_VERSION
 
