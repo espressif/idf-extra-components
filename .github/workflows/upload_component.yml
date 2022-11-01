@@ -22,5 +22,6 @@ jobs:
             usb/usb_host_uvc;
             usb/esp_modem_usb_dte;
             fmt;
+            touch_element;
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
