@@ -13,7 +13,7 @@
 #include "freertos/semphr.h"
 #include "unity.h"
 
-#include "touch_element/touch_element_private.h"
+#include "touch_element_private.h"
 #include "touch_element/touch_matrix.h"
 
 static const touch_pad_t x_axis_channel[3] = {

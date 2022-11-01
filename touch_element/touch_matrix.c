@@ -254,9 +254,9 @@ esp_err_t touch_matrix_set_longpress(touch_matrix_handle_t matrix_handle, uint32
     return ESP_OK;
 }
 
-const touch_matrix_message_t* touch_matrix_get_message(const touch_elem_message_t* element_message)
+const touch_matrix_message_t *touch_matrix_get_message(const touch_elem_message_t *element_message)
 {
-    return (touch_matrix_message_t*)&element_message->child_msg;
+    return (touch_matrix_message_t *)&element_message->child_msg;
     _Static_assert(sizeof(element_message->child_msg) >= sizeof(touch_matrix_message_t), "Message size overflow");
 }
 
@@ -640,7 +640,8 @@ static inline te_state_t matrix_get_state(te_matrix_state_t x_axis_state, te_mat
     return matrix_state;
 }
 
-static void matrix_update_position(te_matrix_handle_t matrix_handle, touch_matrix_position_t new_pos) {
+static void matrix_update_position(te_matrix_handle_t matrix_handle, touch_matrix_position_t new_pos)
+{
     matrix_handle->position.x_axis = new_pos.x_axis;
     matrix_handle->position.y_axis = new_pos.y_axis;
     matrix_handle->position.index = matrix_handle->position.x_axis * matrix_handle->y_channel_num + matrix_handle->position.y_axis;

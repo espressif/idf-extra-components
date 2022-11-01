@@ -206,7 +206,7 @@ esp_err_t touch_matrix_set_longpress(touch_matrix_handle_t matrix_handle, uint32
  *
  * @return  Touch matrix message pointer
  */
-const touch_matrix_message_t* touch_matrix_get_message(const touch_elem_message_t* element_message);
+const touch_matrix_message_t *touch_matrix_get_message(const touch_elem_message_t *element_message);
 
 #ifdef __cplusplus
 }

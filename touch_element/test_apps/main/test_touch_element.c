@@ -110,7 +110,8 @@ static void test_system_waterproof_guard(void)
     printf("Touch Element waterproof guard sensor test start\n");
 
     srandom((unsigned int)time(NULL));
-    {   //No use waterproof guard sensor
+    {
+        //No use waterproof guard sensor
         touch_elem_waterproof_config_t waterproof_config = {
             .guard_channel = TOUCH_WATERPROOF_GUARD_NOUSE,
             .guard_sensitivity = 0.0F
@@ -128,7 +129,8 @@ static void test_system_waterproof_guard(void)
         touch_element_waterproof_uninstall();
     }
 
-    {   //Use waterproof guard sensor(Add all handles)
+    {
+        //Use waterproof guard sensor(Add all handles)
         touch_elem_waterproof_config_t waterproof_config = {
             .guard_channel = TOUCH_PAD_NUM13,
             .guard_sensitivity = 0.1F
@@ -158,7 +160,8 @@ static void test_system_waterproof_guard(void)
         touch_element_waterproof_uninstall();
     }
 
-    {   //Put half button handles into guard ring
+    {
+        //Put half button handles into guard ring
         const uint8_t protect_handle_threshold = BUTTON_CHANNEL_NUM / 2;
         touch_elem_waterproof_config_t waterproof_config = {
             .guard_channel = TOUCH_PAD_NUM13,
@@ -211,26 +214,26 @@ static void test_integrat_btn_sld_mat(void)
     static const touch_pad_t button_channel_array[3] = {
         TOUCH_PAD_NUM1,
         TOUCH_PAD_NUM2,
-        TOUCH_PAD_NUM3
+        TOUCH_PAD_NUM3,
     };
     static const float button_sens_array[3] = {
         0.1F,
         0.1F,
-        0.1F
+        0.1F,
     };
     static const touch_pad_t slider_channel_array[5] = {
         TOUCH_PAD_NUM4,
         TOUCH_PAD_NUM5,
         TOUCH_PAD_NUM6,
         TOUCH_PAD_NUM7,
-        TOUCH_PAD_NUM8
+        TOUCH_PAD_NUM8,
     };
     static const float slider_sens_array[5] = {
         0.1F,
         0.1F,
         0.1F,
         0.1F,
-        0.1F
+        0.1F,
     };
     static const touch_pad_t x_axis_channel[3] = {
         TOUCH_PAD_NUM9,

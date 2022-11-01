@@ -14,7 +14,7 @@
 #include "unity.h"
 #include "esp_random.h"
 
-#include "touch_element/touch_element_private.h"
+#include "touch_element_private.h"
 #include "touch_element/touch_button.h"
 
 static portMUX_TYPE test_button_spinlock = portMUX_INITIALIZER_UNLOCKED;
@@ -129,7 +129,8 @@ static void test_button_callback_check(touch_button_handle_t current_handle, tou
 }
 
 void test_button_event_trigger_and_check(touch_button_handle_t handle, touch_button_event_t button_event)
-{   //TODO: refactor this with a constructor
+{
+    //TODO: refactor this with a constructor
     touch_elem_message_t valid_message = {
         .handle = handle,
         .element_type = TOUCH_ELEM_TYPE_BUTTON,

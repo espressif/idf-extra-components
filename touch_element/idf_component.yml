@@ -1,7 +1,7 @@
 version: 1.0.0
 dependencies:
   idf:
-    version: '4.3-5.0'
+    version: '>=4.3'
 targets:
   - esp32s2
   - esp32s3

@@ -189,7 +189,7 @@ esp_err_t touch_button_set_longpress(touch_button_handle_t button_handle, uint32
  *
  * @return  Touch button message pointer
  */
-const touch_button_message_t* touch_button_get_message(const touch_elem_message_t* element_message);
+const touch_button_message_t *touch_button_get_message(const touch_elem_message_t *element_message);
 
 #ifdef __cplusplus
 }

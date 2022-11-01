@@ -1019,7 +1019,7 @@ esp_err_t touch_element_disable_light_sleep(void)
     if (s_te_obj->sleep_handle->pm_lock != NULL) {
         /* Sleep channel is going to uninstall, pm lock is not needed anymore,
            but we need to make sure that pm lock has been released before delete it. */
-        while(esp_pm_lock_release(s_te_obj->sleep_handle->pm_lock) == ESP_OK);
+        while (esp_pm_lock_release(s_te_obj->sleep_handle->pm_lock) == ESP_OK);
         esp_err_t ret = esp_pm_lock_delete(s_te_obj->sleep_handle->pm_lock);
         TE_CHECK(ret == ESP_OK, ret);
         s_te_obj->sleep_handle->pm_lock = NULL;
@@ -1086,7 +1086,7 @@ esp_err_t touch_element_disable_deep_sleep(void)
     if (s_te_obj->sleep_handle->pm_lock != NULL) {
         /* Sleep channel is going to uninstall, pm lock is not needed anymore,
            but we need to make sure that pm lock has been released before delete it. */
-        while(esp_pm_lock_release(s_te_obj->sleep_handle->pm_lock) == ESP_OK);
+        while (esp_pm_lock_release(s_te_obj->sleep_handle->pm_lock) == ESP_OK);
         ret = esp_pm_lock_delete(s_te_obj->sleep_handle->pm_lock);
         TE_CHECK(ret == ESP_OK, ret);
         s_te_obj->sleep_handle->pm_lock = NULL;

@@ -215,9 +215,9 @@ esp_err_t touch_button_set_longpress(touch_button_handle_t button_handle, uint32
     return ESP_OK;
 }
 
-const touch_button_message_t* touch_button_get_message(const touch_elem_message_t* element_message)
+const touch_button_message_t *touch_button_get_message(const touch_elem_message_t *element_message)
 {
-    return (touch_button_message_t*)&element_message->child_msg;
+    return (touch_button_message_t *)&element_message->child_msg;
     _Static_assert(sizeof(element_message->child_msg) >= sizeof(touch_button_message_t), "Message size overflow");
 }
 

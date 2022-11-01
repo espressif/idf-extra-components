@@ -13,7 +13,7 @@
 #include "freertos/semphr.h"
 #include "unity.h"
 
-#include "touch_element/touch_element_private.h"
+#include "touch_element_private.h"
 #include "touch_element/touch_slider.h"
 
 static const touch_pad_t slider_channel_array[5] = {

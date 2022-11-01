@@ -81,7 +81,7 @@ struct te_waterproof_s {
     touch_pad_t shield_channel;                 //Waterproof shield channel
     bool is_shield_level_set;                   //Waterproof shield level setting bit
 };
-typedef struct te_waterproof_s* te_waterproof_handle_t;
+typedef struct te_waterproof_s *te_waterproof_handle_t;
 /* -------------------------------------------- Sleep basic type --------------------------------------------- */
 struct te_sleep_s {
     touch_elem_handle_t wakeup_handle;
@@ -91,7 +91,7 @@ struct te_sleep_s {
     uint32_t *non_volatile_threshold;
 };
 
-typedef struct te_sleep_s* te_sleep_handle_t;
+typedef struct te_sleep_s *te_sleep_handle_t;
 /* -------------------------------------------- Button basic type --------------------------------------------- */
 typedef struct {
     touch_elem_dispatch_t dispatch_method;      //Button dispatch method
@@ -112,7 +112,7 @@ struct te_button_s {
     uint32_t trigger_thr;                       //Button long time trigger counter threshold
 };
 
-typedef struct te_button_s* te_button_handle_t;
+typedef struct te_button_s *te_button_handle_t;
 /* -------------------------------------------- Slider basic type --------------------------------------------- */
 typedef struct {
     touch_elem_dispatch_t dispatch_method;      //Slider dispatch method
@@ -143,7 +143,7 @@ struct te_slider_s {
     bool is_first_sample;                       //Slider first time sample record bit
 };
 
-typedef struct te_slider_s* te_slider_handle_t;
+typedef struct te_slider_s *te_slider_handle_t;
 /* -------------------------------------------- Matrix basic type --------------------------------------------- */
 typedef struct {
     touch_elem_dispatch_t dispatch_method;      //Matrix button dispatch method
@@ -167,7 +167,7 @@ struct te_matrix_s {
     uint8_t y_channel_num;                      //The number of touch sensor channel in y axis
 };
 
-typedef struct te_matrix_s* te_matrix_handle_t;
+typedef struct te_matrix_s *te_matrix_handle_t;
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 /* --------------------------------------------- Global system methods ---------------------------------------------- */

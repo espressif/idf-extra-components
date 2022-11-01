@@ -1,0 +1,80 @@
+name: Build and Run Touch Element Test Application
+
+on:
+  schedule:
+    - cron: '0 0 * * SAT'   # Saturday midnight
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'touch_element/**'
+
+jobs:
+  build:
+    name: Build Touch Element Test App
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v4.3", "release-v4.4", "release-v5.0"]
+        idf_target: ["esp32s2", "esp32s3"]
+        exclude:
+          - idf_ver: "release-v4.3"
+            idf_target: esp32s3   # ESP32S3 is only supported since version 5.0
+          - idf_ver: "release-v4.4"
+            idf_target: esp32s3   # ESP32S3 is only supported since version 5.0
+    runs-on: ubuntu-20.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Build Touch Element Test Application
+        env:
+          IDF_TARGET: ${{ matrix.idf_target }}
+        shell: bash
+        working-directory: touch_element/test_app
+        run: |
+          . ${IDF_PATH}/export.sh
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          idf.py build
+      - uses: actions/upload-artifact@v2
+        with:
+          name: touch_element_test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+          path: |
+            touch_element/test_app/build/bootloader/bootloader.bin
+            touch_element/test_app/build/partition_table/partition-table.bin
+            touch_element/test_app/build/touch_element_test.bin
+            touch_element/test_app/build/touch_element_test.elf
+            touch_element/test_app/build/flasher_args.json
+
+  run-target:
+    name: Run Touch Element Test App on target
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v4.3", "release-v4.4", "release-v5.0"]
+        idf_target: ["esp32s2", "esp32s3"]
+        exclude:
+          - idf_ver: "release-v4.3"
+            idf_target: esp32s3   # ESP32S3 is only supported since version 5.0
+          - idf_ver: "release-v4.4"
+            idf_target: esp32s3   # ESP32S3 is only supported since version 5.0
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
+    container:
+      image: python:3.7-buster
+      options: --privileged   # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v2
+        with:
+          name: touch_element_test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+          path: touch_element/test_app/build
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+      - name: Run Touch Element Test App on target
+        working-directory: touch_element/test_app
+        run: pytest --target=${{ matrix.idf_target }}

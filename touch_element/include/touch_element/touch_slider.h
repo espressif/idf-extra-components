@@ -190,7 +190,7 @@ esp_err_t touch_slider_set_callback(touch_slider_handle_t slider_handle, touch_s
  *
  * @return  Touch slider message pointer
  */
-const touch_slider_message_t* touch_slider_get_message(const touch_elem_message_t* element_message);
+const touch_slider_message_t *touch_slider_get_message(const touch_elem_message_t *element_message);
 
 #ifdef __cplusplus
 }
