@@ -188,7 +188,6 @@ static void msc_setup(void)
         .target = USB_PHY_TARGET_INT,
         .otg_mode = USB_OTG_MODE_HOST,
         .otg_speed = USB_PHY_SPEED_UNDEFINED,   //In Host mode, the speed is determined by the connected device
-        .gpio_conf = NULL,
     };
     ESP_OK_ASSERT(usb_new_phy(&phy_config, &phy_hdl));
     const usb_host_config_t host_config = {
@@ -220,8 +219,7 @@ static void msc_setup(void)
 
 static void msc_teardown(void)
 {
-    // Wait to finish any ongoing USB operations
-    vTaskDelay(100);
+    vTaskDelay(10); // Wait to finish any ongoing USB operations
 
     ESP_OK_ASSERT( msc_host_vfs_unregister(vfs_handle) );
     ESP_OK_ASSERT( msc_host_uninstall_device(device) );
@@ -235,6 +233,7 @@ static void msc_teardown(void)
     phy_hdl = NULL;
 
     vQueueDelete(app_queue);
+    vTaskDelay(10); // Wait for FreeRTOS to clean up deleted tasks
 }
 
 static void write_read_sectors(void)
