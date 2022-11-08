@@ -2,6 +2,7 @@ set(srcs
     "nghttp2/lib/nghttp2_buf.c"
     "nghttp2/lib/nghttp2_callbacks.c"
     "nghttp2/lib/nghttp2_debug.c"
+    "nghttp2/lib/nghttp2_extpri.c"
     "nghttp2/lib/nghttp2_frame.c"
     "nghttp2/lib/nghttp2_hd.c"
     "nghttp2/lib/nghttp2_hd_huffman.c"
@@ -26,4 +27,5 @@ idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS port/include nghttp2/lib/includes
                     PRIV_INCLUDE_DIRS port/private_include)
 
+target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
 target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DHAVE_CONFIG_H")
