@@ -333,7 +333,6 @@ public:
     }
 
 private:
-    CdcAcmDevice(const CdcAcmDevice &Copy);
     CdcAcmDevice &operator= (const CdcAcmDevice &Copy);
     bool operator== (const CdcAcmDevice &param) const;
     bool operator!= (const CdcAcmDevice &param) const;
