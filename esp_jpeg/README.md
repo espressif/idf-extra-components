@@ -27,9 +27,8 @@ Some microcontrollers have TJpg decoder in ROM. It is used as default, but it ca
 ### List of MCUs, which have TJpgDec in ROM
 - ESP32
 - ESP32-S3
-- ESP32-C2
 - ESP32-C3
-- ESP32-H2
+- ESP32-C6
 
 ### Fixed compilation configuration of the ROM code
 - Stream input buffer: 512
