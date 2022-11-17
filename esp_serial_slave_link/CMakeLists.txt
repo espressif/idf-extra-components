@@ -1,6 +1,7 @@
 idf_component_register(SRCS "essl.c"
                 "essl_sdio.c"
                 "essl_spi.c"
+                "essl_sdio_defs.c"
             INCLUDE_DIRS "include"
             REQUIRES "sdmmc"
                 "driver"

@@ -13,11 +13,24 @@
 #include "essl_sdio.h"
 
 #if SOC_SDIO_SLAVE_SUPPORTED
-#include "soc/host_reg.h"
-
 static const char TAG[] = "essl_sdio";
 
-#define HOST_SLCHOST_CONF_W_REG(pos) (HOST_SLCHOST_CONF_W0_REG+pos+(pos>23?4:0)+(pos>31?12:0))
+#ifndef DR_REG_SLCHOST_BASE
+#define DR_REG_SLCHOST_BASE             0 //The SDIO slave only check the least significant 10 bits, this doesn't matter
+#endif
+
+//This should be consistent with the macro in soc/host_reg.h
+#define HOST_SLC0HOST_TOKEN_RDATA_REG   (DR_REG_SLCHOST_BASE + 0x44)
+#define HOST_SLC0HOST_INT_RAW_REG       (DR_REG_SLCHOST_BASE + 0x50)
+#define HOST_SLC0HOST_INT_ST_REG        (DR_REG_SLCHOST_BASE + 0x58)
+#define HOST_SLCHOST_PKT_LEN_REG        (DR_REG_SLCHOST_BASE + 0x60)
+#define HOST_SLCHOST_CONF_W0_REG        (DR_REG_SLCHOST_BASE + 0x6C)
+#define HOST_SLCHOST_CONF_W7_REG        (DR_REG_SLCHOST_BASE + 0x8C)
+#define HOST_SLC0HOST_INT_CLR_REG       (DR_REG_SLCHOST_BASE + 0xD4)
+#define HOST_SLC0HOST_FUNC1_INT_ENA_REG (DR_REG_SLCHOST_BASE + 0xDC)
+
+
+#define HOST_SLCHOST_CONF_W_REG(pos)    (HOST_SLCHOST_CONF_W0_REG+pos+(pos>23?4:0)+(pos>31?12:0))
 
 #define ESSL_CMD53_END_ADDR    0x1f800
 

@@ -9,6 +9,7 @@
 #pragma once
 
 #include "esp_err.h"
+#include "driver/sdmmc_types.h"
 #include "driver/sdmmc_host.h"
 
 #include "esp_serial_slave_link/essl.h"
@@ -22,6 +23,14 @@ typedef struct {
     sdmmc_card_t *card;     ///< The initialized sdmmc card pointer of the slave.
     int recv_buffer_size;   ///< The pre-negotiated recv buffer size used by both the host and the slave.
 } essl_sdio_config_t;
+
+typedef struct {
+    //interrupts
+    uint32_t new_packet_intr_mask;
+} essl_sdio_def_t;
+
+/// Definitions of ESP32 SDIO Slave hardware
+extern essl_sdio_def_t ESSL_SDIO_DEF_ESP32;
 
 /**
  * @brief Initialize the ESSL SDIO device and get its handle.
