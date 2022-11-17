@@ -12,7 +12,6 @@
 #include "essl_internal.h"
 #include "essl_sdio.h"
 
-#if SOC_SDIO_SLAVE_SUPPORTED
 static const char TAG[] = "essl_sdio";
 
 #ifndef DR_REG_SLCHOST_BASE
@@ -508,5 +507,3 @@ void essl_sdio_reset_cnt(void *arg)
     ctx->rx_got_bytes = 0;
     ctx->tx_sent_buffers = 0;
 }
-
-#endif // #if SOC_SDIO_SLAVE_SUPPORTED
