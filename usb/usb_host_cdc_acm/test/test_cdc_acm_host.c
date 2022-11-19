@@ -48,7 +48,6 @@ void usb_lib_task(void *arg)
         .target = USB_PHY_TARGET_INT,
         .otg_mode = USB_OTG_MODE_HOST,
         .otg_speed = USB_PHY_SPEED_UNDEFINED,   //In Host mode, the speed is determined by the connected device
-        .gpio_conf = NULL,
     };
     TEST_ASSERT_EQUAL(ESP_OK, usb_new_phy(&phy_config, &phy_hdl));
     // Install USB Host driver. Should only be called once in entire application
