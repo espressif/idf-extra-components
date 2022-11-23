@@ -25,6 +25,7 @@ jobs:
             usb/usb_host_ch34x_vcp;
             usb/usb_host_cp210x_vcp;
             usb/usb_host_ftdi_vcp;
+            usb/esp_tinyusb;
             fmt;
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
