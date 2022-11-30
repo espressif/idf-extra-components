@@ -22,7 +22,7 @@ jobs:
           IDF_TARGET: esp32
         working-directory: test_app
         run: |
-          ${IDF_PATH}/tools/idf_tools.py --non-interactive install xtensa-clang
+          ${IDF_PATH}/tools/idf_tools.py --non-interactive install esp-clang
           . ${IDF_PATH}/export.sh
           which -a clang-tidy || true
           pip install pyclang~=0.2.0
