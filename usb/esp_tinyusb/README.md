@@ -1,5 +1,7 @@
 # Espressif's additions to TinyUSB
 
+[![Component Registry](https://components.espressif.com/components/espressif/esp_tinyusb/badge.svg)](https://components.espressif.com/components/espressif/esp_tinyusb)
+
 This component adds features to TinyUSB that help users with integrating TinyUSB with their ESP-IDF application.
 
 It contains:

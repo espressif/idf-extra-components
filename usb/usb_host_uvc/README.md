@@ -1,5 +1,7 @@
 # USB Host UVC Driver
 
+[![Component Registry](https://components.espressif.com/components/espressif/usb_host_uvc/badge.svg)](https://components.espressif.com/components/espressif/usb_host_uvc)
+
 This directory contains USB host UVC driver based on [libuvc](https://github.com/libuvc/libuvc) library. Support for `libuvc` is achieved by implementing adapter between [libusb](https://github.com/libusb/libusb) (underling host library used by `libuvc`) and [usb_host](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/usb_host.html) library targeted for ESP SOCs.    
 
 ## Usage

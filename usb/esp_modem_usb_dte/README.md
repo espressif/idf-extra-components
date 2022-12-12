@@ -1,5 +1,7 @@
 # USB DTE plugin for esp_modem
 
+[![Component Registry](https://components.espressif.com/components/espressif/esp_modem_usb_dte/badge.svg)](https://components.espressif.com/components/espressif/esp_modem_usb_dte)
+
 > :warning: **Experimental feature**: USB DTE is under development!
 
 This component extends [esp_modem](https://components.espressif.com/component/espressif/esp_modem) with USB DTE.

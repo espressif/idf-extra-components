@@ -1,5 +1,7 @@
 # LED Strip Component
 
+[![Component Registry](https://components.espressif.com/components/espressif/led_strip/badge.svg)](https://components.espressif.com/components/espressif/led_strip)
+
 This directory contains an implementation for addressable LEDs by different peripherals. Currently only RMT is supported as the led strip backend.
 
 The driver should be compatible with:

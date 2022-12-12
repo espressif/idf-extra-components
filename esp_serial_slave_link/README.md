@@ -1,5 +1,7 @@
 # Espressif Serial Slave Link (ESSL) component
 
+[![Component Registry](https://components.espressif.com/components/espressif/esp_serial_slave_link/badge.svg)](https://components.espressif.com/components/espressif/esp_serial_slave_link)
+
 This component used to reside in [esp-idf](https://github.com/espressif/esp-idf) project as its component.
 
 It's used on the HOST, to communicate with ESP chips as SLAVE via SDIO/SPI slave HD mode.
