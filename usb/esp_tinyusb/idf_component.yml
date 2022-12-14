@@ -1,4 +1,5 @@
 description: Espressif's additions to TinyUSB
+documentation: "https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/usb_device.html"
 version: 1.0.0
 url: https://github.com/espressif/idf-extra-components/tree/master/usb/esp_tinyusb
 dependencies:

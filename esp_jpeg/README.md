@@ -1,5 +1,7 @@
 # JPEG Decoder: TJpgDec - Tiny JPEG Decompressor
 
+[![Component Registry](https://components.espressif.com/components/espressif/esp_jpeg/badge.svg)](https://components.espressif.com/components/espressif/esp_jpeg)
+
 TJpgDec is a generic JPEG image decompressor that is highly optimized for small embedded systems. It works with very low memory consumption.
 
 Some microcontrollers have TJpg decoder in ROM, it is used, if there is. [^1] Using ROM code can be disabled in menuconfig.

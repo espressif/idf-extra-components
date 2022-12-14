@@ -1,5 +1,7 @@
 # JSON Parser
 
+[![Component Registry](https://components.espressif.com/components/espressif/json_parser/badge.svg)](https://components.espressif.com/components/espressif/json_parser)
+
 This is a simple, light weight JSON parser built on top of [jsmn](https://github.com/zserge/jsmn).
 
 Files

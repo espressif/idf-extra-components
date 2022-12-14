@@ -1,5 +1,7 @@
 # USB Host MSC (Mass Storage Class) Driver
 
+[![Component Registry](https://components.espressif.com/components/espressif/usb_host_msc/badge.svg)](https://components.espressif.com/components/espressif/usb_host_msc)
+
 This directory contains an implementation of a USB Mass Storage Class Driver implemented on top of the [USB Host Library](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/usb_host.html).
 
 MSC driver allows access to USB flash drivers using the BOT “Bulk-Only Transport” protocol and the Transparent SCSI command set.

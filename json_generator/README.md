@@ -1,4 +1,7 @@
 # JSON Generator
+
+[![Component Registry](https://components.espressif.com/components/espressif/json_generator/badge.svg)](https://components.espressif.com/components/espressif/json_generator)
+
 A simple JSON (JavasScript Object Notation) generator with flushing capability.
 Details of JSON can be found at [http://www.json.org/](http://www.json.org/).
 The JSON strings generated can be validated using any standard JSON validator. Eg. [https://jsonlint.com/](https://jsonlint.com/)

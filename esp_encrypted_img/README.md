@@ -1,5 +1,7 @@
 # ESP Encrypted Image Abstraction Layer
 
+[![Component Registry](https://components.espressif.com/components/espressif/esp_encrypted_img/badge.svg)](https://components.espressif.com/components/espressif/esp_encrypted_img)
+
 This component provides an API interface to decrypt data defined in "ESP Encrypted Image" format. This format is as specified at [Image Format](#image-format)
 
 This component can help in integrating pre encrypted firmware in over-the-air updates. Additionally, this component can also be used for other use-cases which requires addition of encryption layer for custom data.
