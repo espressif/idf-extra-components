@@ -307,9 +307,10 @@ esp_err_t tinyusb_cdcacm_write_flush(tinyusb_cdcacm_itf_t itf, uint32_t timeout_
             if (tud_cdc_n_write_occupied(itf)) {
                 ESP_LOGW(TAG, "remained data to flush!");
                 return ESP_FAIL;
+            } else {
+                return ESP_OK;
             }
         }
-        return ESP_ERR_TIMEOUT;
     } else { // trying during the timeout
         uint32_t ticks_start = xTaskGetTickCount();
         uint32_t ticks_now = ticks_start;
