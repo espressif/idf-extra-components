@@ -75,12 +75,19 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * 3);
     ESP_GOTO_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, err, TAG, "no mem for rmt strip");
     uint32_t resolution = rmt_config->resolution_hz ? rmt_config->resolution_hz : LED_STRIP_RMT_DEFAULT_RESOLUTION;
+
+    // for backward compatibility, if the user does not set the clk_src, use the default value
+    rmt_clock_source_t clk_src = RMT_CLK_SRC_DEFAULT;
+    if (rmt_config->clk_src) {
+        clk_src = rmt_config->clk_src;
+    }
     rmt_tx_channel_config_t rmt_chan_config = {
-        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .clk_src = clk_src,
         .gpio_num = led_config->strip_gpio_num,
         .mem_block_symbols = 64,
         .resolution_hz = resolution,
         .trans_queue_depth = 4,
+        .flags.with_dma = rmt_config->flags.with_dma,
     };
     ESP_GOTO_ON_ERROR(rmt_new_tx_channel(&rmt_chan_config, &rmt_strip->rmt_chan), err, TAG, "create RMT TX channel failed");
 

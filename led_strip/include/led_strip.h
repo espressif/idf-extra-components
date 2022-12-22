@@ -7,15 +7,11 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "led_strip_rmt.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief LED strip handle
- */
-typedef struct led_strip_t *led_strip_handle_t;
 
 /**
  * @brief Set RGB for a specific pixel
@@ -68,35 +64,6 @@ esp_err_t led_strip_clear(led_strip_handle_t strip);
  *      - ESP_FAIL: Free resources failed because error occurred
  */
 esp_err_t led_strip_del(led_strip_handle_t strip);
-
-/**
- * @brief LED Strip Configuration
- */
-typedef struct {
-    uint32_t strip_gpio_num; /*!< GPIO number that used by LED strip */
-    uint32_t max_leds;       /*!< Maximum LEDs in a single strip */
-} led_strip_config_t;
-
-/**
- * @brief LED Strip RMT specific configuration
- */
-typedef struct {
-    uint32_t resolution_hz; /*!< RMT tick resolution, if set to zero, a default resolution (10MHz) will be applied */
-} led_strip_rmt_config_t;
-
-/**
- * @brief Create LED strip based on RMT TX channel
- *
- * @param led_config LED strip configuration
- * @param rmt_config RMT specific configuration
- * @param ret_strip Returned LED strip handle
- * @return
- *      - ESP_OK: create LED strip handle successfully
- *      - ESP_ERR_INVALID_ARG: create LED strip handle failed because of invalid argument
- *      - ESP_ERR_NO_MEM: create LED strip handle failed because of out of memory
- *      - ESP_FAIL: create LED strip handle failed because some other error
- */
-esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *rmt_config, led_strip_handle_t *ret_strip);
 
 #ifdef __cplusplus
 }
