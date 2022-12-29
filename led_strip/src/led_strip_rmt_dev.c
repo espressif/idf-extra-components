@@ -43,9 +43,12 @@ static esp_err_t led_strip_rmt_refresh(led_strip_t *strip)
     rmt_transmit_config_t tx_conf = {
         .loop_count = 0,
     };
+
+    ESP_RETURN_ON_ERROR(rmt_enable(rmt_strip->rmt_chan), TAG, "enable RMT channel failed");
     ESP_RETURN_ON_ERROR(rmt_transmit(rmt_strip->rmt_chan, rmt_strip->strip_encoder, rmt_strip->pixel_buf,
                                      rmt_strip->strip_len * 3, &tx_conf), TAG, "transmit pixels by RMT failed");
     ESP_RETURN_ON_ERROR(rmt_tx_wait_all_done(rmt_strip->rmt_chan, -1), TAG, "flush RMT channel failed");
+    ESP_RETURN_ON_ERROR(rmt_disable(rmt_strip->rmt_chan), TAG, "disable RMT channel failed");
     return ESP_OK;
 }
 
@@ -60,7 +63,6 @@ static esp_err_t led_strip_rmt_clear(led_strip_t *strip)
 static esp_err_t led_strip_rmt_del(led_strip_t *strip)
 {
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
-    ESP_RETURN_ON_ERROR(rmt_disable(rmt_strip->rmt_chan), TAG, "disable RMT channel failed");
     ESP_RETURN_ON_ERROR(rmt_del_channel(rmt_strip->rmt_chan), TAG, "delete RMT channel failed");
     ESP_RETURN_ON_ERROR(rmt_del_encoder(rmt_strip->strip_encoder), TAG, "delete strip encoder failed");
     free(rmt_strip);
@@ -96,7 +98,6 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
 
-    ESP_GOTO_ON_ERROR(rmt_enable(rmt_strip->rmt_chan), err, TAG, "enable RMT channel failed");
 
     rmt_strip->strip_len = led_config->max_leds;
     rmt_strip->base.set_pixel = led_strip_rmt_set_pixel;
