@@ -90,6 +90,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
         .resolution_hz = resolution,
         .trans_queue_depth = 4,
         .flags.with_dma = rmt_config->flags.with_dma,
+        .flags.invert_out = led_config->flags.invert_out,
     };
     ESP_GOTO_ON_ERROR(rmt_new_tx_channel(&rmt_chan_config, &rmt_strip->rmt_chan), err, TAG, "create RMT TX channel failed");
 
