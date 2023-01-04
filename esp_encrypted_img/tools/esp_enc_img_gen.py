@@ -46,9 +46,7 @@ def encrypt(input_file: str, rsa_key_file_name: str, output_file: str) -> None:
         data = image.read()
 
     with open(rsa_key_file_name, 'rb') as key_file:
-        private_key = serialization.load_pem_private_key(key_file.read(), password=None)
-
-    public_key = private_key.public_key()
+        public_key = serialization.load_pem_public_key(key_file.read())
 
     gcm_key = generate_key_GCM(GCM_KEY_SIZE)
     iv = generate_IV_GCM()
@@ -109,7 +107,7 @@ def main() -> None:
     subparsers.add_parser('encrypt', help='Encrypt an binary')
     subparsers.add_parser('decrypt', help='Decrypt an encrypted image')
     parser.add_argument('input_file')
-    parser.add_argument('RSA_key')
+    parser.add_argument('RSA_key', help='Private key for decryption or public key for encryption')
     parser.add_argument('output_file_name')
 
     args = parser.parse_args()
