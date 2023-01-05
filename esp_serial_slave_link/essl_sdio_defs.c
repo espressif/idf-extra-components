@@ -12,3 +12,7 @@
 essl_sdio_def_t ESSL_SDIO_DEF_ESP32 = {
     .new_packet_intr_mask = BIT(23),
 };
+
+essl_sdio_def_t ESSL_SDIO_DEF_ESP32C6 = {
+    .new_packet_intr_mask = BIT(23),
+};
