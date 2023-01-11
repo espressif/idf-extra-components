@@ -3,7 +3,7 @@
 # Encrypted image generation tool. This tool helps in generating encrypted binary image
 # in pre-defined format with assistance of RSA-3072 bit key.
 #
-# SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
@@ -46,9 +46,15 @@ def encrypt(input_file: str, rsa_key_file_name: str, output_file: str) -> None:
         data = image.read()
 
     with open(rsa_key_file_name, 'rb') as key_file:
-        private_key = serialization.load_pem_private_key(key_file.read(), password=None)
-
-    public_key = private_key.public_key()
+        key_data = key_file.read()
+        if b"-BEGIN RSA PRIVATE KEY" in key_data or b"-BEGIN PRIVATE KEY" in key_data:
+            private_key = serialization.load_pem_private_key(key_data, password=None)
+            public_key = private_key.public_key()
+        elif b"-BEGIN PUBLIC KEY" in key_data:
+            public_key = serialization.load_pem_public_key(key_data)
+        else:
+            print("Error: Please specify encryption key in PEM format")
+            raise SystemExit(1)
 
     gcm_key = generate_key_GCM(GCM_KEY_SIZE)
     iv = generate_IV_GCM()
@@ -109,7 +115,7 @@ def main() -> None:
     subparsers.add_parser('encrypt', help='Encrypt an binary')
     subparsers.add_parser('decrypt', help='Decrypt an encrypted image')
     parser.add_argument('input_file')
-    parser.add_argument('RSA_key')
+    parser.add_argument('RSA_key', help='Private key for decryption and Private/Public key for encryption')
     parser.add_argument('output_file_name')
 
     args = parser.parse_args()
