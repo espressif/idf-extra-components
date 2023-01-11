@@ -35,6 +35,18 @@ Note:
 
 This component also contains tool ([esp_enc_img_gen.py](https://github.com/espressif/idf-extra-components/blob/master/esp_encrypted_img/tools/esp_enc_img_gen.py)) to generate encrypted images using RSA3072 public key.
 
+### Encrypt the image
+
+```
+python esp_enc_img_gen.py encrypt /path/to/input.bin /path/to/RSA-public-key /path/to/enc.bin
+```
+
+### Decrypt the image
+```
+python esp_enc_img_gen.py decrypt /path/to/enc.bin /path/to/RSA-private-key /path/to/output.bin
+```
+
+
 To know more about the tool, use command:
 `python esp_enc_img-gen.py --help`
 
