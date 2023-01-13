@@ -103,7 +103,7 @@ esp_err_t esp_tusb_init_console(int cdc_intf)
 {
     /* Registering TUSB at VFS */
     ESP_RETURN_ON_ERROR(esp_vfs_tusb_cdc_register(cdc_intf, NULL), TAG, "");
-    ESP_RETURN_ON_ERROR(redirect_std_streams_to(&con.in, &con.out, &con.err, "/dev/tusb_cdc"), TAG, "Failed to redirect STD streams");
+    ESP_RETURN_ON_ERROR(redirect_std_streams_to(&con.in, &con.out, &con.err, VFS_TUSB_PATH_DEFAULT), TAG, "Failed to redirect STD streams");
     return ESP_OK;
 }
 
