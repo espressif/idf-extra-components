@@ -16,6 +16,12 @@ esp_err_t led_strip_set_pixel(led_strip_handle_t strip, uint32_t index, uint32_t
     return strip->set_pixel(strip, index, red, green, blue);
 }
 
+esp_err_t led_strip_set_pixel_rgbw(led_strip_handle_t strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue, uint32_t white)
+{
+    ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    return strip->set_pixel_rgbw(strip, index, red, green, blue, white);
+}
+
 esp_err_t led_strip_refresh(led_strip_handle_t strip)
 {
     ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");

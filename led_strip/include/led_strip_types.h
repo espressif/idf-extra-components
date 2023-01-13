@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+enum led_type_t { LED_TYPE_WS2812 = 0, LED_TYPE_SK6812 };
+
 /**
  * @brief LED strip handle
  */
@@ -22,6 +24,7 @@ typedef struct led_strip_t *led_strip_handle_t;
 typedef struct {
     uint32_t strip_gpio_num; /*!< GPIO number that used by LED strip */
     uint32_t max_leds;       /*!< Maximum LEDs in a single strip */
+    enum led_type_t led_type;
     struct {
         uint32_t invert_out: 1; /*!< Invert output signal */
     } flags;
