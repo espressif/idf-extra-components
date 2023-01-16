@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-void tusb_set_descriptor(const tusb_desc_device_t *dev_desc, const char **str_desc, const uint8_t *cfg_desc);
+void tusb_set_descriptor(const tusb_desc_device_t *dev_desc, const char **str_desc, const uint8_t *cfg_desc, const uint8_t mac_id);
 tusb_desc_device_t *tusb_get_active_desc(void);
 char **tusb_get_active_str_desc(void);
 void tusb_clear_descriptor(void);

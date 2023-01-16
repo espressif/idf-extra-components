@@ -112,6 +112,14 @@ menu "TinyUSB Stack"
                 MSC FIFO size, in bytes.
     endmenu # "Massive Storage Class"
 
+    menu "USB Network Class (NCM)"
+        config TINYUSB_NCM_ENABLE
+            bool "Enable TinyUSB NCM driver"
+            default n
+            help
+                Enable USB NET TinyUSB driver.
+    endmenu # "usb network"
+
     menu "Communication Device Class (CDC)"
         config TINYUSB_CDC_ENABLED
             bool "Enable TinyUSB CDC feature"

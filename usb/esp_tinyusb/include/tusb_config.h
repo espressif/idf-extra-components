@@ -33,6 +33,10 @@
 extern "C" {
 #endif
 
+#ifndef CONFIG_TINYUSB_NCM_ENABLE
+#   define CONFIG_TINYUSB_NCM_ENABLE 0
+#endif
+
 #ifndef CONFIG_TINYUSB_CDC_ENABLED
 #   define CONFIG_TINYUSB_CDC_ENABLED 0
 #endif
@@ -104,6 +108,8 @@ extern "C" {
 #define CFG_TUD_HID                 CONFIG_TINYUSB_HID_COUNT
 #define CFG_TUD_MIDI                CONFIG_TINYUSB_MIDI_COUNT
 #define CFG_TUD_CUSTOM_CLASS        CONFIG_TINYUSB_CUSTOM_CLASS_ENABLED
+
+#define CFG_TUD_NCM                CONFIG_TINYUSB_NCM_ENABLE
 
 #ifdef __cplusplus
 }

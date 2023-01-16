@@ -10,6 +10,7 @@
 
 static const char *TAG = "tusb_desc";
 static tusb_desc_device_t s_device_descriptor;
+static uint8_t network_mac_id;
 static const uint8_t *s_configuration_descriptor;
 static char *s_str_descriptor[USB_STRING_DESCRIPTOR_ARRAY_SIZE];
 #define MAX_DESC_BUF_SIZE 32
@@ -50,12 +51,24 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid)
 {
     (void) langid;
 
-    uint8_t chr_count;
+    uint8_t chr_count = 0;
 
     if ( index == 0) {
         memcpy(&_desc_str[1], s_str_descriptor[0], 2);
         chr_count = 1;
-    } else {
+    }
+#if CONFIG_TINYUSB_NCM_ENABLE
+    else if (network_mac_id != 0 && network_mac_id == index)
+    {
+        // Convert MAC address into UTF-16
+        for (unsigned i=0; i<sizeof(tud_network_mac_address); i++)
+        {
+        _desc_str[1+chr_count++] = "0123456789ABCDEF"[(tud_network_mac_address[i] >> 4) & 0xf];
+        _desc_str[1+chr_count++] = "0123456789ABCDEF"[(tud_network_mac_address[i] >> 0) & 0xf];
+        }
+    } 
+#endif
+     else {
         // Convert ASCII string into UTF-16
 
         if ( index >= sizeof(s_str_descriptor) / sizeof(s_str_descriptor[0]) ) {
@@ -91,7 +104,7 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid)
 // Driver functions
 // =============================================================================
 
-void tusb_set_descriptor(const tusb_desc_device_t *dev_desc, const char **str_desc, const uint8_t *cfg_desc)
+void tusb_set_descriptor(const tusb_desc_device_t *dev_desc, const char **str_desc, const uint8_t *cfg_desc, const uint8_t mac_id)
 {
     ESP_LOGI(TAG, "\n"
              "┌─────────────────────────────────┐\n"
@@ -130,6 +143,10 @@ void tusb_set_descriptor(const tusb_desc_device_t *dev_desc, const char **str_de
     if (str_desc != NULL) {
         memcpy(s_str_descriptor, str_desc,
                sizeof(s_str_descriptor[0])*USB_STRING_DESCRIPTOR_ARRAY_SIZE);
+    }
+
+    if (mac_id != 0) {
+        network_mac_id = mac_id;
     }
 }
 

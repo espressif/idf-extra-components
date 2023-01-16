@@ -36,6 +36,7 @@ typedef struct {
     const uint8_t *configuration_descriptor;   /*!< Pointer to a configuration descriptor. If set to NULL, TinyUSB device will use a default configuration descriptor whose values are set in Kconfig */
     bool self_powered;                         /*!< This is a self-powered USB device. USB VBUS must be monitored. */
     int vbus_monitor_io;                       /*!< GPIO for VBUS monitoring. Ignored if not self_powered. */
+    uint8_t network_mac_id;                    /*!< Point to MAC description string index. Ignored if NCM disabled. */
 } tinyusb_config_t;
 
 /**

@@ -82,7 +82,7 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
         ESP_LOGW(TAG, "The device's device descriptor is not provided by user, using default.");
     }
 
-    tusb_set_descriptor(dev_descriptor, string_descriptor, cfg_descriptor);
+    tusb_set_descriptor(dev_descriptor, string_descriptor, cfg_descriptor, config->network_mac_id);
 
     ESP_RETURN_ON_FALSE(tusb_init(), ESP_FAIL, TAG, "Init TinyUSB stack failed");
 #if !CONFIG_TINYUSB_NO_DEFAULT_TASK
