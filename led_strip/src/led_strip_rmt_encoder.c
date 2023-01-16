@@ -82,7 +82,7 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     led_encoder->base.del = rmt_del_led_strip_encoder;
     led_encoder->base.reset = rmt_led_strip_encoder_reset;
     rmt_bytes_encoder_config_t bytes_encoder_config;
-    if (config->led_type == LED_TYPE_SK6812) {
+    if (config->led_model == LED_MODEL_SK6812) {
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {
                 .level0 = 1,

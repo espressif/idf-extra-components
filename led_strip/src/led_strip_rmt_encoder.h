@@ -18,7 +18,7 @@ extern "C" {
  */
 typedef struct {
     uint32_t resolution; /*!< Encoder resolution, in Hz */
-    enum led_type_t led_type;
+    led_model_t led_model;
 } led_strip_encoder_config_t;
 
 /**

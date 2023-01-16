@@ -92,9 +92,9 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     led_strip_rmt_obj *rmt_strip = NULL;
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_FALSE(led_config && rmt_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
-    ESP_GOTO_ON_FALSE(led_config->led_type >= 0 && led_config->led_type <= 1, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_type");
+    ESP_GOTO_ON_FALSE(led_config->led_pixel_format <= LED_PIXEL_FORMAT_GRBW, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel_format");
     uint8_t bytes_per_pixel;
-    if (led_config->led_type == LED_TYPE_SK6812) {
+    if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
         bytes_per_pixel = 4;
     } else {
         bytes_per_pixel = 3;
@@ -121,7 +121,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
 
     led_strip_encoder_config_t strip_encoder_conf = {
         .resolution = resolution,
-        .led_type = led_config->led_type
+        .led_model = led_config->led_model
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
 
