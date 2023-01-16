@@ -23,8 +23,6 @@
 #include "sdkconfig.h"
 
 const static char *TAG = "tusb_vfs";
-#define VFS_TUSB_MAX_PATH 16
-#define VFS_TUSB_PATH_DEFAULT "/dev/tusb_cdc"
 
 // Token signifying that no character is available
 #define NONE -1

@@ -21,7 +21,6 @@
 
 
 typedef struct {
-    bool initialized;
     size_t rx_unread_buf_sz;
     RingbufHandle_t rx_unread_buf;
     SemaphoreHandle_t ringbuf_read_mux;
@@ -352,6 +351,7 @@ static void free_obj(tinyusb_cdcacm_itf_t itf)
 
 esp_err_t tusb_cdc_acm_init(const tinyusb_config_cdcacm_t *cfg)
 {
+    esp_err_t ret = ESP_OK;
     int itf = (int)cfg->cdc_port;
     /* Creating a CDC object */
     const tinyusb_config_cdc_t cdc_cfg = {
@@ -359,10 +359,10 @@ esp_err_t tusb_cdc_acm_init(const tinyusb_config_cdcacm_t *cfg)
         .cdc_class = TUSB_CLASS_CDC,
         .cdc_subclass.comm_subclass = CDC_COMM_SUBCLASS_ABSTRACT_CONTROL_MODEL
     };
-    ESP_RETURN_ON_ERROR(tinyusb_cdc_init(itf, &cdc_cfg), TAG, "tinyusb_cdc_init failed");
-    ESP_RETURN_ON_ERROR(alloc_obj(itf), TAG, "alloc_obj failed");
 
-    esp_tusb_cdcacm_t *acm = get_acm(itf);
+    ESP_RETURN_ON_ERROR(tinyusb_cdc_init(itf, &cdc_cfg), TAG, "tinyusb_cdc_init failed");
+    ESP_GOTO_ON_FALSE(!alloc_obj(itf), ESP_FAIL, out4, TAG, "alloc_obj failed");
+
     /* Callbacks setting up*/
     if (cfg->callback_rx) {
         tinyusb_cdcacm_register_callback(itf, CDC_EVENT_RX, cfg->callback_rx);
@@ -378,30 +378,30 @@ esp_err_t tusb_cdc_acm_init(const tinyusb_config_cdcacm_t *cfg)
     }
 
     /* Buffers */
+    esp_tusb_cdcacm_t *acm = get_acm(itf);
 
     acm->ringbuf_read_mux = xSemaphoreCreateMutex();
-    if (acm->ringbuf_read_mux == NULL) {
-        ESP_LOGE(TAG, "Creation of a ringbuf mutex failed");
-        free_obj(itf);
-        return ESP_ERR_NO_MEM;
-    }
+    ESP_GOTO_ON_FALSE(acm->ringbuf_read_mux, ESP_ERR_NO_MEM, out3, TAG, "Creation of a ringbuf mutex failed");
 
     acm->rx_tfbuf = malloc(CONFIG_TINYUSB_CDC_RX_BUFSIZE);
-    if (!acm->rx_tfbuf) {
-        ESP_LOGE(TAG, "Creation buffer error");
-        free_obj(itf);
-        return ESP_ERR_NO_MEM;
-    }
+    ESP_GOTO_ON_FALSE(acm->rx_tfbuf, ESP_ERR_NO_MEM, out2, TAG, "Creation buffer error");
+
     acm->rx_unread_buf_sz = cfg->rx_unread_buf_sz == 0 ? RX_UNREADBUF_SZ_DEFAULT : cfg->rx_unread_buf_sz;
     acm->rx_unread_buf = xRingbufferCreate(acm->rx_unread_buf_sz, RINGBUF_TYPE_BYTEBUF);
-    if (acm->rx_unread_buf == NULL) {
-        ESP_LOGE(TAG, "Creation buffer error");
-        free_obj(itf);
-        return ESP_ERR_NO_MEM;
-    } else {
-        ESP_LOGD(TAG, "Comm Initialized buff:%d bytes", cfg->rx_unread_buf_sz);
-        return ESP_OK;
-    }
+    ESP_GOTO_ON_FALSE(acm->rx_unread_buf, ESP_ERR_NO_MEM, out1, TAG, "Creation buffer error");
+
+    ESP_LOGD(TAG, "Comm Initialized buff:%d bytes", cfg->rx_unread_buf_sz);
+    return ESP_OK;
+
+out1:
+    free(acm->rx_tfbuf);
+out2:
+    vSemaphoreDelete(acm->ringbuf_read_mux);
+out3:
+    free_obj(itf);
+out4:
+    tinyusb_cdc_deinit(itf);
+    return ret;
 }
 
 bool tusb_cdc_acm_initialized(tinyusb_cdcacm_itf_t itf)

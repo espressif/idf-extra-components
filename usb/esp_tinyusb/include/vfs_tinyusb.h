@@ -12,6 +12,9 @@
 extern "C" {
 #endif
 
+#define VFS_TUSB_MAX_PATH 16
+#define VFS_TUSB_PATH_DEFAULT "/dev/tusb_cdc"
+
 /**
  * @brief Register TinyUSB CDC at VFS with path
  * @param cdc_intf - interface number of TinyUSB's CDC
