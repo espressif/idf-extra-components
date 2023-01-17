@@ -32,16 +32,20 @@ esp_err_t led_strip_set_pixel(led_strip_handle_t strip, uint32_t index, uint32_t
 /**
  * @brief Set RGBW for a specific pixel
  *
+ * @note Only call this function if your led strip does have the white component (e.g. SK6812-RGBW)
+ * @note Also see `led_strip_set_pixel` if you only want to specify the RGB part of the color and bypass the white component
+ *
  * @param strip: LED strip
  * @param index: index of pixel to set
  * @param red: red part of color
  * @param green: green part of color
  * @param blue: blue part of color
- * @param white: separate white component (sk6812rgbw leds)
+ * @param white: separate white component
  *
  * @return
- *      - ESP_OK: RGBW color succesfully set for the pixel
- *      - ESP_ERR_INVALID_ARG: Set RGB for a specific pixel failed because of an invalid argument
+ *      - ESP_OK: Set RGBW color for a specific pixel successfully
+ *      - ESP_ERR_INVALID_ARG: Set RGBW color for a specific pixel failed because of an invalid argument
+ *      - ESP_FAIL: Set RGBW color for a specific pixel failed because other error occurred
  */
 esp_err_t led_strip_set_pixel_rgbw(led_strip_handle_t strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue, uint32_t white);
 
