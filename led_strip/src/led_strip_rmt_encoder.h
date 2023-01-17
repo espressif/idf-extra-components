@@ -17,8 +17,8 @@ extern "C" {
  * @brief Type of led strip encoder configuration
  */
 typedef struct {
-    uint32_t resolution; /*!< Encoder resolution, in Hz */
-    led_model_t led_model;
+    uint32_t resolution;   /*!< Encoder resolution, in Hz */
+    led_model_t led_model; /*!< LED model */
 } led_strip_encoder_config_t;
 
 /**

@@ -92,12 +92,14 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     led_strip_rmt_obj *rmt_strip = NULL;
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_FALSE(led_config && rmt_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
-    ESP_GOTO_ON_FALSE(led_config->led_pixel_format <= LED_PIXEL_FORMAT_GRBW, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel_format");
+    ESP_GOTO_ON_FALSE(led_config->led_pixel_format < LED_PIXEL_FORMAT_INVALID, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel_format");
     uint8_t bytes_per_pixel;
     if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
         bytes_per_pixel = 4;
-    } else {
+    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB) {
         bytes_per_pixel = 3;
+    } else {
+        assert(false);
     }
     rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
     ESP_GOTO_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, err, TAG, "no mem for rmt strip");

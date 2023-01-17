@@ -76,6 +76,7 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     esp_err_t ret = ESP_OK;
     rmt_led_strip_encoder_t *led_encoder = NULL;
     ESP_GOTO_ON_FALSE(config && ret_encoder, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
+    ESP_GOTO_ON_FALSE(config->led_model < LED_MODEL_INVALID, ESP_ERR_INVALID_ARG, err, TAG, "invalid led model");
     led_encoder = calloc(1, sizeof(rmt_led_strip_encoder_t));
     ESP_GOTO_ON_FALSE(led_encoder, ESP_ERR_NO_MEM, err, TAG, "no mem for led strip encoder");
     led_encoder->base.encode = rmt_encode_led_strip;
@@ -96,9 +97,9 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
                 .level1 = 0,
                 .duration1 = 0.6 * config->resolution / 1000000, // T1L=0.6us
             },
-            .flags.msb_first = 1 // SK6812 transfer bit order: G7...G0R7...R0B7...B0W7...W0
+            .flags.msb_first = 1 // SK6812 transfer bit order: G7...G0R7...R0B7...B0(W7...W0)
         };
-    } else {
+    } else if (config->led_model == LED_MODEL_WS2812) {
         // different led strip might have its own timing requirements, following parameter is for WS2812
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {
@@ -115,6 +116,8 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             },
             .flags.msb_first = 1 // WS2812 transfer bit order: G7...G0R7...R0B7...B0
         };
+    } else {
+        assert(false);
     }
     ESP_GOTO_ON_ERROR(rmt_new_bytes_encoder(&bytes_encoder_config, &led_encoder->bytes_encoder), err, TAG, "create bytes encoder failed");
     rmt_copy_encoder_config_t copy_encoder_config = {};
