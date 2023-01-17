@@ -35,6 +35,22 @@ struct led_strip_t {
     esp_err_t (*set_pixel)(led_strip_t *strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue);
 
     /**
+     * @brief Set RGBW for a specific pixel
+     *
+     * @param strip: LED strip
+     * @param index: index of pixel to set
+     * @param red: red part of color
+     * @param green: green part of color
+     * @param blue: blue part of color
+     * @param white: separate white component (sk6812rgbw leds)
+     *
+     * @return
+     *      - ESP_OK: RGBW color succesfully set for the pixel
+     *      - ESP_ERR_INVALID_ARG: Set RGB for a specific pixel failed because of an invalid argument
+     */
+    esp_err_t (*set_pixel_rgbw)(led_strip_t *strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue, uint32_t white);
+
+    /**
      * @brief Refresh memory colors to LEDs
      *
      * @param strip: LED strip
