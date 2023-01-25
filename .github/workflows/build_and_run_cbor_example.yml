@@ -1,0 +1,70 @@
+name: Build and Run CBOR Example
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Once per day at midnight
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'cbor/**'
+
+jobs:
+  build:
+    name: Build CBOR Example
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v4.4", "release-v5.0", "latest"]
+        idf_target: ["esp32"]
+    runs-on: ubuntu-20.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Build CBOR Example
+        env:
+          IDF_TARGET: ${{ matrix.idf_target }}
+        shell: bash
+        working-directory: cbor/examples/cbor
+        run: |
+          . ${IDF_PATH}/export.sh
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          idf.py build
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cbor_example_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+          path: |
+            cbor/examples/cbor/build/bootloader/bootloader.bin
+            cbor/examples/cbor/build/partition_table/partition-table.bin
+            cbor/examples/cbor/build/cbor.bin
+            cbor/examples/cbor/build/cbor.elf
+            cbor/examples/cbor/build/flasher_args.json
+
+  run-target:
+    name: Run CBOR example on target
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v4.4", "release-v5.0", "latest"]
+        idf_target: ["esp32"]
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
+    container:
+      image: python:3.7-buster
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v2
+        with:
+          name: cbor_example_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+          path: cbor/examples/cbor/build
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+      - name: Run CBOR example
+        working-directory: cbor/examples/cbor
+        run: pytest --target=${{ matrix.idf_target }}
