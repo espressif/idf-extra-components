@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "usb_descriptors.h"
 #include "sdkconfig.h"
+#include "tinyusb_types.h"
 
 /*
  * A combination of interfaces must have a unique product id, since PC will save device driver after the first plug.
@@ -14,50 +15,13 @@
  * Auto ProductID layout's Bitmap:
  *   [MSB]         HID | MSC | CDC          [LSB]
  */
+#define _PID_MAP(itf, n) ((CFG_TUD_##itf) << (n))
 #define USB_TUSB_PID (0x4000 | _PID_MAP(CDC, 0) | _PID_MAP(MSC, 1) | _PID_MAP(HID, 2) | \
     _PID_MAP(MIDI, 3) ) //| _PID_MAP(AUDIO, 4) | _PID_MAP(VENDOR, 5) )
 
-/**** TinyUSB default ****/
-tusb_desc_device_t descriptor_tinyusb = {
-    .bLength = sizeof(descriptor_tinyusb),
-    .bDescriptorType = TUSB_DESC_DEVICE,
-    .bcdUSB = 0x0200,
-
-#if CFG_TUD_CDC
-    // Use Interface Association Descriptor (IAD) for CDC
-    // As required by USB Specs IAD's subclass must be common class (2) and protocol must be IAD (1)
-    .bDeviceClass = TUSB_CLASS_MISC,
-    .bDeviceSubClass = MISC_SUBCLASS_COMMON,
-    .bDeviceProtocol = MISC_PROTOCOL_IAD,
-#else
-    .bDeviceClass = 0x00,
-    .bDeviceSubClass = 0x00,
-    .bDeviceProtocol = 0x00,
-#endif
-
-    .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-
-    .idVendor = 0xCafe,
-    .idProduct = USB_TUSB_PID,
-    .bcdDevice = 0x0100,
-
-    .iManufacturer = 0x01,
-    .iProduct = 0x02,
-    .iSerialNumber = 0x03,
-
-    .bNumConfigurations = 0x01
-};
-
-tusb_desc_strarray_device_t descriptor_str_tinyusb = {
-    // array of pointer to string descriptors
-    (char[]){0x09, 0x04}, // 0: is supported language is English (0x0409)
-    "TinyUSB",            // 1: Manufacturer
-    "TinyUSB Device",     // 2: Product
-    "123456",             // 3: Serials, should use chip ID
-};
-/* End of TinyUSB default */
-
 /**** Kconfig driven Descriptor ****/
+
+//------------- Device Descriptor -------------//
 const tusb_desc_device_t descriptor_dev_kconfig = {
     .bLength = sizeof(descriptor_dev_kconfig),
     .bDescriptorType = TUSB_DESC_DEVICE,
@@ -98,7 +62,8 @@ const tusb_desc_device_t descriptor_dev_kconfig = {
     .bNumConfigurations = 0x01
 };
 
-tusb_desc_strarray_device_t descriptor_str_kconfig = {
+//------------- Array of String Descriptors -------------//
+const char *descriptor_str_kconfig[] = {
     // array of pointer to string descriptors
     (char[]){0x09, 0x04},                // 0: is supported language is English (0x0409)
     CONFIG_TINYUSB_DESC_MANUFACTURER_STRING, // 1: Manufacturer
@@ -116,10 +81,10 @@ tusb_desc_strarray_device_t descriptor_str_kconfig = {
 #else
     "",
 #endif
-
+    NULL                                     // NULL: Must be last. Indicates end of array
 };
 
-//------------- Configuration Descriptor -------------//
+//------------- Interfaces enumeration -------------//
 enum {
 #if CFG_TUD_CDC
     ITF_NUM_CDC = 0,
@@ -163,6 +128,7 @@ enum {
 #endif
 };
 
+//------------- Configuration Descriptor -------------//
 uint8_t const descriptor_cfg_kconfig[] = {
     // Configuration number, interface count, string index, total length, attribute, power in mA
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, TUSB_DESC_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),

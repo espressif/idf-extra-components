@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,11 +11,14 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
-#include "tusb.h"
-#include "tinyusb.h"
+#include "tinyusb_types.h"
+#include "esp_err.h"
+#include "sdkconfig.h"
+
+#if (CONFIG_TINYUSB_CDC_ENABLED != 1)
+#error "TinyUSB CDC driver must be enabled in menuconfig"
+#endif
+
 
 /**
  * @brief CDC ports available to setup

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -24,8 +24,9 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
 {
     const tusb_desc_device_t *dev_descriptor;
     const char **string_descriptor;
+    int string_descriptor_count = 0;
     const uint8_t *cfg_descriptor;
-    ESP_RETURN_ON_FALSE(config, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    ESP_RETURN_ON_FALSE(config, ESP_ERR_INVALID_ARG, TAG, "Config can't be NULL");
 
     // Configure USB PHY
     usb_phy_config_t phy_conf = {
@@ -60,7 +61,7 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
         cfg_descriptor = config->configuration_descriptor;
     } else {
 #if (CONFIG_TINYUSB_HID_COUNT > 0 || CONFIG_TINYUSB_MIDI_COUNT > 0)
-        // For HID device, configuration descriptor must be provided
+        // For HID and MIDI devices, configuration descriptor must be provided
         ESP_RETURN_ON_FALSE(config->configuration_descriptor, ESP_ERR_INVALID_ARG, TAG, "Configuration descriptor must be provided for this device");
 #else
         cfg_descriptor = descriptor_cfg_kconfig;
@@ -70,8 +71,14 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
 
     if (config->string_descriptor) {
         string_descriptor = config->string_descriptor;
+        if (config->string_descriptor_count != 0) {
+            string_descriptor_count = config->string_descriptor_count;
+        } else {
+            string_descriptor_count = 8; // Backward compatibility with esp_tinyusb v1.0.0. Do NOT remove!
+        }
     } else {
         string_descriptor = descriptor_str_kconfig;
+        while(descriptor_str_kconfig[++string_descriptor_count] != NULL);
         ESP_LOGW(TAG, "The device's string descriptor is not provided by user, using default.");
     }
 
@@ -82,7 +89,7 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
         ESP_LOGW(TAG, "The device's device descriptor is not provided by user, using default.");
     }
 
-    tusb_set_descriptor(dev_descriptor, string_descriptor, cfg_descriptor);
+    tinyusb_set_descriptor(dev_descriptor, string_descriptor, string_descriptor_count, cfg_descriptor);
 
     ESP_RETURN_ON_FALSE(tusb_init(), ESP_FAIL, TAG, "Init TinyUSB stack failed");
 #if !CONFIG_TINYUSB_NO_DEFAULT_TASK
