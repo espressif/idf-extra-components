@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+version: "1.0.0"
+description: CBOR Example
+dependencies:
+  espressif/cbor:
+    version: '0.*'
+    override_path: '../../../'

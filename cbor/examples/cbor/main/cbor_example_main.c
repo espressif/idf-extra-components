@@ -1,26 +1,28 @@
 /*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
+/* CBOR Example
+
+   This example code is in the Public Domain (or CC0 licensed, at your option.)
+
+   Unless required by applicable law or agreed to in writing, this
+   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+   CONDITIONS OF ANY KIND, either express or implied.
+*/
 #include <stdio.h>
-#include <freertos/FreeRTOS.h>
-
-#include "unity.h"
-#if __has_include("esp_random.h")
-#include "esp_random.h"
-#else
-#include "esp_system.h"
-#endif
-
+#include "esp_log.h"
 #include "cbor.h"
+
+static const char *TAG = "example";
 
 #define CBOR_CHECK(a, str, goto_tag, ret_value, ...)                              \
     do                                                                            \
     {                                                                             \
         if ((a) != CborNoError)                                                   \
         {                                                                         \
-            printf("%s(%d): " str, __FUNCTION__, __LINE__, ##__VA_ARGS__);        \
+            ESP_LOGE(TAG, "%s(%d): " str, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
             ret = ret_value;                                                      \
             goto goto_tag;                                                        \
         }                                                                         \
@@ -169,7 +171,7 @@ err:
 }
 
 
-TEST_CASE("CBOR example", "[cbor]")
+void app_main(void)
 {
     CborEncoder root_encoder;
     CborParser root_parser;
@@ -213,18 +215,17 @@ TEST_CASE("CBOR example", "[cbor]")
     cbor_encoder_close_container(&root_encoder, &array_encoder); // ]
 
     // If error happend when encoding, then this value should be meaningless
-    printf("encoded buffer size %d", cbor_encoder_get_buffer_size(&root_encoder, buf));
+    ESP_LOGI(TAG, "encoded buffer size %d", cbor_encoder_get_buffer_size(&root_encoder, buf));
 
     // Initialize the cbor parser and the value iterator
     cbor_parser_init(buf, sizeof(buf), 0, &root_parser, &it);
 
-    printf("convert CBOR to JSON");
+    ESP_LOGI(TAG, "convert CBOR to JSON");
     // Dump the values in JSON format
     cbor_value_to_json(stdout, &it, 0);
     puts("");
 
-    printf("decode CBOR manually: ");
+    ESP_LOGI(TAG, "decode CBOR manually");
     // Decode CBOR data manully
-    TEST_ESP_OK(example_dump_cbor_buffer(&it, 0));
+    example_dump_cbor_buffer(&it, 0);
 }
-
