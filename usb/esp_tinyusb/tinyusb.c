@@ -60,8 +60,8 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
     if (config->configuration_descriptor) {
         cfg_descriptor = config->configuration_descriptor;
     } else {
-#if (CONFIG_TINYUSB_HID_COUNT > 0 || CONFIG_TINYUSB_MIDI_COUNT > 0)
-        // For HID and MIDI devices, configuration descriptor must be provided
+        // Default configuration descriptor is provided only for CDC and MSC classes
+#if (CFG_TUD_HID > 0 || CFG_TUD_MIDI > 0 || CFG_TUD_CUSTOM_CLASS > 0 || CFG_TUD_ECM_RNDIS > 0 || CFG_TUD_NCM > 0 || CFG_TUD_DFU > 0 || CFG_TUD_DFU_RUNTIME > 0 || CFG_TUD_BTH > 0)
         ESP_RETURN_ON_FALSE(config->configuration_descriptor, ESP_ERR_INVALID_ARG, TAG, "Configuration descriptor must be provided for this device");
 #else
         cfg_descriptor = descriptor_cfg_kconfig;
@@ -78,7 +78,7 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
         }
     } else {
         string_descriptor = descriptor_str_kconfig;
-        while(descriptor_str_kconfig[++string_descriptor_count] != NULL);
+        while (descriptor_str_kconfig[++string_descriptor_count] != NULL);
         ESP_LOGW(TAG, "The device's string descriptor is not provided by user, using default.");
     }
 

@@ -30,6 +30,7 @@ menu "TinyUSB Stack"
     endmenu
 
     menu "Descriptor configuration"
+        comment "You can provide your custom descriptors via tinyusb_driver_install()"
         config TINYUSB_DESC_USE_ESPRESSIF_VID
             bool "VID: Use Espressif's vendor ID"
             default y
@@ -160,4 +161,61 @@ menu "TinyUSB Stack"
             help
                 Setting value greater than 0 will enable TinyUSB HID feature.
     endmenu # "HID Device Class (HID)"
+
+    menu "Device Firmware Upgrade (DFU)"
+        choice TINYUSB_DFU_MODE
+            prompt "DFU mode"
+            default TINYUSB_DFU_MODE_NONE
+            help
+                Select which DFU driver you want to use.
+
+            config TINYUSB_DFU_MODE_DFU
+                bool "DFU"
+
+            config TINYUSB_DFU_MODE_DFU_RUNTIME
+                bool "DFU Runtime"
+
+            config TINYUSB_DFU_MODE_NONE
+                bool "None"
+        endchoice
+        config TINYUSB_DFU_BUFSIZE
+            depends on TINYUSB_DFU_MODE_DFU
+            int "DFU XFER BUFFSIZE"
+            default 512
+            help
+                DFU XFER BUFFSIZE.
+    endmenu # Device Firmware Upgrade (DFU)
+
+    menu "Bluetooth Host Class (BTH)"
+        config TINYUSB_BTH_ENABLED
+            bool "Enable TinyUSB BTH feature"
+            default n
+            help
+                Enable TinyUSB BTH feature.
+
+        config TINYUSB_BTH_ISO_ALT_COUNT
+            depends on TINYUSB_BTH_ENABLED
+            int "BTH ISO ALT COUNT"
+            default 0
+            help
+                BTH ISO ALT COUNT.
+    endmenu # "Bluetooth Host Device Class"
+
+    menu "Network driver (ECM/NCM/RNDIS)"
+        choice TINYUSB_NET_MODE
+            prompt "Network mode"
+            default TINYUSB_NET_MODE_NONE
+            help
+                Select network driver you want to use.
+
+            config TINYUSB_NET_MODE_ECM_RNDIS
+                bool "ECM/RNDIS"
+
+            config TINYUSB_NET_MODE_NCM
+                bool "NCM"
+
+            config TINYUSB_NET_MODE_NONE
+                bool "None"
+        endchoice
+    endmenu # "Network driver (ECM/NCM/RNDIS)"
 endmenu # "TinyUSB Stack"
