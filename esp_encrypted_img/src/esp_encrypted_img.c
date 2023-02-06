@@ -251,7 +251,7 @@ static void read_and_cache_data(esp_encrypted_img_t *handle, pre_enc_decrypt_arg
 {
     const int data_left = data_size - handle->binary_file_read;
     const int data_recv = args->data_in_len - *curr_index;
-    if (handle->state == ESP_PRE_ENC_IMG_READ_IV && handle->iv) {
+    if (handle->state == ESP_PRE_ENC_IMG_READ_IV) {
         memcpy(handle->iv + handle->cache_buf_len, args->data_in + *curr_index, MIN(data_recv, data_left));
     } else if (handle->state == ESP_PRE_ENC_IMG_READ_AUTH) {
         memcpy(handle->auth_tag + handle->cache_buf_len, args->data_in + *curr_index, MIN(data_recv, data_left));
