@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <array>
 #include <memory>
 #include <vector>
 #include "usb/cdc_acm_host.h"
