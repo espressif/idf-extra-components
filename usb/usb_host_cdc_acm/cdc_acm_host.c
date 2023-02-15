@@ -269,11 +269,13 @@ static esp_err_t cdc_acm_start(cdc_dev_t *cdc_dev, cdc_acm_host_dev_callback_t e
 
     // Claim data interface and start polling its IN endpoint
     ESP_GOTO_ON_ERROR(usb_host_interface_claim(p_cdc_acm_obj->cdc_acm_client_hdl, cdc_dev->dev_hdl, cdc_dev->data.intf_desc->bInterfaceNumber, 0), err, TAG,);
-    ESP_LOGD("CDC_ACM", "Submitting poll for BULK IN transfer");
-    ESP_ERROR_CHECK(usb_host_transfer_submit(cdc_dev->data.in_xfer));
+    if (cdc_dev->data.in_xfer) {
+        ESP_LOGD("CDC_ACM", "Submitting poll for BULK IN transfer");
+        ESP_ERROR_CHECK(usb_host_transfer_submit(cdc_dev->data.in_xfer));
+    }
 
     // If notification are supported, claim its interface and start polling its IN endpoint
-    if (cdc_dev->notif.intf_desc != NULL) {
+    if (cdc_dev->notif.xfer) {
         if (cdc_dev->notif.intf_desc != cdc_dev->data.intf_desc) {
             ESP_GOTO_ON_ERROR(usb_host_interface_claim(p_cdc_acm_obj->cdc_acm_client_hdl, cdc_dev->dev_hdl,
                               cdc_dev->notif.intf_desc->bInterfaceNumber, 0), err, TAG,);
@@ -290,7 +292,7 @@ static esp_err_t cdc_acm_start(cdc_dev_t *cdc_dev, cdc_acm_host_dev_callback_t e
 
 err:
     usb_host_interface_release(p_cdc_acm_obj->cdc_acm_client_hdl, cdc_dev->dev_hdl, cdc_dev->data.intf_desc->bInterfaceNumber);
-    if (cdc_dev->notif.intf_desc != NULL) {
+    if (cdc_dev->notif.xfer && (cdc_dev->notif.intf_desc != cdc_dev->data.intf_desc)) {
         usb_host_interface_release(p_cdc_acm_obj->cdc_acm_client_hdl, cdc_dev->dev_hdl, cdc_dev->notif.intf_desc->bInterfaceNumber);
     }
     return ret;
@@ -540,11 +542,12 @@ static void cdc_acm_transfers_free(cdc_dev_t *cdc_dev)
  * @param[in] cdc_dev       Pointer to CDC device
  * @param[in] notif_ep_desc Pointer to notification EP descriptor
  * @param[in] in_ep_desc-   Pointer to data IN EP descriptor
+ * @param[in] in_buf_len    Length of data IN buffer
  * @param[in] out_ep_desc   Pointer to data OUT EP descriptor
  * @param[in] out_buf_len   Length of data OUT buffer
  * @return esp_err_t
  */
-static esp_err_t cdc_acm_transfers_allocate(cdc_dev_t *cdc_dev, const usb_ep_desc_t *notif_ep_desc, const usb_ep_desc_t *in_ep_desc, const usb_ep_desc_t *out_ep_desc, size_t out_buf_len)
+static esp_err_t cdc_acm_transfers_allocate(cdc_dev_t *cdc_dev, const usb_ep_desc_t *notif_ep_desc, const usb_ep_desc_t *in_ep_desc, size_t in_buf_len, const usb_ep_desc_t *out_ep_desc, size_t out_buf_len)
 {
     esp_err_t ret;
 
@@ -576,17 +579,19 @@ static esp_err_t cdc_acm_transfers_allocate(cdc_dev_t *cdc_dev, const usb_ep_des
     cdc_dev->ctrl_mux = xSemaphoreCreateMutex();
     ESP_GOTO_ON_FALSE(cdc_dev->ctrl_mux, ESP_ERR_NO_MEM, err, TAG,);
 
-    // 3. Setup IN data transfer
-    ESP_GOTO_ON_ERROR(
-        usb_host_transfer_alloc(USB_EP_DESC_GET_MPS(in_ep_desc), 0, &cdc_dev->data.in_xfer),
-        err, TAG,
-    );
-    assert(cdc_dev->data.in_xfer);
-    cdc_dev->data.in_xfer->callback = in_xfer_cb;
-    cdc_dev->data.in_xfer->num_bytes = USB_EP_DESC_GET_MPS(in_ep_desc);
-    cdc_dev->data.in_xfer->bEndpointAddress = in_ep_desc->bEndpointAddress;
-    cdc_dev->data.in_xfer->device_handle = cdc_dev->dev_hdl;
-    cdc_dev->data.in_xfer->context = cdc_dev;
+    // 3. Setup IN data transfer (if it is required (in_buf_len > 0))
+    if (in_buf_len != 0) {
+        ESP_GOTO_ON_ERROR(
+            usb_host_transfer_alloc(in_buf_len, 0, &cdc_dev->data.in_xfer),
+            err, TAG,
+        );
+        assert(cdc_dev->data.in_xfer);
+        cdc_dev->data.in_xfer->callback = in_xfer_cb;
+        cdc_dev->data.in_xfer->num_bytes = in_buf_len;
+        cdc_dev->data.in_xfer->bEndpointAddress = in_ep_desc->bEndpointAddress;
+        cdc_dev->data.in_xfer->device_handle = cdc_dev->dev_hdl;
+        cdc_dev->data.in_xfer->context = cdc_dev;
+    }
 
     // 4. Setup OUT bulk transfer (if it is required (out_buf_len > 0))
     if (out_buf_len != 0) {
@@ -739,8 +744,12 @@ esp_err_t cdc_acm_host_open(uint16_t vid, uint16_t pid, uint8_t interface_idx, c
     cdc_dev->comm_protocol = (cdc_comm_protocol_t)cdc_dev->notif.intf_desc->bInterfaceProtocol;
     cdc_dev->data_protocol = (cdc_data_protocol_t)cdc_dev->data.intf_desc->bInterfaceProtocol;
 
+    // The following line is here for backward compatibility with v1.0.*
+    // where fixed size of IN buffer (equal to IN Maximum Packe Size) was used
+    const size_t in_buf_size = (dev_config->data_cb && (dev_config->in_buffer_size == 0)) ? USB_EP_DESC_GET_MPS(in_ep) : dev_config->in_buffer_size;
+
     // Allocate USB transfers, claim CDC interfaces and return CDC-ACM handle
-    ESP_GOTO_ON_ERROR(cdc_acm_transfers_allocate(cdc_dev, notif_ep, in_ep, out_ep, dev_config->out_buffer_size), err, TAG,);
+    ESP_GOTO_ON_ERROR(cdc_acm_transfers_allocate(cdc_dev, notif_ep, in_ep, in_buf_size, out_ep, dev_config->out_buffer_size), err, TAG,);
     ESP_GOTO_ON_ERROR(cdc_acm_start(cdc_dev, dev_config->event_cb, dev_config->data_cb, dev_config->user_arg), err, TAG,);
     *cdc_hdl_ret = (cdc_acm_dev_hdl_t)cdc_dev;
     xSemaphoreGive(p_cdc_acm_obj->open_close_mutex);
@@ -804,8 +813,12 @@ esp_err_t cdc_acm_host_open_vendor_specific(uint16_t vid, uint16_t pid, uint8_t 
         desc_offset = temp_offset;
     }
 
+    // The following line is here for backward compatibility with v1.0.*
+    // where fixed size of IN buffer (equal to IN Maximum Packe Size) was used
+    const size_t in_buf_size = (dev_config->data_cb && (dev_config->in_buffer_size == 0)) ? USB_EP_DESC_GET_MPS(in_ep) : dev_config->in_buffer_size;
+
     // Allocate USB transfers, claim CDC interfaces and return CDC-ACM handle
-    ESP_GOTO_ON_ERROR(cdc_acm_transfers_allocate(cdc_dev, notif_ep, in_ep, out_ep, dev_config->out_buffer_size), err, TAG, );
+    ESP_GOTO_ON_ERROR(cdc_acm_transfers_allocate(cdc_dev, notif_ep, in_ep, in_buf_size, out_ep, dev_config->out_buffer_size), err, TAG, );
     ESP_GOTO_ON_ERROR(cdc_acm_start(cdc_dev, dev_config->event_cb, dev_config->data_cb, dev_config->user_arg), err, TAG,);
     *cdc_hdl_ret = (cdc_acm_dev_hdl_t)cdc_dev;
     xSemaphoreGive(p_cdc_acm_obj->open_close_mutex);
@@ -826,11 +839,15 @@ esp_err_t cdc_acm_host_close(cdc_acm_dev_hdl_t cdc_hdl)
 
     cdc_dev_t *cdc_dev = (cdc_dev_t *)cdc_hdl;
 
-    // Cancel polling of BULK IN and INTERRUPT IN endpoints
+    // Cancel polling of BULK IN and INTERRUPT IN
+    CDC_ACM_ENTER_CRITICAL();
     cdc_dev->notif.cb = NULL;
     cdc_dev->data.in_cb = NULL;
-    ESP_ERROR_CHECK(cdc_acm_reset_transfer_endpoint(cdc_dev->dev_hdl, cdc_dev->data.in_xfer));
-    if (cdc_dev->notif.intf_desc != NULL) {
+    CDC_ACM_EXIT_CRITICAL();
+    if (cdc_dev->data.in_xfer) {
+        ESP_ERROR_CHECK(cdc_acm_reset_transfer_endpoint(cdc_dev->dev_hdl, cdc_dev->data.in_xfer));
+    }
+    if (cdc_dev->notif.xfer != NULL) {
         ESP_ERROR_CHECK(cdc_acm_reset_transfer_endpoint(cdc_dev->dev_hdl, cdc_dev->notif.xfer));
     }
 
