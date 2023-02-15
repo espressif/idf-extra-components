@@ -21,3 +21,7 @@
       led_model, used to configure bit timing (LED_MODEL_WS2812, LED_MODEL_SK6812)
   - new API led_strip_set_pixel_rgbw
   - new interface type set_pixel_rgbw
+
+## 2.3.0
+
+- Support configurable RMT channel size by setting `mem_block_symbols`

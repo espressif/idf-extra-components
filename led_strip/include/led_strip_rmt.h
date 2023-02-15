@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,13 +14,13 @@
 extern "C" {
 #endif
 
-
 /**
  * @brief LED Strip RMT specific configuration
  */
 typedef struct {
     rmt_clock_source_t clk_src; /*!< RMT clock source */
     uint32_t resolution_hz;     /*!< RMT tick resolution, if set to zero, a default resolution (10MHz) will be applied */
+    size_t mem_block_symbols;   /*!< How many RMT symbols can one RMT channel hold at one time. Set to 0 will fallback to use the default size. */
     struct {
         uint32_t with_dma: 1;   /*!< Use DMA to transmit data */
     } flags;
