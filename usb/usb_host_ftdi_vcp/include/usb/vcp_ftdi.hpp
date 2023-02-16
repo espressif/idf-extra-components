@@ -94,7 +94,7 @@ private:
      * @param[in] data_len Received data length
      * @param[in] user_arg Pointer to FT23x class
      */
-    static void ftdi_rx(uint8_t *data, size_t data_len, void *user_arg);
+    static bool ftdi_rx(const uint8_t *data, size_t data_len, void *user_arg);
 
     // Just a wrapper to recover user's argument
     static void ftdi_event(const cdc_acm_host_dev_event_data_t *event, void *user_ctx);

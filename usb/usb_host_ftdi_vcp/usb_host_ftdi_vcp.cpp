@@ -86,7 +86,7 @@ esp_err_t FT23x::set_control_line_state(bool dtr, bool rts)
     return this->send_custom_request(FTDI_WRITE_REQ, FTDI_CMD_SET_MHS, rts ? 0x21 : 0x20, this->intf, 0, NULL); // RTS
 }
 
-void FT23x::ftdi_rx(uint8_t *data, size_t data_len, void *user_arg)
+bool FT23x::ftdi_rx(const uint8_t *data, size_t data_len, void *user_arg)
 {
     FT23x *this_ftdi = (FT23x *)user_arg;
 
@@ -113,8 +113,9 @@ void FT23x::ftdi_rx(uint8_t *data, size_t data_len, void *user_arg)
 
     // Dispatch data if any
     if (data_len > 2) {
-        this_ftdi->user_data_cb(&data[2], data_len - 2, this_ftdi->user_arg);
+        return this_ftdi->user_data_cb(&data[2], data_len - 2, this_ftdi->user_arg);
     }
+    return true;
 }
 
 void FT23x::ftdi_event(const cdc_acm_host_dev_event_data_t *event, void *user_ctx)
