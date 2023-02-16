@@ -523,6 +523,14 @@ unblock:
     return ret;
 }
 
+esp_err_t cdc_acm_host_register_new_dev_callback(cdc_acm_new_dev_callback_t new_dev_cb)
+{
+    CDC_ACM_ENTER_CRITICAL();
+    p_cdc_acm_obj->new_dev_cb = new_dev_cb;
+    CDC_ACM_EXIT_CRITICAL();
+    return ESP_OK;
+}
+
 /**
  * @brief Free USB transfers used by this device
  *
@@ -1095,17 +1103,22 @@ static void usb_event_cb(const usb_host_client_event_msg_t *event_msg, void *arg
 {
     switch (event_msg->event) {
     case USB_HOST_CLIENT_EVENT_NEW_DEV:
+        // Guard p_cdc_acm_obj->new_dev_cb from concurrent access
         ESP_LOGD(TAG, "New device connected");
-        if (p_cdc_acm_obj->new_dev_cb) {
+        CDC_ACM_ENTER_CRITICAL();
+        cdc_acm_new_dev_callback_t _new_dev_cb = p_cdc_acm_obj->new_dev_cb;
+        CDC_ACM_EXIT_CRITICAL();
+
+        if (_new_dev_cb) {
             usb_device_handle_t new_dev;
             if (usb_host_device_open(p_cdc_acm_obj->cdc_acm_client_hdl, event_msg->new_dev.address, &new_dev) != ESP_OK) {
-                ESP_LOGW(TAG, "Couldn't open the new device");
                 break;
             }
             assert(new_dev);
-            p_cdc_acm_obj->new_dev_cb(new_dev);
+            _new_dev_cb(new_dev);
             usb_host_device_close(p_cdc_acm_obj->cdc_acm_client_hdl, new_dev);
         }
+
         break;
     case USB_HOST_CLIENT_EVENT_DEV_GONE: {
         ESP_LOGD(TAG, "Device suddenly disconnected");

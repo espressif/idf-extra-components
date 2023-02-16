@@ -145,6 +145,16 @@ esp_err_t cdc_acm_host_install(const cdc_acm_host_driver_config_t *driver_config
 esp_err_t cdc_acm_host_uninstall(void);
 
 /**
+ * @brief Register new USB device callback
+ *
+ * The callback will be called for every new USB device, not just CDC-ACM class.
+ *
+ * @param[in] new_dev_cb New device callback function
+ * @return esp_err_t
+ */
+esp_err_t cdc_acm_host_register_new_dev_callback(cdc_acm_new_dev_callback_t new_dev_cb);
+
+/**
  * @brief Open CDC-ACM compliant device
  *
  * CDC-ACM compliant device must contain either an Interface Association Descriptor or CDC-Union descriptor,
