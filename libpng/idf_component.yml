@@ -1,0 +1,11 @@
+version: "1.6.39"
+description: Portable Network Graphics(png) C library
+url: https://github.com/espressif/idf-extra-components/tree/master/libpng
+repository: "https://github.com/espressif/idf-extra-components.git"
+documentation: "http://www.libpng.org/pub/png/pngdocs.html"
+issues: "https://github.com/espressif/idf-extra-components/issues"
+dependencies:
+  idf: ">=4.4"
+  zlib:
+    version: "^1.2.13"
+    override_path: "../zlib"
