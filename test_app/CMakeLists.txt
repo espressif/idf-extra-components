@@ -5,7 +5,7 @@ include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
 # Add newly added components to one of these lines:
 # 1. Add here if the component is compatible with IDF >= v4.3
-set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../cbor ../jsmn ../qrcode ../coap ../eigen ../fmt)
+set(EXTRA_COMPONENT_DIRS ../libsodium ../expat ../cbor ../jsmn ../qrcode ../coap ../eigen ../fmt ../json_parser ../json_generator)
 
 # 2. Add here if the component is compatible with IDF >= v4.4
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "4.4")
