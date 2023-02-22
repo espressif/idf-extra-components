@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
@@ -28,6 +28,8 @@ static uint8_t tx_buf[] = "HELLO";
 static uint8_t tx_buf2[] = "WORLD";
 static int nb_of_responses;
 static int nb_of_responses2;
+static bool new_dev_cb_called = false;
+static bool rx_overflow = false;
 static usb_phy_handle_t phy_hdl = NULL;
 
 static void force_conn_state(bool connected, TickType_t delay_ticks)
@@ -95,18 +97,26 @@ void test_install_cdc_driver(void)
 }
 
 /* ------------------------------- Callbacks -------------------------------- */
-static void handle_rx(uint8_t *data, size_t data_len, void *arg)
+static bool handle_rx(const uint8_t *data, size_t data_len, void *arg)
 {
     printf("Data received\n");
     nb_of_responses++;
     TEST_ASSERT_EQUAL_STRING_LEN(data, arg, data_len);
+    return true;
 }
 
-static void handle_rx2(uint8_t *data, size_t data_len, void *arg)
+static bool handle_rx2(const uint8_t *data, size_t data_len, void *arg)
 {
     printf("Data received 2\n");
     nb_of_responses2++;
     TEST_ASSERT_EQUAL_STRING_LEN(data, arg, data_len);
+    return true;
+}
+
+static bool handle_rx_advanced(const uint8_t *data, size_t data_len, void *arg)
+{
+    bool *process_data = (bool *)arg;
+    return *process_data;
 }
 
 static void notif_cb(const cdc_acm_host_dev_event_data_t *event, void *user_ctx)
@@ -116,6 +126,9 @@ static void notif_cb(const cdc_acm_host_dev_event_data_t *event, void *user_ctx)
         printf("Error event %d\n", event->data.error);
         break;
     case CDC_ACM_HOST_SERIAL_STATE:
+        if (event->data.serial_state.bOverRun) {
+            rx_overflow = true;
+        }
         break;
     case CDC_ACM_HOST_NETWORK_CONNECTION:
         break;
@@ -129,7 +142,6 @@ static void notif_cb(const cdc_acm_host_dev_event_data_t *event, void *user_ctx)
     }
 }
 
-static bool new_dev_cb_called = false;
 static void new_dev_cb(usb_device_handle_t usb_dev)
 {
     new_dev_cb_called = true;
@@ -411,14 +423,15 @@ TEST_CASE("custom_command", "[cdc_acm]")
     vTaskDelay(20);
 }
 
-TEST_CASE("new_device_connection", "[cdc_acm]")
+TEST_CASE("new_device_connection_1", "[cdc_acm]")
 {
     // Create a task that will handle USB library events
     TEST_ASSERT_EQUAL(pdTRUE, xTaskCreatePinnedToCore(usb_lib_task, "usb_lib", 4 * 4096, xTaskGetCurrentTaskHandle(), 10, NULL, 0));
     ulTaskNotifyTake(false, 1000);
 
+    // Option 1: Register callback during driver install
     printf("Installing CDC-ACM driver\n");
-    const cdc_acm_host_driver_config_t driver_config = {
+    cdc_acm_host_driver_config_t driver_config = {
         .driver_task_priority = 11,
         .driver_task_stack_size = 2048,
         .xCoreID = 0,
@@ -426,10 +439,83 @@ TEST_CASE("new_device_connection", "[cdc_acm]")
     };
     TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_install(&driver_config));
 
-    vTaskDelay(80);
+    vTaskDelay(50);
     TEST_ASSERT_TRUE_MESSAGE(new_dev_cb_called, "New device callback was not called\n");
+    new_dev_cb_called = false;
 
     // Clean-up
+    TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_uninstall());
+    vTaskDelay(20);
+}
+
+TEST_CASE("new_device_connection_2", "[cdc_acm]")
+{
+    test_install_cdc_driver();
+
+    // Option 2: Register callback after driver install
+    force_conn_state(false, 0);
+    vTaskDelay(50);
+    TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_register_new_dev_callback(new_dev_cb));
+    force_conn_state(true, 0);
+    vTaskDelay(50);
+    TEST_ASSERT_TRUE_MESSAGE(new_dev_cb_called, "New device callback was not called\n");
+    new_dev_cb_called = false;
+
+    // Clean-up
+    TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_uninstall());
+    vTaskDelay(20);
+}
+
+TEST_CASE("rx_buffer", "[cdc_acm]")
+{
+    test_install_cdc_driver();
+    bool process_data = true; // This variable will determine return value of data_cb
+
+    cdc_acm_dev_hdl_t cdc_dev;
+    const cdc_acm_host_device_config_t dev_config = {
+        .connection_timeout_ms = 500,
+        .out_buffer_size = 64,
+        .in_buffer_size = 512,
+        .event_cb = notif_cb,
+        .data_cb = handle_rx_advanced,
+        .user_arg = &process_data,
+    };
+
+    TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_open(0x303A, 0x4002, 0, &dev_config, &cdc_dev));
+    TEST_ASSERT_NOT_NULL(cdc_dev);
+
+    // 1. Send > in_buffer_size bytes of data in normal operation: Expect no error
+    uint8_t tx_data[64] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
+    for (int i = 0; i < 10; i++) {
+        TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_data_tx_blocking(cdc_dev, tx_data, sizeof(tx_data), 1000));
+        vTaskDelay(5);
+    }
+    TEST_ASSERT_FALSE_MESSAGE(rx_overflow, "RX overflowed");
+    rx_overflow = false;
+
+    // 2. Send < (in_buffer_size - IN_MPS) bytes of data in 'not processed' mode: Expect no error
+    process_data = false;
+    for (int i = 0; i < 7; i++) {
+        TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_data_tx_blocking(cdc_dev, tx_data, sizeof(tx_data), 1000));
+        vTaskDelay(5);
+    }
+    TEST_ASSERT_FALSE_MESSAGE(rx_overflow, "RX overflowed");
+    rx_overflow = false;
+
+    // 3. Send >= (in_buffer_size - IN_MPS) bytes of data in 'not processed' mode: Expect error
+    TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_data_tx_blocking(cdc_dev, tx_data, sizeof(tx_data), 1000));
+    vTaskDelay(5);
+    TEST_ASSERT_TRUE_MESSAGE(rx_overflow, "RX did not overflow");
+    rx_overflow = false;
+
+    // 4. Send more data to the EP: Expect no error
+    TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_data_tx_blocking(cdc_dev, tx_data, sizeof(tx_data), 1000));
+    vTaskDelay(5);
+    TEST_ASSERT_FALSE_MESSAGE(rx_overflow, "RX overflowed");
+    rx_overflow = false;
+
+    // Clean-up
+    TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_close(cdc_dev));
     TEST_ASSERT_EQUAL(ESP_OK, cdc_acm_host_uninstall());
     vTaskDelay(20);
 }

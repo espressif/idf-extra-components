@@ -78,6 +78,7 @@ public:
         const cdc_acm_host_device_config_t esp_modem_cdc_acm_device_config = {
             .connection_timeout_ms = usb_config->timeout_ms,
             .out_buffer_size = config->dte_buffer_size,
+            .in_buffer_size = config->dte_buffer_size,
             .event_cb = handle_notif,
             .data_cb = handle_rx,
             .user_arg = this
@@ -133,14 +134,15 @@ private:
     bool operator!= (const UsbTerminal &param) const = delete;
     static TaskHandle_t usb_host_lib_task; // Reused by multiple devices or between reconnections
 
-    static void handle_rx(uint8_t *data, size_t data_len, void *user_arg)
+    static bool handle_rx(const uint8_t *data, size_t data_len, void *user_arg)
     {
         ESP_LOG_BUFFER_HEXDUMP(TAG, data, data_len, ESP_LOG_DEBUG);
         UsbTerminal *this_terminal = static_cast<UsbTerminal *>(user_arg);
         if (data_len > 0 && this_terminal->on_read) {
-            this_terminal->on_read(data, data_len);
+            return this_terminal->on_read((uint8_t *)data, data_len);
         } else {
             ESP_LOGD(TAG, "Unhandled RX data");
+            return true;
         }
     }
 

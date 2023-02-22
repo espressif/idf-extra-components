@@ -83,12 +83,20 @@ typedef void (*cdc_acm_new_dev_callback_t)(usb_device_handle_t usb_dev);
 
 /**
  * @brief Data receive callback type
+ *
+ * @param[in] data     Pointer to received data
+ * @param[in] data_len Lenght of received data in bytes
+ * @param[in] user_arg User's argument passed to open function
+ * @return true        Received data was processed     -> Flush RX buffer
+ * @return false       Received data was NOT processed -> Append new data to the buffer
  */
-typedef void (*cdc_acm_data_callback_t)(uint8_t *data, size_t data_len, void *user_arg);
+typedef bool (*cdc_acm_data_callback_t)(const uint8_t *data, size_t data_len, void *user_arg);
 
 /**
  * @brief Device event callback type
- * @see cdc_acm_host_dev_event_data_t
+ *
+ * @param[in] event    Event strucutre
+ * @param[in] user_arg User's argument passed to open function
  */
 typedef void (*cdc_acm_host_dev_callback_t)(const cdc_acm_host_dev_event_data_t *event, void *user_ctx);
 
@@ -110,6 +118,7 @@ typedef struct {
 typedef struct {
     uint32_t connection_timeout_ms;       /**< Timeout for USB device connection in [ms] */
     size_t out_buffer_size;               /**< Maximum size of USB bulk out transfer, set to 0 for read-only devices */
+    size_t in_buffer_size;                /**< Maximum size of USB bulk in transfer */
     cdc_acm_host_dev_callback_t event_cb; /**< Device's event callback function. Can be NULL */
     cdc_acm_data_callback_t data_cb;      /**< Device's data RX callback function. Can be NULL for write-only devices */
     void *user_arg;                       /**< User's argument that will be passed to the callbacks */
@@ -134,6 +143,16 @@ esp_err_t cdc_acm_host_install(const cdc_acm_host_driver_config_t *driver_config
  * @return esp_err_t
  */
 esp_err_t cdc_acm_host_uninstall(void);
+
+/**
+ * @brief Register new USB device callback
+ *
+ * The callback will be called for every new USB device, not just CDC-ACM class.
+ *
+ * @param[in] new_dev_cb New device callback function
+ * @return esp_err_t
+ */
+esp_err_t cdc_acm_host_register_new_dev_callback(cdc_acm_new_dev_callback_t new_dev_cb);
 
 /**
  * @brief Open CDC-ACM compliant device

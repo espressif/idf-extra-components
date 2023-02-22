@@ -61,13 +61,8 @@ CdcAcmDevice *VCP::open(const cdc_acm_host_device_config_t *dev_config, uint8_t 
 
     // dev_config->connection_timeout_ms is normally meant for 1 device,
     // but here it is a timeout for the whole function call
-    cdc_acm_host_device_config_t _config = {
-        .connection_timeout_ms = 1,
-        .out_buffer_size = dev_config->out_buffer_size,
-        .event_cb = dev_config->event_cb,
-        .data_cb = dev_config->data_cb,
-        .user_arg = dev_config->user_arg,
-    };
+    cdc_acm_host_device_config_t _config = *dev_config;
+    _config.connection_timeout_ms = 1;
 
     // Try opening all registered devices, return on first success
     do {
