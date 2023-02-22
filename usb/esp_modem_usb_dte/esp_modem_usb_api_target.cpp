@@ -6,6 +6,7 @@
 
 #include "usb_terminal.hpp"
 #include "cxx_include/esp_modem_api.hpp"
+#include "../private_include/exception_stub.hpp"
 
 #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
 static const char *TAG = "modem_usb_api_target";

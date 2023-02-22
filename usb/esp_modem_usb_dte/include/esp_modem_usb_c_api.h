@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -15,10 +15,10 @@ extern "C" {
 /**
  * @brief Create a DCE handle using the supplied USB DTE
  *
- * @param module Specific device for creating this DCE
- * @param dte_config DTE - USB configuration
- * @param dce_config DCE configuration
- * @param netif Network interface handle for the data mode
+ * @param[in] module Specific device for creating this DCE
+ * @param[in] dte_config DTE - USB configuration
+ * @param[in] dce_config DCE configuration
+ * @param[in] netif Network interface handle for the data mode
  *
  * @return DCE pointer on success, NULL on failure
  */

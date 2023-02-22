@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -54,3 +54,19 @@ struct esp_modem_usb_term_config {
         .cdc_compliant = false,                         \
         .install_usb_host = true                        \
     }
+
+/**
+ * @brief Default configuration of Quactel BG96 modem
+ */
+#define ESP_MODEM_BG96_USB_CONFIG() ESP_MODEM_DEFAULT_USB_CONFIG(0x2C7C, 0x0296, 2)
+
+/**
+ * @brief Default configuration of SimCom SIM7600E modem
+ */
+#define ESP_MODEM_SIM7600_USB_CONFIG() ESP_MODEM_DEFAULT_USB_CONFIG(0x1E0E, 0x9001, 3)
+
+/**
+ * @brief Default configuration of SimCom A7670E modem
+ * @todo provide 2nd AT port config
+ */
+#define ESP_MODEM_A7670_USB_CONFIG() ESP_MODEM_DEFAULT_USB_CONFIG(0x1E0E, 0x9011, 4)

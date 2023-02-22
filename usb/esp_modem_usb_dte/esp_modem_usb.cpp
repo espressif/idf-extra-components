@@ -11,6 +11,7 @@
 #include "esp_modem_usb_config.h"
 #include "cxx_include/esp_modem_dte.hpp"
 #include "cxx_include/esp_modem_exception.hpp"
+#include "../private_include/exception_stub.hpp"
 #include "usb/usb_host.h"
 #include "usb/cdc_acm_host.h"
 #include "sdkconfig.h"

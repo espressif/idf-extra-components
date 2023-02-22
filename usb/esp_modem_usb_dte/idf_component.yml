@@ -1,9 +1,11 @@
 ## IDF Component Manager Manifest File
-version: "1.0.0"
+version: "1.1.0"
 description: USB DTE plugin for esp_modem component
 url: https://github.com/espressif/idf-extra-components/tree/master/usb/esp_modem_usb_dte
 
 dependencies:
   idf: ">=4.4"
-  usb_host_cdc_acm: "1.*"
+  usb_host_cdc_acm:
+    version: "2.*"
+    override_path: "../usb_host_cdc_acm"
   esp_modem: "^0.1.23"

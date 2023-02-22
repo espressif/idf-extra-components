@@ -1,12 +1,11 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 #include "cxx_include/esp_modem_dte.hpp"
-#include "../private_include/exception_stub.hpp"
 
 struct esp_modem_dte_config;
 
