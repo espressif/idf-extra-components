@@ -36,12 +36,14 @@ esp_modem_set_error_cb(dce, usb_terminal_error_handler);
 ```
 
 ## Dual port modems
-@todo
+Some modems provide two equivalent AT ports. One of the ports can be used for AT commands, while the other one can be used for network data. This way, you don't have to switch between command and data modes of one terminal.
+
+To use this feature, specify interface number of the second port in `esp_modem_usb_term_config`.
 
 ## Adding a new modem
 For simple cases with one AT port, you should be able to open communication with the modem by defining:
 1. **USB VID and PID:** This can be found by plugging the modem to a PC and running `lsusb -v` on Linux or by [USB Device Tree Viewer](https://www.uwe-sieber.de/usbtreeview_e.html) on Windows.
-2. **AT port interface number:** USB modem have usually multiple CDC-ACM-like ports. One (or two) is dedicated for AT commands. You can find the correct interface number based on its string descriptor (using methods from point 1), from the modem's datasheet or by trial and error.
+2. **AT port interface number:** USB modems have usually multiple CDC-ACM-like ports. One (or two) is dedicated for AT commands. You can find the correct interface number based on its string descriptor (using methods from point 1), from the modem's datasheet or by trial and error.
 
 Then, you can pass these constants to [ESP_MODEM_DEFAULT_USB_CONFIG](https://github.com/espressif/idf-extra-components/blob/master/usb/esp_modem_usb_dte/include/esp_modem_usb_config.h#L47) macro and start testing AT commands.
 

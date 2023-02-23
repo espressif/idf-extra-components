@@ -10,5 +10,12 @@
 struct esp_modem_dte_config;
 
 namespace esp_modem {
-std::unique_ptr<Terminal> create_usb_terminal(const esp_modem_dte_config *config);
+/**
+ * @brief Create a usb terminal object
+ *
+ * @param[in] config    DTE USB configuration
+ * @param[in] term_idx  Terminal index. 0: primary terminal, 1: secondary terminal.
+ * @return std::unique_ptr<Terminal>
+ */
+std::unique_ptr<Terminal> create_usb_terminal(const esp_modem_dte_config *config, int term_idx = 0);
 }  // namespace esp_modem
