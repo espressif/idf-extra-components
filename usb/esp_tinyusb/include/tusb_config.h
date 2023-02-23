@@ -57,6 +57,27 @@ extern "C" {
 #   define CONFIG_TINYUSB_CUSTOM_CLASS_ENABLED 0
 #endif
 
+#ifndef CONFIG_TINYUSB_NET_MODE_ECM_RNDIS
+#   define CONFIG_TINYUSB_NET_MODE_ECM_RNDIS 0
+#endif
+
+#ifndef CONFIG_TINYUSB_NET_MODE_NCM
+#   define CONFIG_TINYUSB_NET_MODE_NCM 0
+#endif
+
+#ifndef CONFIG_TINYUSB_DFU_MODE_DFU
+#   define CONFIG_TINYUSB_DFU_MODE_DFU 0
+#endif
+
+#ifndef CONFIG_TINYUSB_DFU_MODE_DFU_RUNTIME
+#   define CONFIG_TINYUSB_DFU_MODE_DFU_RUNTIME 0
+#endif
+
+#ifndef CONFIG_TINYUSB_BTH_ENABLED
+#   define CONFIG_TINYUSB_BTH_ENABLED 0
+#   define CONFIG_TINYUSB_BTH_ISO_ALT_COUNT 0
+#endif
+
 #ifndef CONFIG_TINYUSB_DEBUG_LEVEL
 #   define CONFIG_TINYUSB_DEBUG_LEVEL 0
 #endif
@@ -93,10 +114,22 @@ extern "C" {
 // MSC Buffer size of Device Mass storage
 #define CFG_TUD_MSC_BUFSIZE         CONFIG_TINYUSB_MSC_BUFSIZE
 
+// MIDI macros
 #define CFG_TUD_MIDI_EP_BUFSIZE     64
 #define CFG_TUD_MIDI_EPSIZE         CFG_TUD_MIDI_EP_BUFSIZE
 #define CFG_TUD_MIDI_RX_BUFSIZE     64
 #define CFG_TUD_MIDI_TX_BUFSIZE     64
+
+// Vendor FIFO size of TX and RX
+// If not configured vendor endpoints will not be buffered
+#define CFG_TUD_VENDOR_RX_BUFSIZE   64
+#define CFG_TUD_VENDOR_TX_BUFSIZE   64
+
+// DFU macros
+#define CFG_TUD_DFU_XFER_BUFSIZE    CONFIG_TINYUSB_DFU_BUFSIZE
+
+// Number of BTH ISO alternatives
+#define CFG_TUD_BTH_ISO_ALT_COUNT   CONFIG_TINYUSB_BTH_ISO_ALT_COUNT
 
 // Enabled device class driver
 #define CFG_TUD_CDC                 CONFIG_TINYUSB_CDC_COUNT
@@ -104,6 +137,11 @@ extern "C" {
 #define CFG_TUD_HID                 CONFIG_TINYUSB_HID_COUNT
 #define CFG_TUD_MIDI                CONFIG_TINYUSB_MIDI_COUNT
 #define CFG_TUD_CUSTOM_CLASS        CONFIG_TINYUSB_CUSTOM_CLASS_ENABLED
+#define CFG_TUD_ECM_RNDIS           CONFIG_TINYUSB_NET_MODE_ECM_RNDIS
+#define CFG_TUD_NCM                 CONFIG_TINYUSB_NET_MODE_NCM
+#define CFG_TUD_DFU                 CONFIG_TINYUSB_DFU_MODE_DFU
+#define CFG_TUD_DFU_RUNTIME         CONFIG_TINYUSB_DFU_MODE_DFU_RUNTIME
+#define CFG_TUD_BTH                 CONFIG_TINYUSB_BTH_ENABLED
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,13 +11,10 @@ extern "C" {
 #endif
 
 #define USB_ESPRESSIF_VID 0x303A
-#define USB_STRING_DESCRIPTOR_ARRAY_SIZE 8 // (4 + TINYUSB_STR_DESC_LEN)
 
 typedef enum {
     TINYUSB_USBDEV_0,
 } tinyusb_usbdev_t;
-
-typedef const char *tusb_desc_strarray_device_t[USB_STRING_DESCRIPTOR_ARRAY_SIZE];
 
 #ifdef __cplusplus
 }
