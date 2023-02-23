@@ -1,0 +1,70 @@
+name: Installation or build bug report
+description: Report installation or build bugs
+labels: ["Type: Bug"]
+body:
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Answers checklist.
+      description: Before submitting a new issue, please follow the checklist and try to find the answer.
+      options:
+        - label: I have read the component documentation [ESP-IDF Components](https://components.espressif.com) and the issue is not addressed there.
+          required: true
+        - label: I have updated my idf-component-manager branch (master or release) to the latest version and checked that the issue is present there.
+          required: true
+        - label: I have searched the issue tracker for a similar issue and not found a similar issue.
+          required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: What component are you using? If you choose Other, provide details in More Information.
+      multiple: false
+      options:
+        - bdc_motor
+        - cbor
+        - coap
+        - eigen
+        - esp_encrypted_img
+        - esp_jpeg
+        - esp_serial_slave_link
+        - expat
+        - fmt
+        - jsmn
+        - json_generator
+        - json_parser
+        - led_strip
+        - libsodium
+        - nghttp
+        - pcap
+        - pid_ctrl
+        - qrcode
+        - sh2lib
+        - test_app
+        - usb
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: pacman_version
+    attributes:
+      label: IDF Component Manager version.
+      description: On which IDF Component Manager version does this issue occur on? Run `python -m idf_component_manager -h` to find it.
+      placeholder: ex. v1.2.0-rc0
+    validations:
+      required: true
+  - type: input
+    id: component_version
+    attributes:
+      label: Used Component version.
+      description: On which Component version does this issue occur on? Run `COMMAND` to find it.
+      placeholder: ex. v1.2.0-rc0
+    validations:
+      required: true
+  - type: textarea
+    id: more-info
+    attributes:
+      label: More Information.
+      description: Do you have any other information from investigating this?
+      placeholder: ex. I tried on my friend's Windows 10 PC and the command works there.
+    validations:
+      required: false
