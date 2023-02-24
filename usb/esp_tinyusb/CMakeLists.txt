@@ -16,6 +16,7 @@ set(priv_requires
     usb
     vfs
     esp_ringbuf
+    esp_wifi
     )
 
 if(NOT CONFIG_TINYUSB_NO_DEFAULT_TASK)
@@ -30,6 +31,10 @@ if(CONFIG_TINYUSB_CDC_ENABLED)
         "vfs_tinyusb.c"
         )
 endif() # CONFIG_TINYUSB_CDC_ENABLED
+
+if(CONFIG_TINYUSB_NET_MODE_NCM)
+    list(APPEND srcs "tinyusb_net.c")
+endif() # CONFIG_TINYUSB_NET_MODE_NCM
 
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS ${includes_public}

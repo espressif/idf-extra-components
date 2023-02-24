@@ -81,6 +81,11 @@ const char *descriptor_str_kconfig[] = {
 #else
     "",
 #endif
+
+#if CONFIG_TINYUSB_NET_MODE_ECM_RNDIS || CONFIG_TINYUSB_NET_MODE_NCM
+    "USB net",                               // 6. NET Interface
+    "",                                      // 7. MAC
+#endif
     NULL                                     // NULL: Must be last. Indicates end of array
 };
 
@@ -100,13 +105,19 @@ enum {
     ITF_NUM_MSC,
 #endif
 
+#if CFG_TUD_NCM
+    ITF_NUM_NET,
+    ITF_NUM_NET_DATA,
+#endif
+
     ITF_NUM_TOTAL
 };
 
 enum {
     TUSB_DESC_TOTAL_LEN = TUD_CONFIG_DESC_LEN +
                           CFG_TUD_CDC * TUD_CDC_DESC_LEN +
-                          CFG_TUD_MSC * TUD_MSC_DESC_LEN
+                          CFG_TUD_MSC * TUD_MSC_DESC_LEN +
+                          CFG_TUD_NCM * TUD_CDC_NCM_DESC_LEN
 };
 
 //------------- USB Endpoint numbers -------------//
@@ -126,6 +137,32 @@ enum {
 #if CFG_TUD_MSC
     EPNUM_MSC,
 #endif
+
+#if CFG_TUD_NCM
+    EPNUM_NET_NOTIF,
+    EPNUM_NET_DATA,
+#endif
+};
+
+//------------- STRID -------------//
+enum {
+    STRID_LANGID = 0,
+    STRID_MANUFACTURER,
+    STRID_PRODUCT,
+    STRID_SERIAL,
+#if CFG_TUD_CDC
+    STRID_CDC_INTERFACE,
+#endif
+
+#if CFG_TUD_MSC
+    STRID_MSC_INTERFACE,
+#endif
+
+#if CFG_TUD_NCM
+    STRID_NET_INTERFACE,
+    STRID_MAC,
+#endif
+
 };
 
 //------------- Configuration Descriptor -------------//
@@ -135,18 +172,29 @@ uint8_t const descriptor_cfg_kconfig[] = {
 
 #if CFG_TUD_CDC
     // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
-    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, 0x80 | EPNUM_0_CDC_NOTIF, 8, EPNUM_0_CDC, 0x80 | EPNUM_0_CDC, CFG_TUD_CDC_EP_BUFSIZE),
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, STRID_CDC_INTERFACE, 0x80 | EPNUM_0_CDC_NOTIF, 8, EPNUM_0_CDC, 0x80 | EPNUM_0_CDC, CFG_TUD_CDC_EP_BUFSIZE),
 #endif
 
 #if CFG_TUD_CDC > 1
     // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
-    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC1, 4, 0x80 | EPNUM_1_CDC_NOTIF, 8, EPNUM_1_CDC, 0x80 | EPNUM_1_CDC, CFG_TUD_CDC_EP_BUFSIZE),
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC1, STRID_CDC_INTERFACE, 0x80 | EPNUM_1_CDC_NOTIF, 8, EPNUM_1_CDC, 0x80 | EPNUM_1_CDC, CFG_TUD_CDC_EP_BUFSIZE),
 #endif
 
 #if CFG_TUD_MSC
     // Interface number, string index, EP Out & EP In address, EP size
-    TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 5, EPNUM_MSC, 0x80 | EPNUM_MSC, 64), // highspeed 512
+    TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, STRID_MSC_INTERFACE, EPNUM_MSC, 0x80 | EPNUM_MSC, 64), // highspeed 512
+#endif
+
+#if CFG_TUD_NCM
+    // Interface number, description string index, MAC address string index, EP notification address and size, EP data address (out, in), and size, max segment size.
+    TUD_CDC_NCM_DESCRIPTOR(ITF_NUM_NET, STRID_NET_INTERFACE, STRID_MAC, (0x80 | EPNUM_NET_NOTIF), 64, EPNUM_NET_DATA, (0x80 | EPNUM_NET_DATA), CFG_TUD_NET_ENDPOINT_SIZE, CFG_TUD_NET_MTU),
 #endif
 };
 
+#if CFG_TUD_NCM
+uint8_t tusb_get_mac_string_id(void)
+{
+    return STRID_MAC;
+}
+#endif
 /* End of Kconfig driven Descriptor */
