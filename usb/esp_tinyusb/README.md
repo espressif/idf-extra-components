@@ -10,6 +10,7 @@ It contains:
 * Input and output streams through USB Serial Device
 * Other USB classes (MIDI, MSC, HID…) support directly via TinyUSB
 * VBUS monitoring for self-powered devices
+* SPI Flash or sd-card access via MSC USB device Class.
 
 ## Documentation and examples
 You can find documentation in [ESP-IDF Programming Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/usb_device.html).

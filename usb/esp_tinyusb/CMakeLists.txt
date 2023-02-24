@@ -16,6 +16,7 @@ set(priv_requires
     usb
     vfs
     esp_ringbuf
+    fatfs
     )
 
 if(NOT CONFIG_TINYUSB_NO_DEFAULT_TASK)
@@ -30,6 +31,12 @@ if(CONFIG_TINYUSB_CDC_ENABLED)
         "vfs_tinyusb.c"
         )
 endif() # CONFIG_TINYUSB_CDC_ENABLED
+
+if(CONFIG_TINYUSB_MSC_ENABLED)
+    list(APPEND srcs
+        tusb_msc_storage.c
+        )
+endif() # CONFIG_TINYUSB_MSC_ENABLED
 
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS ${includes_public}
