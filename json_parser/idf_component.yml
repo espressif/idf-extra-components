@@ -1,8 +1,14 @@
-version: "1.0.3"
+version: "1.0.2"
 description: This is a simple, light weight JSON parser built on top of jsmn
 url: https://github.com/espressif/json_parser
 dependencies:
   jsmn:
     version: "~1.1"
-    rules:
-      - if: "idf_version >=5.0"
+    # The "rules" entry is temporarily disabled, as idf-component-manager
+    # doesn't support uploading components with such entries to the registry.
+    # Re-enable this after the bug fix in idf-component-manager is released,
+    # and increase the component version to 1.0.3.
+    #
+    # rules:
+    #   - if: "idf_version >=5.0"
+    override_path: "../jsmn/"
