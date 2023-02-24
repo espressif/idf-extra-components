@@ -111,6 +111,13 @@ menu "TinyUSB Stack"
             range 64 10000
             help
                 MSC FIFO size, in bytes.
+
+        config TINYUSB_MSC_MOUNT_PATH
+            depends on TINYUSB_MSC_ENABLED
+            string "Mount Path"
+            default "/data"
+            help
+                MSC Mount Path of storage.
     endmenu # "Massive Storage Class"
 
     menu "Communication Device Class (CDC)"
