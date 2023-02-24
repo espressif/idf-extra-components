@@ -38,6 +38,10 @@ if(CONFIG_TINYUSB_MSC_ENABLED)
         )
 endif() # CONFIG_TINYUSB_MSC_ENABLED
 
+if(CONFIG_TINYUSB_NET_MODE_NCM)
+    list(APPEND srcs "tinyusb_net.c")
+endif() # CONFIG_TINYUSB_NET_MODE_NCM
+
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS ${includes_public}
                        PRIV_INCLUDE_DIRS ${includes_private}

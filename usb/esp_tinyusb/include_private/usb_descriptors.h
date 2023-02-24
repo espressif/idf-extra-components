@@ -36,6 +36,8 @@ extern const char *descriptor_str_kconfig[];
  */
 extern const uint8_t descriptor_cfg_kconfig[];
 
+uint8_t tusb_get_mac_string_id(void);
+
 #ifdef __cplusplus
 }
 #endif
