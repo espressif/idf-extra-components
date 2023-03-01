@@ -22,3 +22,6 @@
 [submodule "fmt/fmt"]
 	path = fmt/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "esp_delta_ota/detools"]
+	path = esp_delta_ota/detools
+	url = https://github.com/eerimoq/detools.git
