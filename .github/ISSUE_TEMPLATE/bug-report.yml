@@ -1,5 +1,5 @@
-name: Installation or build bug report
-description: Report installation or build bugs
+name: Bug report
+description: Report build and runtime bugs
 labels: ["Type: Bug"]
 body:
   - type: checkboxes
@@ -10,14 +10,14 @@ body:
       options:
         - label: I have read the component documentation [ESP-IDF Components](https://components.espressif.com) and the issue is not addressed there.
           required: true
-        - label: I have updated my idf-component-manager branch (master or release) to the latest version and checked that the issue is present there.
+        - label: I am using target and esp-idf version as defined in component's idf_component.yml
           required: true
-        - label: I have searched the issue tracker for a similar issue and not found a similar issue.
+        - label: I have searched the [issue tracker](https://github.com/espressif/idf-extra-components/issues?q=is%3Aissue) for a similar issue and not found any related issue.
           required: true
   - type: dropdown
     id: component
     attributes:
-      label: What component are you using? If you choose Other, provide details in More Information.
+      label: Which component are you using? If you choose Other, provide details in More Information.
       multiple: false
       options:
         - bdc_motor
@@ -45,18 +45,26 @@ body:
     validations:
       required: true
   - type: input
-    id: pacman_version
+    id: idf_version
     attributes:
-      label: IDF Component Manager version.
-      description: On which IDF Component Manager version does this issue occur on? Run `python -m idf_component_manager -h` to find it.
-      placeholder: ex. v1.2.0-rc0
+      label: ESP-IDF version.
+      description: On which ESP-IDF version does this issue occur on? Run `python -m idf_component_manager -h` to find it.
+      placeholder: ex. v5.0-rc1
+    validations:
+      required: true
+  - type: input
+    id: devkit
+    attributes:
+      label: Development Kit.
+      description: On which Development Kit does this issue occur on?
+      placeholder: ex. ESP32-Wrover-Kit v2 | Custom Board
     validations:
       required: true
   - type: input
     id: component_version
     attributes:
       label: Used Component version.
-      description: On which Component version does this issue occur on? Run `COMMAND` to find it.
+      description: On which Component version does this issue occur on? Check `dependencies.lock` file in your project root to find it.
       placeholder: ex. v1.2.0-rc0
     validations:
       required: true

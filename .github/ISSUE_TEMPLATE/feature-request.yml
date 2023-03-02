@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         * We welcome any ideas or feature requests! It’s helpful if you can explain exactly why the feature would be useful.
-        * There are usually some outstanding feature requests in the [existing issues list](https://github.com/espressif/esp-extra-components/labels/Type%3A%20Feature%20Request), feel free to add comments to them.
+        * There are usually some outstanding feature requests in the [existing issues list](https://github.com/espressif/idf-extra-components/labels/Type%3A%20Feature%20Request), feel free to add comments to them.
   - type: textarea
     id: problem-related
     attributes:

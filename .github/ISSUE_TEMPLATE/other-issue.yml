@@ -7,9 +7,7 @@ body:
       label: Answers checklist.
       description: Before submitting a new issue, please follow the checklist and try to find the answer.
       options:
-        - label: I have read the component documentation [ESP-IDF Components](https://components.espressif.com) and the issue is not addressed there.
-          required: true
-        - label: I have updated my idf-component-manager branch (master or release) to the latest version and checked that the issue is present there.
+        - label: I have read the documentation of the component in question and the issue is not addressed there.
           required: true
         - label: I have searched the issue tracker for a similar issue and not found a similar issue.
           required: true
