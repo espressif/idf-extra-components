@@ -48,7 +48,7 @@ body:
     id: idf_version
     attributes:
       label: ESP-IDF version.
-      description: On which ESP-IDF version does this issue occur on? Run `python -m idf_component_manager -h` to find it.
+      description: On which ESP-IDF version does this issue occur on? Run `git describe --tags` in your esp-idf folder to find it.
       placeholder: ex. v5.0-rc1
     validations:
       required: true
