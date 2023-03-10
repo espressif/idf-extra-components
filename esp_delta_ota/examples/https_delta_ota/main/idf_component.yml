@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+version: "1.0.0"
+description: Delta OTA Example
+dependencies:
+  espressif/esp_delta_ota:
+    version: '1.*'
+    override_path: '../../../'
