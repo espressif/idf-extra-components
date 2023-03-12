@@ -1,100 +1,253 @@
 /*
- * SPDX-FileCopyrightText: 2019 Ha Thach (tinyusb.org)
+ * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
  *
- * SPDX-License-Identifier: MIT
- *
- * SPDX-FileContributor: 2019-2021 Espressif Systems (Shanghai) CO LTD
- *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
 
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- */
 
-#include <stdint.h>
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "tinyusb.h"
-#include "test_common.h"
-#include "soc/soc_caps.h"
 #include "esp_idf_version.h"
+#include "soc/soc_caps.h"
+#include "test_common.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+#include "esp_check.h"
+#include "driver/gpio.h"
+#include "tusb_msc_storage.h"
+#endif /* ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) */
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED
+#include "diskio_impl.h"
+#include "diskio_sdmmc.h"
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED */
 
 #if SOC_USB_OTG_SUPPORTED
 
-#define MASS_STORAGE_CLASS  0x08
-#define SCSI_COMMAND_SET    0x06
-#define BULK_ONLY_TRANSFER  0x50
+/* sd-card configuration to be done by user */
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED
+#define SDMMC_BUS_WIDTH 4 /* Select the bus width of SD or MMC interface (4 or 1).
+                            Note that even if 1 line mode is used, D3 pin of the SD card must
+                            have a pull-up resistor connected. Otherwise the card may enter
+                            SPI mode, the only way to recover from which is to cycle power to the card. */
+#define PIN_CMD         35 /* CMD GPIO number */
+#define PIN_CLK         36 /* CLK GPIO number */
+#define PIN_D0          37 /* D0 GPIO number */
+#define PIN_D1          38 /* D1 GPIO number (applicable when width SDMMC_BUS_WIDTH is 4) */
+#define PIN_D2          33 /* D2 GPIO number (applicable when width SDMMC_BUS_WIDTH is 4) */
+#define PIN_D3          34 /* D3 GPIO number (applicable when width SDMMC_BUS_WIDTH is 4) */
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED */
 
 static const char *TAG = "msc_example";
 
+/* TinyUSB descriptors
+   ********************************************************************* */
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-/**** Kconfig driven Descriptor ****/
-static const tusb_desc_device_t device_descriptor = {
-    .bLength = sizeof(device_descriptor),
+#define TUSB_DESC_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_MSC_DESC_LEN)
+
+enum {
+    ITF_NUM_MSC = 0,
+    ITF_NUM_TOTAL
+};
+
+enum {
+    EDPT_MSC_OUT  = 0x01,
+    EDPT_MSC_IN   = 0x81,
+};
+
+static uint8_t const desc_configuration[] = {
+    // Config number, interface count, string index, total length, attribute, power in mA
+    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, TUSB_DESC_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
+
+    // Interface number, string index, EP Out & EP In address, EP size
+    TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 0, EDPT_MSC_OUT, EDPT_MSC_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
+};
+
+static tusb_desc_device_t descriptor_config = {
+    .bLength = sizeof(descriptor_config),
     .bDescriptorType = TUSB_DESC_DEVICE,
     .bcdUSB = 0x0200,
-    .bDeviceClass = MASS_STORAGE_CLASS,
-    .bDeviceSubClass = SCSI_COMMAND_SET,
-    .bDeviceProtocol = BULK_ONLY_TRANSFER,
+    .bDeviceClass = TUSB_CLASS_MISC,
+    .bDeviceSubClass = MISC_SUBCLASS_COMMON,
+    .bDeviceProtocol = MISC_PROTOCOL_IAD,
     .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-    .idVendor = USB_ESPRESSIF_VID,
-    .idProduct = 0x1234,
-    .bcdDevice = 0x0100,
+    .idVendor = 0x303A, // This is Espressif VID. This needs to be changed according to Users / Customers
+    .idProduct = 0x4002,
+    .bcdDevice = 0x100,
     .iManufacturer = 0x01,
     .iProduct = 0x02,
     .iSerialNumber = 0x03,
     .bNumConfigurations = 0x01
 };
 
-const uint16_t msc_desc_config_len = TUD_CONFIG_DESC_LEN + CFG_TUD_MSC * TUD_MSC_DESC_LEN;
-static const uint8_t msc_desc_configuration[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 4, 0, msc_desc_config_len, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
-    TUD_MSC_DESCRIPTOR(0, 5, 1, 0x80 | 1, 64),
+static char const *string_desc_arr[] = {
+    (const char[]) { 0x09, 0x04 },  // 0: is supported language is English (0x0409)
+    "TinyUSB",                      // 1: Manufacturer
+    "TinyUSB Device",               // 2: Product
+    "123456",                       // 3: Serials
+    "Test MSC",                  // 4. MSC
 };
-#endif
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) */
+/*********************************************************************** TinyUSB descriptors*/
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+#define VBUS_MONITORING_GPIO_NUM GPIO_NUM_4
+static void configure_vbus_monitoring(void)
+{
+    // Configure GPIO Pin for vbus monitoring
+    const gpio_config_t vbus_gpio_config = {
+        .pin_bit_mask = BIT64(VBUS_MONITORING_GPIO_NUM),
+        .mode = GPIO_MODE_INPUT,
+        .intr_type = GPIO_INTR_DISABLE,
+        .pull_up_en = true,
+        .pull_down_en = false,
+    };
+    ESP_ERROR_CHECK(gpio_config(&vbus_gpio_config));
+}
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) */
+
+static void storage_init(void)
+{
+    ESP_LOGI(TAG, "USB MSC initialization");
+    const tinyusb_config_t tusb_cfg = {
+        .external_phy = false,
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        .device_descriptor = &descriptor_config,
+        .configuration_descriptor = desc_configuration,
+        .string_descriptor = string_desc_arr,
+        .string_descriptor_count = sizeof(string_desc_arr) / sizeof(string_desc_arr[0]),
+        .self_powered = true,
+        .vbus_monitor_io = VBUS_MONITORING_GPIO_NUM
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) */
+    };
+    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
+    ESP_LOGI(TAG, "USB initialization DONE");
+}
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
+{
+    ESP_LOGI(TAG, "Initializing wear levelling");
+
+    const esp_partition_t *data_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, NULL);
+    if (data_partition == NULL) {
+        ESP_LOGE(TAG, "Failed to find FATFS partition. Check the partition table.");
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    return wl_mount(data_partition, wl_handle);
+}
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) */
 
 void device_app(void)
 {
-    ESP_LOGI(TAG, "USB initialization");
-
-    tinyusb_config_t tusb_cfg = {
-        .external_phy = false,
+    ESP_LOGI(TAG, "Initializing storage...");
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-        .device_descriptor = &device_descriptor,
-        .configuration_descriptor = msc_desc_configuration
-#endif
-    };
+    configure_vbus_monitoring();
 
-    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
-    ESP_LOGI(TAG, "USB initialization DONE");
+    static wl_handle_t wl_handle = WL_INVALID_HANDLE;
+    ESP_ERROR_CHECK(storage_init_spiflash(&wl_handle));
 
+    tinyusb_msc_spiflash_config_t config_spi;
+    config_spi.wl_handle = wl_handle;
+    ESP_ERROR_CHECK(tinyusb_msc_storage_init_spiflash(&config_spi));
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) */
+    storage_init();
     while (1) {
         vTaskDelay(100);
     }
 }
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED
+static esp_err_t storage_init_sdmmc(sdmmc_card_t **card)
+{
+    esp_err_t ret = ESP_OK;
+    bool host_init = false;
+    sdmmc_card_t *sd_card;
+
+    ESP_LOGI(TAG, "Initializing SDCard");
+
+    // By default, SD card frequency is initialized to SDMMC_FREQ_DEFAULT (20MHz)
+    // For setting a specific frequency, use host.max_freq_khz (range 400kHz - 40MHz for SDMMC)
+    // Example: for fixed frequency of 10MHz, use host.max_freq_khz = 10000;
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+
+    // This initializes the slot without card detect (CD) and write protect (WP) signals.
+    // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+
+    if (SDMMC_BUS_WIDTH == 4) {
+        slot_config.width = 4;
+    } else {
+        slot_config.width = 1;
+    }
+
+    // On chips where the GPIOs used for SD card can be configured, set the user defined values
+#ifdef CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
+    slot_config.clk = PIN_CLK;
+    slot_config.cmd = PIN_CMD;
+    slot_config.d0 = PIN_D0;
+    if (SDMMC_BUS_WIDTH == 4) {
+        slot_config.d1 = PIN_D1;
+        slot_config.d2 = PIN_D2;
+        slot_config.d3 = PIN_D3;
+    }
+#endif  // CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
+
+    // Enable internal pullups on enabled pins. The internal pullups
+    // are insufficient however, please make sure 10k external pullups are
+    // connected on the bus. This is for debug / example purpose only.
+    slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+
+    // not using ff_memalloc here, as allocation in internal RAM is preferred
+    sd_card = (sdmmc_card_t *)malloc(sizeof(sdmmc_card_t));
+    ESP_GOTO_ON_FALSE(sd_card, ESP_ERR_NO_MEM, clean, TAG, "could not allocate new sdmmc_card_t");
+
+    ESP_GOTO_ON_ERROR((*host.init)(), clean, TAG, "Host Config Init fail");
+    host_init = true;
+
+    ESP_GOTO_ON_ERROR(sdmmc_host_init_slot(host.slot, (const sdmmc_slot_config_t *) &slot_config),
+                      clean, TAG, "Host init slot fail");
+
+    ESP_GOTO_ON_ERROR(sdmmc_card_init(&host, sd_card),
+                      clean, TAG, "The detection pin of the slot is disconnected");
+
+    *card = sd_card;
+
+    return ESP_OK;
+
+clean:
+    if (host_init) {
+        if (host.flags & SDMMC_HOST_FLAG_DEINIT_ARG) {
+            host.deinit_p(host.slot);
+        } else {
+            (*host.deinit)();
+        }
+    }
+    if (sd_card) {
+        free(sd_card);
+        sd_card = NULL;
+    }
+    return ret;
+}
+
+void device_app_sdmmc(void)
+{
+    ESP_LOGI(TAG, "Initializing storage...");
+    configure_vbus_monitoring();
+    static sdmmc_card_t *card = NULL;
+    ESP_ERROR_CHECK(storage_init_sdmmc(&card));
+
+    tinyusb_msc_sdmmc_config_t config_sdmmc;
+    config_sdmmc.card = card;
+    ESP_ERROR_CHECK(tinyusb_msc_storage_init_sdmmc(&config_sdmmc));
+
+    storage_init();
+    while (1) {
+        vTaskDelay(100);
+    }
+}
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED */
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 // whether host does safe-eject
 static bool ejected = false;
 
@@ -302,5 +455,6 @@ int32_t tud_msc_scsi_cb (uint8_t lun, uint8_t const scsi_cmd[16], void *buffer, 
 
     return resplen;
 }
+#endif /* ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) */
 
 #endif /* SOC_USB_OTG_SUPPORTED */

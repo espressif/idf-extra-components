@@ -6,27 +6,13 @@
  */
 
 #include "unity.h"
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <unistd.h>
-#include <stdbool.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "esp_err.h"
-#include "esp_log.h"
 #include "esp_private/usb_phy.h"
 #include "usb/usb_host.h"
-#include "msc_host.h"
 #include "msc_host_vfs.h"
-#include "ffconf.h"
-#include "ff.h"
 #include "test_common.h"
-#include "soc/usb_wrap_struct.h"
-#include "soc/soc_caps.h"
+#include "esp_idf_version.h"
 
 #if SOC_USB_OTG_SUPPORTED
 
@@ -35,7 +21,7 @@ static const char *TAG = "APP";
 #define ESP_OK_ASSERT(exp) TEST_ASSERT_EQUAL(ESP_OK, exp)
 
 static esp_vfs_fat_mount_config_t mount_config = {
-    .format_if_mount_failed = false,
+    .format_if_mount_failed = true,
     .max_files = 3,
     .allocation_unit_size = 1024,
 };
@@ -133,6 +119,7 @@ static void handle_usb_events(void *args)
     vTaskDelete(NULL);
 }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 static void check_file_content(const char *file_path, const char *expected)
 {
     ESP_LOGI(TAG, "Reading %s:", file_path);
@@ -144,6 +131,7 @@ static void check_file_content(const char *file_path, const char *expected)
     TEST_ASSERT_EQUAL_STRING(content, expected);
     fclose(file);
 }
+#endif /* ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) */
 
 static void check_sudden_disconnect(void)
 {
@@ -281,12 +269,14 @@ TEST_CASE("sectors_can_be_written_and_read", "[usb_msc]")
     msc_teardown();
 }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 TEST_CASE("check_README_content", "[usb_msc]")
 {
     msc_setup();
     check_file_content("/usb/README.TXT", README_CONTENTS);
     msc_teardown();
 }
+#endif  /* ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) */
 
 /**
  * @brief USB MSC format testcase
@@ -320,4 +310,11 @@ TEST_CASE("mock_device_app", "[usb_msc_device][ignore]")
     device_app();
 }
 
-#endif
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED
+TEST_CASE("mock_device_app", "[usb_msc_device_sdmmc][ignore]")
+{
+    device_app_sdmmc();
+}
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) && SOC_SDMMC_HOST_SUPPORTED */
+
+#endif /* SOC_USB_OTG_SUPPORTED */
