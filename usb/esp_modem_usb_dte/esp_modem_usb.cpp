@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,6 +11,7 @@
 #include "esp_modem_usb_config.h"
 #include "cxx_include/esp_modem_dte.hpp"
 #include "cxx_include/esp_modem_exception.hpp"
+#include "exception_stub.hpp"
 #include "usb/usb_host.h"
 #include "usb/cdc_acm_host.h"
 #include "sdkconfig.h"
@@ -46,7 +47,7 @@ static void usb_host_task(void *arg)
 namespace esp_modem {
 class UsbTerminal : public Terminal, private CdcAcmDevice {
 public:
-    explicit UsbTerminal(const esp_modem_dte_config *config)
+    explicit UsbTerminal(const esp_modem_dte_config *config, int term_idx)
     {
         const struct esp_modem_usb_term_config *usb_config = (struct esp_modem_usb_term_config *)(config->extension_config);
 
@@ -84,13 +85,16 @@ public:
             .user_arg = this
         };
 
+        // Determine Terminal interface index
+        const uint8_t intf_idx = term_idx == 0 ? usb_config->interface_idx : usb_config->secondary_interface_idx;
+
         if (usb_config->cdc_compliant) {
             ESP_MODEM_THROW_IF_ERROR(
-                this->CdcAcmDevice::open(usb_config->vid, usb_config->pid, usb_config->interface_idx, &esp_modem_cdc_acm_device_config),
+                this->CdcAcmDevice::open(usb_config->vid, usb_config->pid, intf_idx, &esp_modem_cdc_acm_device_config),
                 "USB Device open failed");
         } else {
             ESP_MODEM_THROW_IF_ERROR(
-                this->CdcAcmDevice::open_vendor_specific(usb_config->vid, usb_config->pid, usb_config->interface_idx, &esp_modem_cdc_acm_device_config),
+                this->CdcAcmDevice::open_vendor_specific(usb_config->vid, usb_config->pid, intf_idx, &esp_modem_cdc_acm_device_config),
                 "USB Device open failed");
         }
     };
@@ -137,7 +141,7 @@ private:
     static bool handle_rx(const uint8_t *data, size_t data_len, void *user_arg)
     {
         ESP_LOG_BUFFER_HEXDUMP(TAG, data, data_len, ESP_LOG_DEBUG);
-        UsbTerminal *this_terminal = static_cast<UsbTerminal *>(user_arg);
+        auto *this_terminal = static_cast<UsbTerminal *>(user_arg);
         if (data_len > 0 && this_terminal->on_read) {
             return this_terminal->on_read((uint8_t *)data, data_len);
         } else {
@@ -148,7 +152,7 @@ private:
 
     static void handle_notif(const cdc_acm_host_dev_event_data_t *event, void *user_ctx)
     {
-        UsbTerminal *this_terminal = static_cast<UsbTerminal *>(user_ctx);
+        auto *this_terminal = static_cast<UsbTerminal *>(user_ctx);
 
         switch (event->type) {
         // Notifications like Ring, Rx Carrier indication or Network connection indication are not relevant for USB terminal
@@ -176,10 +180,10 @@ private:
 };
 TaskHandle_t UsbTerminal::usb_host_lib_task = nullptr;
 
-std::unique_ptr<Terminal> create_usb_terminal(const esp_modem_dte_config *config)
+std::unique_ptr<Terminal> create_usb_terminal(const esp_modem_dte_config *config, int term_idx)
 {
     TRY_CATCH_RET_NULL(
-        return std::make_unique<UsbTerminal>(config);
+        return std::make_unique<UsbTerminal>(config, term_idx);
     )
 }
 } // namespace esp_modem
