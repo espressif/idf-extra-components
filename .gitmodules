@@ -25,3 +25,6 @@
 [submodule "esp_delta_ota/detools"]
 	path = esp_delta_ota/detools
 	url = https://github.com/eerimoq/detools.git
+[submodule "quirc/quirc"]
+	path = quirc/quirc
+	url = https://github.com/dlbeer/quirc.git

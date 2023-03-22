@@ -1,0 +1,8 @@
+version: "1.2.0"
+description: Quirc QR code decoding library
+url: https://github.com/espressif/idf-extra-components/tree/master/quirc
+repository: https://github.com/espressif/idf-extra-components.git
+issues: https://github.com/espressif/idf-extra-components/issues
+documentation: https://github.com/dlbeer/quirc#library-use
+dependencies:
+  idf: ">=4.3.0"
