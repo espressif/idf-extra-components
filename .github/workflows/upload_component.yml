@@ -30,6 +30,7 @@ jobs:
             json_generator;
             json_parser;
             led_strip;
+            libpng;
             libsodium;
             nghttp;
             pcap;
@@ -46,5 +47,6 @@ jobs:
             usb/usb_host_msc;
             usb/usb_host_uvc;
             usb/usb_host_vcp;
+            zlib;
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}

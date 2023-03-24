@@ -1,0 +1,8 @@
+version: "1.2.13"
+description: zlib C library
+url: https://github.com/espressif/idf-extra-components/tree/master/zlib
+repository: "https://github.com/espressif/idf-extra-components.git"
+documentation: "https://www.zlib.net/manual.html"
+issues: "https://github.com/espressif/idf-extra-components/issues" # URL of the issue tracker
+dependencies:
+  idf: ">=4.4"

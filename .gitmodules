@@ -28,3 +28,9 @@
 [submodule "quirc/quirc"]
 	path = quirc/quirc
 	url = https://github.com/dlbeer/quirc.git
+[submodule "zlib/zlib"]
+	path = zlib/zlib
+	url = https://github.com/madler/zlib.git
+[submodule "libpng/libpng"]
+	path = libpng/libpng
+	url = https://github.com/glennrp/libpng.git
