@@ -15,6 +15,15 @@ jobs:
       - name: Upload components to component service
         uses: espressif/upload-components-ci-action@v1
         with:
+          # Please try to keep the directories list sorted.
+          #
+          # Do note, however, that if you are updating two components in the same PR
+          # and one depends on the other, the new version of the 2nd component won't
+          # be found in the registry when the 1st component is uploaded.
+          #
+          # This is only a problem if you are adding two components for the first time,
+          # or if the 2nd component depends on the exact (new) version of the first one.
+          #
           directories: >
             bdc_motor;
             cbor;
@@ -30,7 +39,6 @@ jobs:
             json_generator;
             json_parser;
             led_strip;
-            libpng;
             libsodium;
             nghttp;
             pcap;
@@ -48,5 +56,6 @@ jobs:
             usb/usb_host_uvc;
             usb/usb_host_vcp;
             zlib;
+            libpng;
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
