@@ -27,12 +27,7 @@ MSC driver allows access to USB flash drivers using the BOT “Bulk-Only Transpo
 ## Known issues
 
 - Driver only supports USB 2.0 flash drives using the BOT “Bulk-Only Transport” protocol and the Transparent SCSI command set
-- Composite USB devices are not supported
 
 ## Examples
 
 - For an example, refer to [msc_host_example](https://github.com/espressif/esp-idf/tree/master/examples/peripherals/usb/host/msc)
-
-## Troubleshooting
-
-After connecting composite USB device, driver prints `COMPOSITE DEVICES UNSUPPORTED` 

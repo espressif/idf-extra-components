@@ -348,7 +348,6 @@ esp_err_t msc_host_install_device(uint8_t device_address, msc_host_device_handle
     uint32_t block_size, block_count;
     const usb_config_desc_t *config_desc;
     msc_device_t *msc_device;
-    uint8_t lun;
     size_t transfer_size = 512; // Normally the smallest block size
 
     MSC_GOTO_ON_FALSE( msc_device = calloc(1, sizeof(msc_device_t)), ESP_ERR_NO_MEM );
@@ -369,15 +368,9 @@ esp_err_t msc_host_install_device(uint8_t device_address, msc_host_device_handle
                            msc_device->handle,
                            msc_device->config.iface_num, 0) );
 
-    MSC_GOTO_ON_ERROR( msc_get_max_lun(msc_device, &lun) );
     MSC_GOTO_ON_ERROR( scsi_cmd_inquiry(msc_device) );
     MSC_GOTO_ON_ERROR( msc_wait_for_ready_state(msc_device, WAIT_FOR_READY_TIMEOUT_MS) );
     MSC_GOTO_ON_ERROR( scsi_cmd_read_capacity(msc_device, &block_size, &block_count) );
-
-    // Configuration descriptor size of simple MSC device is 32 bytes.
-    if (config_desc->wTotalLength != 32) {
-        ESP_LOGE(TAG, "COMPOSITE DEVICES UNSUPPORTED");
-    }
 
     msc_device->disk.block_size = block_size;
     msc_device->disk.block_count = block_count;
