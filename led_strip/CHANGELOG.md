@@ -1,17 +1,6 @@
-## 1.0.0
+## 2.3.0
 
-- Initial driver version, based on the legacy RMT driver (`driver/rmt.h`)
-
-## 2.0.0
-
-- Reimplemented the driver using the new RMT driver (`driver/rmt_tx.h`)
-
-## 2.1.0
-
-- Support DMA feature, which offloads the CPU by a lot when it comes to drive a bunch of LEDs
-- Support various RMT clock sources
-- Acquire and release the power management lock before and after each refresh
-- New driver flag: `invert_out` which can invert the led control signal by hardware
+- Support configurable RMT channel size by setting `mem_block_symbols`
 
 ## 2.2.0
 
@@ -22,6 +11,17 @@
   - new API led_strip_set_pixel_rgbw
   - new interface type set_pixel_rgbw
 
-## 2.3.0
+## 2.1.0
 
-- Support configurable RMT channel size by setting `mem_block_symbols`
+- Support DMA feature, which offloads the CPU by a lot when it comes to drive a bunch of LEDs
+- Support various RMT clock sources
+- Acquire and release the power management lock before and after each refresh
+- New driver flag: `invert_out` which can invert the led control signal by hardware
+
+## 2.0.0
+
+- Reimplemented the driver using the new RMT driver (`driver/rmt_tx.h`)
+
+## 1.0.0
+
+- Initial driver version, based on the legacy RMT driver (`driver/rmt.h`)

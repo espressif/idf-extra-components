@@ -34,4 +34,6 @@ led_strip_rmt_config_t rmt_config = {
 ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
 ```
 
+You can create multiple LED strip objects with different GPIOs and pixel numbers. The backend driver will automatically allocate the RMT channel for you if there is more available.
+
 [^1]: The DMA feature is not available on all ESP chips. Please check the data sheet before using it.
