@@ -14,7 +14,7 @@ endif()
 
 # 3. Add here if the component is compatible with IDF >= v5.0
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.0")
-    list(APPEND EXTRA_COMPONENT_DIRS ../bdc_motor ../led_strip ../sh2lib ../nghttp ../esp_serial_slave_link)
+    list(APPEND EXTRA_COMPONENT_DIRS ../bdc_motor ../led_strip ../sh2lib ../nghttp ../esp_serial_slave_link ../onewire_bus)
 endif()
 
 # !This section should NOT be touched when adding new component!

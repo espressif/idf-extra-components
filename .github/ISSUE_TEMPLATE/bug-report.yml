@@ -35,6 +35,7 @@ body:
         - led_strip
         - libsodium
         - nghttp
+        - onewire_bus
         - pcap
         - pid_ctrl
         - qrcode
