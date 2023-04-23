@@ -49,7 +49,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Start blinking LED strip");
     while (1) {
         if (led_on_off) {
-            /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+            /* Set the LED pixel using RGB in percentages from 0-100 (not the more common RGB units ranging 0-255) for each color */
             ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, 0, 16, 16, 16));
             /* Refresh the strip to send data */
             ESP_ERROR_CHECK(led_strip_refresh(led_strip));
