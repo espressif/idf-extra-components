@@ -27,6 +27,7 @@ jobs:
           directories: >
             bdc_motor;
             cbor;
+            ccomp_timer;
             coap;
             eigen;
             esp_delta_ota;
