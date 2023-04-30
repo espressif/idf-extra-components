@@ -18,13 +18,36 @@
 # The submodule SHA recorded here has to match with SHA, which is presented in git-tree.
 # This is checked by CI. Also please don't forget to update the submodule version
 # if you are changing the sbom-hash. This is important for SBOM generation.
+#
+#
+# Submodules autoupdate
+# ---------------------
+# .github/workflows/update_submodules.yml workflow is used to make automatic pull
+# requests to update submodules. The workflow uses information from this file to
+# determine which submodules should be updated and how.
+# For each submodule, several "autoupdate-" entries can be specified, see:
+# https://github.com/espressif/github-actions/blob/master/update_submodule_versions/README.md
+#
 
 [submodule "libsodium/libsodium"]
 	path = libsodium/libsodium
 	url = https://github.com/jedisct1/libsodium.git
+	# libsodium doesn't tag new releases since 0.18.0, 'stable' branch is considered
+	# to be the latest stable release. See:
+	# https://github.com/jedisct1/libsodium/issues/1041#issuecomment-799812417
+	# However since idf_component.yml had the version already set to 0.20.0,
+	# we can't update the version automatically (it would be set it back to 0.18.0~n)
+	# autoupdate = false
+
 [submodule "cbor/tinycbor"]
 	path = cbor/tinycbor
 	url = https://github.com/intel/tinycbor.git
+	autoupdate = true
+	autoupdate-branch = main
+	autoupdate-tag-glob = v[0-9]*.[0-9]*.[0-9]*
+	autoupdate-manifest = cbor/idf_component.yml
+	autoupdate-ver-regex = v([0-9]+).([0-9]+).([0-9]+)
+
 [submodule "nghttp/nghttp2"]
 	path = nghttp/nghttp2
 	url = https://github.com/nghttp2/nghttp2.git
@@ -34,6 +57,11 @@
 	sbom-url = https://github.com/nghttp2/nghttp2
 	sbom-description = nghttp2 - HTTP/2 C Library and tools
 	sbom-hash = be0491294a63d891bd12b6b1b7e372a45a5d0ffe
+	autoupdate = true
+	autoupdate-branch = master
+	autoupdate-tag-glob = v[0-9]*.[0-9]*.[0-9]*
+	autoupdate-manifest = nghttp/idf_component.yml
+	autoupdate-ver-regex = v([0-9]+).([0-9]+).([0-9]+)
 
 [submodule "expat/expat"]
 	path = expat/expat
@@ -44,6 +72,11 @@
 	sbom-url = https://github.com/libexpat/libexpat/
 	sbom-description = Fast streaming XML parser written in C99
 	sbom-hash = 454c6105bc2d0ea2521b8f8f7a5161c2abd8c386
+	autoupdate = true
+	autoupdate-branch = master
+	autoupdate-tag-glob = R_[0-9]*_[0-9]*_[0-9]*
+	autoupdate-manifest = expat/idf_component.yml
+	autoupdate-ver-regex = R_([0-9]+)_([0-9]+)_([0-9]+)
 
 [submodule "coap/libcoap"]
 	path = coap/libcoap
@@ -54,13 +87,33 @@
 	sbom-url = https://github.com/obgm/libcoap
 	sbom-description = A CoAP (RFC 7252) implementation in C
 	sbom-hash = c694baead2f9b408a7598e0b85c2f257ea8c9651
+	autoupdate = true
+	autoupdate-branch = develop
+	autoupdate-tag-glob = v[0-9]*.[0-9]*.[0-9]*
+	autoupdate-include-lightweight = true
+	autoupdate-manifest = coap/idf_component.yml
+	autoupdate-ver-regex = v([0-9]+).([0-9]+).([0-9]+)
 
 [submodule "usb/usb_host_uvc/libuvc"]
 	path = usb/usb_host_uvc/libuvc
 	url = https://github.com/libuvc/libuvc.git
+	autoupdate = true
+	autoupdate-branch = master
+	autoupdate-tag-glob = v[0-9]*.[0-9]*.[0-9]*
+	autoupdate-include-lightweight = true
+	# Not updating the manifest automatically,
+	# since the component version is ahead of the upstream version
+
 [submodule "eigen/eigen"]
 	path = eigen/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+	autoupdate = true
+	autoupdate-branch = 3.4
+	autoupdate-tag-glob = [0-9]*.[0-9]*.[0-9]*
+	autoupdate-include-lightweight = true
+	autoupdate-manifest = eigen/idf_component.yml
+	autoupdate-ver-regex = ([0-9]+).([0-9]+).([0-9]+)
+
 [submodule "fmt/fmt"]
 	path = fmt/fmt
 	url = https://github.com/fmtlib/fmt.git
@@ -70,13 +123,29 @@
 	sbom-url = https://github.com/fmtlib/fmt/
 	sbom-description = A modern formatting library
 	sbom-hash = a33701196adfad74917046096bf5a2aa0ab0bb50
+	autoupdate = true
+	autoupdate-branch = master
+	autoupdate-tag-glob = [0-9]*.[0-9]*.[0-9]*
+	autoupdate-include-lightweight = true
+	autoupdate-manifest = fmt/idf_component.yml
+	autoupdate-ver-regex = ([0-9]+).([0-9]+).([0-9]+)
 
 [submodule "esp_delta_ota/detools"]
 	path = esp_delta_ota/detools
 	url = https://github.com/eerimoq/detools.git
+	# not updating automatically, as this is not an upstream repo
+	# but a tool used by the component
+
 [submodule "quirc/quirc"]
 	path = quirc/quirc
 	url = https://github.com/dlbeer/quirc.git
+	autoupdate = true
+	autoupdate-branch = master
+	autoupdate-tag-glob = v[0-9]*.[0-9]*
+	autoupdate-include-lightweight = true
+	autoupdate-manifest = quirc/idf_component.yml
+	autoupdate-ver-regex = v([0-9]+).([0-9]+)
+
 [submodule "zlib/zlib"]
 	path = zlib/zlib
 	url = https://github.com/madler/zlib.git
@@ -86,6 +155,11 @@
 	sbom-url = https://github.com/madler/zlib.git
 	sbom-description = A massively spiffy yet delicately unobtrusive compression library
 	sbom-hash = 04f42ceca40f73e2978b50e93806c2a18c1281fc
+	autoupdate = true
+	autoupdate-branch = master
+	autoupdate-tag-glob = v[0-9]*.[0-9]*.[0-9]*
+	autoupdate-manifest = zlib/idf_component.yml
+	autoupdate-ver-regex = v([0-9]+).([0-9]+).([0-9]+)
 
 [submodule "libpng/libpng"]
 	path = libpng/libpng
@@ -96,3 +170,9 @@
 	sbom-url = https://github.com/glennrp/libpng.git
 	sbom-description = Portable Network Graphics support, official PNG reference library
 	sbom-hash = 07b8803110da160b158ebfef872627da6c85cbdf
+	autoupdate = true
+	autoupdate-branch = libpng16
+	autoupdate-include-lightweight = true
+	autoupdate-tag-glob = v[0-9]*.[0-9]*.[0-9]*
+	autoupdate-manifest = libpng/idf_component.yml
+	autoupdate-ver-regex = v([0-9]+).([0-9]+).([0-9]+)
