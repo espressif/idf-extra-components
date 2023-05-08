@@ -3,6 +3,7 @@ CONFIG_TINYUSB=y
 CONFIG_TINYUSB_MSC_ENABLED=y
 CONFIG_TINYUSB_CDC_ENABLED=y
 CONFIG_TINYUSB_CDC_COUNT=2
+CONFIG_TINYUSB_HID_COUNT=2
 
 # Disable watchdogs, they'd get triggered during unity interactive menu
 CONFIG_ESP_INT_WDT=n

@@ -38,3 +38,25 @@ def test_usb_host(dut: Tuple[IdfDut, IdfDut]) -> None:
     host.write('[usb_msc]')
     host.expect_unity_test_output()
     host.expect_exact("Enter next test, or 'enter' to see menu")
+
+    # 3.1 Prepare USB device with one Interface for HID tests
+    device.serial.hard_reset()
+    device.expect_exact('Press ENTER to see the list of tests.')
+    device.write('[hid_device]')
+    device.expect_exact('HID mock device with 1xInterface (Protocol=None) has been started')
+
+    # 3.2 Run HID tests
+    host.write('[hid_host]')
+    host.expect_unity_test_output()
+    host.expect_exact("Enter next test, or 'enter' to see menu")
+
+    # 3.3 Prepare USB device with two Interfaces for HID tests
+    device.serial.hard_reset()
+    device.expect_exact('Press ENTER to see the list of tests.')
+    device.write('[hid_device2]')
+    device.expect_exact('HID mock device with 2xInterfaces (Protocol=BootKeyboard, Protocol=BootMouse) has been started')
+
+    # 3.4 Run HID tests
+    host.write('[hid_host]')
+    host.expect_unity_test_output()
+    host.expect_exact("Enter next test, or 'enter' to see menu")
