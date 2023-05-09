@@ -27,6 +27,7 @@ jobs:
           directories: >
             bdc_motor;
             cbor;
+            ccomp_timer;
             coap;
             eigen;
             esp_delta_ota;
@@ -41,6 +42,7 @@ jobs:
             led_strip;
             libsodium;
             nghttp;
+            onewire_bus;
             pcap;
             pid_ctrl;
             qrcode;
