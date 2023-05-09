@@ -1,0 +1,6 @@
+version: "1.0.0"
+description: Cache Compensated Timer
+url: https://github.com/espressif/idf-extra-components/tree/master/ccomp_timer
+issues: "https://github.com/espressif/idf-extra-components/issues"
+dependencies:
+  idf: ">=5.0"
