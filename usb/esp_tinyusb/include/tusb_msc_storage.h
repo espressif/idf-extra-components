@@ -28,7 +28,7 @@ typedef struct {
  * @brief Types of MSC events
  */
 typedef enum {
-    TINYUSB_MSC_EVENT_MOUNT_CHANED
+    TINYUSB_MSC_EVENT_MOUNT_CHANGED
 } tinyusb_msc_event_type_t;
 
 /**
