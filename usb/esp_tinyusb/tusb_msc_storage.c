@@ -382,7 +382,7 @@ esp_err_t tinyusb_msc_storage_init_sdmmc(const tinyusb_msc_sdmmc_config_t *confi
 
     /* Callbacks setting up*/
     if (config->callback_mount_changed) {
-        tinyusb_msc_register_callback(TINYUSB_MSC_EVENT_MOUNT_CHANGED, cfg->callback_mount_changed);
+        tinyusb_msc_register_callback(TINYUSB_MSC_EVENT_MOUNT_CHANGED, config->callback_mount_changed);
     } else {
         tinyusb_msc_unregister_callback(TINYUSB_MSC_EVENT_MOUNT_CHANGED);
     }
