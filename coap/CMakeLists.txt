@@ -9,7 +9,7 @@ endif()
 set(include_dirs port/include port/include libcoap/include)
 
 set(srcs
-    "libcoap/src/block.c"
+    "port/src/block.c"
     "libcoap/src/coap_address.c"
     "libcoap/src/coap_asn1.c"
     "libcoap/src/coap_async.c"
