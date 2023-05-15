@@ -106,7 +106,7 @@ void tinyusb_msc_storage_deinit(void);
  * @return esp_err_t - ESP_OK or ESP_ERR_INVALID_ARG
  */
 esp_err_t tinyusb_msc_register_callback(tinyusb_msc_event_type_t event_type,
-        tusb_msc_callback_t callback);
+                                        tusb_msc_callback_t callback);
 
 
 /**

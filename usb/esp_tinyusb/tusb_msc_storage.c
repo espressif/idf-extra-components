@@ -399,7 +399,7 @@ void tinyusb_msc_storage_deinit(void)
 }
 
 esp_err_t tinyusb_msc_register_callback(tinyusb_msc_event_type_t event_type,
-        tusb_msc_callback_t callback)
+                                        tusb_msc_callback_t callback)
 {
     assert(s_storage_handle);
     switch (event_type) {
