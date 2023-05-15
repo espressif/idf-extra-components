@@ -17,6 +17,34 @@ extern "C" {
 #include "driver/sdmmc_host.h"
 #endif
 
+/**
+ * @brief Data provided to the input of the `callback_mount_changed` callback
+ */
+typedef struct {
+    bool is_mounted;
+} tinyusb_msc_event_mount_changed_data_t;
+
+/**
+ * @brief Types of MSC events
+ */
+typedef enum {
+    TINYUSB_MSC_EVENT_MOUNT_CHANGED
+} tinyusb_msc_event_type_t;
+
+/**
+ * @brief Describes an event passing to the input of a callbacks
+ */
+typedef struct {
+    tinyusb_msc_event_type_t type; /*!< Event type */
+    union {
+        tinyusb_msc_event_mount_changed_data_t mount_changed_data; /*!< Data input of the `callback_mount_changed` callback */
+    };
+} tinyusb_msc_event_t;
+
+/**
+ * @brief MSC callback type
+ */
+typedef void(*tusb_msc_callback_t)(tinyusb_msc_event_t *event);
 
 #if SOC_SDMMC_HOST_SUPPORTED
 /**
@@ -27,6 +55,7 @@ extern "C" {
  */
 typedef struct {
     sdmmc_card_t *card;
+    tusb_msc_callback_t callback_mount_changed; /*!< Pointer to the function with the `tusb_msc_callback_t` type that will be handled as a callback */
 } tinyusb_msc_sdmmc_config_t;
 #endif
 
@@ -38,6 +67,7 @@ typedef struct {
  */
 typedef struct {
     wl_handle_t wl_handle;
+    tusb_msc_callback_t callback_mount_changed; /*!< Pointer to the function with the `tusb_msc_callback_t` type that will be handled as a callback */
 } tinyusb_msc_spiflash_config_t;
 
 /**
@@ -66,6 +96,26 @@ esp_err_t tinyusb_msc_storage_init_sdmmc(const tinyusb_msc_sdmmc_config_t *confi
  *
  */
 void tinyusb_msc_storage_deinit(void);
+
+/**
+ * @brief Register a callback invoking on MSC event. If the callback had been
+ *        already registered, it will be overwritten
+ *
+ * @param event_type - type of registered event for a callback
+ * @param callback  - callback function
+ * @return esp_err_t - ESP_OK or ESP_ERR_INVALID_ARG
+ */
+esp_err_t tinyusb_msc_register_callback(tinyusb_msc_event_type_t event_type,
+                                        tusb_msc_callback_t callback);
+
+
+/**
+ * @brief Unregister a callback invoking on MSC event.
+ *
+ * @param event_type - type of registered event for a callback
+ * @return esp_err_t - ESP_OK or ESP_ERR_INVALID_ARG
+ */
+esp_err_t tinyusb_msc_unregister_callback(tinyusb_msc_event_type_t event_type);
 
 /**
  * @brief Mount the storage partition locally on the firmware application.
