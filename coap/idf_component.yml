@@ -1,4 +1,4 @@
-version: "4.3.1~1"
+version: "4.3.1~2"
 description: Constrained Application Protocol (CoAP) C Library
 url: https://github.com/espressif/idf-extra-components/tree/master/coap
 dependencies:
