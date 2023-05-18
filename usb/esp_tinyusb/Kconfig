@@ -6,29 +6,6 @@ menu "TinyUSB Stack"
         help
             Specify verbosity of TinyUSB log output.
 
-    menu "TinyUSB task configuration"
-        config TINYUSB_NO_DEFAULT_TASK
-            bool "Do not create a TinyUSB task"
-            default n
-            help
-                This option allows to not create the FreeRTOS task during the driver initialization.
-                User will have to handle TinyUSB events manually.
-
-        config TINYUSB_TASK_PRIORITY
-            int "TinyUSB task priority"
-            default 5
-            depends on !TINYUSB_NO_DEFAULT_TASK
-            help
-                Set the priority of the default TinyUSB main task.
-
-        config TINYUSB_TASK_STACK_SIZE
-            int "TinyUSB task stack size (bytes)"
-            default 4096
-            depends on !TINYUSB_NO_DEFAULT_TASK
-            help
-                Set the stack size of the default TinyUSB main task.
-    endmenu
-
     menu "Descriptor configuration"
         comment "You can provide your custom descriptors via tinyusb_driver_install()"
         config TINYUSB_DESC_USE_ESPRESSIF_VID

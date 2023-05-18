@@ -34,6 +34,10 @@ typedef struct {
     const uint8_t *configuration_descriptor;   /*!< Pointer to a configuration descriptor. If set to NULL, TinyUSB device will use a default configuration descriptor whose values are set in Kconfig */
     bool self_powered;                         /*!< This is a self-powered USB device. USB VBUS must be monitored. */
     int vbus_monitor_io;                       /*!< GPIO for VBUS monitoring. Ignored if not self_powered. */
+    bool no_background_task;                   /*!< When set to false, background task handling tinyusb events is created. */
+    size_t task_priority;                      /*!< Task priority of created background tinyusb task */
+    size_t stack_size;                         /*!< Stack size of crated background tinyusb task */
+    BaseType_t core_id;                        /*!< Select core on which background tinyusb task will run or tskNO_AFFINITY  */
 } tinyusb_config_t;
 
 /**

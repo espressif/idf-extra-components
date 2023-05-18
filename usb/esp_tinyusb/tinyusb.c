@@ -25,6 +25,9 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
     const tusb_desc_device_t *dev_descriptor;
     const char **string_descriptor;
     int string_descriptor_count = 0;
+    size_t task_priority = 0;
+    size_t stack_size = 0;
+    BaseType_t core_id = 0;
     const uint8_t *cfg_descriptor;
     ESP_RETURN_ON_FALSE(config, ESP_ERR_INVALID_ARG, TAG, "Config can't be NULL");
 
@@ -92,9 +95,24 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
     tinyusb_set_descriptor(dev_descriptor, string_descriptor, string_descriptor_count, cfg_descriptor);
 
     ESP_RETURN_ON_FALSE(tusb_init(), ESP_FAIL, TAG, "Init TinyUSB stack failed");
-#if !CONFIG_TINYUSB_NO_DEFAULT_TASK
-    ESP_RETURN_ON_ERROR(tusb_run_task(), TAG, "Run TinyUSB task failed");
-#endif
+    if (!config->no_background_task) {
+        if (config->stack_size != 0) {
+            stack_size = config->stack_size;
+        } else {
+            stack_size = 4096; // Backward compatibility with esp_tinyusb v1.0.0. Do NOT remove!
+        }
+        if (config->task_priority != 0) {
+            task_priority = config->task_priority;
+        } else {
+            task_priority = 5; // Backward compatibility with esp_tinyusb v1.0.0. Do NOT remove!
+        }
+        if (config->core_id >= 0 && (config->core_id <= configNUM_CORES - 1)) {
+            core_id = config->core_id;
+        } else {
+            core_id = tskNO_AFFINITY;
+        }
+        ESP_RETURN_ON_ERROR(tusb_run_task(stack_size, task_priority, core_id), TAG, "Run TinyUSB task failed");
+    }
     ESP_LOGI(TAG, "TinyUSB Driver installed");
     return ESP_OK;
 }
