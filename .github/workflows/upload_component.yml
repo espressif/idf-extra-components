@@ -36,6 +36,7 @@ jobs:
             esp_serial_slave_link;
             expat;
             fmt;
+            iqmath;
             jsmn;
             json_generator;
             json_parser;
