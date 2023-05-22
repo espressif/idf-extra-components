@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -34,7 +34,6 @@ typedef struct {
 
 typedef struct msc_host_device {
     STAILQ_ENTRY(msc_host_device) tailq_entry;
-    usb_transfer_status_t transfer_status;
     SemaphoreHandle_t transfer_done;
     usb_device_handle_t handle;
     usb_transfer_t *xfer;
@@ -44,7 +43,7 @@ typedef struct msc_host_device {
 
 esp_err_t msc_bulk_transfer(msc_device_t *device_handle, uint8_t *data, size_t size, msc_endpoint_t ep);
 
-esp_err_t msc_control_transfer(msc_device_t *device_handle, usb_transfer_t *xfer, size_t len);
+esp_err_t msc_control_transfer(msc_device_t *device_handle, size_t len);
 
 #define MSC_GOTO_ON_ERROR(exp) ESP_GOTO_ON_ERROR(exp, fail, TAG, "")
 

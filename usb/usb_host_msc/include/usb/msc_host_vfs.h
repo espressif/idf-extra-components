@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,7 +7,7 @@
 #pragma once
 
 #include "esp_vfs_fat.h"
-#include "msc_host.h"
+#include "usb/msc_host.h"
 #include "esp_err.h"
 
 #ifdef __cplusplus

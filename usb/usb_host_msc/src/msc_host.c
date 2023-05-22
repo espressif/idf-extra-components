@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -18,7 +18,7 @@
 #include "usb/usb_host.h"
 #include "diskio_usb.h"
 #include "msc_common.h"
-#include "msc_host.h"
+#include "usb/msc_host.h"
 #include "msc_scsi_bot.h"
 #include "usb/usb_types_ch9.h"
 #include "usb/usb_helpers.h"
@@ -46,25 +46,24 @@ static portMUX_TYPE msc_lock = portMUX_INITIALIZER_UNLOCKED;
     } while(0)
 
 #define WAIT_FOR_READY_TIMEOUT_MS 3000
-#define TAG "USB_MSC"
-
 #define SCSI_COMMAND_SET    0x06
 #define BULK_ONLY_TRANSFER  0x50
 #define MSC_NO_SENSE        0x00
 #define MSC_NOT_READY       0x02
 #define MSC_UNIT_ATTENTION  0x06
 
+static const char *TAG = "USB_MSC";
 typedef struct {
     usb_host_client_handle_t client_handle;
     msc_host_event_cb_t user_cb;
     void *user_arg;
     SemaphoreHandle_t all_events_handled;
     volatile bool end_client_event_handling;
+    STAILQ_HEAD(devices, msc_host_device) devices_tailq;
 } msc_driver_t;
 
 static msc_driver_t *s_msc_driver;
 
-STAILQ_HEAD(devices, msc_host_device) devices_tailq;
 
 static const usb_standard_desc_t *next_interface_desc(const usb_standard_desc_t *desc, size_t len, size_t *offset)
 {
@@ -74,6 +73,11 @@ static const usb_standard_desc_t *next_interface_desc(const usb_standard_desc_t 
 static const usb_standard_desc_t *next_endpoint_desc(const usb_standard_desc_t *desc, size_t len, size_t *offset)
 {
     return usb_parse_next_descriptor_of_type(desc, len, USB_B_DESCRIPTOR_TYPE_ENDPOINT, (int *)offset);
+}
+
+static inline bool is_in_endpoint(uint8_t endpoint)
+{
+    return endpoint & USB_B_ENDPOINT_ADDRESS_EP_DIR_MASK ? true : false;
 }
 
 static const usb_intf_desc_t *find_msc_interface(const usb_config_desc_t *config_desc, size_t *offset)
@@ -124,7 +128,7 @@ static esp_err_t extract_config_from_descriptor(const usb_config_desc_t *cfg_des
     MSC_RETURN_ON_FALSE(next_desc, ESP_ERR_NOT_SUPPORTED);
     ep_desc = (const usb_ep_desc_t *)next_desc;
 
-    if (ep_desc->bEndpointAddress & 0x80) {
+    if (is_in_endpoint(ep_desc->bEndpointAddress)) {
         cfg->bulk_in_ep = ep_desc->bEndpointAddress;
         cfg->bulk_in_mps = ep_desc->wMaxPacketSize;
     } else {
@@ -135,7 +139,7 @@ static esp_err_t extract_config_from_descriptor(const usb_config_desc_t *cfg_des
     MSC_RETURN_ON_FALSE(next_desc, ESP_ERR_NOT_SUPPORTED);
     ep_desc = (const usb_ep_desc_t *)next_desc;
 
-    if (ep_desc->bEndpointAddress & 0x80) {
+    if (is_in_endpoint(ep_desc->bEndpointAddress)) {
         cfg->bulk_in_ep = ep_desc->bEndpointAddress;
         cfg->bulk_in_mps = ep_desc->wMaxPacketSize;
     } else {
@@ -149,7 +153,7 @@ static esp_err_t msc_deinit_device(msc_device_t *dev, bool install_failed)
 {
     MSC_ENTER_CRITICAL();
     MSC_RETURN_ON_FALSE_CRITICAL( dev, ESP_ERR_INVALID_STATE );
-    STAILQ_REMOVE(&devices_tailq, dev, msc_host_device, tailq_entry);
+    STAILQ_REMOVE(&s_msc_driver->devices_tailq, dev, msc_host_device, tailq_entry);
     MSC_EXIT_CRITICAL();
 
     if (dev->transfer_done) {
@@ -233,7 +237,7 @@ static msc_device_t *find_msc_device(usb_device_handle_t device_handle)
 {
     msc_host_device_handle_t device;
 
-    STAILQ_FOREACH(device, &devices_tailq, tailq_entry) {
+    STAILQ_FOREACH(device, &s_msc_driver->devices_tailq, tailq_entry) {
         if (device_handle == device->handle) {
             return device;
         }
@@ -296,7 +300,7 @@ esp_err_t msc_host_install(const msc_host_driver_config_t *config)
     MSC_ENTER_CRITICAL();
     MSC_GOTO_ON_FALSE_CRITICAL(!s_msc_driver, ESP_ERR_INVALID_STATE);
     s_msc_driver = driver;
-    STAILQ_INIT(&devices_tailq);
+    STAILQ_INIT(&s_msc_driver->devices_tailq);
     MSC_EXIT_CRITICAL();
 
     if (config->create_backround_task) {
@@ -331,7 +335,7 @@ esp_err_t msc_host_uninstall(void)
     MSC_ENTER_CRITICAL();
     MSC_RETURN_ON_FALSE_CRITICAL( s_msc_driver != NULL, ESP_ERR_INVALID_STATE );
     MSC_RETURN_ON_FALSE_CRITICAL( !s_msc_driver->end_client_event_handling, ESP_ERR_INVALID_STATE );
-    MSC_RETURN_ON_FALSE_CRITICAL( STAILQ_EMPTY(&devices_tailq), ESP_ERR_INVALID_STATE );
+    MSC_RETURN_ON_FALSE_CRITICAL( STAILQ_EMPTY(&s_msc_driver->devices_tailq), ESP_ERR_INVALID_STATE );
     s_msc_driver->end_client_event_handling = true;
     MSC_EXIT_CRITICAL();
 
@@ -355,7 +359,7 @@ esp_err_t msc_host_install_device(uint8_t device_address, msc_host_device_handle
     MSC_ENTER_CRITICAL();
     MSC_GOTO_ON_FALSE_CRITICAL( s_msc_driver, ESP_ERR_INVALID_STATE );
     MSC_GOTO_ON_FALSE_CRITICAL( s_msc_driver->client_handle, ESP_ERR_INVALID_STATE );
-    STAILQ_INSERT_TAIL(&devices_tailq, msc_device, tailq_entry);
+    STAILQ_INSERT_TAIL(&s_msc_driver->devices_tailq, msc_device, tailq_entry);
     MSC_EXIT_CRITICAL();
 
     MSC_GOTO_ON_FALSE( msc_device->transfer_done = xSemaphoreCreateBinary(), ESP_ERR_NO_MEM);
@@ -421,28 +425,6 @@ esp_err_t msc_host_handle_events(uint32_t timeout_ms)
     return usb_host_client_handle_events(s_msc_driver->client_handle, timeout_ms);
 }
 
-static esp_err_t msc_read_string_desc(msc_device_t *dev, uint8_t index, wchar_t *str)
-{
-    if (index == 0) {
-        // String descriptor not available
-        str[0] = 0;
-        return ESP_OK;
-    }
-
-    usb_transfer_t *xfer = dev->xfer;
-    USB_SETUP_PACKET_INIT_GET_STR_DESC((usb_setup_packet_t *)xfer->data_buffer, index, 0x409, 64);
-    MSC_RETURN_ON_ERROR( msc_control_transfer(dev, xfer, USB_SETUP_PACKET_SIZE + 64) );
-
-    usb_standard_desc_t *desc = (usb_standard_desc_t *)(xfer->data_buffer + USB_SETUP_PACKET_SIZE);
-    wchar_t *data = (wchar_t *)(xfer->data_buffer + USB_SETUP_PACKET_SIZE + 2);
-    size_t len = MIN((desc->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
-
-    wcsncpy(str, data, len);
-    str[len] = 0;
-
-    return ESP_OK;
-}
-
 esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_device_info_t *info)
 {
     MSC_RETURN_ON_INVALID_ARG(device);
@@ -450,17 +432,27 @@ esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_dev
 
     msc_device_t *dev = (msc_device_t *)device;
     const usb_device_desc_t *desc;
+    usb_device_info_t dev_info;
 
     MSC_RETURN_ON_ERROR( usb_host_get_device_descriptor(dev->handle, &desc) );
+    MSC_RETURN_ON_ERROR( usb_host_device_info(dev->handle, &dev_info) );
 
     info->idProduct = desc->idProduct;
     info->idVendor = desc->idVendor;
     info->sector_size = dev->disk.block_size;
     info->sector_count = dev->disk.block_count;
 
-    MSC_RETURN_ON_ERROR( msc_read_string_desc(dev, desc->iManufacturer, info->iManufacturer) );
-    MSC_RETURN_ON_ERROR( msc_read_string_desc(dev, desc->iProduct, info->iProduct) );
-    MSC_RETURN_ON_ERROR( msc_read_string_desc(dev, desc->iSerialNumber, info->iSerialNumber) );
+    size_t len = MIN((dev_info.str_desc_manufacturer->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
+    wcsncpy(info->iManufacturer, dev_info.str_desc_manufacturer->wData, len);
+    info->iManufacturer[len] = 0;
+
+    len = MIN((dev_info.str_desc_product->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
+    wcsncpy(info->iProduct, dev_info.str_desc_product->wData, len);
+    info->iProduct[len] = 0;
+
+    len = MIN((dev_info.str_desc_serial_num->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
+    wcsncpy(info->iSerialNumber, dev_info.str_desc_serial_num->wData, len);
+    info->iSerialNumber[len] = 0;
 
     return ESP_OK;
 }
@@ -485,28 +477,23 @@ static void transfer_callback(usb_transfer_t *transfer)
         ESP_LOGE("Transfer failed", "Status %d", transfer->status);
     }
 
-    device->transfer_status = transfer->status;
     xSemaphoreGive(device->transfer_done);
 }
 
-static esp_err_t wait_for_transfer_done(usb_transfer_t *xfer)
+static usb_transfer_status_t wait_for_transfer_done(usb_transfer_t *xfer)
 {
     msc_device_t *device = (msc_device_t *)xfer->context;
+    usb_transfer_status_t status = xfer->status;
     BaseType_t received = xSemaphoreTake(device->transfer_done, pdMS_TO_TICKS(xfer->timeout_ms));
 
     if (received != pdTRUE) {
         usb_host_endpoint_halt(xfer->device_handle, xfer->bEndpointAddress);
         usb_host_endpoint_flush(xfer->device_handle, xfer->bEndpointAddress);
         xSemaphoreTake(device->transfer_done, portMAX_DELAY);
-        return ESP_ERR_TIMEOUT;
+        return USB_TRANSFER_STATUS_TIMED_OUT;
     }
 
-    return (device->transfer_status == USB_TRANSFER_STATUS_COMPLETED) ? ESP_OK : ESP_FAIL;
-}
-
-static inline bool is_in_endpoint(uint8_t endpoint)
-{
-    return endpoint & USB_B_ENDPOINT_ADDRESS_EP_DIR_MASK ? true : false;
+    return status;
 }
 
 esp_err_t msc_bulk_transfer(msc_device_t *device, uint8_t *data, size_t size, msc_endpoint_t ep)
@@ -529,7 +516,12 @@ esp_err_t msc_bulk_transfer(msc_device_t *device, uint8_t *data, size_t size, ms
     xfer->context = device;
 
     MSC_RETURN_ON_ERROR( usb_host_transfer_submit(xfer) );
-    MSC_RETURN_ON_ERROR( wait_for_transfer_done(xfer) );
+    if (USB_TRANSFER_STATUS_COMPLETED != wait_for_transfer_done(xfer)) {
+        if (USB_TRANSFER_STATUS_STALL == wait_for_transfer_done(xfer)) {
+            return ESP_ERR_MSC_STALL;
+        }
+        return ESP_ERR_MSC_INTERNAL;
+    }
 
     if (is_in_endpoint(endpoint)) {
         memcpy(data, xfer->data_buffer, size);
@@ -538,8 +530,9 @@ esp_err_t msc_bulk_transfer(msc_device_t *device, uint8_t *data, size_t size, ms
     return ESP_OK;
 }
 
-esp_err_t msc_control_transfer(msc_device_t *device, usb_transfer_t *xfer, size_t len)
+esp_err_t msc_control_transfer(msc_device_t *device, size_t len)
 {
+    usb_transfer_t *xfer = device->xfer;
     xfer->device_handle = device->handle;
     xfer->bEndpointAddress = 0;
     xfer->callback = transfer_callback;
@@ -548,5 +541,5 @@ esp_err_t msc_control_transfer(msc_device_t *device, usb_transfer_t *xfer, size_
     xfer->context = device;
 
     MSC_RETURN_ON_ERROR( usb_host_transfer_submit_control(s_msc_driver->client_handle, xfer));
-    return wait_for_transfer_done(xfer);
+    return wait_for_transfer_done(xfer) == USB_TRANSFER_STATUS_COMPLETED ? ESP_OK : ESP_ERR_MSC_INTERNAL;
 }

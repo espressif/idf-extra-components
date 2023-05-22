@@ -19,6 +19,7 @@ extern "C" {
 #define ESP_ERR_MSC_MOUNT_FAILED    (ESP_ERR_MSC_HOST_BASE + 1)  /*!< Failed to mount storage */
 #define ESP_ERR_MSC_FORMAT_FAILED   (ESP_ERR_MSC_HOST_BASE + 2)  /*!< Failed to format storage */
 #define ESP_ERR_MSC_INTERNAL        (ESP_ERR_MSC_HOST_BASE + 3)  /*!< MSC host internal error */
+#define ESP_ERR_MSC_STALL           (ESP_ERR_MSC_HOST_BASE + 4)  /*!< USB transfer stalled */
 
 #define MSC_STR_DESC_SIZE 32
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/param.h>
 #include "msc_common.h"
-#include "msc_host_vfs.h"
+#include "usb/msc_host_vfs.h"
 #include "diskio_impl.h"
 #include "ffconf.h"
 #include "ff.h"

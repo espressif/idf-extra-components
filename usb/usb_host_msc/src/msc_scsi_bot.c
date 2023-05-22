@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -15,8 +15,9 @@
 #include "esp_log.h"
 #include "msc_common.h"
 #include "msc_scsi_bot.h"
+#include "usb/msc_host.h"
 
-#define TAG "USB_MSC_SCSI"
+static const char *TAG = "USB_MSC_SCSI";
 
 /* --------------------------- SCSI Definitions ----------------------------- */
 #define CMD_SENSE_VALID_BIT (1 << 7)
@@ -254,7 +255,7 @@ static esp_err_t clear_feature(msc_device_t *device, uint8_t endpoint)
 
     MSC_RETURN_ON_ERROR( usb_host_endpoint_clear(dev, endpoint) );
     USB_SETUP_PACKET_INIT_CLEAR_FEATURE_EP((usb_setup_packet_t *)xfer->data_buffer, endpoint);
-    MSC_RETURN_ON_ERROR( msc_control_transfer(device, xfer, USB_SETUP_PACKET_SIZE) );
+    MSC_RETURN_ON_ERROR( msc_control_transfer(device,  USB_SETUP_PACKET_SIZE) );
 
     return ESP_OK;
 }
@@ -264,7 +265,7 @@ esp_err_t msc_mass_reset(msc_device_t *device)
     usb_transfer_t *xfer = device->xfer;
 
     USB_MASS_REQ_INIT_RESET((usb_setup_packet_t *)xfer->data_buffer, 0);
-    MSC_RETURN_ON_ERROR( msc_control_transfer(device, xfer, USB_SETUP_PACKET_SIZE) );
+    MSC_RETURN_ON_ERROR( msc_control_transfer(device, USB_SETUP_PACKET_SIZE) );
 
     return ESP_OK;
 }
@@ -274,7 +275,7 @@ esp_err_t msc_get_max_lun(msc_device_t *device, uint8_t *lun)
     usb_transfer_t *xfer = device->xfer;
 
     USB_MASS_REQ_INIT_GET_MAX_LUN((usb_setup_packet_t *)xfer->data_buffer, 0);
-    MSC_RETURN_ON_ERROR( msc_control_transfer(device, xfer, USB_SETUP_PACKET_SIZE + 1) );
+    MSC_RETURN_ON_ERROR( msc_control_transfer(device, USB_SETUP_PACKET_SIZE + 1) );
 
     *lun = xfer->data_buffer[USB_SETUP_PACKET_SIZE];
 
@@ -292,9 +293,9 @@ static esp_err_t bot_execute_command(msc_device_t *device, msc_cbw_t *cbw, void 
         MSC_RETURN_ON_ERROR( msc_bulk_transfer(device, (uint8_t *)data, size, ep) );
     }
 
-    esp_err_t  err = msc_bulk_transfer(device, (uint8_t *)&csw, sizeof(msc_csw_t), MSC_EP_IN);
+    esp_err_t err = msc_bulk_transfer(device, (uint8_t *)&csw, sizeof(msc_csw_t), MSC_EP_IN);
 
-    if (err ==  ESP_FAIL && device->transfer_status == USB_TRANSFER_STATUS_STALL) {
+    if (err == ESP_ERR_MSC_STALL) {
         ESP_RETURN_ON_ERROR( clear_feature(device, MSC_EP_IN), TAG, "Clear feature failed" );
         // Try to read csw again after clearing feature
         err = msc_bulk_transfer(device, (uint8_t *)&csw, sizeof(msc_csw_t), MSC_EP_IN);
