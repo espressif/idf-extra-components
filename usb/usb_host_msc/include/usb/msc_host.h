@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,7 +9,7 @@
 #include <wchar.h>
 #include <stdint.h>
 #include "esp_err.h"
-#include <freertos/FreeRTOS.h>
+#include "freertos/FreeRTOS.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -118,13 +118,14 @@ esp_err_t msc_host_uninstall_device(msc_host_device_handle_t device);
  * @param[in]  size   Number of bytes to be read
  * @return esp_err_t
  */
-esp_err_t msc_host_read_sector(msc_host_device_handle_t device, size_t sector, void *data, size_t size);
+esp_err_t msc_host_read_sector(msc_host_device_handle_t device, size_t sector, void *data, size_t size)
+__attribute__((deprecated("use API from esp_private/msc_scsi_bot.h")));
 
 /**
  * @brief Helper function for writing sector to mass storage device.
  *
  * @warning This call is not thread safe and should not be combined
- *          with accesses to storare through file system.
+ *          with accesses to storage through file system.
  *
  * @note  Provided sector and size cannot exceed
  *        sector_count and sector_size obtained from msc_host_device_info_t
@@ -135,7 +136,8 @@ esp_err_t msc_host_read_sector(msc_host_device_handle_t device, size_t sector, v
  * @param[in]  size   Number of bytes to be written
  * @return esp_err_t
  */
-esp_err_t msc_host_write_sector(msc_host_device_handle_t device, size_t sector, const void *data, size_t size);
+esp_err_t msc_host_write_sector(msc_host_device_handle_t device, size_t sector, const void *data, size_t size)
+__attribute__((deprecated("use API from esp_private/msc_scsi_bot.h")));
 
 /**
  * @brief Handle MSC HOST events.
@@ -147,9 +149,6 @@ esp_err_t msc_host_handle_events(uint32_t timeout_ms);
 
 /**
  * @brief Gets devices information.
- *
- * @warning This call is not thread safe and should not be combined
- *          with accesses to storare through file system.
  *
  * @param[in]  device  Handle to device
  * @param[out] info  Structure to be populated with device info

@@ -401,7 +401,6 @@ esp_err_t msc_host_uninstall_device(msc_host_device_handle_t device)
     return msc_deinit_device((msc_device_t *)device, false);
 }
 
-
 esp_err_t msc_host_read_sector(msc_host_device_handle_t device, size_t sector, void *data, size_t size)
 {
     MSC_RETURN_ON_INVALID_ARG(device);
