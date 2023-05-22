@@ -221,13 +221,12 @@ static bool is_mass_storage_device(uint8_t dev_addr)
 static void event_handler_task(void *arg)
 {
     while (1) {
-        usb_host_client_handle_events(s_msc_driver->client_handle, pdMS_TO_TICKS(50));
+        usb_host_client_handle_events(s_msc_driver->client_handle, portMAX_DELAY);
 
         if (s_msc_driver->end_client_event_handling) {
             break;
         }
     }
-    usb_host_client_unblock(s_msc_driver->client_handle);
     ESP_ERROR_CHECK( usb_host_client_deregister(s_msc_driver->client_handle) );
     xSemaphoreGive(s_msc_driver->all_events_handled);
     vTaskDelete(NULL);
@@ -339,6 +338,7 @@ esp_err_t msc_host_uninstall(void)
     s_msc_driver->end_client_event_handling = true;
     MSC_EXIT_CRITICAL();
 
+    ESP_ERROR_CHECK( usb_host_client_unblock(s_msc_driver->client_handle) );
     xSemaphoreTake(s_msc_driver->all_events_handled, portMAX_DELAY);
     vSemaphoreDelete(s_msc_driver->all_events_handled);
     free(s_msc_driver);
@@ -422,7 +422,7 @@ esp_err_t msc_host_handle_events(uint32_t timeout_ms)
 {
     MSC_RETURN_ON_FALSE(s_msc_driver != NULL, ESP_ERR_INVALID_STATE);
 
-    return usb_host_client_handle_events(s_msc_driver->client_handle, timeout_ms);
+    return usb_host_client_handle_events(s_msc_driver->client_handle, pdMS_TO_TICKS(timeout_ms));
 }
 
 esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_device_info_t *info)
