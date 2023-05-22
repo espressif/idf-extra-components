@@ -9,10 +9,12 @@
 #include <string.h>
 #include <unistd.h>
 #include "esp_private/usb_phy.h"
+#include "esp_private/msc_scsi_bot.h"
 #include "usb/usb_host.h"
 #include "usb/msc_host_vfs.h"
 #include "test_common.h"
 #include "esp_idf_version.h"
+#include "../private_include/msc_common.h"
 
 #if SOC_USB_OTG_SUPPORTED
 
@@ -124,10 +126,11 @@ static void check_file_content(const char *file_path, const char *expected)
 {
     ESP_LOGI(TAG, "Reading %s:", file_path);
     FILE *file = fopen(file_path, "r");
-    TEST_ASSERT(file)
+    TEST_ASSERT_NOT_NULL_MESSAGE(file, "Could not open file");
 
     char content[200];
-    fread(content, 1, sizeof(content), file);
+    size_t read_cnt = fread(content, 1, sizeof(content), file);
+    TEST_ASSERT_EQUAL_MESSAGE(strlen(expected), read_cnt, "Error in reading file");
     TEST_ASSERT_EQUAL_STRING(content, expected);
     fclose(file);
 }
@@ -184,7 +187,7 @@ static void msc_setup(void)
     };
     ESP_OK_ASSERT( usb_host_install(&host_config) );
 
-    task_created = xTaskCreatePinnedToCore(handle_usb_events, "usb_events", 2048, NULL, 2, NULL, 0);
+    task_created = xTaskCreatePinnedToCore(handle_usb_events, "usb_events", 2 * 2048, NULL, 2, NULL, 0);
     TEST_ASSERT(task_created);
 
     const msc_host_driver_config_t msc_config = {
@@ -232,8 +235,8 @@ static void write_read_sectors(void)
     memset(write_data, 0x55, DISK_BLOCK_SIZE);
     memset(read_data, 0, DISK_BLOCK_SIZE);
 
-    msc_host_write_sector(device, 10, write_data, DISK_BLOCK_SIZE);
-    msc_host_read_sector(device, 10, read_data, DISK_BLOCK_SIZE);
+    scsi_cmd_write10(device, write_data, 10, 1, DISK_BLOCK_SIZE);
+    scsi_cmd_read10(device, read_data, 10, 1, DISK_BLOCK_SIZE);
 
     TEST_ASSERT_EQUAL_MEMORY(write_data, read_data, DISK_BLOCK_SIZE);
 }
@@ -244,7 +247,7 @@ static void erase_storage(void)
     memset(data, 0xFF, DISK_BLOCK_SIZE);
 
     for (int block = 0; block < DISK_BLOCK_NUM; block++) {
-        msc_host_write_sector(device, block, data, DISK_BLOCK_SIZE);
+        scsi_cmd_write10(device, data, block, 1, DISK_BLOCK_SIZE);
     }
 }
 
@@ -269,6 +272,12 @@ TEST_CASE("sectors_can_be_written_and_read", "[usb_msc]")
     msc_teardown();
 }
 
+/**
+ * @brief Check README content
+ *
+ * This test strictly requires our implementation of USB MSC Mock device.
+ * This test will fail for usualW flash drives, as they don't have README.TXT file on them.
+ */
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 TEST_CASE("check_README_content", "[usb_msc]")
 {
@@ -277,6 +286,112 @@ TEST_CASE("check_README_content", "[usb_msc]")
     msc_teardown();
 }
 #endif  /* ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) */
+
+esp_err_t bot_execute_command(msc_device_t *device, uint8_t *cbw, void *data, size_t size);
+/**
+ * @brief Error recovery testcase
+ *
+ * Various error cases:
+ *  - Accessing non-existent memory
+ *  - Invalid SCSI command
+ *  - USB transfer STALL
+ */
+TEST_CASE("error_recovery_1", "[usb_msc][ignore]")
+{
+    msc_setup();
+    uint8_t data[DISK_BLOCK_SIZE];
+    esp_err_t err;
+
+    // Some flash disks will respond with stall, some with error in CSW, some with timeout
+    printf("invalid bot command\n");
+    uint32_t dummy_cbw[8] = {0x5342555, 2, 0, 0x55555555};
+    err = bot_execute_command(device, (uint8_t *)dummy_cbw, data, 31);
+    TEST_ASSERT_NOT_EQUAL(ESP_OK, err);
+
+    err = msc_host_reset_recovery(device);
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+
+    // Make sure we can read/write after the error was cleared
+    printf("read write after reset\n");
+    write_read_file(FILE_NAME);
+
+    msc_teardown();
+}
+
+TEST_CASE("error_recovery_2", "[usb_msc][ignore]")
+{
+    msc_setup();
+    uint8_t data[DISK_BLOCK_SIZE];
+    esp_err_t err;
+
+    // Write to and read from invalid sector
+    // Some flash disks will respond with stall, some with error in CSW, some with timeout
+    printf("read 10\n");
+    err = scsi_cmd_read10(device, data, UINT32_MAX, 1, DISK_BLOCK_SIZE);
+    TEST_ASSERT_NOT_EQUAL(ESP_OK, err);
+    err = msc_host_reset_recovery(device);
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+    printf("read write after reset\n");
+    write_read_file(FILE_NAME);
+
+    msc_teardown();
+}
+
+#define MAX_BUFFER_SIZE (1024 + 1) // Maximum buffer size for this test
+#define SETVBUF_TEST(_size) do { \
+    printf("setvbuf %d\n", _size); \
+    int err = setvbuf(file, NULL, _IOFBF, _size); \
+    TEST_ASSERT_EQUAL_MESSAGE(0, err, "setvbuf failed"); \
+    err = fseek(file, SEEK_SET, 0); \
+    TEST_ASSERT_EQUAL_MESSAGE(0, err, "fseek failed"); \
+    size_t write_cnt = fwrite(write_buf, 1, _size, file); \
+    TEST_ASSERT_EQUAL(_size, write_cnt); \
+    err = fseek(file, SEEK_SET, 0); \
+    TEST_ASSERT_EQUAL_MESSAGE(0, err, "fseek failed"); \
+    memset(read_buf, 0, MAX_BUFFER_SIZE + 1); \
+    size_t read_cnt = fread(read_buf, 1, _size, file); \
+    TEST_ASSERT_EQUAL_MESSAGE(_size, read_cnt, "Error in reading file"); \
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(write_buf, read_buf, _size); \
+    TEST_ASSERT_EQUAL_MESSAGE(0, read_buf[_size], "Read buffer accessed outside of its boundaries"); \
+} while(0); \
+
+/**
+ * @brief setvbuf testcase
+ *
+ * From v1.1.0 the MSC driver reuses buffer from VFS for USB transfers.
+ * Check that this feature works correctly with various buffer lengths.
+ */
+TEST_CASE("setvbuf", "[usb_msc]")
+{
+    msc_setup();
+
+    FILE *file = fopen("/usb/test", "w+");
+    TEST_ASSERT_NOT_NULL_MESSAGE(file, "Could not open file for writing");
+
+    char *write_buf = malloc(MAX_BUFFER_SIZE);
+    char *read_buf = malloc(MAX_BUFFER_SIZE + 1); // 1 canary byte
+    TEST_ASSERT_NOT_NULL(write_buf);
+    TEST_ASSERT_NOT_NULL(read_buf);
+
+    // Initialize write buffer with some data
+    for (int i = 0; i < MAX_BUFFER_SIZE; i++) {
+        write_buf[i] = i & 0xFF;
+    }
+
+    SETVBUF_TEST(64);
+    SETVBUF_TEST(128);
+    SETVBUF_TEST(500);
+    SETVBUF_TEST(1000);
+    SETVBUF_TEST(1023);
+    SETVBUF_TEST(1024);
+    SETVBUF_TEST(MAX_BUFFER_SIZE);
+
+    fclose(file);
+    free(write_buf);
+    free(read_buf);
+
+    msc_teardown();
+}
 
 /**
  * @brief USB MSC format testcase
@@ -305,6 +420,11 @@ TEST_CASE("can_be_formated", "[usb_msc]")
     mount_config.format_if_mount_failed = false;
 }
 
+/**
+ * @brief USB MSC Device Mock
+ *
+ * We use this 'testcase' to provide MSC mock device for our DUT
+ */
 TEST_CASE("mock_device_app", "[usb_msc_device][ignore]")
 {
     device_app();

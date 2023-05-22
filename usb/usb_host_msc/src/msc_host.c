@@ -22,9 +22,10 @@
 #include "msc_scsi_bot.h"
 #include "usb/usb_types_ch9.h"
 #include "usb/usb_helpers.h"
+#include "soc/soc_memory_layout.h"
 
+// MSC driver spin lock
 static portMUX_TYPE msc_lock = portMUX_INITIALIZER_UNLOCKED;
-
 #define MSC_ENTER_CRITICAL()    portENTER_CRITICAL(&msc_lock)
 #define MSC_EXIT_CRITICAL()     portEXIT_CRITICAL(&msc_lock)
 
@@ -45,6 +46,39 @@ static portMUX_TYPE msc_lock = portMUX_INITIALIZER_UNLOCKED;
         }                                       \
     } while(0)
 
+// MSC Control requests
+#define USB_MASS_REQ_INIT_RESET(ctrl_req_ptr, intf_num) ({                  \
+    (ctrl_req_ptr)->bmRequestType = USB_BM_REQUEST_TYPE_DIR_OUT |           \
+                                    USB_BM_REQUEST_TYPE_TYPE_CLASS |        \
+                                    USB_BM_REQUEST_TYPE_RECIP_INTERFACE;    \
+    (ctrl_req_ptr)->bRequest = 0xFF;                                        \
+    (ctrl_req_ptr)->wValue = 0;                                             \
+    (ctrl_req_ptr)->wIndex = (intf_num);                                    \
+    (ctrl_req_ptr)->wLength = 0;                                            \
+})
+
+#define USB_MASS_REQ_INIT_GET_MAX_LUN(ctrl_req_ptr, intf_num) ({            \
+    (ctrl_req_ptr)->bmRequestType = USB_BM_REQUEST_TYPE_DIR_IN |            \
+                                    USB_BM_REQUEST_TYPE_TYPE_CLASS |        \
+                                    USB_BM_REQUEST_TYPE_RECIP_INTERFACE;    \
+    (ctrl_req_ptr)->bRequest = 0xFE;                                        \
+    (ctrl_req_ptr)->wValue = 0;                                             \
+    (ctrl_req_ptr)->wIndex = (intf_num);                                    \
+    (ctrl_req_ptr)->wLength = 1;                                            \
+})
+
+#define FEATURE_SELECTOR_ENDPOINT   0
+#define USB_SETUP_PACKET_INIT_CLEAR_FEATURE_EP(ctrl_req_ptr, ep_num) ({     \
+    (ctrl_req_ptr)->bmRequestType = USB_BM_REQUEST_TYPE_DIR_OUT |           \
+                                    USB_BM_REQUEST_TYPE_TYPE_STANDARD |     \
+                                    USB_BM_REQUEST_TYPE_RECIP_ENDPOINT;     \
+    (ctrl_req_ptr)->bRequest = USB_B_REQUEST_CLEAR_FEATURE;                 \
+    (ctrl_req_ptr)->wValue = FEATURE_SELECTOR_ENDPOINT;                     \
+    (ctrl_req_ptr)->wIndex = (ep_num);                                      \
+    (ctrl_req_ptr)->wLength = 0;                                            \
+})
+
+#define DEFAULT_XFER_SIZE   (64) // Transfer size used for all transfers apart from SCSI read/write
 #define WAIT_FOR_READY_TIMEOUT_MS 3000
 #define SCSI_COMMAND_SET    0x06
 #define BULK_ONLY_TRANSFER  0x50
@@ -100,6 +134,73 @@ static const usb_intf_desc_t *find_msc_interface(const usb_config_desc_t *config
         next_desc = next_interface_desc(next_desc, total_length, offset);
     };
     return NULL;
+}
+
+esp_err_t clear_feature(msc_device_t *device, uint8_t endpoint)
+{
+    usb_device_handle_t dev = device->handle;
+    usb_transfer_t *xfer = device->xfer;
+
+    esp_err_t err = usb_host_endpoint_flush(dev, endpoint);
+    if (ESP_OK != err ) {
+        // The endpoint cannot be flushed if it does not have STALL condition
+        // Return without ESP_LOGE
+        return err;
+    }
+    MSC_RETURN_ON_ERROR( usb_host_endpoint_clear(dev, endpoint) );
+
+    USB_SETUP_PACKET_INIT_CLEAR_FEATURE_EP((usb_setup_packet_t *)xfer->data_buffer, endpoint);
+    MSC_RETURN_ON_ERROR( msc_control_transfer(device,  USB_SETUP_PACKET_SIZE) );
+
+    return ESP_OK;
+}
+
+/**
+ * @brief Bulk-Only Mass Storage Reset
+ *
+ * This class-specific request shall ready the device for the next CBW from the host.
+ * The device shall preserve the value of its bulk data toggle bits and endpoint STALL conditions despite the Bulk-Only Mass Storage Reset.
+ *
+ * @see USB Mass Storage Class – Bulk Only Transport, Chapter 3.1
+ *
+ * @param[in] dev MSC device handle
+ * @return esp_err_t
+ */
+static esp_err_t msc_mass_reset(msc_host_device_handle_t dev)
+{
+    msc_device_t *device = (msc_device_t *)dev;
+    usb_transfer_t *xfer = device->xfer;
+
+    USB_MASS_REQ_INIT_RESET((usb_setup_packet_t *)xfer->data_buffer, device->config.iface_num);
+    MSC_RETURN_ON_ERROR( msc_control_transfer(device, USB_SETUP_PACKET_SIZE) );
+
+    return ESP_OK;
+}
+
+/**
+ * @brief MSC get maximum Logical Unit Number
+ *
+ * If the device implements 3 LUNs, the returned value is 2. (LUN0, LUN1, LUN2).
+ *
+ * This driver does not support multiple LUNs yet.
+ *
+ * @see USB Mass Storage Class – Bulk Only Transport, Chapter 3.2
+ *
+ * @param[in]  dev MSC device handle
+ * @param[out] lun Maximum Logical Unit Number
+ * @return esp_err_t
+ */
+__attribute__((unused)) static esp_err_t msc_get_max_lun(msc_host_device_handle_t dev, uint8_t *lun)
+{
+    msc_device_t *device = (msc_device_t *)dev;
+    usb_transfer_t *xfer = device->xfer;
+
+    USB_MASS_REQ_INIT_GET_MAX_LUN((usb_setup_packet_t *)xfer->data_buffer, device->config.iface_num);
+    MSC_RETURN_ON_ERROR( msc_control_transfer(device, USB_SETUP_PACKET_SIZE + 1) );
+
+    *lun = xfer->data_buffer[USB_SETUP_PACKET_SIZE];
+
+    return ESP_OK;
 }
 
 /**
@@ -234,15 +335,19 @@ static void event_handler_task(void *arg)
 
 static msc_device_t *find_msc_device(usb_device_handle_t device_handle)
 {
-    msc_host_device_handle_t device;
+    msc_device_t *iter;
+    msc_device_t *device_found = NULL;
 
-    STAILQ_FOREACH(device, &s_msc_driver->devices_tailq, tailq_entry) {
-        if (device_handle == device->handle) {
-            return device;
+    MSC_ENTER_CRITICAL();
+    STAILQ_FOREACH(iter, &s_msc_driver->devices_tailq, tailq_entry) {
+        if (device_handle == iter->handle) {
+            device_found = iter;
+            break;
         }
     }
+    MSC_EXIT_CRITICAL();
 
-    return NULL;
+    return device_found;
 }
 
 static void client_event_cb(const usb_host_client_event_msg_t *event, void *arg)
@@ -352,7 +457,6 @@ esp_err_t msc_host_install_device(uint8_t device_address, msc_host_device_handle
     uint32_t block_size, block_count;
     const usb_config_desc_t *config_desc;
     msc_device_t *msc_device;
-    size_t transfer_size = 512; // Normally the smallest block size
 
     MSC_GOTO_ON_FALSE( msc_device = calloc(1, sizeof(msc_device_t)), ESP_ERR_NO_MEM );
 
@@ -366,7 +470,7 @@ esp_err_t msc_host_install_device(uint8_t device_address, msc_host_device_handle
     MSC_GOTO_ON_ERROR( usb_host_device_open(s_msc_driver->client_handle, device_address, &msc_device->handle) );
     MSC_GOTO_ON_ERROR( usb_host_get_active_config_descriptor(msc_device->handle, &config_desc) );
     MSC_GOTO_ON_ERROR( extract_config_from_descriptor(config_desc, &msc_device->config) );
-    MSC_GOTO_ON_ERROR( usb_host_transfer_alloc(transfer_size, 0, &msc_device->xfer) );
+    MSC_GOTO_ON_ERROR( usb_host_transfer_alloc(DEFAULT_XFER_SIZE, 0, &msc_device->xfer) );
     MSC_GOTO_ON_ERROR( usb_host_interface_claim(
                            s_msc_driver->client_handle,
                            msc_device->handle,
@@ -378,14 +482,6 @@ esp_err_t msc_host_install_device(uint8_t device_address, msc_host_device_handle
 
     msc_device->disk.block_size = block_size;
     msc_device->disk.block_count = block_count;
-
-    if (block_size > transfer_size) {
-        usb_transfer_t *larger_xfer;
-        MSC_GOTO_ON_ERROR( usb_host_transfer_alloc(block_size, 0, &larger_xfer) );
-        usb_host_transfer_free(msc_device->xfer);
-        msc_device->xfer = larger_xfer;
-    }
-
     *msc_device_handle = msc_device;
 
     return ESP_OK;
@@ -482,51 +578,64 @@ static void transfer_callback(usb_transfer_t *transfer)
 static usb_transfer_status_t wait_for_transfer_done(usb_transfer_t *xfer)
 {
     msc_device_t *device = (msc_device_t *)xfer->context;
-    usb_transfer_status_t status = xfer->status;
     BaseType_t received = xSemaphoreTake(device->transfer_done, pdMS_TO_TICKS(xfer->timeout_ms));
+    usb_transfer_status_t status = xfer->status;
 
     if (received != pdTRUE) {
         usb_host_endpoint_halt(xfer->device_handle, xfer->bEndpointAddress);
         usb_host_endpoint_flush(xfer->device_handle, xfer->bEndpointAddress);
-        xSemaphoreTake(device->transfer_done, portMAX_DELAY);
-        return USB_TRANSFER_STATUS_TIMED_OUT;
+        usb_host_endpoint_clear(xfer->device_handle, xfer->bEndpointAddress);
+        xSemaphoreTake(device->transfer_done, portMAX_DELAY); // Since we flushed the EP, this should return immediately
+        status = USB_TRANSFER_STATUS_TIMED_OUT;
     }
 
     return status;
 }
 
-esp_err_t msc_bulk_transfer(msc_device_t *device, uint8_t *data, size_t size, msc_endpoint_t ep)
+esp_err_t msc_bulk_transfer_zcpy(msc_device_t *device, uint8_t *data, size_t size, msc_endpoint_t ep)
 {
+    esp_err_t ret = ESP_OK;
+    MSC_RETURN_ON_FALSE(esp_ptr_dma_capable(data), ESP_FAIL); // The passed buffer must be DMA capable
     usb_transfer_t *xfer = device->xfer;
-    MSC_RETURN_ON_FALSE(size <= xfer->data_buffer_size, ESP_ERR_INVALID_SIZE);
     uint8_t endpoint = (ep == MSC_EP_IN) ? device->config.bulk_in_ep : device->config.bulk_out_ep;
+    uint8_t *backup_buffer = xfer->data_buffer;
+    size_t backup_size = xfer->data_buffer_size;
+    size_t actual_size;
+
+    uint8_t **ptr = (uint8_t **)(&(xfer->data_buffer));
+    size_t *siz = (size_t *)(&(xfer->data_buffer_size));
 
     if (is_in_endpoint(endpoint)) {
-        xfer->num_bytes = usb_round_up_to_mps(size, device->config.bulk_in_mps);
+        actual_size = usb_round_up_to_mps(size, device->config.bulk_in_mps);
     } else {
-        memcpy(xfer->data_buffer, data, size);
-        xfer->num_bytes = size;
+        actual_size = size;
     }
 
+    // Attention: Here we modify 'private' members data_buffer and data_buffer_size
+    *ptr = data;
+    *siz = actual_size;
+    xfer->num_bytes = actual_size;
     xfer->device_handle = device->handle;
     xfer->bEndpointAddress = endpoint;
     xfer->callback = transfer_callback;
     xfer->timeout_ms = 5000;
     xfer->context = device;
 
-    MSC_RETURN_ON_ERROR( usb_host_transfer_submit(xfer) );
-    if (USB_TRANSFER_STATUS_COMPLETED != wait_for_transfer_done(xfer)) {
-        if (USB_TRANSFER_STATUS_STALL == wait_for_transfer_done(xfer)) {
-            return ESP_ERR_MSC_STALL;
-        }
-        return ESP_ERR_MSC_INTERNAL;
+    MSC_GOTO_ON_ERROR( usb_host_transfer_submit(xfer) );
+    const usb_transfer_status_t status = wait_for_transfer_done(xfer);
+    switch (status) {
+    case USB_TRANSFER_STATUS_COMPLETED:
+        ret = ESP_OK; break;
+    case USB_TRANSFER_STATUS_STALL:
+        ret = ESP_ERR_MSC_STALL; break;
+    default:
+        ret = ESP_ERR_MSC_INTERNAL; break;
     }
 
-    if (is_in_endpoint(endpoint)) {
-        memcpy(data, xfer->data_buffer, size);
-    }
-
-    return ESP_OK;
+fail:
+    *ptr = backup_buffer;
+    *siz = backup_size;
+    return ret;
 }
 
 esp_err_t msc_control_transfer(msc_device_t *device, size_t len)
@@ -541,4 +650,14 @@ esp_err_t msc_control_transfer(msc_device_t *device, size_t len)
 
     MSC_RETURN_ON_ERROR( usb_host_transfer_submit_control(s_msc_driver->client_handle, xfer));
     return wait_for_transfer_done(xfer) == USB_TRANSFER_STATUS_COMPLETED ? ESP_OK : ESP_ERR_MSC_INTERNAL;
+}
+
+esp_err_t msc_host_reset_recovery(msc_host_device_handle_t device)
+{
+    // Clear feature will fail if there is not STALL on the endpoint, so we don't check the errors here
+    clear_feature(device, device->config.bulk_in_ep);
+    clear_feature(device, device->config.bulk_out_ep);
+    ESP_RETURN_ON_ERROR( msc_mass_reset(device), TAG, "Mass reset failed" );
+    MSC_RETURN_ON_ERROR( msc_wait_for_ready_state(device, WAIT_FOR_READY_TIMEOUT_MS) );
+    return ESP_OK;
 }

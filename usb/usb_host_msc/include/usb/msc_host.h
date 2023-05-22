@@ -164,6 +164,18 @@ esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_dev
  */
 esp_err_t msc_host_print_descriptors(msc_host_device_handle_t device);
 
+/**
+ * @brief MSC Bulk Only Transport Reset Recovery
+ *
+ * @see USB Mass Storage Class – Bulk Only Transport, Chapter 5.3.4
+ *
+ * @param[in] device Handle of MSC device
+ * @return
+ *       - ESP_OK:  The device was recovered from reset
+ *       - ESP_FAI: Recovery unsuccessful, might indicate broken device
+ */
+esp_err_t msc_host_reset_recovery(msc_host_device_handle_t device);
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus

@@ -4,8 +4,8 @@ set(sources src/msc_scsi_bot.c
             src/msc_host_vfs.c)
 
 idf_component_register( SRCS ${sources}
-                        INCLUDE_DIRS include include/usb # 'include' is here for backwards compatibility
-                        PRIV_INCLUDE_DIRS private_include
+                        INCLUDE_DIRS include include/usb # 'include/usb' is here for backwards compatibility
+                        PRIV_INCLUDE_DIRS private_include include/esp_private
                         REQUIRES usb fatfs )
 
 # We access packeted USB string descriptor via pointers. The memory used for storing the descritptors
