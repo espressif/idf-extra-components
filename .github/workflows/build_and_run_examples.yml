@@ -1,0 +1,32 @@
+name: Build and Run Examples
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Once per day at midnight
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  build:
+    name: Build Examples
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "latest"]
+        parallel_index: [1,2,3,4,5] # This must from 1 to 'parallel_count' defined in .idf_build_apps.toml
+    runs-on: ubuntu-20.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Build Examples
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          pip install idf-component-manager idf-build-apps --upgrade
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          idf-build-apps find
+          idf-build-apps build --parallel-index ${{ matrix.parallel_index }}

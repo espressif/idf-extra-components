@@ -1,0 +1,3 @@
+led_strip:
+  enable:
+    - if: SOC_RMT_SUPPORTED == 1 # This will also disable IDF v4.x builds, as this symbol is not defined there
