@@ -60,12 +60,12 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
     if (config->configuration_descriptor) {
         cfg_descriptor = config->configuration_descriptor;
     } else {
-        // Default configuration descriptor is provided only for CDC and MSC classes
-#if (CFG_TUD_HID > 0 || CFG_TUD_MIDI > 0 || CFG_TUD_CUSTOM_CLASS > 0)
+        // Default configuration descriptor is provided only for CDC, MSC and NCM classes
+#if (CFG_TUD_HID > 0 || CFG_TUD_MIDI > 0 || CFG_TUD_CUSTOM_CLASS > 0 || CFG_TUD_ECM_RNDIS > 0 || CFG_TUD_DFU > 0 || CFG_TUD_DFU_RUNTIME > 0 || CFG_TUD_BTH > 0)
         ESP_RETURN_ON_FALSE(config->configuration_descriptor, ESP_ERR_INVALID_ARG, TAG, "Configuration descriptor must be provided for this device");
 #else
-         cfg_descriptor = descriptor_cfg_kconfig;
-         ESP_LOGW(TAG, "The device's configuration descriptor is not provided by user, using default.");
+        cfg_descriptor = descriptor_cfg_kconfig;
+        ESP_LOGW(TAG, "The device's configuration descriptor is not provided by user, using default.");
 #endif
 
     }
@@ -91,8 +91,9 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
     }
 
     tinyusb_set_descriptor(dev_descriptor, string_descriptor, string_descriptor_count, cfg_descriptor);
-
+#if !CONFIG_TINYUSB_INIT_IN_DEFAULT_TASK
     ESP_RETURN_ON_FALSE(tusb_init(), ESP_FAIL, TAG, "Init TinyUSB stack failed");
+#endif
 #if !CONFIG_TINYUSB_NO_DEFAULT_TASK
     ESP_RETURN_ON_ERROR(tusb_run_task(), TAG, "Run TinyUSB task failed");
 #endif

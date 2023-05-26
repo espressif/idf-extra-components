@@ -361,7 +361,7 @@ esp_err_t tusb_cdc_acm_init(const tinyusb_config_cdcacm_t *cfg)
     };
 
     ESP_RETURN_ON_ERROR(tinyusb_cdc_init(itf, &cdc_cfg), TAG, "tinyusb_cdc_init failed");
-    ESP_GOTO_ON_FALSE(!alloc_obj(itf), ESP_FAIL, out4, TAG, "alloc_obj failed");
+    ESP_GOTO_ON_ERROR(alloc_obj(itf), out4, TAG, "alloc_obj failed");
 
     /* Callbacks setting up*/
     if (cfg->callback_rx) {
