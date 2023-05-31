@@ -30,3 +30,35 @@ jobs:
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           idf-build-apps find
           idf-build-apps build --parallel-index ${{ matrix.parallel_index }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: example_binaries_${{ matrix.idf_ver }}
+          path: |
+            */examples/*/build_esp*/bootloader/bootloader.bin
+            */examples/*/build_esp*/partition_table/partition-table.bin
+            */examples/*/build_esp*/*.bin
+            */examples/*/build_esp*/flasher_args.json
+
+  run-target:
+    name: Run examples on target
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "latest"]
+    runs-on: [self-hosted, linux, docker, "esp32"] #@todo manage targets
+    container:
+      image: python:3.7-buster
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: example_binaries_${{ matrix.idf_ver }}
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+      # - name: Run CBOR example
+      #   working-directory: cbor/examples/cbor
+      #   run: pytest --target=${{ matrix.idf_target }}

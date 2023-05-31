@@ -1,3 +1,11 @@
 led_strip:
   enable:
-    - if: SOC_RMT_SUPPORTED == 1 # This will also disable IDF v4.x builds, as this symbol is not defined there
+    - if: SOC_RMT_SUPPORTED == 1 # This will also disable IDF v4.x builds, as this symbol is not defined
+
+esp_delta_ota:
+  enable:
+    - if: IDF_VERSION_MAJOR > 4
+      reason: Example uses esp_app_format component which was introduced in IDF v5.0
+  disable:
+    - if: SOC_WIFI_SUPPORTED != 1
+      reason: Relevant only for WiFi enabled targets
