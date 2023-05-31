@@ -38,6 +38,7 @@ jobs:
             */examples/*/build_esp*/partition_table/partition-table.bin
             */examples/*/build_esp*/*.bin
             */examples/*/build_esp*/flasher_args.json
+            */examples/*/build_esp*/config/sdkconfig.json
 
   run-target:
     name: Run examples on target
@@ -46,7 +47,8 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "latest"]
-    runs-on: [self-hosted, linux, docker, "esp32"] #@todo manage targets
+        idf_target: ["esp32"]
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
     container:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
@@ -59,6 +61,5 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
-      # - name: Run CBOR example
-      #   working-directory: cbor/examples/cbor
-      #   run: pytest --target=${{ matrix.idf_target }}
+      - name: Run examples
+        run: pytest --target=${{ matrix.idf_target }} --build-dir=build_${{ matrix.idf_target }} --ignore=usb --ignore=test_app
