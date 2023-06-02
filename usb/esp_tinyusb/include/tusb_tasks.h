@@ -20,7 +20,8 @@ extern "C" {
  * If you have more requirements for this task, you can create your own task which calls tud_task as the last step.
  *
  * @retval ESP_OK run tinyusb main task successfully
- * @retval ESP_FAIL run tinyusb main task failed of internal error
+ * @retval ESP_FAIL run tinyusb main task failed of internal error or initialization withing the task failed when TINYUSB_INIT_IN_DEFAULT_TASK=y
+ * @retval ESP_FAIL initialization withing the task failed if CONFIG_TINYUSB_INIT_IN_DEFAULT_TASK is enabled
  * @retval ESP_ERR_INVALID_STATE tinyusb main task has been created before
  */
 esp_err_t tusb_run_task(void);
