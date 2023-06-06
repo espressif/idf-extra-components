@@ -23,8 +23,8 @@ extern const uint8_t bin_end[]   asm("_binary_image_bin_end");
 TEST_CASE("Sending all data at once", "[encrypted_img]")
 {
     esp_decrypt_cfg_t cfg = {
-        .rsa_pub_key = (char *)rsa_private_pem_start,
-        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+        .rsa_priv_key = (char *)rsa_private_pem_start,
+        .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
@@ -53,8 +53,8 @@ TEST_CASE("Sending all data at once", "[encrypted_img]")
 TEST_CASE("Sending 1 byte data at once", "[encrypted_img]")
 {
     esp_decrypt_cfg_t cfg = {
-        .rsa_pub_key = (char *)rsa_private_pem_start,
-        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+        .rsa_priv_key = (char *)rsa_private_pem_start,
+        .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
@@ -154,8 +154,8 @@ TEST_CASE("Invalid Magic", "[encrypted_img]")
     };
 
     esp_decrypt_cfg_t cfg = {
-        .rsa_pub_key = (char *)rsa_private_pem_start,
-        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+        .rsa_priv_key = (char *)rsa_private_pem_start,
+        .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
@@ -247,8 +247,8 @@ TEST_CASE("Invalid Image", "[encrypted_img]")
     };
 
     esp_decrypt_cfg_t cfg = {
-        .rsa_pub_key = (char *)rsa_private_pem_start,
-        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+        .rsa_priv_key = (char *)rsa_private_pem_start,
+        .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
@@ -275,8 +275,8 @@ TEST_CASE("Invalid Image", "[encrypted_img]")
 TEST_CASE("Sending random size data at once", "[encrypted_img]")
 {
     esp_decrypt_cfg_t cfg = {
-        .rsa_pub_key = (char *)rsa_private_pem_start,
-        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+        .rsa_priv_key = (char *)rsa_private_pem_start,
+        .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
@@ -314,8 +314,8 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
 TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
 {
     esp_decrypt_cfg_t cfg = {
-        .rsa_pub_key = (char *)rsa_private_pem_start,
-        .rsa_pub_key_len = rsa_private_pem_end - rsa_private_pem_start,
+        .rsa_priv_key = (char *)rsa_private_pem_start,
+        .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
     int free_bytes_start = xPortGetFreeHeapSize();
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);

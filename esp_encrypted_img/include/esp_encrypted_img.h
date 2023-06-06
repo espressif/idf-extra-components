@@ -6,6 +6,7 @@
 #pragma once
 
 #include <esp_err.h>
+#include <esp_idf_version.h>
 
 #if 0   //High level layout for state machine
 
@@ -42,12 +43,30 @@ ESP_FAIL --> [*]
 extern "C" {
 #endif
 
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0))
+#define DEPRECATED_ATTRIBUTE __attribute__((deprecated))
+#else
+#define DEPRECATED_ATTRIBUTE
+#endif
+
 typedef void *esp_decrypt_handle_t;
 
 typedef struct {
-    const char *rsa_pub_key;    /*!< 3072 bit RSA key in PEM format */
-    size_t rsa_pub_key_len;     /*!< Length of the buffer pointed to by rsa_pub_key*/
+    union {
+        const char *rsa_priv_key;                       /*!< 3072 bit RSA private key in PEM format */
+        const char *rsa_pub_key DEPRECATED_ATTRIBUTE;   /*!< This name is kept for backward compatibility purpose,
+                                                             but it is not accurate (meaning wise) and hence it would
+                                                             be removed in the next major release */
+    };
+    union {
+        size_t rsa_priv_key_len;                        /*!< Length of the buffer pointed to by rsa_priv_key */
+        size_t rsa_pub_key_len DEPRECATED_ATTRIBUTE;    /*!< This name is kept for backward compatibility purpose,
+                                                             but it is not accurate (meaning wise) and hence it would
+                                                             be removed in the next major release */
+    };
 } esp_decrypt_cfg_t;
+
+#undef DEPRECATED_ATTRIBUTE
 
 typedef struct {
     const char *data_in;    /*!< Pointer to data to be decrypted */
@@ -73,7 +92,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 * @brief  This function performs decryption on input data.
 *
 * This function must be called only if esp_encrypted_img_decrypt_start() returns successfully.
-* This function must be called in a loop since since input data might not contain whole binary at once.
+* This function must be called in a loop since input data might not contain whole binary at once.
 * This function must be called till it return ESP_OK.
 *
 * @note args->data_out must be freed after use provided args->data_out_len is greater than 0
@@ -83,7 +102,8 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 *
 * @return
 *    - ESP_FAIL                         On failure
-*    - ESP_ERR_DECRYPT_IN_PROGRESS      Decryption is in process
+*    - ESP_ERR_INVALID_ARG              Invalid arguments
+*    - ESP_ERR_NOT_FINISHED             Decryption is in process
 *    - ESP_OK                           Success
 */
 esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decrypt_arg_t *args);
