@@ -1,0 +1,6 @@
+version: "1.0.0"
+description: CoAP Server Example
+dependencies:
+  espressif/coap:
+    version: "^4.3.0"
+    override_path: '../../../'

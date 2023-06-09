@@ -28,8 +28,8 @@ jobs:
           export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
-          idf-build-apps find
-          idf-build-apps build --parallel-index ${{ matrix.parallel_index }}
+          idf-build-apps find --config sdkconfig.ci
+          idf-build-apps build --config sdkconfig.ci --parallel-index ${{ matrix.parallel_index }}
       - uses: actions/upload-artifact@v3
         with:
           name: example_binaries_${{ matrix.idf_ver }}
@@ -62,4 +62,28 @@ jobs:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
       - name: Run examples
-        run: pytest --target=${{ matrix.idf_target }} --build-dir=build_${{ matrix.idf_target }} --ignore=usb --ignore=test_app
+        run: pytest --target=${{ matrix.idf_target }} -m generic --build-dir=build_${{ matrix.idf_target }} --ignore=usb --ignore=test_app
+
+  run-ethernet-based-examples:
+    name: Run examples on ethernet runners
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "latest"]
+        idf_target: ["esp32"]
+    runs-on: [self-hosted, ESP32-ETHERNET-KIT]
+    container:
+      image: python:3.7-buster
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: example_binaries_${{ matrix.idf_ver }}
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+      - name: Run examples
+        run: pytest --target=${{ matrix.idf_target }} -m ethernet --build-dir=build_${{ matrix.idf_target }} --ignore=usb --ignore=test_app
