@@ -1,7 +1,7 @@
 led_strip:
   enable:
-    - if: SOC_RMT_SUPPORTED == 1 # This will also disable IDF v4.x builds, as this symbol is not defined
-
+    - if: SOC_RMT_SUPPORTED == 1 and ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5)) # Used Clock_source_t type was introduced since IDF V5.1
+    
 esp_delta_ota:
   enable:
     - if: IDF_VERSION_MAJOR > 4

@@ -43,6 +43,7 @@ typedef struct {
     uint32_t max_leds;       /*!< Maximum LEDs in a single strip */
     led_pixel_format_t led_pixel_format; /*!< LED pixel format */
     led_model_t led_model;   /*!< LED model */
+
     struct {
         uint32_t invert_out: 1; /*!< Invert output signal */
     } flags;
