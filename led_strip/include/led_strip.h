@@ -9,6 +9,7 @@
 #include "esp_err.h"
 #include "led_strip_rmt.h"
 
+#include "led_strip_spi.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

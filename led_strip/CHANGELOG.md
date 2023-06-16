@@ -1,3 +1,8 @@
+## 2.4.0
+
+- Support configurable SPI mode to contorl leds
+  - recommend to enable DMA when using SPI mode
+  
 ## 2.3.0
 
 - Support configurable RMT channel size by setting `mem_block_symbols`
