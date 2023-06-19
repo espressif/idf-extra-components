@@ -1,0 +1,13 @@
+target = "all"
+paths = "."
+recursive = true
+exclude = [
+    "test_app",
+    "usb/test_app",
+]
+manifest_file = ".build-test-rules.yml"
+check_warnings = true
+
+# build related options
+build_dir = "build_@t_@w"
+parallel_count = 5

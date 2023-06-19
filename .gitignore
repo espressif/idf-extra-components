@@ -1,5 +1,6 @@
 **/dist/**
-build
+**/build*/**
+**/__pycache__/**
 sdkconfig
 sdkconfig.old
 dependencies.lock

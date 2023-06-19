@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -147,7 +148,7 @@ static int callback_on_frame_send(nghttp2_session *session,
 static int callback_on_frame_recv(nghttp2_session *session,
                                   const nghttp2_frame *frame, void *user_data)
 {
-    ESP_LOGD(TAG, "[frame-recv][sid: %d] frame type  %s", frame->hd.stream_id, sh2lib_frame_type_str(frame->hd.type));
+    ESP_LOGD(TAG, "[frame-recv][sid: %" PRIi32 "] frame type  %s", frame->hd.stream_id, sh2lib_frame_type_str(frame->hd.type));
     if (frame->hd.type != NGHTTP2_DATA) {
         return 0;
     }
@@ -163,8 +164,7 @@ static int callback_on_frame_recv(nghttp2_session *session,
 static int callback_on_stream_close(nghttp2_session *session, int32_t stream_id,
                                     uint32_t error_code, void *user_data)
 {
-
-    ESP_LOGD(TAG, "[stream-close][sid %d]", stream_id);
+    ESP_LOGD(TAG, "[stream-close][sid %" PRIi32 "]", stream_id);
     sh2lib_frame_data_recv_cb_t data_recv_cb = nghttp2_session_get_stream_user_data(session, stream_id);
     if (data_recv_cb) {
         struct sh2lib_handle *h2 = user_data;
@@ -178,7 +178,7 @@ static int callback_on_data_chunk_recv(nghttp2_session *session, uint8_t flags,
                                        size_t len, void *user_data)
 {
     sh2lib_frame_data_recv_cb_t data_recv_cb;
-    ESP_LOGD(TAG, "[data-chunk][sid:%d]", stream_id);
+    ESP_LOGD(TAG, "[data-chunk][sid: %" PRIi32 "]", stream_id);
     data_recv_cb = nghttp2_session_get_stream_user_data(session, stream_id);
     if (data_recv_cb) {
         ESP_LOGD(TAG, "[data-chunk] C <---------------------------- S (DATA chunk)"
@@ -195,7 +195,7 @@ static int callback_on_header(nghttp2_session *session, const nghttp2_frame *fra
                               const uint8_t *name, size_t namelen, const uint8_t *value,
                               size_t valuelen, uint8_t flags, void *user_data)
 {
-    ESP_LOGD(TAG, "[hdr-recv][sid:%d] %s : %s", frame->hd.stream_id, name, value);
+    ESP_LOGD(TAG, "[hdr-recv][sid: %" PRIi32 "] %s : %s", frame->hd.stream_id, name, value);
     return 0;
 }
 
