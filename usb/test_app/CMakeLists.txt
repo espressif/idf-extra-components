@@ -9,10 +9,11 @@ set(EXTRA_COMPONENT_DIRS ../usb_host_cdc_acm
                          ../usb_host_cp210x_vcp
                          ../usb_host_ftdi_vcp
                          ../usb_host_vcp
+                         ../usb_host_hid
                          ../esp_modem_usb_dte
                          )
 
 # Set the components to include the tests for.
-set(TEST_COMPONENTS "usb_host_cdc_acm" "usb_host_msc" "usb_host_uvc" CACHE STRING "List of components to test")
+set(TEST_COMPONENTS "usb_host_cdc_acm" "usb_host_msc" "usb_host_uvc" "usb_host_hid" CACHE STRING "List of components to test")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(usb_test_app)

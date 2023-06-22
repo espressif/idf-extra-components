@@ -55,6 +55,7 @@ jobs:
             usb/usb_host_ch34x_vcp;
             usb/usb_host_cp210x_vcp;
             usb/usb_host_ftdi_vcp;
+            usb/usb_host_hid;
             usb/usb_host_msc;
             usb/usb_host_uvc;
             usb/usb_host_vcp;
