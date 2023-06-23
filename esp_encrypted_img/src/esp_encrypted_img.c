@@ -121,7 +121,7 @@ exit:
 
 esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cfg)
 {
-    if (cfg == NULL || cfg->rsa_pub_key == NULL) {
+    if (cfg == NULL || cfg->rsa_priv_key == NULL) {
         ESP_LOGE(TAG, "esp_encrypted_img_decrypt_start : Invalid argument");
         return NULL;
     }
@@ -133,7 +133,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
         goto failure;
     }
 
-    handle->rsa_pem = calloc(1, cfg->rsa_pub_key_len);
+    handle->rsa_pem = calloc(1, cfg->rsa_priv_key_len);
     if (!handle->rsa_pem) {
         ESP_LOGE(TAG, "Couldn't allocate memory to handle->rsa_pem");
         goto failure;
@@ -145,8 +145,8 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
         goto failure;
     }
 
-    memcpy(handle->rsa_pem, cfg->rsa_pub_key, cfg->rsa_pub_key_len);
-    handle->rsa_len = cfg->rsa_pub_key_len;
+    memcpy(handle->rsa_pem, cfg->rsa_priv_key, cfg->rsa_priv_key_len);
+    handle->rsa_len = cfg->rsa_priv_key_len;
     handle->state = ESP_PRE_ENC_IMG_READ_MAGIC;
 
     esp_decrypt_handle_t ctx = (esp_decrypt_handle_t)handle;
