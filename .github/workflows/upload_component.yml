@@ -29,6 +29,7 @@ jobs:
             cbor;
             ccomp_timer;
             coap;
+            download_file;
             eigen;
             esp_delta_ota;
             esp_encrypted_img;

@@ -22,7 +22,9 @@ body:
       options:
         - bdc_motor
         - cbor
+        - ccomp_timer
         - coap
+        - download_file
         - eigen
         - esp_encrypted_img
         - esp_jpeg
