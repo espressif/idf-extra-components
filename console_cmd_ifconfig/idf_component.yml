@@ -1,0 +1,6 @@
+dependencies:
+  idf:
+    version: '>=4.1'
+description: The component offers a console that enables runtime network interface configuration and monitoring for any example project.
+url: https://github.com/espressif-abhikroy/idf-extra-components/tree/component/console_cmd_ifconfig
+version: 0.0.3
