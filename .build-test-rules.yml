@@ -21,3 +21,8 @@ esp_delta_ota:
   disable:
     - if: SOC_WIFI_SUPPORTED != 1
       reason: Relevant only for WiFi enabled targets
+
+sh2lib/examples/http2_request:
+  enable:
+    - if: IDF_VERSION_MAJOR > 4 and INCLUDE_DEFAULT == 1
+      reason: Example uses sh2lib component which was introduced in IDF v5.0
