@@ -92,7 +92,10 @@ static esp_err_t _read_sector_spiflash(size_t sector_size,
                                        size_t size,
                                        void *dest)
 {
-    size_t addr = lba * sector_size + offset; // Address of the data to be read, relative to the beginning of the partition.
+    size_t temp = 0;
+    size_t addr = 0; // Address of the data to be read, relative to the beginning of the partition.
+    ESP_RETURN_ON_FALSE(!__builtin_umul_overflow(lba, sector_size, &temp), ESP_ERR_INVALID_SIZE, TAG, "overflow lba %lu sector_size %u", lba, sector_size);
+    ESP_RETURN_ON_FALSE(!__builtin_uadd_overflow(temp, offset, &addr), ESP_ERR_INVALID_SIZE, TAG, "overflow addr %u offset %lu", temp, offset);
     return wl_read(s_storage_handle->wl_handle, addr, dest, size);
 }
 
@@ -185,7 +188,11 @@ static esp_err_t msc_storage_write_sector(uint32_t lba,
         return ESP_ERR_INVALID_STATE;
     }
     size_t sector_size = tinyusb_msc_storage_get_sector_size();
-    size_t addr = lba * sector_size + offset; // Address of the data to be read, relative to the beginning of the partition.
+    size_t temp = 0;
+    size_t addr = 0; // Address of the data to be read, relative to the beginning of the partition.
+    ESP_RETURN_ON_FALSE(!__builtin_umul_overflow(lba, sector_size, &temp), ESP_ERR_INVALID_SIZE, TAG, "overflow lba %lu sector_size %u", lba, sector_size);
+    ESP_RETURN_ON_FALSE(!__builtin_uadd_overflow(temp, offset, &addr), ESP_ERR_INVALID_SIZE, TAG, "overflow addr %u offset %lu", temp, offset);
+
     if (addr % sector_size != 0 || size % sector_size != 0) {
         ESP_LOGE(TAG, "Invalid Argument lba(%lu) offset(%lu) size(%u) sector_size(%u)", lba, offset, size, sector_size);
         return ESP_ERR_INVALID_ARG;
