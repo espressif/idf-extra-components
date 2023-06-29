@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: CC0-1.0
 
 from typing import Tuple
@@ -23,10 +23,7 @@ def test_usb_host(dut: Tuple[IdfDut, IdfDut]) -> None:
     device.expect_exact('USB initialization DONE')
 
     # 1.2 Run CDC test
-    host.expect_exact('Press ENTER to see the list of tests.')
-    host.write('[cdc_acm]')
-    host.expect_unity_test_output()
-    host.expect_exact("Enter next test, or 'enter' to see menu")
+    host.run_all_single_board_cases(group='cdc_acm')
 
     # 2.1 Prepare USB device for MSC test
     device.serial.hard_reset()
@@ -35,9 +32,7 @@ def test_usb_host(dut: Tuple[IdfDut, IdfDut]) -> None:
     device.expect_exact('USB initialization DONE')
 
     # 2.2 Run MSC test
-    host.write('[usb_msc]')
-    host.expect_unity_test_output()
-    host.expect_exact("Enter next test, or 'enter' to see menu")
+    host.run_all_single_board_cases(group='usb_msc')
 
     # 3.1 Prepare USB device with one Interface for HID tests
     device.serial.hard_reset()
@@ -46,9 +41,7 @@ def test_usb_host(dut: Tuple[IdfDut, IdfDut]) -> None:
     device.expect_exact('HID mock device with 1xInterface (Protocol=None) has been started')
 
     # 3.2 Run HID tests
-    host.write('[hid_host]')
-    host.expect_unity_test_output()
-    host.expect_exact("Enter next test, or 'enter' to see menu")
+    host.run_all_single_board_cases(group='hid_host')
 
     # 3.3 Prepare USB device with two Interfaces for HID tests
     device.serial.hard_reset()
@@ -57,6 +50,4 @@ def test_usb_host(dut: Tuple[IdfDut, IdfDut]) -> None:
     device.expect_exact('HID mock device with 2xInterfaces (Protocol=BootKeyboard, Protocol=BootMouse) has been started')
 
     # 3.4 Run HID tests
-    host.write('[hid_host]')
-    host.expect_unity_test_output()
-    host.expect_exact("Enter next test, or 'enter' to see menu")
+    host.run_all_single_board_cases(group='hid_host')

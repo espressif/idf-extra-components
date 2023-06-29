@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -32,18 +32,14 @@ static DRESULT usb_disk_read (BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
     assert(pdrv < FF_VOLUMES);
     assert(s_disks[pdrv]);
 
-    esp_err_t err;
     usb_disk_t *disk = s_disks[pdrv];
     size_t sector_size = disk->block_size;
     msc_device_t *dev = __containerof(disk, msc_device_t, disk);
 
-    for (int i = 0; i < count; i++) {
-        err = scsi_cmd_read10(dev, &buff[i * sector_size], sector + i, 1, sector_size);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "scsi_cmd_read10 failed (%d)", err);
-            return RES_ERROR;
-        }
-
+    esp_err_t err = scsi_cmd_read10(dev, buff, sector, count, sector_size);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "scsi_cmd_read10 failed (%d)", err);
+        return RES_ERROR;
     }
 
     return RES_OK;
@@ -54,18 +50,14 @@ static DRESULT usb_disk_write (BYTE pdrv, const BYTE *buff, DWORD sector, UINT c
     assert(pdrv < FF_VOLUMES);
     assert(s_disks[pdrv]);
 
-    esp_err_t err;
     usb_disk_t *disk = s_disks[pdrv];
     size_t sector_size = disk->block_size;
     msc_device_t *dev = __containerof(disk, msc_device_t, disk);
 
-    for (int i = 0; i < count; i++) {
-        err = scsi_cmd_write10(dev, &buff[i * sector_size], sector + i, 1, sector_size);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "scsi_cmd_write10 failed (%d)", err);
-            return RES_ERROR;
-        }
-
+    esp_err_t err = scsi_cmd_write10(dev, buff, sector, count, sector_size);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "scsi_cmd_write10 failed (%d)", err);
+        return RES_ERROR;
     }
     return RES_OK;
 }

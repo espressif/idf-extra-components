@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,7 +12,7 @@
 static size_t before_free_8bit;
 static size_t before_free_32bit;
 
-#define TEST_MEMORY_LEAK_THRESHOLD (-10000) // @todo MSC test are leaking memory
+#define TEST_MEMORY_LEAK_THRESHOLD (-530)
 static void check_leak(size_t before_free, size_t after_free, const char *type)
 {
     ssize_t delta = after_free - before_free;

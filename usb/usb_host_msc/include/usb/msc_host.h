@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,7 +9,7 @@
 #include <wchar.h>
 #include <stdint.h>
 #include "esp_err.h"
-#include <freertos/FreeRTOS.h>
+#include "freertos/FreeRTOS.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +19,7 @@ extern "C" {
 #define ESP_ERR_MSC_MOUNT_FAILED    (ESP_ERR_MSC_HOST_BASE + 1)  /*!< Failed to mount storage */
 #define ESP_ERR_MSC_FORMAT_FAILED   (ESP_ERR_MSC_HOST_BASE + 2)  /*!< Failed to format storage */
 #define ESP_ERR_MSC_INTERNAL        (ESP_ERR_MSC_HOST_BASE + 3)  /*!< MSC host internal error */
+#define ESP_ERR_MSC_STALL           (ESP_ERR_MSC_HOST_BASE + 4)  /*!< USB transfer stalled */
 
 #define MSC_STR_DESC_SIZE 32
 
@@ -117,13 +118,14 @@ esp_err_t msc_host_uninstall_device(msc_host_device_handle_t device);
  * @param[in]  size   Number of bytes to be read
  * @return esp_err_t
  */
-esp_err_t msc_host_read_sector(msc_host_device_handle_t device, size_t sector, void *data, size_t size);
+esp_err_t msc_host_read_sector(msc_host_device_handle_t device, size_t sector, void *data, size_t size)
+__attribute__((deprecated("use API from esp_private/msc_scsi_bot.h")));
 
 /**
  * @brief Helper function for writing sector to mass storage device.
  *
  * @warning This call is not thread safe and should not be combined
- *          with accesses to storare through file system.
+ *          with accesses to storage through file system.
  *
  * @note  Provided sector and size cannot exceed
  *        sector_count and sector_size obtained from msc_host_device_info_t
@@ -134,7 +136,8 @@ esp_err_t msc_host_read_sector(msc_host_device_handle_t device, size_t sector, v
  * @param[in]  size   Number of bytes to be written
  * @return esp_err_t
  */
-esp_err_t msc_host_write_sector(msc_host_device_handle_t device, size_t sector, const void *data, size_t size);
+esp_err_t msc_host_write_sector(msc_host_device_handle_t device, size_t sector, const void *data, size_t size)
+__attribute__((deprecated("use API from esp_private/msc_scsi_bot.h")));
 
 /**
  * @brief Handle MSC HOST events.
@@ -146,9 +149,6 @@ esp_err_t msc_host_handle_events(uint32_t timeout_ms);
 
 /**
  * @brief Gets devices information.
- *
- * @warning This call is not thread safe and should not be combined
- *          with accesses to storare through file system.
  *
  * @param[in]  device  Handle to device
  * @param[out] info  Structure to be populated with device info
@@ -163,6 +163,18 @@ esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_dev
  * @return esp_err_t
  */
 esp_err_t msc_host_print_descriptors(msc_host_device_handle_t device);
+
+/**
+ * @brief MSC Bulk Only Transport Reset Recovery
+ *
+ * @see USB Mass Storage Class – Bulk Only Transport, Chapter 5.3.4
+ *
+ * @param[in] device Handle of MSC device
+ * @return
+ *       - ESP_OK:  The device was recovered from reset
+ *       - ESP_FAI: Recovery unsuccessful, might indicate broken device
+ */
+esp_err_t msc_host_reset_recovery(msc_host_device_handle_t device);
 
 #ifdef __cplusplus
 }
