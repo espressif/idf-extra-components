@@ -141,6 +141,8 @@ esp_err_t clear_feature(msc_device_t *device, uint8_t endpoint)
     usb_device_handle_t dev = device->handle;
     usb_transfer_t *xfer = device->xfer;
 
+    MSC_RETURN_ON_ERROR( usb_host_endpoint_halt(dev, endpoint) );
+
     esp_err_t err = usb_host_endpoint_flush(dev, endpoint);
     if (ESP_OK != err ) {
         // The endpoint cannot be flushed if it does not have STALL condition
@@ -284,17 +286,16 @@ static esp_err_t msc_wait_for_ready_state(msc_device_t *dev, size_t timeout_ms)
 
     do {
         err = scsi_cmd_unit_ready(dev);
-        if (err != ESP_OK) {
-            MSC_RETURN_ON_ERROR( scsi_cmd_sense(dev, &sense) );
-            if (sense.key != MSC_NOT_READY &&
-                    sense.key != MSC_UNIT_ATTENTION &&
-                    sense.key != MSC_NO_SENSE) {
-                return ESP_ERR_MSC_INTERNAL;
-            }
-        }
         vTaskDelay( pdMS_TO_TICKS(100) );
     } while (trials-- && err);
-
+    if (err != ESP_OK) {
+        MSC_RETURN_ON_ERROR( scsi_cmd_sense(dev, &sense) );
+        if (sense.key != MSC_NOT_READY &&
+                sense.key != MSC_UNIT_ATTENTION &&
+                sense.key != MSC_NO_SENSE) {
+            return ESP_ERR_MSC_INTERNAL;
+        }
+    }
     return err;
 }
 
@@ -654,10 +655,17 @@ esp_err_t msc_control_transfer(msc_device_t *device, size_t len)
 
 esp_err_t msc_host_reset_recovery(msc_host_device_handle_t device)
 {
+    // USB Mass Storage Class – Bulk Only Transport Revision 1.0
+    // 5.3.4 Reset Recovery
+    // For Reset Recovery the host shall issue in the following order: :
+    // (a) a Bulk-Only Mass Storage Reset
+    // (b) a Clear Feature HALT to the Bulk-In endpoint
+    // (c) a Clear Feature HALT to the Bulk-Out endpoint
+
+    ESP_RETURN_ON_ERROR( msc_mass_reset(device), TAG, "Mass reset failed" );
     // Clear feature will fail if there is not STALL on the endpoint, so we don't check the errors here
     clear_feature(device, device->config.bulk_in_ep);
     clear_feature(device, device->config.bulk_out_ep);
-    ESP_RETURN_ON_ERROR( msc_mass_reset(device), TAG, "Mass reset failed" );
     MSC_RETURN_ON_ERROR( msc_wait_for_ready_state(device, WAIT_FOR_READY_TIMEOUT_MS) );
     return ESP_OK;
 }
