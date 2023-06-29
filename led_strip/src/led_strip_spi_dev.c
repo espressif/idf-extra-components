@@ -31,7 +31,7 @@ typedef struct {
     uint8_t pixel_buf[];
 } led_strip_spi_obj;
 
-
+// please make sure to zero-initialize the buf before calling this function
 static void __led_strip_spi_bit(uint8_t data, uint8_t *buf)
 {
     // Each color of 1 bit is represented by 3 bits of SPI, low_level:100 ,high_level:110
@@ -39,7 +39,7 @@ static void __led_strip_spi_bit(uint8_t data, uint8_t *buf)
     *(buf + 2) |= data & BIT(0) ? BIT(2) | BIT(1) : BIT(2);
     *(buf + 2) |= data & BIT(1) ? BIT(5) | BIT(4) : BIT(5);
     *(buf + 2) |= data & BIT(2) ? BIT(7) : 0x00;
-    *(buf + 1) |= data & BIT(2) ? BIT(0) : BIT(0);
+    *(buf + 1) |= BIT(0);
     *(buf + 1) |= data & BIT(3) ? BIT(3) | BIT(2) : BIT(3);
     *(buf + 1) |= data & BIT(4) ? BIT(6) | BIT(5) : BIT(6);
     *(buf + 0) |= data & BIT(5) ? BIT(1) | BIT(0) : BIT(1);
@@ -141,7 +141,6 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip = heap_caps_calloc(1, sizeof(led_strip_spi_obj) + led_config->max_leds * bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE, mem_caps);
 
     ESP_GOTO_ON_FALSE(spi_strip, ESP_ERR_NO_MEM, err, TAG, "no mem for spi strip");
-    uint32_t resolution = spi_config->resolution_hz ? spi_config->resolution_hz : LED_STRIP_SPI_DEFAULT_RESOLUTION;
 
     spi_strip->spi_host = spi_config->spi_bus;
     // for backward compatibility, if the user does not set the clk_src, use the default value
@@ -177,7 +176,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         .command_bits = 0,
         .address_bits = 0,
         .dummy_bits = 0,
-        .clock_speed_hz = resolution,
+        .clock_speed_hz = LED_STRIP_SPI_DEFAULT_RESOLUTION,
         .mode = 0,
         //set -1 when CS is not used
         .spics_io_num = -1,
@@ -185,6 +184,13 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     };
 
     ESP_GOTO_ON_ERROR(spi_bus_add_device(spi_strip->spi_host, &spi_dev_cfg, &spi_strip->spi_device), err, TAG, "Failed to add spi device");
+
+    int clock_resolution_khz = 0;
+    spi_device_get_actual_freq(spi_strip->spi_device, &clock_resolution_khz);
+    // TODO: ideally we should decide the SPI_BYTES_PER_COLOR_BYTE by the real clock resolution
+    // But now, let's fixed the resolution, the downside is, we don't support a clock source whose frequency is not multiple of LED_STRIP_SPI_DEFAULT_RESOLUTION
+    ESP_GOTO_ON_FALSE(clock_resolution_khz == LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000, ESP_ERR_NOT_SUPPORTED, err,
+                      TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
 
     //send dummy data to ensure the initial level of MOSI is low
     uint8_t dummy_data = 0x00;

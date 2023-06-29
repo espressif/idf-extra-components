@@ -11,7 +11,7 @@
 #include "esp_err.h"
 
 // GPIO assignment
-#define LED_STRIP_BLINK_GPIO  14
+#define LED_STRIP_BLINK_GPIO  2
 // Numbers of the LED in the strip
 #define LED_STRIP_LED_NUMBERS 24
 // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
@@ -46,7 +46,6 @@ led_strip_handle_t configure_led(void)
 
 void app_main(void)
 {
-
     led_strip_handle_t led_strip = configure_led();
     bool led_on_off = false;
 
