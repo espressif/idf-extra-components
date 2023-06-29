@@ -11,11 +11,9 @@
 #include "esp_err.h"
 
 // GPIO assignment
-#define LED_STRIP_BLINK_GPIO  14
+#define LED_STRIP_BLINK_GPIO  2
 // Numbers of the LED in the strip
 #define LED_STRIP_LED_NUMBERS 24
-// 2.5MHz resolution, 1 tick = 0.4us (led strip needs a high resolution)
-#define LED_STRIP_SPI_RES_HZ  (2.5 * 1000 * 1000)
 
 static const char *TAG = "example";
 
@@ -32,10 +30,9 @@ led_strip_handle_t configure_led(void)
 
     // LED strip backend configuration: SPI
     led_strip_spi_config_t spi_config = {
-        .clk_src = SPI_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
-        .resolution_hz = LED_STRIP_SPI_RES_HZ, // SPI counter clock frequency
-        .flags.with_dma = true,                // SPI peripheral always support DMA and non-DMA. But we recommend to use the DMA in the led_strip application.
-        .spi_bus = SPI2_HOST,
+        .clk_src = SPI_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
+        .flags.with_dma = true,         // Using DMA can improve performance and help drive more LEDs
+        .spi_bus = SPI2_HOST,           // SPI bus ID
     };
 
     // LED Strip object handle
@@ -47,7 +44,6 @@ led_strip_handle_t configure_led(void)
 
 void app_main(void)
 {
-
     led_strip_handle_t led_strip = configure_led();
     bool led_on_off = false;
 

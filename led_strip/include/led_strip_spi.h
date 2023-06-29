@@ -19,8 +19,7 @@ extern "C" {
  */
 typedef struct {
     spi_clock_source_t clk_src; /*!< SPI clock source */
-    uint32_t resolution_hz;     /*!< SPI tick resolution, if set to zero, a default resolution (2.5MHz) will be applied */
-    spi_host_device_t spi_bus;  /*!< SPI Host. Which buses are available depends on the specific chip */
+    spi_host_device_t spi_bus;  /*!< SPI bus ID. Which buses are available depends on the specific chip */
     struct {
         uint32_t with_dma: 1;   /*!< Use DMA to transmit data */
     } flags;
@@ -36,6 +35,7 @@ typedef struct {
  * @return
  *      - ESP_OK: create LED strip handle successfully
  *      - ESP_ERR_INVALID_ARG: create LED strip handle failed because of invalid argument
+ *      - ESP_ERR_NOT_SUPPORTED: create LED strip handle failed because of unsupported configuration
  *      - ESP_ERR_NO_MEM: create LED strip handle failed because of out of memory
  *      - ESP_FAIL: create LED strip handle failed because some other error
  */
@@ -44,4 +44,3 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
 #ifdef __cplusplus
 }
 #endif
-
