@@ -70,7 +70,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "latest"]
+        # Some components that runs Ethernet tests are marked for IDF >= v5.0 only
+        # Hence, not considering IDF v4.x releases here. If we find a clean way
+        # to let pytest know about IDF release dependency then we may reintroduce
+        # the IDF v4.x in the list.
+        idf_ver: ["release-v5.0", "release-v5.1", "latest"]
         idf_target: ["esp32"]
     runs-on: [self-hosted, ESP32-ETHERNET-KIT]
     container:

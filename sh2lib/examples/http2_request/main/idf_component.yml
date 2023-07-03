@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+version: "1.0.0"
+description: HTTP2 Request Examples
+dependencies:
+  espressif/sh2lib:
+    version: "^1.0.0"
+    override_path: '../../../'
