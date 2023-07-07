@@ -9,6 +9,7 @@
 #include <wchar.h>
 #include <stdint.h>
 #include "esp_err.h"
+#include "esp_event.h"
 #include <freertos/FreeRTOS.h>
 
 #include "hid.h"
@@ -32,6 +33,24 @@ extern "C" {
 typedef struct hid_interface *hid_host_device_handle_t;    /**< Device Handle. Handle to a particular HID interface */
 
 // ------------------------ USB HID Host events --------------------------------
+ESP_EVENT_DECLARE_BASE(HID_HOST_EVENTS);
+
+/**
+ * @brief HIDH callback events enum
+ */
+typedef enum {
+    HID_HOST_ANY_EVENT = ESP_EVENT_ANY_ID,          /*!< HID device any event */
+    HID_HOST_CONNECT_EVENT = 0,                     /*!< HID device connected */
+    HID_HOST_OPEN_EVENT,                            /*!< HID device opened */
+    HID_HOST_INPUT_EVENT,                           /*!< Received HID device INPUT report */
+    HID_HOST_FEATURE_EVENT,                         /*!< Received HID device FEATURE report */
+    HID_HOST_CLOSE_EVENT,                           /*!< HID device closed */
+    HID_HOST_DISCONNECT_EVENT,
+    HID_HOST_START_EVENT,                           /*!< HID host stack started, used only for Classic Bluetooth */
+    HID_HOST_STOP_EVENT,                            /*!< HID host stack stopped, used only for Classic Bluetooth */
+    HID_HOST_MAX_EVENT,                             /*!< HID events end marker */
+} hid_host_event_t;
+
 /**
  * @brief USB HID HOST Device event id
 */
@@ -103,7 +122,8 @@ typedef struct {
     size_t task_priority;                   /**< Task priority of created background task */
     size_t stack_size;                      /**< Stack size of created background task */
     BaseType_t core_id;                     /**< Select core on which background task will run or tskNO_AFFINITY  */
-    hid_host_driver_event_cb_t callback;    /**< Callback invoked when HID driver event occurs. Must not be NULL. */
+    // hid_host_driver_event_cb_t callback;    /**< Callback invoked when HID driver event occurs. Must not be NULL. */
+    esp_event_handler_t callback;
     void *callback_arg;                     /**< User provided argument passed to callback */
 } hid_host_driver_config_t;
 

@@ -1,6 +1,7 @@
 idf_component_register( SRCS "hid_host.c"
                         INCLUDE_DIRS "include"
-					    PRIV_REQUIRES usb )
+					    PRIV_REQUIRES usb
+                        REQUIRES esp_event)
 
 # We access packeted USB string descriptor via pointers. The memory used for storing the descritptors
 # allows unaligned access, so this is not an issue

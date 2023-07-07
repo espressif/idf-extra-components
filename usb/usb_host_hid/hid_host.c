@@ -12,6 +12,7 @@
 #include <sys/param.h>
 #include "esp_log.h"
 #include "esp_check.h"
+#include "esp_event.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -100,6 +101,8 @@ typedef struct hid_interface {
     hid_iface_state_t state;                /**< Interface state */
 } hid_iface_t;
 
+ESP_EVENT_DEFINE_BASE(HID_HOST_EVENTS);
+
 /**
  * @brief HID driver default context
  *
@@ -108,8 +111,10 @@ typedef struct hid_interface {
 typedef struct {
     STAILQ_HEAD(devices, hid_host_device) hid_devices_tailq;    /**< STAILQ of HID interfaces */
     STAILQ_HEAD(interfaces, hid_interface) hid_ifaces_tailq;    /**< STAILQ of HID interfaces */
+    esp_event_loop_handle_t  event_loop_handle;
     usb_host_client_handle_t client_handle;                     /**< Client task handle */
-    hid_host_driver_event_cb_t user_cb;                         /**< User application callback */
+    // hid_host_driver_event_cb_t user_cb;                         /**< User application callback */
+    esp_event_handler_t user_cb;
     void *user_arg;                                             /**< User application callback args */
     bool event_handling_started;                                /**< Events handler started flag */
     SemaphoreHandle_t all_events_handled;                       /**< Events handler semaphore */
@@ -309,9 +314,9 @@ static inline void hid_host_user_device_callback(hid_iface_t *hid_iface,
 
     assert(dev_params);
 
-    if (s_hid_driver && s_hid_driver->user_cb) {
-        s_hid_driver->user_cb(hid_iface, event, s_hid_driver->user_arg);
-    }
+    // if (s_hid_driver && s_hid_driver->user_cb) {
+    //     s_hid_driver->user_cb(hid_iface, event, s_hid_driver->user_arg);
+    // }
 }
 
 /**
@@ -580,7 +585,12 @@ static esp_err_t hid_host_device_disconnected(usb_device_handle_t dev_hdl)
 static void client_event_cb(const usb_host_client_event_msg_t *event, void *arg)
 {
     if (event->event == USB_HOST_CLIENT_EVENT_NEW_DEV) {
-        hid_host_device_init_attempt(event->new_dev.address);
+        // hid_host_user_notify(event->new_dev.address);
+        esp_event_post_to(s_hid_driver->event_loop_handle,
+                          HID_HOST_EVENTS,
+                          HID_HOST_CONNECT_EVENT,
+                          NULL, 0, portMAX_DELAY);
+        // hid_host_device_init_attempt(event->new_dev.address);
     } else if (event->event == USB_HOST_CLIENT_EVENT_DEV_GONE) {
         hid_host_device_disconnected(event->dev_gone.dev_hdl);
     }
@@ -1077,6 +1087,21 @@ esp_err_t hid_host_uninstall_device(hid_device_t *hid_device)
 }
 
 // ----------------------------- Public ----------------------------------------
+static void hid_host_event_handler_wrapper(void *event_handler_arg,
+        esp_event_base_t event_base,
+        int32_t event_id,
+        void *event_data)
+{
+    // esp_hidh_preprocess_event_handler(event_handler_arg, event_base, event_id, event_data);
+
+    if (s_hid_driver->user_cb) {
+        s_hid_driver->user_cb(event_handler_arg, event_base, event_id, event_data);
+    }
+
+    // esp_hidh_post_process_event_handler(event_handler_arg, event_base, event_id, event_data);
+
+}
+
 
 esp_err_t hid_host_install(const hid_host_driver_config_t *config)
 {
@@ -1123,6 +1148,25 @@ esp_err_t hid_host_install(const hid_host_driver_config_t *config)
     HID_GOTO_ON_ERROR( usb_host_client_register(&client_config,
                        &driver->client_handle),
                        "Unable to register USB Host client");
+
+    // create event loop
+    esp_event_loop_args_t event_task_args = {
+        .queue_size = 5,
+        .task_name = "usb_hidd_events",
+        .task_priority = uxTaskPriorityGet(NULL),
+        .task_stack_size = 2048,
+        .task_core_id = tskNO_AFFINITY
+    };
+    HID_GOTO_ON_ERROR( esp_event_loop_create(&event_task_args,
+                       &driver->event_loop_handle),
+                       "HID device event loop could not be created");
+
+    HID_GOTO_ON_ERROR( esp_event_handler_register_with(driver->event_loop_handle,
+                       HID_HOST_EVENTS,
+                       HID_HOST_ANY_EVENT,
+                       hid_host_event_handler_wrapper,
+                       config->callback_arg),
+                       "HID device event loop register handler failure");
 
     HID_ENTER_CRITICAL();
     HID_GOTO_ON_FALSE_CRITICAL(!s_hid_driver, ESP_ERR_INVALID_STATE);

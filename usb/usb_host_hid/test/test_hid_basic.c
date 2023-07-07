@@ -26,7 +26,7 @@
 static usb_phy_handle_t phy_hdl = NULL;
 
 // Global variable to verify user arg passing through callbacks
-static uint32_t user_arg_value = 0x8A53E0A4; // Just a constant renadom number
+static uint32_t user_arg_value = 0x8A53E0A4; // Just a constant random number
 
 // Queue and task for possibility to interact with USB device
 // IMPORTANT: Interaction is not possible within device/interface callback
@@ -511,6 +511,38 @@ static void usb_lib_task(void *arg)
 
 // ----------------------- Public -------------------------
 
+void hid_host_event_callback(void *handler_args,
+                             esp_event_base_t base,
+                             int32_t id,
+                             void *event_data)
+{
+    hid_host_event_t event = (hid_host_event_t)id;
+    // hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+
+    switch (event) {
+#if (0)
+    case HID_HOST_CONNECT_EVENT: {
+        break;
+    }
+    case HID_HOST_OPEN_EVENT: {
+        break;
+    }
+    case HID_HOST_INPUT_EVENT: {
+        break;
+    }
+    case HID_HOST_CLOSE_EVENT: {
+        break;
+    }
+    case HID_HOST_DISCONNECT_EVENT: {
+        break;
+    }
+#endif //
+    default:
+        printf("HID HOST EVENT: %d \n", event);
+        break;
+    }
+}
+
 /**
  * @brief Setups HID testing
  *
@@ -536,7 +568,7 @@ void test_hid_setup(hid_host_driver_event_cb_t device_callback,
         .task_priority = 5,
         .stack_size = 4096,
         .core_id = 0,
-        .callback = device_callback,
+        .callback = hid_host_event_callback,
         .callback_arg = (void *) &user_arg_value
     };
 
