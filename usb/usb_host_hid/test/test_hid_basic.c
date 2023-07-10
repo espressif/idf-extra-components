@@ -517,28 +517,42 @@ void hid_host_event_callback(void *handler_args,
                              void *event_data)
 {
     hid_host_event_t event = (hid_host_event_t)id;
-    // hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
 
     switch (event) {
-#if (0)
     case HID_HOST_CONNECT_EVENT: {
+        printf("HID Host connect: USB Port=%d, InterfaceNum=%d, SubClass='%s', Proto='%s'\n",
+               param->connect.dev.addr,
+               param->connect.dev.iface_num,
+               test_hid_sub_class_names[param->connect.dev.sub_class],
+               test_hid_proto_names[param->connect.dev.proto]);
+        // claim Keyboard Boot
+        if ((HID_SUBCLASS_BOOT_INTERFACE == param->connect.dev.sub_class)
+                && (HID_PROTOCOL_KEYBOARD == param->connect.dev.proto)) {
+            hid_host_device_open_new(&param->connect.dev, NULL);
+        }
         break;
     }
     case HID_HOST_OPEN_EVENT: {
+        printf("HID Host open\n");
         break;
     }
+    case HID_HOST_DISCONNECT_EVENT: {
+        hid_host_device_close_new();
+        printf("HID Host disconnect\n");
+
+        break;
+    }
+#if (0)
     case HID_HOST_INPUT_EVENT: {
         break;
     }
     case HID_HOST_CLOSE_EVENT: {
         break;
     }
-    case HID_HOST_DISCONNECT_EVENT: {
-        break;
-    }
 #endif //
     default:
-        printf("HID HOST EVENT: %d \n", event);
+        printf("HID Host unhandled event: %d\n", event);
         break;
     }
 }
@@ -568,7 +582,7 @@ void test_hid_setup(hid_host_driver_event_cb_t device_callback,
         .task_priority = 5,
         .stack_size = 4096,
         .core_id = 0,
-        .callback = hid_host_event_callback,
+        .callback = hid_host_event_callback, // TODO: change the callback (!)
         .callback_arg = (void *) &user_arg_value
     };
 
@@ -624,6 +638,16 @@ TEST_CASE("memory_leakage", "[hid_host]")
     test_hid_teardown();
     // Verify the memory leackage during test environment tearDown()
 }
+
+TEST_CASE("manual_connection", "[ignore][hid_host]")
+{
+    // Install USB and HID driver with the regular hid_host_test_callback
+    test_hid_setup(hid_host_test_callback);
+    // Tear down test
+    // test_hid_teardown();
+    // Verify the memory leackage during test environment tearDown()
+}
+
 
 TEST_CASE("multiple_task_access", "[hid_host]")
 {

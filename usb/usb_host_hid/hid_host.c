@@ -576,6 +576,52 @@ static esp_err_t hid_host_device_disconnected(usb_device_handle_t dev_hdl)
     return ESP_OK;
 }
 
+static esp_err_t hid_host_new_device(uint8_t dev_addr)
+{
+    usb_device_handle_t dev_hdl;
+    const usb_config_desc_t *config_desc = NULL;
+    const usb_intf_desc_t *iface_desc = NULL;
+    int offset = 0;
+    hid_host_event_data_t event_data = { 0 };
+    size_t event_data_size = sizeof(hid_host_event_data_t);
+
+    // open usb device
+    if (usb_host_device_open(s_hid_driver->client_handle, dev_addr, &dev_hdl) == ESP_OK) {
+        // get config descriptor
+        if (usb_host_get_active_config_descriptor(dev_hdl, &config_desc) == ESP_OK) {
+            // for every interface
+            for (int num = 0; num < config_desc->bNumInterfaces; num++) {
+                iface_desc = usb_parse_interface_descriptor(config_desc, num, 0, &offset);
+                // if interface is HID compatible - notify user
+                if (USB_CLASS_HID == iface_desc->bInterfaceClass) {
+
+                    event_data.connect.dev.addr = dev_addr;
+                    event_data.connect.dev.iface_num = iface_desc->bInterfaceNumber;
+                    event_data.connect.dev.sub_class = iface_desc->bInterfaceSubClass;
+                    event_data.connect.dev.proto = iface_desc->bInterfaceProtocol;
+
+                    esp_event_post_to(s_hid_driver->event_loop_handle,
+                                      HID_HOST_EVENTS,
+                                      HID_HOST_CONNECT_EVENT,
+                                      &event_data,
+                                      event_data_size,
+                                      portMAX_DELAY);
+                }
+            }
+        }
+    }
+    // close device
+    usb_host_device_close(s_hid_driver->client_handle, dev_hdl);
+    return ESP_OK;
+}
+
+static bool hid_host_device_was_claimed(usb_device_handle_t dev,
+                                        hid_host_device_handle_t *hid_device_handle)
+{
+    *hid_device_handle = NULL;
+    return true;
+}
+
 /**
  * @brief USB Host Client's event callback
  *
@@ -584,15 +630,19 @@ static esp_err_t hid_host_device_disconnected(usb_device_handle_t dev_hdl)
  */
 static void client_event_cb(const usb_host_client_event_msg_t *event, void *arg)
 {
+    hid_host_device_handle_t dev_handle;
     if (event->event == USB_HOST_CLIENT_EVENT_NEW_DEV) {
         // hid_host_user_notify(event->new_dev.address);
-        esp_event_post_to(s_hid_driver->event_loop_handle,
-                          HID_HOST_EVENTS,
-                          HID_HOST_CONNECT_EVENT,
-                          NULL, 0, portMAX_DELAY);
+        hid_host_new_device(event->new_dev.address);
         // hid_host_device_init_attempt(event->new_dev.address);
     } else if (event->event == USB_HOST_CLIENT_EVENT_DEV_GONE) {
-        hid_host_device_disconnected(event->dev_gone.dev_hdl);
+        if (hid_host_device_was_claimed(event->dev_gone.dev_hdl, &dev_handle)) {
+            esp_event_post_to(s_hid_driver->event_loop_handle,
+                              HID_HOST_EVENTS,
+                              HID_HOST_DISCONNECT_EVENT,
+                              NULL, 0, portMAX_DELAY);
+        }
+        // hid_host_device_disconnected(event->dev_gone.dev_hdl);
     }
 }
 
@@ -1154,7 +1204,7 @@ esp_err_t hid_host_install(const hid_host_driver_config_t *config)
         .queue_size = 5,
         .task_name = "usb_hidd_events",
         .task_priority = uxTaskPriorityGet(NULL),
-        .task_stack_size = 2048,
+        .task_stack_size = 4096,
         .task_core_id = tskNO_AFFINITY
     };
     HID_GOTO_ON_ERROR( esp_event_loop_create(&event_task_args,
@@ -1232,6 +1282,45 @@ esp_err_t hid_host_uninstall(void)
     return ESP_OK;
 }
 
+esp_err_t hid_host_device_open_new(hid_host_dev_params_t *dev_params,
+                                   hid_host_device_handle_t *hid_dev_handle)
+{
+    usb_device_handle_t dev_hdl; // move to iface obj
+    const usb_config_desc_t *config_desc = NULL;
+    const usb_intf_desc_t *iface_desc = NULL;
+    int offset = 0;
+    // hid_host_event_data_t event_data = { 0 };
+    // size_t event_data_size = sizeof(hid_host_event_data_t);
+
+    // Try to touch the device under dev address
+    if (usb_host_device_open(s_hid_driver->client_handle, dev_params->addr, &dev_hdl) == ESP_OK) {
+        // get config descriptor
+        if (usb_host_get_active_config_descriptor(dev_hdl, &config_desc) == ESP_OK) {
+            // Try to touch interface
+            iface_desc = usb_parse_interface_descriptor(config_desc, dev_params->iface_num, 0, &offset);
+            // If there is interface undes given params - claim it
+            if (iface_desc) {
+                // TODO: Get EP IN, get EP OUT
+                // TODO: Add handle to the list (?)
+                // TODO: Create a interface handle
+                // Notify user about dev was opened
+                esp_event_post_to(s_hid_driver->event_loop_handle,
+                                  HID_HOST_EVENTS,
+                                  HID_HOST_OPEN_EVENT,
+                                  NULL, 0, portMAX_DELAY);
+                // Return ESP_OK and handle for the Interface
+                if (hid_dev_handle) {
+                    *hid_dev_handle = NULL;
+                };
+                return ESP_OK;
+            }
+        }
+    }
+// fail:
+    usb_host_device_close(s_hid_driver->client_handle, dev_hdl);
+    return ESP_FAIL;
+}
+
 esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
                                const hid_host_device_config_t *config)
 {
@@ -1261,6 +1350,21 @@ esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
     hid_iface->user_cb_arg = config->callback_arg;
 
     return ESP_OK;
+}
+
+esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle)
+{
+    hid_iface_t *hid_iface = (hid_iface_t *)hid_dev_handle;
+
+    // Stop EP IN transfer for the interface
+    // Free all buffers
+    // Release interface
+    // HID_RETURN_ON_ERROR( usb_host_interface_release(s_hid_driver->client_handle,
+    //                      hid_iface->parent->dev_hdl,
+    //                      hid_iface->dev_params.iface_num),
+    //                      "Unable to release HID Interface");
+    // Close usb if all interfaces are closed
+    return usb_host_device_close(s_hid_driver->client_handle, hid_iface->dev_hdl);
 }
 
 esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle)

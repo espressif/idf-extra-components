@@ -89,6 +89,37 @@ typedef struct {
 } hid_host_dev_params_t;
 
 // ------------------------ USB HID Host callbacks -----------------------------
+/**
+ * @brief HID Host callback parameters union
+ */
+typedef union {
+    /**
+     * @brief HID_HOST_CONNECT_EVENT
+     */
+    struct {
+        hid_host_dev_params_t dev;              /*!< HID Device params */
+    } connect;
+
+    /**
+     * @brief HID_HOST_INPUT_EVENT
+     */
+    struct {
+        hid_host_device_handle_t dev;            /*!< HID Device handle */
+        // esp_hid_usage_t usage;                   /*!< HID report usage */
+        // uint16_t report_id;                      /*!< HID report index */
+        uint16_t length;                         /*!< HID data length */
+        uint8_t *data;                           /*!< The pointer to the HID data */
+    } input;
+
+    /**
+     * @brief HID_HOST_DISCONNECT_EVENT
+     */
+    struct {
+        hid_host_device_handle_t dev;            /*!< HID Device handle */
+    } disconnect;
+
+} hid_host_event_data_t;
+
 
 /**
  * @brief USB HID driver event callback.
@@ -156,6 +187,9 @@ esp_err_t hid_host_uninstall(void);
  * @param[in] config           Configuration structure HID device to open
  * @return esp_err_t
  */
+esp_err_t hid_host_device_open_new(hid_host_dev_params_t *dev_params,
+                                   hid_host_device_handle_t *hid_dev_handle);
+
 esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
                                const hid_host_device_config_t *config);
 
@@ -165,6 +199,7 @@ esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
  * @param[in] hid_dev_handle   Handle of the HID devive to close
  * @return esp_err_t
  */
+esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle);
 esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle);
 
 /**
