@@ -47,3 +47,7 @@ esp_lcd_qemu_rgb/examples/lcd_qemu_rgb_panel:
   enable:
     - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR > 5)) and (IDF_TARGET in ["esp32", "esp32c3"])
       reason: Example is meant to be run under QEMU, which currently only supports ESP32 and ESP32-C3
+esp_encrypted_img/examples/pre_encrypted_ota:
+  enable:
+    - if: IDF_VERSION_MAJOR > 4 and INCLUDE_DEFAULT == 1
+      reason: Example uses esp_encrypted_img component which was introduced in IDF v5.0
