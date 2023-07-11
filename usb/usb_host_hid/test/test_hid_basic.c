@@ -538,6 +538,7 @@ void hid_host_event_callback(void *handler_args,
         break;
     }
     case HID_HOST_DISCONNECT_EVENT: {
+        // TODO: proceed with close logic
         hid_host_device_close_new();
         printf("HID Host disconnect\n");
 

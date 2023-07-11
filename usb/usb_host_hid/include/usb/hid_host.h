@@ -46,8 +46,6 @@ typedef enum {
     HID_HOST_FEATURE_EVENT,                         /*!< Received HID device FEATURE report */
     HID_HOST_CLOSE_EVENT,                           /*!< HID device closed */
     HID_HOST_DISCONNECT_EVENT,
-    HID_HOST_START_EVENT,                           /*!< HID host stack started, used only for Classic Bluetooth */
-    HID_HOST_STOP_EVENT,                            /*!< HID host stack stopped, used only for Classic Bluetooth */
     HID_HOST_MAX_EVENT,                             /*!< HID events end marker */
 } hid_host_event_t;
 

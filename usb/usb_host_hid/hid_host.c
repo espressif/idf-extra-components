@@ -632,7 +632,6 @@ static void client_event_cb(const usb_host_client_event_msg_t *event, void *arg)
 {
     hid_host_device_handle_t dev_handle;
     if (event->event == USB_HOST_CLIENT_EVENT_NEW_DEV) {
-        // hid_host_user_notify(event->new_dev.address);
         hid_host_new_device(event->new_dev.address);
         // hid_host_device_init_attempt(event->new_dev.address);
     } else if (event->event == USB_HOST_CLIENT_EVENT_DEV_GONE) {
@@ -1292,6 +1291,13 @@ esp_err_t hid_host_device_open_new(hid_host_dev_params_t *dev_params,
     // hid_host_event_data_t event_data = { 0 };
     // size_t event_data_size = sizeof(hid_host_event_data_t);
 
+    // 1. Search the USB device by addr in dev_opened queue
+    // 2. If there is a USB Device, go to 4.
+    // 3. If there is no USB Device with such USB device addr, open USB Device and add it to the dev_opened queue
+    // 4. Verify Interface claim table
+    // 5. Claim Interface if possible
+    // 6. Add Interface to the iface_opened queue
+
     // Try to touch the device under dev address
     if (usb_host_device_open(s_hid_driver->client_handle, dev_params->addr, &dev_hdl) == ESP_OK) {
         // get config descriptor
@@ -1356,9 +1362,16 @@ esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle)
 {
     hid_iface_t *hid_iface = (hid_iface_t *)hid_dev_handle;
 
-    // Stop EP IN transfer for the interface
-    // Free all buffers
-    // Release interface
+    // 1. Verify iface_obj in tQ
+    // 2. Stop EP IN transfer for the interface
+    // 3. Free all urb's and close pipe for EP IN
+    // 4. Delete iface_obj from tQ
+    // 5. Verify hid_dev_obj interfaces claimed
+    // 6. If there are no claimed interfaces, free urb and close pipe for CTRL EP
+    // 7. Close device in USB Host library
+    // 8. Remove hid_dev_obj from tQ
+    // 9. Send event to user
+
     // HID_RETURN_ON_ERROR( usb_host_interface_release(s_hid_driver->client_handle,
     //                      hid_iface->parent->dev_hdl,
     //                      hid_iface->dev_params.iface_num),
