@@ -7,15 +7,41 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-
 #include "unity.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "usb/hid_host.h"
 
 #include "test_hid_basic.h"
 
 // ----------------------- Private -------------------------
 /**
- * @brief USB HID Host event callback. Handle such event as device connection and removing
+ * @brief USB HID Host interface callback.
+ *
+ * Handle close event only.
+ *
+ * @param[in] event  HID Host device event
+ * @param[in] arg    Pointer to arguments, does not used
+ *
+ */
+static void test_hid_host_interface_event_close(hid_host_device_handle_t hid_device_handle,
+        const hid_host_interface_event_t event,
+        void *arg)
+{
+    switch (event) {
+    case HID_HOST_INTERFACE_EVENT_INPUT_REPORT:
+    case HID_HOST_INTERFACE_EVENT_TRANSFER_ERROR:
+        break;
+    case HID_HOST_INTERFACE_EVENT_DISCONNECTED:
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(hid_device_handle) );
+        break;
+    }
+}
+
+/**
+ * @brief USB HID Host event callback stub.
+ *
+ * Does not handle anything.
  *
  * @param[in] event  HID Host device event
  * @param[in] arg    Pointer to arguments, does not used
@@ -27,6 +53,29 @@ static void test_hid_host_event_callback_stub(hid_host_device_handle_t hid_devic
 {
     if (event == HID_HOST_DRIVER_EVENT_CONNECTED) {
         // Device connected
+    }
+}
+
+/**
+ * @brief USB HID Host event callback.
+ *
+ * Handle connected event and open a device.
+ *
+ * @param[in] event  HID Host device event
+ * @param[in] arg    Pointer to arguments, does not used
+ *
+ */
+static void test_hid_host_event_callback_open(hid_host_device_handle_t hid_device_handle,
+        const hid_host_driver_event_t event,
+        void *arg)
+{
+    if (event == HID_HOST_DRIVER_EVENT_CONNECTED) {
+        const hid_host_device_config_t dev_config = {
+            .callback = test_hid_host_interface_event_close,
+            .callback_arg = NULL
+        };
+
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config) );
     }
 }
 
@@ -108,7 +157,7 @@ static void test_claim_interface_without_driver(void)
 static void test_install_hid_driver_when_already_installed(void)
 {
     // Install USB and HID driver with the stub test_hid_host_event_callback_stub
-    test_hid_setup(test_hid_host_event_callback_stub);
+    test_hid_setup(test_hid_host_event_callback_stub, HID_TEST_EVENT_HANDLE_IN_DRIVER);
     // Try to install HID driver again
     const hid_host_driver_config_t hid_host_config = {
         .create_background_task = true,
@@ -124,17 +173,26 @@ static void test_install_hid_driver_when_already_installed(void)
     test_hid_teardown();
 }
 
-static void test_uninstall_hid_driver_while_device_is_opened(void)
+static void test_uninstall_hid_driver_while_device_was_not_opened(void)
 {
     // Install USB and HID driver with the stub test_hid_host_event_callback_stub
-    test_hid_setup(test_hid_host_event_callback_stub);
-    // Uninstall HID Driver wile device is still connected and verify a result
-    printf("HID Driver uninstall attempt while HID Device is still present ...\n");
-    TEST_ASSERT_EQUAL(ESP_OK, hid_host_uninstall());
+    test_hid_setup(test_hid_host_event_callback_stub, HID_TEST_EVENT_HANDLE_IN_DRIVER);
     // Tear down test
     test_hid_teardown();
 }
 
+static void test_uninstall_hid_driver_while_device_is_present(void)
+{
+    // Install USB and HID driver with the stub test_hid_host_event_callback_stub
+    test_hid_setup(test_hid_host_event_callback_open, HID_TEST_EVENT_HANDLE_IN_DRIVER);
+    // Wait for USB device appearing for 250 msec
+    vTaskDelay(250);
+    // Uninstall HID Driver wile device is still connected and verify a result
+    printf("HID Driver uninstall attempt while HID Device is still present ...\n");
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, hid_host_uninstall());
+    // Tear down test
+    test_hid_teardown();
+}
 
 // ----------------------- Public --------------------------
 
@@ -150,5 +208,6 @@ TEST_CASE("error_handling", "[hid_host]")
     test_install_hid_driver_with_wrong_config();
     test_claim_interface_without_driver();
     test_install_hid_driver_when_already_installed();
-    test_uninstall_hid_driver_while_device_is_opened();
+    test_uninstall_hid_driver_while_device_was_not_opened();
+    test_uninstall_hid_driver_while_device_is_present();
 }
