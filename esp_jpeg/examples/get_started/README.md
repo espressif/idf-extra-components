@@ -1,7 +1,4 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-S2 | ESP32-S3 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- |
-
-## LCD tjpgd example
+# LCD tjpgd example
 
 This example shows how to decode a jpeg image and display it on an SPI-interfaced LCD, and rotates the image periodically.
 
@@ -19,7 +16,7 @@ Example using initialization of the LCD from [ESP-BSP](https://github.com/espres
 
 The connection between ESP Board and the LCD is as follows:
 
-```
+```text
       ESP Board                            LCD Screen
       +---------+              +---------------------------------+
       |         |              |                                 |
@@ -42,7 +39,7 @@ The connection between ESP Board and the LCD is as follows:
       +---------+              +---------------------------------+
 ```
 
-The GPIO numbers used by this example is taken from BSP. 
+The GPIO numbers used by this example is taken from BSP.
 
 ### Build and Flash
 
