@@ -26,3 +26,8 @@ sh2lib/examples/http2_request:
   enable:
     - if: IDF_VERSION_MAJOR > 4 and INCLUDE_DEFAULT == 1
       reason: Example uses sh2lib component which was introduced in IDF v5.0
+
+esp_jpeg/examples/tjpgd:
+  enable:
+    - if: IDF_VERSION_MAJOR > 4 and IDF_TARGET in ["esp32", "esp32s2", "esp32s3"]
+      reason: Example depends on BSP, which is supported only for IDF >= 5.0 and limited targets
