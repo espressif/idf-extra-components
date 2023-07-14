@@ -521,15 +521,15 @@ void hid_host_event_callback(void *handler_args,
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        printf("HID Host connect: USB Port=%d, InterfaceNum=%d, SubClass='%s', Proto='%s'\n",
-               param->connect.dev.addr,
-               param->connect.dev.iface_num,
-               test_hid_sub_class_names[param->connect.dev.sub_class],
-               test_hid_proto_names[param->connect.dev.proto]);
+        printf("HID Host connect: USB Port=%d, Interface=%d, SubClass='%s', Proto='%s'\n",
+               param->connect.usb.addr,
+               param->connect.usb.iface_num,
+               test_hid_sub_class_names[param->connect.usb.sub_class],
+               test_hid_proto_names[param->connect.usb.proto]);
         // claim Keyboard Boot
-        if ((HID_SUBCLASS_BOOT_INTERFACE == param->connect.dev.sub_class)
-                && (HID_PROTOCOL_KEYBOARD == param->connect.dev.proto)) {
-            hid_host_device_open_new(&param->connect.dev, NULL);
+        if ((HID_SUBCLASS_BOOT_INTERFACE == param->connect.usb.sub_class)
+                && (HID_PROTOCOL_KEYBOARD == param->connect.usb.proto)) {
+            hid_host_device_open_new_api(&param->connect.usb);
         }
         break;
     }
@@ -538,9 +538,13 @@ void hid_host_event_callback(void *handler_args,
         break;
     }
     case HID_HOST_DISCONNECT_EVENT: {
-        // TODO: proceed with close logic
-        hid_host_device_close_new();
-        printf("HID Host disconnect\n");
+        printf("HID Host disconnect: USB Port=%d, Interface=%d, SubClass='%s', Proto='%s'\n",
+               param->disconnect.usb.addr,
+               param->disconnect.usb.iface_num,
+               test_hid_sub_class_names[param->disconnect.usb.sub_class],
+               test_hid_proto_names[param->disconnect.usb.proto]);
+
+        hid_host_device_close_new(param->disconnect.dev);
 
         break;
     }

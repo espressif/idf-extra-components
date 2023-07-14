@@ -95,14 +95,21 @@ typedef union {
      * @brief HID_HOST_CONNECT_EVENT
      */
     struct {
-        hid_host_dev_params_t dev;              /*!< HID Device params */
+        hid_host_dev_params_t usb;              /*!< HID Device params */
     } connect;
+
+    /**
+    * @brief HID_HOST_OPEN_EVENT
+    */
+    struct {
+        hid_host_device_handle_t dev;            /*!< HID Device handle */
+    } open;
 
     /**
      * @brief HID_HOST_INPUT_EVENT
      */
     struct {
-        hid_host_device_handle_t dev;            /*!< HID Device handle */
+        hid_host_device_handle_t dev;           /*!< HID Device handle */
         // esp_hid_usage_t usage;                   /*!< HID report usage */
         // uint16_t report_id;                      /*!< HID report index */
         uint16_t length;                         /*!< HID data length */
@@ -114,6 +121,7 @@ typedef union {
      */
     struct {
         hid_host_device_handle_t dev;            /*!< HID Device handle */
+        hid_host_dev_params_t usb;              /*!< HID Device params */
     } disconnect;
 
 } hid_host_event_data_t;
@@ -185,8 +193,7 @@ esp_err_t hid_host_uninstall(void);
  * @param[in] config           Configuration structure HID device to open
  * @return esp_err_t
  */
-esp_err_t hid_host_device_open_new(hid_host_dev_params_t *dev_params,
-                                   hid_host_device_handle_t *hid_dev_handle);
+esp_err_t hid_host_device_open_new_api(hid_host_dev_params_t *dev_params);
 
 esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
                                const hid_host_device_config_t *config);
