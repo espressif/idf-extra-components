@@ -95,6 +95,16 @@ esp_err_t pid_update_parameters(pid_ctrl_block_handle_t pid, const pid_ctrl_para
  */
 esp_err_t pid_compute(pid_ctrl_block_handle_t pid, float input_error, float *ret_result);
 
+/**
+ * @brief Reset the accumulation in pid_ctrl_block
+ *
+ * @param[in] pid PID control block handle, created by `pid_new_control_block()`
+ * @return
+ *      - ESP_OK: Reset successfully
+ *      - ESP_ERR_INVALID_ARG: Reset failed because of invalid argument
+ */
+esp_err_t pid_reset_ctrl_block(pid_ctrl_block_handle_t pid);
+
 #ifdef __cplusplus
 }
 #endif

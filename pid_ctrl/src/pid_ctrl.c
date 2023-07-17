@@ -138,3 +138,13 @@ esp_err_t pid_update_parameters(pid_ctrl_block_handle_t pid, const pid_ctrl_para
     }
     return ESP_OK;
 }
+
+esp_err_t pid_reset_ctrl_block(pid_ctrl_block_handle_t pid)
+{
+    ESP_RETURN_ON_FALSE(pid, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    pid->integral_err = 0;
+    pid->previous_err1 = 0;
+    pid->previous_err2 = 0;
+    pid->last_output = 0;
+    return ESP_OK;
+}
