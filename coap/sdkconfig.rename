@@ -1,0 +1,5 @@
+# sdkconfig replacement configurations for deprecated options formatted as
+# CONFIG_DEPRECATED_OPTION CONFIG_NEW_OPTION
+
+# Compiler options
+CONFIG_COAP_MBEDTLS_DEBUG                  CONFIG_COAP_DEBUGGING

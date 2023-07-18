@@ -1,11 +1,5 @@
 menu "Example CoAP Server Configuration"
 
-    # Hidden option that selects IPv4
-    config EXAMPLE_COAP_NEEDS_IPV4
-        bool
-        default true
-        select LWIP_IPV4
-
     config EXAMPLE_COAP_PSK_KEY
         string "Preshared Key (PSK) to used in the connection from the CoAP client"
         depends on COAP_MBEDTLS_PSK
@@ -14,6 +8,37 @@ menu "Example CoAP Server Configuration"
             The Preshared Key to use to encrypt the communicatons. The same key must be
             used at both ends of the CoAP connection, and the CoaP client must request
             an URI prefixed with coaps:// instead of coap:// for DTLS to be used.
+
+    config EXAMPLE_COAP_LISTEN_PORT
+        string "CoAP Listen port"
+        default "5683"
+        help
+            Port number to listen for CoAP traffic.
+
+    config EXAMPLE_COAPS_LISTEN_PORT
+        string "CoAP Secure Listen port"
+        default "5684"
+        depends on COAP_MBEDTLS_PSK || COAP_MBEDTLS_PKI
+        help
+            Port number to listen for CoAP secure ((D)TLS) traffic.
+
+    config EXAMPLE_COAP_WEBSOCKET_PORT
+        string "CoAP Websocket port"
+        default "80"
+        depends on COAP_WEBSOCKETS
+        help
+            Port number to listen for WebSocket traffic on.
+
+            The default is 80.
+
+    config EXAMPLE_COAP_WEBSOCKET_SECURE_PORT
+        string "CoAP Websocket Secure port"
+        default "443"
+        depends on COAP_WEBSOCKETS && (COAP_MBEDTLS_PSK || COAP_MBEDTLS_PKI)
+        help
+            Port number to listen for WebSocket Secure (TLS) traffic on.
+
+            The default is 443.
 
     choice EXAMPLE_COAP_MCAST_IP_MODE
         prompt "Receive Multicast IP type"
@@ -25,24 +50,29 @@ menu "Example CoAP Server Configuration"
 
         config EXAMPLE_COAP_MCAST_IPV4_V6
             bool "IPV4 & IPV6"
+            depends on LWIP_IPV4 && LWIP_IPV6
             select EXAMPLE_COAP_MCAST_IPV4
             select EXAMPLE_COAP_MCAST_IPV6
 
         config EXAMPLE_COAP_MCAST_IPV4_ONLY
             bool "IPV4"
+            depends on LWIP_IPV4
             select EXAMPLE_COAP_MCAST_IPV4
 
         config EXAMPLE_COAP_MCAST_IPV6_ONLY
             bool "IPV6"
+            depends on LWIP_IPV6
             select EXAMPLE_COAP_MCAST_IPV6
 
     endchoice
 
     config EXAMPLE_COAP_MCAST_IPV4
         bool
+        depends on LWIP_IPV4
+
     config EXAMPLE_COAP_MCAST_IPV6
         bool
-        select EXAMPLE_CONNECT_IPV6 if IDF_TARGET_ESP32
+        depends on LWIP_IPV6
 
     config EXAMPLE_COAP_MULTICAST_IPV4_ADDR
         string "CoAP Multicast IPV4 Address (receive)"

@@ -94,15 +94,17 @@ published under EPL+EDL: http://www.eclipse.org/californium/
 
 ## libcoap Documentation
 This can be found at [libcoap Documentation](https://libcoap.net/documentation.html).
-The current API is 4.3.0.
+The current API is 4.3.2.
 
 ## libcoap Specific Issues
 These can be raised at [libcoap Issues](https://github.com/obgm/libcoap/issues).
 
 ## Troubleshooting
 * Please make sure Target Url includes valid `host`, optional `port`,
-optional `path`, and begins with `coap://`, `coaps://`, `coap+tcp://` or `coaps+tcp://`
-(not all hosts support TCP/TLS including coap+tcp://californium.eclipseprojects.io).
+optional `path`, and begins with `coap://`, `coaps://`, `coap+tcp://`, `coaps+tcp://`,
+`coap+ws://` or `coaps+ws://`.
+  * Not all hosts support TCP/TLS including coap+tcp://californium.eclipseprojects.io
+  * Not all hosts support WebSockets, which needs to be enabled as an option
 
 * CoAP logging can be enabled by running 'idf.py menuconfig -> Component config -> CoAP Configuration -> Enable CoAP debugging'
 and setting appropriate log level.  If Mbed TLS logging is required, this needs to be configured separately under mbedTLS
