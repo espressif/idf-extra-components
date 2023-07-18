@@ -1,4 +1,5 @@
-version: "1.2.13"
+# Note: Please keep this version consistent with sbom.yml file
+version: "1.2.13~1"
 description: zlib C library
 url: https://github.com/espressif/idf-extra-components/tree/master/zlib
 repository: "https://github.com/espressif/idf-extra-components.git"

@@ -1,0 +1,5 @@
+version: 1.6.39
+cpe: cpe:2.3:a:libpng:libpng:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+originator: 'Organization: libpng'
+description: Portable Network Graphics support, official PNG reference library

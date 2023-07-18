@@ -1,0 +1,5 @@
+version: 9.1.0
+cpe: cpe:2.3:a:fmt:fmt:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+originator: 'Organization: fmt <https://fmt.dev/latest/index.html>'
+description: A modern formatting library

@@ -1,0 +1,5 @@
+version: 1.2.13
+cpe: cpe:2.3:a:zlib:zlib:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+originator: 'Organization: zlib <http://www.zlib.net/>'
+description: A massively spiffy yet delicately unobtrusive compression library

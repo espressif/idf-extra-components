@@ -1,0 +1,5 @@
+version: 4.3.1
+cpe: cpe:2.3:a:libcoap:libcoap:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Espressif Systems (Shanghai) CO LTD'
+originator: 'Organization: libcoap <https://libcoap.net/>'
+description: A CoAP (RFC 7252) implementation in C
