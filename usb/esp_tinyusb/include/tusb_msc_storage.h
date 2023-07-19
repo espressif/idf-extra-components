@@ -18,17 +18,18 @@ extern "C" {
 #endif
 
 /**
- * @brief Data provided to the input of the `callback_mount_changed` callback
+ * @brief Data provided to the input of the `callback_mount_changed` and `callback_premount_changed` callback
  */
 typedef struct {
-    bool is_mounted;
+    bool is_mounted;                        /*!< Flag if storage is mounted or not */
 } tinyusb_msc_event_mount_changed_data_t;
 
 /**
  * @brief Types of MSC events
  */
 typedef enum {
-    TINYUSB_MSC_EVENT_MOUNT_CHANGED
+    TINYUSB_MSC_EVENT_MOUNT_CHANGED,        /*!< Event type AFTER mount/unmount operation is successfully finished */
+    TINYUSB_MSC_EVENT_PREMOUNT_CHANGED      /*!< Event type BEFORE mount/unmount operation is started */
 } tinyusb_msc_event_type_t;
 
 /**
@@ -37,12 +38,12 @@ typedef enum {
 typedef struct {
     tinyusb_msc_event_type_t type; /*!< Event type */
     union {
-        tinyusb_msc_event_mount_changed_data_t mount_changed_data; /*!< Data input of the `callback_mount_changed` callback */
+        tinyusb_msc_event_mount_changed_data_t mount_changed_data; /*!< Data input of the callback */
     };
 } tinyusb_msc_event_t;
 
 /**
- * @brief MSC callback type
+ * @brief MSC callback that is delivered whenever a specific event occurs.
  */
 typedef void(*tusb_msc_callback_t)(tinyusb_msc_event_t *event);
 
@@ -54,8 +55,9 @@ typedef void(*tusb_msc_callback_t)(tinyusb_msc_event_t *event);
  * initializing the sdmmc media.
  */
 typedef struct {
-    sdmmc_card_t *card;
-    tusb_msc_callback_t callback_mount_changed; /*!< Pointer to the function with the `tusb_msc_callback_t` type that will be handled as a callback */
+    sdmmc_card_t *card;                             /*!< Pointer to sdmmc card configuration structure */
+    tusb_msc_callback_t callback_mount_changed;     /*!< Pointer to the function callback that will be delivered AFTER mount/unmount operation is successfully finished */
+    tusb_msc_callback_t callback_premount_changed;  /*!< Pointer to the function callback that will be delivered BEFORE mount/unmount operation is started */
 } tinyusb_msc_sdmmc_config_t;
 #endif
 
@@ -66,8 +68,9 @@ typedef struct {
  * initializing the SPI Flash media.
  */
 typedef struct {
-    wl_handle_t wl_handle;
-    tusb_msc_callback_t callback_mount_changed; /*!< Pointer to the function with the `tusb_msc_callback_t` type that will be handled as a callback */
+    wl_handle_t wl_handle;                          /*!< Pointer to spiflash wera-levelling handle */
+    tusb_msc_callback_t callback_mount_changed;     /*!< Pointer to the function callback that will be delivered AFTER mount/unmount operation is successfully finished */
+    tusb_msc_callback_t callback_premount_changed;  /*!< Pointer to the function callback that will be delivered BEFORE mount/unmount operation is started */
 } tinyusb_msc_spiflash_config_t;
 
 /**
@@ -125,6 +128,9 @@ esp_err_t tinyusb_msc_unregister_callback(tinyusb_msc_event_type_t event_type);
  * Mounts the partition.
  * This API is used by the firmware application. If the storage partition is
  * mounted by this API, host (PC) can't access the storage via MSC.
+ * When this function is called from the tinyusb callback functions, care must be taken
+ * so as to make sure that user callbacks must be completed within a
+ * specific time. Otherwise, MSC device may re-appear again on Host.
  *
  * @param base_path  path prefix where FATFS should be registered
  * @return esp_err_t
@@ -141,6 +147,9 @@ esp_err_t tinyusb_msc_storage_mount(const char *base_path);
  * Unregister the SPI flash partition.
  * Finally, Un-register FATFS from VFS.
  * After this function is called, storage device can be seen (recognized) by host (PC).
+ * When this function is called from the tinyusb callback functions, care must be taken
+ * so as to make sure that user callbacks must be completed within a specific time.
+ * Otherwise, MSC device may not appear on Host.
  *
  * @return esp_err_t
  *      - ESP_OK on success
