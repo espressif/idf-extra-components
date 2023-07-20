@@ -1,0 +1,25 @@
+name: Update submodules
+
+on:
+  schedule:
+    - cron: '0 0 * * SUN' # Sunday midnight
+  workflow_dispatch:               # Or manually
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update_submodules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+      - name: Update submodules
+        uses: espressif/github-actions/update_submodule_versions@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          git-author-name: ${{ secrets.SUBMODULE_UPDATE_AUTHOR_NAME }}
+          git-author-email: ${{ secrets.SUBMODULE_UPDATE_AUTHOR_EMAIL }}
