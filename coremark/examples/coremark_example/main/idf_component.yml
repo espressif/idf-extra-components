@@ -1,0 +1,5 @@
+description: Coremark benchmark application
+dependencies:
+  espressif/coremark:
+    version: "*"
+    override_path: '../../../'

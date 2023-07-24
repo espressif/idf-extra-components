@@ -23,6 +23,7 @@ body:
         - bdc_motor
         - cbor
         - coap
+        - coremark
         - eigen
         - esp_encrypted_img
         - esp_jpeg

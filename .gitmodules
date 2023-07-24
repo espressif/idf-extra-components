@@ -96,3 +96,7 @@
 	sbom-url = https://github.com/glennrp/libpng.git
 	sbom-description = Portable Network Graphics support, official PNG reference library
 	sbom-hash = 07b8803110da160b158ebfef872627da6c85cbdf
+
+[submodule "coremark/coremark"]
+	path = coremark/coremark
+	url = https://github.com/eembc/coremark.git

@@ -1,0 +1,4 @@
+[mapping:coremark]
+archive: libcoremark.a
+entries:
+    * (noflash)
