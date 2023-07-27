@@ -85,6 +85,11 @@ extern uint8_t server_key_start[] asm("_binary_coap_server_key_start");
 extern uint8_t server_key_end[]   asm("_binary_coap_server_key_end");
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
 
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+extern uint8_t oscore_conf_start[] asm("_binary_coap_oscore_conf_start");
+extern uint8_t oscore_conf_end[]   asm("_binary_coap_oscore_conf_end");
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
+
 #define INITIAL_DATA "Hello World!"
 
 /*
@@ -150,6 +155,23 @@ hnd_espressif_delete(coap_resource_t *resource,
     coap_pdu_set_code(response, COAP_RESPONSE_CODE_DELETED);
 }
 
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+static void
+hnd_oscore_get(coap_resource_t *resource,
+               coap_session_t *session,
+               const coap_pdu_t *request,
+               const coap_string_t *query,
+               coap_pdu_t *response)
+{
+    coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
+    coap_add_data_large_response(resource, session, request, response,
+                                 query, COAP_MEDIATYPE_TEXT_PLAIN, 60, 0,
+                                 sizeof("OSCORE Success!"),
+                                 (const u_char *)"OSCORE Success!",
+                                 NULL, NULL);
+}
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
+
 #ifdef CONFIG_COAP_MBEDTLS_PKI
 
 static int
@@ -208,6 +230,10 @@ static void coap_example_server(void *p)
     uint16_t ws_s_port = 0;
 #endif /* ! CONFIG_EXAMPLE_COAP_WEBSOCKET_SECURE_PORT */
     uint32_t scheme_hint_bits;
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+    coap_str_const_t osc_conf = { 0, 0};
+    coap_oscore_conf_t *oscore_conf;
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
 
     /* Initialize libcoap library */
     coap_startup();
@@ -229,6 +255,7 @@ static void coap_example_server(void *p)
         }
         coap_context_set_block_mode(ctx,
                                     COAP_BLOCK_USE_LIBCOAP | COAP_BLOCK_SINGLE_BODY);
+        coap_context_set_max_idle_sessions(ctx, 20);
 
 #ifdef CONFIG_COAP_MBEDTLS_PSK
         /* Need PSK setup before we set up endpoints */
@@ -283,6 +310,15 @@ static void coap_example_server(void *p)
         coap_context_set_pki(ctx, &dtls_pki);
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
 
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+        osc_conf.s = oscore_conf_start;
+        osc_conf.length = oscore_conf_end - oscore_conf_start;
+        oscore_conf = coap_new_oscore_conf(osc_conf,
+                                           NULL,
+                                           NULL, 0);
+        coap_context_oscore_server(ctx, oscore_conf);
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
+
         /* set up the CoAP server socket(s) */
         scheme_hint_bits =
             coap_get_available_scheme_hint_bits(
@@ -298,11 +334,19 @@ static void coap_example_server(void *p)
 #endif /* ! CONFIG_COAP_WEBSOCKETS */
                 0);
 
+#if LWIP_IPV6
         info_list = coap_resolve_address_info(coap_make_str_const("::"), u_s_port, s_port,
                                               ws_port, ws_s_port,
                                               0,
                                               scheme_hint_bits,
                                               COAP_RESOLVE_TYPE_LOCAL);
+#else /* LWIP_IPV6 */
+        info_list = coap_resolve_address_info(coap_make_str_const("0.0.0.0"), u_s_port, s_port,
+                                              ws_port, ws_s_port,
+                                              0,
+                                              scheme_hint_bits,
+                                              COAP_RESOLVE_TYPE_LOCAL);
+#endif /* LWIP_IPV6 */
         if (info_list == NULL) {
             ESP_LOGE(TAG, "coap_resolve_address_info() failed");
             goto clean_up;
@@ -335,6 +379,15 @@ static void coap_example_server(void *p)
         /* We possibly want to Observe the GETs */
         coap_resource_set_get_observable(resource, 1);
         coap_add_resource(ctx, resource);
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+        resource = coap_resource_init(coap_make_str_const("oscore"), COAP_RESOURCE_FLAGS_OSCORE_ONLY);
+        if (!resource) {
+            ESP_LOGE(TAG, "coap_resource_init() failed");
+            goto clean_up;
+        }
+        coap_register_handler(resource, COAP_REQUEST_GET, hnd_oscore_get);
+        coap_add_resource(ctx, resource);
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
 
 #if defined(CONFIG_EXAMPLE_COAP_MCAST_IPV4) || defined(CONFIG_EXAMPLE_COAP_MCAST_IPV6)
         esp_netif_t *netif = NULL;
