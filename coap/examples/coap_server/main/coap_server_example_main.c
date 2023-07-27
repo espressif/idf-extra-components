@@ -53,6 +53,9 @@
    If you'd rather not, just change the below entry to a value
    that is between 0 and 7 with
    the config you want - ie #define EXAMPLE_COAP_LOG_DEFAULT_LEVEL 7
+
+   Caution: Logging is enabled in libcoap only up to level as defined
+   by 'idf.py menuconfig' to reduce code size.
 */
 #define EXAMPLE_COAP_LOG_DEFAULT_LEVEL CONFIG_COAP_LOG_DEFAULT_LEVEL
 
@@ -72,7 +75,7 @@ static int espressif_data_len = 0;
    californium server.
 
    To embed it in the app binary, the PEM, CRT and KEY file is named
-   in the component.mk COMPONENT_EMBED_TXTFILES variable.
+   in the CMakeLists.txt EMBED_TXTFILES definition.
  */
 extern uint8_t ca_pem_start[] asm("_binary_coap_ca_pem_start");
 extern uint8_t ca_pem_end[]   asm("_binary_coap_ca_pem_end");
@@ -159,8 +162,8 @@ verify_cn_callback(const char *cn,
                    void *arg
                   )
 {
-    coap_log(LOG_INFO, "CN '%s' presented by server (%s)\n",
-             cn, depth ? "CA" : "Certificate");
+    coap_log_info("CN '%s' presented by server (%s)\n",
+                  cn, depth ? "CA" : "Certificate");
     return 1;
 }
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
@@ -169,11 +172,14 @@ static void
 coap_log_handler (coap_log_t level, const char *message)
 {
     uint32_t esp_level = ESP_LOG_INFO;
-    char *cp = strchr(message, '\n');
+    const char *cp = strchr(message, '\n');
 
-    if (cp) {
+    while (cp) {
         ESP_LOG_LEVEL(esp_level, TAG, "%.*s", (int)(cp - message), message);
-    } else {
+        message = cp + 1;
+        cp = strchr(message, '\n');
+    }
+    if (message[0] != '\000') {
         ESP_LOG_LEVEL(esp_level, TAG, "%s", message);
     }
 }
@@ -181,8 +187,30 @@ coap_log_handler (coap_log_t level, const char *message)
 static void coap_example_server(void *p)
 {
     coap_context_t *ctx = NULL;
-    coap_address_t serv_addr;
     coap_resource_t *resource = NULL;
+    int have_ep = 0;
+    uint16_t u_s_port = atoi(CONFIG_EXAMPLE_COAP_LISTEN_PORT);
+#ifdef CONFIG_EXAMPLE_COAPS_LISTEN_PORT
+    uint16_t s_port = atoi(CONFIG_EXAMPLE_COAPS_LISTEN_PORT);
+#else /* ! CONFIG_EXAMPLE_COAPS_LISTEN_PORT */
+    uint16_t s_port = 0;
+#endif /* ! CONFIG_EXAMPLE_COAPS_LISTEN_PORT */
+
+#ifdef CONFIG_EXAMPLE_COAP_WEBSOCKET_PORT
+    uint16_t ws_port = atoi(CONFIG_EXAMPLE_COAP_WEBSOCKET_PORT);
+#else /* ! CONFIG_EXAMPLE_COAP_WEBSOCKET_PORT */
+    uint16_t ws_port = 0;
+#endif /* ! CONFIG_EXAMPLE_COAP_WEBSOCKET_PORT */
+
+#ifdef CONFIG_EXAMPLE_COAP_WEBSOCKET_SECURE_PORT
+    uint16_t ws_s_port = atoi(CONFIG_EXAMPLE_COAP_WEBSOCKET_SECURE_PORT);
+#else /* ! CONFIG_EXAMPLE_COAP_WEBSOCKET_SECURE_PORT */
+    uint16_t ws_s_port = 0;
+#endif /* ! CONFIG_EXAMPLE_COAP_WEBSOCKET_SECURE_PORT */
+    uint32_t scheme_hint_bits;
+
+    /* Initialize libcoap library */
+    coap_startup();
 
     snprintf(espressif_data, sizeof(espressif_data), INITIAL_DATA);
     espressif_data_len = strlen(espressif_data);
@@ -190,22 +218,18 @@ static void coap_example_server(void *p)
     coap_set_log_level(EXAMPLE_COAP_LOG_DEFAULT_LEVEL);
 
     while (1) {
-        coap_endpoint_t *ep = NULL;
         unsigned wait_ms;
-        int have_dtls = 0;
-
-        /* Prepare the CoAP server socket */
-        coap_address_init(&serv_addr);
-        serv_addr.addr.sin6.sin6_family = AF_INET6;
-        serv_addr.addr.sin6.sin6_port   = htons(COAP_DEFAULT_PORT);
+        coap_addr_info_t *info = NULL;
+        coap_addr_info_t *info_list = NULL;
 
         ctx = coap_new_context(NULL);
         if (!ctx) {
             ESP_LOGE(TAG, "coap_new_context() failed");
-            continue;
+            goto clean_up;
         }
         coap_context_set_block_mode(ctx,
                                     COAP_BLOCK_USE_LIBCOAP | COAP_BLOCK_SINGLE_BODY);
+
 #ifdef CONFIG_COAP_MBEDTLS_PSK
         /* Need PSK setup before we set up endpoints */
         coap_context_set_psk(ctx, "CoAP",
@@ -259,51 +283,47 @@ static void coap_example_server(void *p)
         coap_context_set_pki(ctx, &dtls_pki);
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
 
-        ep = coap_new_endpoint(ctx, &serv_addr, COAP_PROTO_UDP);
-        if (!ep) {
-            ESP_LOGE(TAG, "udp: coap_new_endpoint() failed");
+        /* set up the CoAP server socket(s) */
+        scheme_hint_bits =
+            coap_get_available_scheme_hint_bits(
+#if defined(CONFIG_COAP_MBEDTLS_PSK) || defined(CONFIG_COAP_MBEDTLS_PKI)
+                1,
+#else /* ! CONFIG_COAP_MBEDTLS_PSK) && ! CONFIG_COAP_MBEDTLS_PKI */
+                0,
+#endif /* ! CONFIG_COAP_MBEDTLS_PSK) && ! CONFIG_COAP_MBEDTLS_PKI */
+#ifdef CONFIG_COAP_WEBSOCKETS
+                1,
+#else /* ! CONFIG_COAP_WEBSOCKETS */
+                0,
+#endif /* ! CONFIG_COAP_WEBSOCKETS */
+                0);
+
+        info_list = coap_resolve_address_info(coap_make_str_const("::"), u_s_port, s_port,
+                                              ws_port, ws_s_port,
+                                              0,
+                                              scheme_hint_bits,
+                                              COAP_RESOLVE_TYPE_LOCAL);
+        if (info_list == NULL) {
+            ESP_LOGE(TAG, "coap_resolve_address_info() failed");
             goto clean_up;
         }
-        if (coap_tcp_is_supported()) {
-            ep = coap_new_endpoint(ctx, &serv_addr, COAP_PROTO_TCP);
+
+        for (info = info_list; info != NULL; info = info->next) {
+            coap_endpoint_t *ep;
+
+            ep = coap_new_endpoint(ctx, &info->addr, info->proto);
             if (!ep) {
-                ESP_LOGE(TAG, "tcp: coap_new_endpoint() failed");
-                goto clean_up;
+                ESP_LOGW(TAG, "cannot create endpoint for proto %u", info->proto);
+            } else {
+                have_ep = 1;
             }
         }
-#if defined(CONFIG_COAP_MBEDTLS_PSK) || defined(CONFIG_COAP_MBEDTLS_PKI)
-        if (coap_dtls_is_supported()) {
-#ifndef CONFIG_MBEDTLS_TLS_SERVER
-            /* This is not critical as unencrypted support is still available */
-            ESP_LOGI(TAG, "MbedTLS DTLS Server Mode not configured");
-#else /* CONFIG_MBEDTLS_TLS_SERVER */
-            serv_addr.addr.sin6.sin6_port = htons(COAPS_DEFAULT_PORT);
-            ep = coap_new_endpoint(ctx, &serv_addr, COAP_PROTO_DTLS);
-            if (!ep) {
-                ESP_LOGE(TAG, "dtls: coap_new_endpoint() failed");
-                goto clean_up;
-            }
-            have_dtls = 1;
-#endif /* CONFIG_MBEDTLS_TLS_SERVER */
+        coap_free_address_info(info_list);
+        if (!have_ep) {
+            ESP_LOGE(TAG, "No endpoints available");
+            goto clean_up;
         }
-        if (coap_tls_is_supported()) {
-#ifndef CONFIG_MBEDTLS_TLS_SERVER
-            /* This is not critical as unencrypted support is still available */
-            ESP_LOGI(TAG, "MbedTLS TLS Server Mode not configured");
-#else /* CONFIG_MBEDTLS_TLS_SERVER */
-            serv_addr.addr.sin6.sin6_port = htons(COAPS_DEFAULT_PORT);
-            ep = coap_new_endpoint(ctx, &serv_addr, COAP_PROTO_TLS);
-            if (!ep) {
-                ESP_LOGE(TAG, "tls: coap_new_endpoint() failed");
-                goto clean_up;
-            }
-#endif /* CONFIG_MBEDTLS_TLS_SERVER */
-        }
-        if (!have_dtls) {
-            /* This is not critical as unencrypted support is still available */
-            ESP_LOGI(TAG, "MbedTLS (D)TLS Server Mode not configured");
-        }
-#endif /* CONFIG_COAP_MBEDTLS_PSK || CONFIG_COAP_MBEDTLS_PKI */
+
         resource = coap_resource_init(coap_make_str_const("Espressif"), 0);
         if (!resource) {
             ESP_LOGE(TAG, "coap_resource_init() failed");

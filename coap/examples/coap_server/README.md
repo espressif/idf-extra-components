@@ -80,7 +80,7 @@ until a CoAP client does a PUT with different data.
 
 ## libcoap Documentation
 This can be found at [libcoap Documentation](https://libcoap.net/documentation.html).
-The current API is 4.3.0.
+The current API is 4.3.2.
 
 ## libcoap Specific Issues
 These can be raised at [libcoap Issues](https://github.com/obgm/libcoap/issues).

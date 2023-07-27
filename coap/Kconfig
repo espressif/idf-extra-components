@@ -19,7 +19,7 @@ menu "CoAP Configuration"
 
     endchoice #COAP_MBEDTLS_ENCRYPTION_MODE
 
-    config COAP_MBEDTLS_DEBUG
+    config COAP_DEBUGGING
         bool "Enable CoAP debugging"
         default n
         help
@@ -33,9 +33,9 @@ menu "CoAP Configuration"
             configuration, but logging level mbedTLS must be set for CoAP
             to log it.
 
-    choice COAP_MBEDTLS_DEBUG_LEVEL
+    choice COAP_DEBUGGING_LEVEL
         bool "Set CoAP debugging level"
-        depends on COAP_MBEDTLS_DEBUG
+        depends on COAP_DEBUGGING
         default COAP_LOG_WARNING
         help
             Set CoAP debugging level
@@ -56,13 +56,13 @@ menu "CoAP Configuration"
             bool "Info"
         config COAP_LOG_DEBUG
             bool "Debug"
-        config COAP_LOG_MBEDTLS
-            bool "mbedTLS"
+        config COAP_LOG_OSCORE
+            bool "OSCORE"
     endchoice
 
     config COAP_LOG_DEFAULT_LEVEL
         int
-        default 0 if !COAP_MBEDTLS_DEBUG
+        default 0 if !COAP_DEBUGGING
         default 0 if COAP_LOG_EMERG
         default 1 if COAP_LOG_ALERT
         default 2 if COAP_LOG_CRIT
@@ -71,7 +71,7 @@ menu "CoAP Configuration"
         default 5 if COAP_LOG_NOTICE
         default 6 if COAP_LOG_INFO
         default 7 if COAP_LOG_DEBUG
-        default 9 if COAP_LOG_MBEDTLS
+        default 8 if COAP_LOG_OSCORE
 
     config COAP_TCP_SUPPORT
         bool "Enable TCP within CoAP"
@@ -80,7 +80,31 @@ menu "CoAP Configuration"
             Enable TCP functionality for CoAP. This is required if TLS sessions
             are to be used.
 
-            If this option is disabled, redundent CoAP TCP code is removed.
+            If this option is disabled, redundant CoAP TCP code is removed.
+
+    config COAP_OSCORE_SUPPORT
+        bool "Enable OSCORE support within CoAP"
+        default n
+        help
+            Enable OSCORE (Object Security for Constrained RESTful Environments) functionality for CoAP.
+
+            If this option is disabled, redundant CoAP OSCORE code is removed.
+
+    config COAP_OBSERVE_PERSIST
+        bool "Enable Server Observe Persist support within CoAP"
+        default n
+        help
+            Enable Server Observe Persist support for CoAP.
+
+            If this option is disabled, redundant CoAP Observe Persist code is removed.
+
+    config COAP_WEBSOCKETS
+        bool "Enable WebSockets support within CoAP"
+        default n
+        help
+            Enable WebSockets support for CoAP.
+
+            If this option is disabled, redundant CoAP WebSocket code is removed.
 
     config COAP_CLIENT_SUPPORT
         bool "Enable Client functionality within CoAP"
@@ -91,7 +115,7 @@ menu "CoAP Configuration"
             this needs to be enabled to support the ongoing session going to
             the next hop.
 
-            If this option is disabled, redundent CoAP client only code is removed.
+            If this option is disabled, redundant CoAP client only code is removed.
             If both this option and COAP_SERVER_SUPPORT are disabled, then both
             are automatically enabled for backwards compatability.
 
@@ -102,7 +126,7 @@ menu "CoAP Configuration"
             Enable server functionality (ability to receive requests and send
             responses) for CoAP.
 
-            If this option is disabled, redundent CoAP server only code is removed.
+            If this option is disabled, redundant CoAP server only code is removed.
             If both this option and COAP_CLIENT_SUPPORT are disabled, then both
             are automatically enabled for backwards compatability.
 

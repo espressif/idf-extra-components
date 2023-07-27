@@ -48,12 +48,12 @@
 [submodule "coap/libcoap"]
 	path = coap/libcoap
 	url = https://github.com/obgm/libcoap.git
-	sbom-version = 4.3.1
+	sbom-version = 4.3.2
 	sbom-cpe = cpe:2.3:a:libcoap:libcoap:{}:*:*:*:*:*:*:*
 	sbom-supplier = Organization: libcoap <https://libcoap.net/>
 	sbom-url = https://github.com/obgm/libcoap
 	sbom-description = A CoAP (RFC 7252) implementation in C
-	sbom-hash = c694baead2f9b408a7598e0b85c2f257ea8c9651
+	sbom-hash = 3f8bb33807f521e9a5bbddddb0fe002f60b78a68
 
 [submodule "usb/usb_host_uvc/libuvc"]
 	path = usb/usb_host_uvc/libuvc

@@ -21,6 +21,7 @@
 #ifdef WITH_POSIX
 
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <net/if.h>
 
 #define HAVE_SYS_SOCKET_H
@@ -32,6 +33,7 @@
 #define HAVE_STRUCT_CMSGHDR
 #define HAVE_PTHREAD_H
 #define HAVE_PTHREAD_MUTEX_LOCK
+#define HAVE_GETRANDOM
 
 #define ipi_spec_dst ipi_addr
 struct in6_pktinfo {
@@ -47,11 +49,12 @@ struct in6_pktinfo {
 #define IPV6_PKTINFO IPV6_CHECKSUM
 
 #define PACKAGE_NAME "libcoap-posix"
-#define PACKAGE_VERSION "4.3.1"
+#define PACKAGE_VERSION "4.3.2"
 
 #ifdef CONFIG_MBEDTLS_TLS_ENABLED
-#define HAVE_MBEDTLS
+#define COAP_WITH_LIBMBEDTLS
 #endif /* CONFIG_MBEDTLS_TLS_ENABLED */
+
 #define COAP_CONSTRAINED_STACK 1
 #define ESPIDF_VERSION
 
