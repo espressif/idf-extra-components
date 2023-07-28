@@ -311,6 +311,35 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
     free(args);
 }
 
+TEST_CASE("Sending imcomplete data", "[encrypted_img]")
+{
+    esp_decrypt_cfg_t cfg = {
+        .rsa_priv_key = (char *)rsa_private_pem_start,
+        .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
+    };
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NOT_NULL(ctx);
+
+    pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
+    TEST_ASSERT_NOT_NULL(args);
+
+    args->data_in = (char *)bin_start;
+    args->data_in_len = (bin_end - bin_start) - 1;
+
+    esp_err_t err;
+    err = esp_encrypted_img_decrypt_data(ctx, args);
+    TEST_ESP_ERR(ESP_ERR_NOT_FINISHED, err);
+
+    TEST_ESP_ERR(false, esp_encrypted_img_is_complete_data_received(ctx));
+
+    err = esp_encrypted_img_decrypt_abort(ctx);
+    TEST_ESP_OK(err);
+    if (args->data_out) {
+        free(args->data_out);
+    }
+    free(args);
+}
+
 TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
 {
     esp_decrypt_cfg_t cfg = {
@@ -321,7 +350,8 @@ TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
-    (void) esp_encrypted_img_decrypt_end(ctx);
+    esp_err_t err = esp_encrypted_img_decrypt_abort(ctx);
+    TEST_ESP_OK(err);
     int free_bytes_end = xPortGetFreeHeapSize();
 
     // +/- 16 bytes to allow for some small fluctuations
