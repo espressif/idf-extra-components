@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <esp_err.h>
 #include <esp_idf_version.h>
 
@@ -114,11 +115,42 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
 *
 * @param[in]   ctx   esp_decrypt_handle_t handle
 *
+* @note This API cleans the decrypt handle and return ESP_FAIL if the complete data has not been decrypted. Verify if complete data
+*       has been decrypted using API `esp_encrypted_img_is_complete_data_received` to prevent an early call to this API.
+*
 * @return
-*    - ESP_FAIL    On failure
-*    - ESP_OK
+*    - ESP_FAIL                 On failure
+*    - ESP_ERR_INVALID_ARG      Invalid argument
+*    - ESP_OK                   Success
 */
 esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t ctx);
+
+/**
+* @brief  Checks if the complete data has been decrypted.
+*
+* @note This API checks if complete data has been supplied to `esp_encrypted_img_decrypt_data`. This can be used to prevent an early
+*       call to `esp_encrypted_img_decrypt_end` which cleans up the decrypt handle. If this API returns true, then call `esp_encrypted_img_decrypt_end`.
+*       If this API returns false, and there is some other error (like network error) due to which decryption process should be terminated,
+*       call `esp_encrypted_img_decrypt_abort` to clean up the handle.
+*
+* @param[in]  ctx   esp_decrypt_handle_t handle
+*
+* @return
+*     - true
+*     - false
+*/
+bool esp_encrypted_img_is_complete_data_received(esp_decrypt_handle_t ctx);
+
+/**
+* @brief  Abort the decryption process
+*
+* @param[in]   ctx   esp_decrypt_handle_t handle
+*
+* @return
+*    - ESP_ERR_INVALID_ARG  Invalid argument
+*    - ESP_OK               Success
+*/
+esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx);
 
 
 #ifdef __cplusplus

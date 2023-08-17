@@ -454,3 +454,23 @@ exit:
     free(handle);
     return err;
 }
+
+bool esp_encrypted_img_is_complete_data_received(esp_decrypt_handle_t ctx)
+{
+    esp_encrypted_img_t *handle = (esp_encrypted_img_t *)ctx;
+    return (handle != NULL && handle->binary_file_len == handle->binary_file_read);
+}
+
+esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx)
+{
+    esp_encrypted_img_t *handle = (esp_encrypted_img_t *)ctx;
+    if (handle == NULL) {
+        ESP_LOGE(TAG, "esp_encrypted_img_decrypt_data: Invalid argument");
+        return ESP_ERR_INVALID_ARG;
+    }
+    mbedtls_gcm_free(&handle->gcm_ctx);
+    free(handle->cache_buf);
+    free(handle->rsa_pem);
+    free(handle);
+    return ESP_OK;
+}
