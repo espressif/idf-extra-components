@@ -30,6 +30,7 @@ body:
         - esp_serial_slave_link
         - expat
         - fmt
+        - freetype
         - iqmath
         - jsmn
         - json_generator
