@@ -21,9 +21,12 @@
 static const char *TAG = "cdc_acm";
 
 // CDC devices often implement Interface Association Descriptor (IAD). Parse IAD only when
-// bDeviceClass = 0xEF (Miscellaneous Device Class), bDeviceSubClass = 0x02 (Common Class), bDeviceProtocol = 0x01 (Interface Association Descriptor)
+// bDeviceClass = 0xEF (Miscellaneous Device Class), bDeviceSubClass = 0x02 (Common Class), bDeviceProtocol = 0x01 (Interface Association Descriptor),
+// or when bDeviceClass, bDeviceSubClass, and bDeviceProtocol are 0x00 (Null class code triple), as per https://www.usb.org/defined-class-codes, "Base Class 00h (Device)" section
 // @see USB Interface Association Descriptor: Device Class Code and Use Model rev 1.0, Table 1-1
+#define USB_SUBCLASS_NULL        0x00
 #define USB_SUBCLASS_COMMON        0x02
+#define USB_DEVICE_NULL    0x00
 #define USB_DEVICE_PROTOCOL_IAD    0x01
 
 // CDC-ACM spinlock
@@ -671,8 +674,10 @@ static esp_err_t cdc_acm_find_intf_and_ep_desc(cdc_dev_t *cdc_dev, uint8_t intf_
     ESP_ERROR_CHECK(usb_host_get_device_descriptor(cdc_dev->dev_hdl, &device_desc));
     ESP_ERROR_CHECK(usb_host_get_active_config_descriptor(cdc_dev->dev_hdl, &config_desc));
 
-    if ((device_desc->bDeviceClass == USB_CLASS_MISC) && (device_desc->bDeviceSubClass == USB_SUBCLASS_COMMON) &&
-            (device_desc->bDeviceProtocol == USB_DEVICE_PROTOCOL_IAD)) {
+    if (((device_desc->bDeviceClass == USB_CLASS_MISC) && (device_desc->bDeviceSubClass == USB_SUBCLASS_COMMON) &&
+            (device_desc->bDeviceProtocol == USB_DEVICE_PROTOCOL_IAD)) ||
+            ((device_desc->bDeviceClass == USB_CLASS_PER_INTERFACE) && (device_desc->bDeviceSubClass == USB_SUBCLASS_NULL) &&
+            (device_desc->bDeviceProtocol == USB_PROTOCOL_NULL))) {
         // This is a composite device, that uses Interface Association Descriptor
         const usb_standard_desc_t *this_desc = (const usb_standard_desc_t *)config_desc;
         do {
