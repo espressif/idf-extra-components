@@ -55,7 +55,7 @@ typedef struct {
  */
 esp_err_t tinyusb_driver_install(const tinyusb_config_t *config);
 
-// TODO esp_err_t tinyusb_driver_uninstall(void); (IDF-1474)
+esp_err_t tinyusb_driver_uninstall(void);
 
 #ifdef __cplusplus
 }
