@@ -677,7 +677,7 @@ static esp_err_t cdc_acm_find_intf_and_ep_desc(cdc_dev_t *cdc_dev, uint8_t intf_
     if (((device_desc->bDeviceClass == USB_CLASS_MISC) && (device_desc->bDeviceSubClass == USB_SUBCLASS_COMMON) &&
             (device_desc->bDeviceProtocol == USB_DEVICE_PROTOCOL_IAD)) ||
             ((device_desc->bDeviceClass == USB_CLASS_PER_INTERFACE) && (device_desc->bDeviceSubClass == USB_SUBCLASS_NULL) &&
-            (device_desc->bDeviceProtocol == USB_PROTOCOL_NULL))) {
+             (device_desc->bDeviceProtocol == USB_PROTOCOL_NULL))) {
         // This is a composite device, that uses Interface Association Descriptor
         const usb_standard_desc_t *this_desc = (const usb_standard_desc_t *)config_desc;
         do {
