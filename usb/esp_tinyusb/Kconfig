@@ -171,7 +171,7 @@ menu "TinyUSB Stack"
         config TINYUSB_CDC_RX_BUFSIZE
             depends on TINYUSB_CDC_ENABLED
             int "CDC FIFO size of RX channel"
-            default 64
+            default 512
             range 64 10000
             help
                 CDC FIFO size of RX channel.
@@ -179,7 +179,7 @@ menu "TinyUSB Stack"
         config TINYUSB_CDC_TX_BUFSIZE
             depends on TINYUSB_CDC_ENABLED
             int "CDC FIFO size of TX channel"
-            default 64
+            default 512
             help
                 CDC FIFO size of TX channel.
     endmenu # "Communication Device Class"

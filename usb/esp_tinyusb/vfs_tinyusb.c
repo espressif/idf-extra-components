@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2020-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2020-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -67,19 +67,17 @@ static vfs_tinyusb_t s_vfstusb;
 
 static esp_err_t apply_path(char const *path)
 {
-    if (path != NULL) {
-        size_t path_len = strlen(path) + 1;
-        if (path_len > VFS_TUSB_MAX_PATH) {
-            ESP_LOGE(TAG, "The path is too long; maximum is %d characters", VFS_TUSB_MAX_PATH);
-            return ESP_ERR_INVALID_ARG;
-        }
-        strncpy(s_vfstusb.vfs_path, path, (VFS_TUSB_MAX_PATH - 1));
-    } else {
-        strncpy(s_vfstusb.vfs_path,
-                VFS_TUSB_PATH_DEFAULT,
-                (VFS_TUSB_MAX_PATH - 1));
+    if (path == NULL) {
+        path = VFS_TUSB_PATH_DEFAULT;
     }
-    ESP_LOGV(TAG, "Path is set to `%s`", s_vfstusb.vfs_path);
+
+    size_t path_len = strlen(path) + 1;
+    if (path_len > VFS_TUSB_MAX_PATH) {
+        ESP_LOGE(TAG, "The path is too long; maximum is %d characters", VFS_TUSB_MAX_PATH);
+        return ESP_ERR_INVALID_ARG;
+    }
+    strncpy(s_vfstusb.vfs_path, path, (VFS_TUSB_MAX_PATH - 1));
+    ESP_LOGV(TAG, "Path is set to `%s`", path);
     return ESP_OK;
 }
 
@@ -107,7 +105,6 @@ static void vfstusb_deinit(void)
     memset(&s_vfstusb, 0, sizeof(s_vfstusb));
 }
 
-
 static int tusb_open(const char *path, int flags, int mode)
 {
     (void) mode;
@@ -124,24 +121,25 @@ static ssize_t tusb_write(int fd, const void *data, size_t size)
     _lock_acquire(&(s_vfstusb.write_lock));
     for (size_t i = 0; i < size; i++) {
         int c = data_c[i];
-        /* handling the EOL */
-        if (c == '\n' && s_vfstusb.tx_mode != ESP_LINE_ENDINGS_LF) {
-            if (tinyusb_cdcacm_write_queue_char(s_vfstusb.cdc_intf, '\r')) {
-                written_sz++;
-            } else {
+        if (c != '\n') {
+            if (!tinyusb_cdcacm_write_queue_char(s_vfstusb.cdc_intf, c)) {
                 break; // can't write anymore
             }
-            if (s_vfstusb.tx_mode == ESP_LINE_ENDINGS_CR) {
-                continue;
+        } else {
+            if (s_vfstusb.tx_mode == ESP_LINE_ENDINGS_CRLF || s_vfstusb.tx_mode == ESP_LINE_ENDINGS_CR) {
+                char cr = '\r';
+                if (!tinyusb_cdcacm_write_queue_char(s_vfstusb.cdc_intf, cr)) {
+                    break; // can't write anymore
+                }
+            }
+            if (s_vfstusb.tx_mode == ESP_LINE_ENDINGS_CRLF || s_vfstusb.tx_mode == ESP_LINE_ENDINGS_LF) {
+                char lf = '\n';
+                if (!tinyusb_cdcacm_write_queue_char(s_vfstusb.cdc_intf, lf)) {
+                    break; // can't write anymore
+                }
             }
         }
-        /* write a char */
-        if (tinyusb_cdcacm_write_queue_char(s_vfstusb.cdc_intf, c)) {
-            written_sz++;
-        } else {
-            break; // can't write anymore
-        }
-
+        written_sz++;
     }
     tud_cdc_n_write_flush(s_vfstusb.cdc_intf);
     _lock_release(&(s_vfstusb.write_lock));
@@ -160,31 +158,40 @@ static ssize_t tusb_read(int fd, void *data, size_t size)
     char *data_c = (char *) data;
     size_t received = 0;
     _lock_acquire(&(s_vfstusb.read_lock));
-    int cm1 = NONE;
-    int c = NONE;
 
+    if (tud_cdc_n_available(s_vfstusb.cdc_intf) == 0) {
+        goto finish;
+    }
     while (received < size) {
-        cm1 = c; // store the old char
-        int c = tud_cdc_n_read_char(0); // get a new one
-        if (s_vfstusb.rx_mode == ESP_LINE_ENDINGS_CR) {
-            if (c == '\r') {
-                c = '\n';
-            }
-        } else if (s_vfstusb.rx_mode == ESP_LINE_ENDINGS_CR) {
-            if ((c == '\n') & (cm1 == '\r')) {
-                --received; // step back
-                c = '\n';
-            }
-        }
+        int c = tud_cdc_n_read_char(s_vfstusb.cdc_intf);
         if ( c == NONE) { // if data ends
             break;
         }
+
+        // Handle line endings. From configured mode -> LF mode
+        if (s_vfstusb.rx_mode == ESP_LINE_ENDINGS_CR) {
+            // Change CRs to newlines
+            if (c == '\r') {
+                c = '\n';
+            }
+        } else if (s_vfstusb.rx_mode == ESP_LINE_ENDINGS_CRLF) {
+            if (c == '\r') {
+                uint8_t next_char = NONE;
+                // Check if next char is newline. If yes, we got CRLF sequence
+                tud_cdc_n_peek(s_vfstusb.cdc_intf, &next_char);
+                if (next_char == '\n') {
+                    c = tud_cdc_n_read_char(s_vfstusb.cdc_intf); // Remove '\n' from the fifo
+                }
+            }
+        }
+
         data_c[received] = (char) c;
         ++received;
         if (c == '\n') {
             break;
         }
     }
+finish:
     _lock_release(&(s_vfstusb.read_lock));
     if (received > 0) {
         return received;
@@ -192,7 +199,6 @@ static ssize_t tusb_read(int fd, void *data, size_t size)
     errno = EWOULDBLOCK;
     return -1;
 }
-
 
 static int tusb_fstat(int fd, struct stat *st)
 {
@@ -223,39 +229,33 @@ static int tusb_fcntl(int fd, int cmd, int arg)
 
 esp_err_t esp_vfs_tusb_cdc_unregister(char const *path)
 {
-    ESP_LOGD(TAG, "Unregistering TinyUSB driver");
+    ESP_LOGD(TAG, "Unregistering CDC-VFS driver");
     int res;
 
     if (path == NULL) { // NULL means using the default path for unregistering: VFS_TUSB_PATH_DEFAULT
-        res = strcmp(s_vfstusb.vfs_path, VFS_TUSB_PATH_DEFAULT);
-    } else {
-        res = strcmp(s_vfstusb.vfs_path, path);
+        path = VFS_TUSB_PATH_DEFAULT;
     }
+    res = strcmp(s_vfstusb.vfs_path, path);
 
     if (res) {
         res = ESP_ERR_INVALID_ARG;
-        ESP_LOGE(TAG, "There is no TinyUSB driver registerred to the path '%s' (err: 0x%x)", s_vfstusb.vfs_path, res);
+        ESP_LOGE(TAG, "There is no CDC-VFS driver registered to path '%s' (err: 0x%x)", path, res);
         return res;
     }
 
-
-
     res = esp_vfs_unregister(s_vfstusb.vfs_path);
     if (res != ESP_OK) {
-        ESP_LOGE(TAG, "Can't unregister TinyUSB driver from '%s' (err: 0x%x)", s_vfstusb.vfs_path, res);
+        ESP_LOGE(TAG, "Can't unregister CDC-VFS driver from '%s' (err: 0x%x)", s_vfstusb.vfs_path, res);
     } else {
-        ESP_LOGD(TAG, "Unregistered TinyUSB driver");
+        ESP_LOGD(TAG, "Unregistered CDC-VFS driver");
         vfstusb_deinit();
     }
     return res;
 }
 
-
-
-
 esp_err_t esp_vfs_tusb_cdc_register(int cdc_intf, char const *path)
 {
-    ESP_LOGD(TAG, "Registering TinyUSB CDC driver");
+    ESP_LOGD(TAG, "Registering CDC-VFS driver");
     int res;
     if (!tusb_cdc_acm_initialized(cdc_intf)) {
         ESP_LOGE(TAG, "TinyUSB CDC#%d is not initialized", cdc_intf);
@@ -279,9 +279,23 @@ esp_err_t esp_vfs_tusb_cdc_register(int cdc_intf, char const *path)
 
     res = esp_vfs_register(s_vfstusb.vfs_path, &vfs, NULL);
     if (res != ESP_OK) {
-        ESP_LOGE(TAG, "Can't register TinyUSB driver (err: %x)", res);
+        ESP_LOGE(TAG, "Can't register CDC-VFS driver (err: %x)", res);
     } else {
-        ESP_LOGD(TAG, "TinyUSB CDC registered (%s)", s_vfstusb.vfs_path);
+        ESP_LOGD(TAG, "CDC-VFS registered (%s)", s_vfstusb.vfs_path);
     }
     return res;
+}
+
+void esp_vfs_tusb_cdc_set_rx_line_endings(esp_line_endings_t mode)
+{
+    _lock_acquire(&(s_vfstusb.read_lock));
+    s_vfstusb.rx_mode = mode;
+    _lock_release(&(s_vfstusb.read_lock));
+}
+
+void esp_vfs_tusb_cdc_set_tx_line_endings(esp_line_endings_t mode)
+{
+    _lock_acquire(&(s_vfstusb.write_lock));
+    s_vfstusb.tx_mode = mode;
+    _lock_release(&(s_vfstusb.write_lock));
 }
