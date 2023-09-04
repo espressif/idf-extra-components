@@ -64,12 +64,12 @@
 [submodule "fmt/fmt"]
 	path = fmt/fmt
 	url = https://github.com/fmtlib/fmt.git
-	sbom-version = 9.1.0
+	sbom-version = 10.1.0
 	sbom-cpe = cpe:2.3:a:fmt:fmt:{}:*:*:*:*:*:*:*
 	sbom-supplier = Organization: fmt <https://fmt.dev/latest/index.html>
 	sbom-url = https://github.com/fmtlib/fmt/
 	sbom-description = A modern formatting library
-	sbom-hash = a33701196adfad74917046096bf5a2aa0ab0bb50
+	sbom-hash = e57ca2e3685b160617d3d95fcd9e789c4e06ca88
 
 [submodule "esp_delta_ota/detools"]
 	path = esp_delta_ota/detools
