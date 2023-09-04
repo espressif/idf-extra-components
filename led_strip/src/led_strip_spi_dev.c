@@ -160,13 +160,6 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     };
     ESP_GOTO_ON_ERROR(spi_bus_initialize(spi_strip->spi_host, &spi_bus_cfg, spi_config->flags.with_dma ? SPI_DMA_CH_AUTO : SPI_DMA_DISABLED), err, TAG, "create SPI bus failed");
 
-#if !CONFIG_IDF_TARGET_ESP32
-    //SPI_D_POL : This bit is used to set the idle polarity of MOSI. 1：high；0：low (ESP32 does not have this register, and its default polarity is low)
-    spi_dev_t *hw;
-    hw = SPI_LL_GET_HW(spi_strip->spi_host);
-    hw->ctrl.d_pol = 0;
-#endif
-
     if (led_config->flags.invert_out == true) {
         esp_rom_gpio_connect_out_signal(led_config->strip_gpio_num, spi_periph_signal[spi_strip->spi_host].spid_out, true, false);
     }
@@ -191,15 +184,6 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     // But now, let's fixed the resolution, the downside is, we don't support a clock source whose frequency is not multiple of LED_STRIP_SPI_DEFAULT_RESOLUTION
     ESP_GOTO_ON_FALSE(clock_resolution_khz == LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000, ESP_ERR_NOT_SUPPORTED, err,
                       TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
-
-    //send dummy data to ensure the initial level of MOSI is low
-    uint8_t dummy_data = 0x00;
-    spi_transaction_t tx_conf = {
-        .length = 8,
-        .tx_buffer = &dummy_data,
-        .rx_buffer = NULL,
-    };
-    ESP_RETURN_ON_ERROR(spi_device_transmit(spi_strip->spi_device, &tx_conf), TAG, "dummy pixels by SPI failed");
 
     spi_strip->bytes_per_pixel = bytes_per_pixel;
     spi_strip->strip_len = led_config->max_leds;

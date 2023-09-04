@@ -11,7 +11,7 @@
 #include "esp_idf_version.h"
 
 static uint8_t buf[CONFIG_TINYUSB_CDC_RX_BUFSIZE + 1];
-void tinyusb_cdc_rx_callback(int itf, cdcacm_event_t *event)
+static void tinyusb_cdc_rx_callback(int itf, cdcacm_event_t *event)
 {
     size_t rx_size = 0;
     /* read and write back */
@@ -38,7 +38,7 @@ static const tusb_desc_device_t cdc_device_descriptor = {
     .bNumConfigurations = 0x01
 };
 
-const uint16_t cdc_desc_config_len = TUD_CONFIG_DESC_LEN + 2 * TUD_CDC_DESC_LEN;
+static const uint16_t cdc_desc_config_len = TUD_CONFIG_DESC_LEN + CFG_TUD_CDC * TUD_CDC_DESC_LEN;
 static const uint8_t cdc_desc_configuration[] = {
     TUD_CONFIG_DESCRIPTOR(1, 4, 0, cdc_desc_config_len, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
     TUD_CDC_DESCRIPTOR(0, 4, 0x81, 8, 0x02, 0x82, 64),
@@ -60,7 +60,6 @@ void run_usb_dual_cdc_device(void)
     tinyusb_config_cdcacm_t amc_cfg = {
         .usb_dev = TINYUSB_USBDEV_0,
         .cdc_port = TINYUSB_CDC_ACM_0,
-        .rx_unread_buf_sz = 64,
         .callback_rx = &tinyusb_cdc_rx_callback,
         .callback_rx_wanted_char = NULL,
         .callback_line_state_changed = NULL,

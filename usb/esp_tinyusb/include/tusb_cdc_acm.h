@@ -11,9 +11,11 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "tinyusb_types.h"
-#include "esp_err.h"
 #include "sdkconfig.h"
+#include "esp_err.h"
+
+#include "tinyusb_types.h"
+#include "class/cdc/cdc.h"
 
 #if (CONFIG_TINYUSB_CDC_ENABLED != 1)
 #error "TinyUSB CDC driver must be enabled in menuconfig"
@@ -91,7 +93,7 @@ typedef void(*tusb_cdcacm_callback_t)(int itf, cdcacm_event_t *event);
 typedef struct {
     tinyusb_usbdev_t usb_dev; /*!< Usb device to set up */
     tinyusb_cdcacm_itf_t cdc_port;  /*!< CDC port */
-    size_t rx_unread_buf_sz; /*!< Amount of data that can be passed to the ACM at once */
+    size_t rx_unread_buf_sz __attribute__((deprecated("This parameter is not used any more. Configure RX buffer in menuconfig.")));
     tusb_cdcacm_callback_t callback_rx;  /*!< Pointer to the function with the `tusb_cdcacm_callback_t` type that will be handled as a callback */
     tusb_cdcacm_callback_t callback_rx_wanted_char; /*!< Pointer to the function with the `tusb_cdcacm_callback_t` type that will be handled as a callback */
     tusb_cdcacm_callback_t callback_line_state_changed; /*!< Pointer to the function with the `tusb_cdcacm_callback_t` type that will be handled as a callback */
@@ -105,89 +107,87 @@ typedef struct {
  * @brief Initialize CDC ACM. Initialization will be finished with
  *          the `tud_cdc_line_state_cb` callback
  *
- * @param cfg - init configuration structure
+ * @param[in] cfg Configuration structure
  * @return esp_err_t
  */
 esp_err_t tusb_cdc_acm_init(const tinyusb_config_cdcacm_t *cfg);
-
 
 /**
  * @brief Register a callback invoking on CDC event. If the callback had been
  *        already registered, it will be overwritten
  *
- * @param itf - number of a CDC object
- * @param event_type - type of registered event for a callback
- * @param callback  - callback function
+ * @param[in] itf        Index of CDC interface
+ * @param[in] event_type Type of registered event for a callback
+ * @param[in] callback   Callback function
  * @return esp_err_t - ESP_OK or ESP_ERR_INVALID_ARG
  */
 esp_err_t tinyusb_cdcacm_register_callback(tinyusb_cdcacm_itf_t itf,
         cdcacm_event_type_t event_type,
         tusb_cdcacm_callback_t callback);
 
-
 /**
- * @brief Unregister a callback invoking on CDC event.
+ * @brief Unregister a callback invoking on CDC event
  *
- * @param itf - number of a CDC object
- * @param event_type - type of registered event for a callback
+ * @param[in] itf        Index of CDC interface
+ * @param[in] event_type Type of registered event for a callback
  * @return esp_err_t - ESP_OK or ESP_ERR_INVALID_ARG
  */
 esp_err_t tinyusb_cdcacm_unregister_callback(tinyusb_cdcacm_itf_t itf, cdcacm_event_type_t event_type);
 
-
 /**
  * @brief Sent one character to a write buffer
  *
- * @param itf - number of a CDC object
- * @param ch - character to send
+ * @param[in] itf Index of CDC interface
+ * @param[in] ch  Character to send
  * @return size_t - amount of queued bytes
  */
 size_t tinyusb_cdcacm_write_queue_char(tinyusb_cdcacm_itf_t itf, char ch);
 
-
 /**
- * @brief Write data to write buffer from a byte array
+ * @brief Write data to write buffer
  *
- * @param itf - number of a CDC object
- * @param in_buf - a source array
- * @param in_size - size to write from arr_src
+ * @param[in] itf     Index of CDC interface
+ * @param[in] in_buf  Data
+ * @param[in] in_size Data size in bytes
  * @return size_t - amount of queued bytes
  */
 size_t tinyusb_cdcacm_write_queue(tinyusb_cdcacm_itf_t itf, const uint8_t *in_buf, size_t in_size);
 
 /**
- * @brief Send all data from a write buffer. Use `tinyusb_cdcacm_write_queue` to add data to the buffer.
+ * @brief Flush data in write buffer of CDC interface
+ *
+ * Use `tinyusb_cdcacm_write_queue` to add data to the buffer
  *
  *        WARNING! TinyUSB can block output Endpoint for several RX callbacks, after will do additional flush
- *        after the each trasfer. That can leads to the situation when you requested a flush, but it will fail until
- *        ont of the next callbacks ends.
- *        SO USING OF THE FLUSH WITH TIMEOUTS IN CALLBACKS IS NOT RECOMENDED - YOU CAN GET A LOCK FOR THE TIMEOUT
+ *        after the each transfer. That can leads to the situation when you requested a flush, but it will fail until
+ *        one of the next callbacks ends.
+ *        SO USING OF THE FLUSH WITH TIMEOUTS IN CALLBACKS IS NOT RECOMMENDED - YOU CAN GET A LOCK FOR THE TIMEOUT
  *
- * @param itf - number of a CDC object
- * @param timeout_ticks - waiting until flush will be considered as failed
- * @return esp_err_t -  ESP_OK if (timeout_ticks > 0) and and flush was successful,
- *                      ESP_ERR_TIMEOUT if timeout occurred3 or flush was successful with (timeout_ticks == 0)
- *                      ESP_FAIL if flush was unsuccessful
+ * @param[in] itf             Index of CDC interface
+ * @param[in] timeout_ticks   Transfer timeout. Set to zero for non-blocking mode
+ * @return - ESP_OK           All data flushed
+ *         - ESP_ERR_TIMEOUT  Time out occurred in blocking mode
+ *         - ESP_NOT_FINISHED The transfer is still in progress in non-blocking mode
  */
 esp_err_t tinyusb_cdcacm_write_flush(tinyusb_cdcacm_itf_t itf, uint32_t timeout_ticks);
 
 /**
- * @brief Read a content to the array, and defines it's size to the sz_store
+ * @brief Receive data from CDC interface
  *
- * @param itf - number of a CDC object
- * @param out_buf - to this array will be stored the object from a CDC buffer
- * @param out_buf_sz - size of buffer for results
- * @param rx_data_size - to this address will be stored the object's size
+ * @param[in] itf           Index of CDC interface
+ * @param[out] out_buf      Data buffer
+ * @param[in] out_buf_sz    Data buffer size in bytes
+ * @param[out] rx_data_size Number of bytes written to out_buf
  * @return esp_err_t ESP_OK, ESP_FAIL or ESP_ERR_INVALID_STATE
  */
 esp_err_t tinyusb_cdcacm_read(tinyusb_cdcacm_itf_t itf, uint8_t *out_buf, size_t out_buf_sz, size_t *rx_data_size);
 
-
 /**
- * @brief Check if the ACM initialized
+ * @brief Check if the CDC interface is initialized
  *
- * @param itf - number of a CDC object
- * @return true or false
+ * @param[in] itf  Index of CDC interface
+ * @return - true  Initialized
+ *         - false Not Initialized
  */
 bool tusb_cdc_acm_initialized(tinyusb_cdcacm_itf_t itf);
 

@@ -40,6 +40,8 @@ You can create multiple LED strip objects with different GPIOs and pixel numbers
 
 SPI peripheral can also be used to generate the timing required by the LED strip. However this backend is not as economical as the RMT one, because it will take up the whole **bus**, unlike the RMT just takes one **channel**. You **CANT** connect other devices to the same SPI bus if it's been used by the led_strip, because the led_strip doesn't have the concept of "Chip Select".
 
+Please note, the SPI backend has a dependency of **ESP-IDF >= 5.1**
+
 #### Allocate LED Strip Object with SPI Backend
 
 ```c
