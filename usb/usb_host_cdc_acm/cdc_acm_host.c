@@ -26,7 +26,7 @@ static const char *TAG = "cdc_acm";
 // @see USB Interface Association Descriptor: Device Class Code and Use Model rev 1.0, Table 1-1
 #define USB_SUBCLASS_NULL        0x00
 #define USB_SUBCLASS_COMMON        0x02
-#define USB_DEVICE_NULL    0x00
+#define USB_PROTOCOL_NULL    0x00
 #define USB_DEVICE_PROTOCOL_IAD    0x01
 
 // CDC-ACM spinlock
