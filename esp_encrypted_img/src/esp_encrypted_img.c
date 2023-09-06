@@ -474,3 +474,8 @@ esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx)
     free(handle);
     return ESP_OK;
 }
+
+uint16_t esp_encrypted_img_get_header_size(void)
+{
+    return HEADER_DATA_SIZE;
+}

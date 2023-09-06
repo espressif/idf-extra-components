@@ -1,3 +1,8 @@
+## 2.2.0
+
+### Enhancements:
+- Added an API to get the size of pre encrypted binary image header, this could be useful while computing entire decrypted image length: `esp_encrypted_img_get_header_size`
+
 ## 2.1.0
 
 ### Enhancements:
