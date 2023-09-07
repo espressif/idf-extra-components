@@ -327,6 +327,11 @@ fail:
     return ret;
 }
 
+esp_err_t tusb_cdc_acm_deinit(int itf)
+{
+    return tinyusb_cdc_deinit(itf);
+}
+
 bool tusb_cdc_acm_initialized(tinyusb_cdcacm_itf_t itf)
 {
     esp_tusb_cdcacm_t *acm = get_acm(itf);

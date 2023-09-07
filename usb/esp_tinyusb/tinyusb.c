@@ -100,3 +100,8 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
     ESP_LOGI(TAG, "TinyUSB Driver installed");
     return ESP_OK;
 }
+
+esp_err_t tinyusb_driver_uninstall()
+{
+    return usb_del_phy(phy_hdl);
+}

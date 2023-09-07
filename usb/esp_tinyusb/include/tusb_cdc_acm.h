@@ -113,6 +113,14 @@ typedef struct {
 esp_err_t tusb_cdc_acm_init(const tinyusb_config_cdcacm_t *cfg);
 
 /**
+ * @brief De-initialize CDC ACM.
+ *
+ * @param[in] itf Index of CDC interface
+ * @return esp_err_t
+ */
+esp_err_t tusb_cdc_acm_deinit(int itf);
+
+/**
  * @brief Register a callback invoking on CDC event. If the callback had been
  *        already registered, it will be overwritten
  *
