@@ -17,6 +17,7 @@
 #include "tinyusb.h"
 #include "class/msc/msc_device.h"
 #include "tusb_msc_storage.h"
+#include "esp_vfs_fat.h"
 #if SOC_SDMMC_HOST_SUPPORTED
 #include "diskio_sdmmc.h"
 #endif
@@ -40,6 +41,7 @@ typedef struct {
     esp_err_t (*write)(size_t sector_size, size_t addr, uint32_t lba, uint32_t offset, size_t size, const void *src);
     tusb_msc_callback_t callback_mount_changed;
     tusb_msc_callback_t callback_premount_changed;
+    const esp_vfs_fat_mount_config_t *mount_config;
 } tinyusb_msc_storage_handle_s; /*!< MSC object */
 
 /* handle of tinyusb driver connected to application */
@@ -280,7 +282,7 @@ esp_err_t tinyusb_msc_storage_mount(const char *base_path)
     ESP_GOTO_ON_ERROR((s_storage_handle->mount)(pdrv), fail, TAG, "Failed pdrv=%d", pdrv);
 
     FATFS *fs = NULL;
-    ret = esp_vfs_fat_register(base_path, drv, 2, &fs);
+    ret = esp_vfs_fat_register(base_path, drv, s_storage_handle->mount_config->max_files, &fs);
     if (ret == ESP_ERR_INVALID_STATE) {
         ESP_LOGD(TAG, "it's okay, already registered with VFS");
     } else if (ret != ESP_OK) {
@@ -385,6 +387,7 @@ esp_err_t tinyusb_msc_storage_init_spiflash(const tinyusb_msc_spiflash_config_t 
     s_storage_handle->is_fat_mounted = false;
     s_storage_handle->base_path = NULL;
     s_storage_handle->wl_handle = config->wl_handle;
+    s_storage_handle->mount_config = config->mount_config;
 
     /* Callbacks setting up*/
     if (config->callback_mount_changed) {
@@ -416,6 +419,7 @@ esp_err_t tinyusb_msc_storage_init_sdmmc(const tinyusb_msc_sdmmc_config_t *confi
     s_storage_handle->is_fat_mounted = false;
     s_storage_handle->base_path = NULL;
     s_storage_handle->card = config->card;
+    s_storage_handle->mount_config = config->mount_config;
 
     /* Callbacks setting up*/
     if (config->callback_mount_changed) {
