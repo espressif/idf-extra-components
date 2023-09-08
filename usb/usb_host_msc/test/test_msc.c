@@ -8,6 +8,7 @@
 #include "unity.h"
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include "esp_private/usb_phy.h"
 #include "esp_private/msc_scsi_bot.h"
 #include "usb/usb_host.h"
@@ -418,6 +419,38 @@ TEST_CASE("can_be_formated", "[usb_msc]")
     TEST_ASSERT_FALSE(file_exists(FILE_NAME));
     msc_teardown();
     mount_config.format_if_mount_failed = false;
+}
+
+static void print_device_info(msc_host_device_info_t *info)
+{
+    const size_t megabyte = 1024 * 1024;
+    uint64_t capacity = ((uint64_t)info->sector_size * info->sector_count) / megabyte;
+
+    printf("Device info:\n");
+    printf("\t Capacity: %llu MB\n", capacity);
+    printf("\t Sector size: %"PRIu32"\n", info->sector_size);
+    printf("\t Sector count: %"PRIu32"\n", info->sector_count);
+    printf("\t PID: 0x%4X \n", info->idProduct);
+    printf("\t VID: 0x%4X \n", info->idVendor);
+    wprintf(L"\t iProduct: %S \n", info->iProduct);
+    wprintf(L"\t iManufacturer: %S \n", info->iManufacturer);
+    wprintf(L"\t iSerialNumber: %S \n", info->iSerialNumber);
+}
+
+/**
+ * @brief USB MSC device_info testcase
+ *
+ * Simple testcase that only runs msc_host_get_device_info()
+ * To make sure that we correctly handle missing string descriptors
+ */
+TEST_CASE("device_info", "[usb_msc]")
+{
+    msc_setup();
+    msc_host_device_info_t info;
+    esp_err_t err = msc_host_get_device_info(device, &info);
+    msc_teardown();
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+    print_device_info(&info);
 }
 
 /**

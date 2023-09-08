@@ -82,8 +82,9 @@ static char const *string_desc_arr[] = {
     (const char[]) { 0x09, 0x04 },  // 0: is supported language is English (0x0409)
     "TinyUSB",                      // 1: Manufacturer
     "TinyUSB Device",               // 2: Product
-    "123456",                       // 3: Serials
-    "Test MSC",                  // 4. MSC
+    // We intentionally do not implement Serial String descriptor to make sure that the driver can handle it
+    //"123456",                       // 3: Serials
+    //"Test MSC",                  // 4. MSC
 };
 #endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0) */
 /*********************************************************************** TinyUSB descriptors*/

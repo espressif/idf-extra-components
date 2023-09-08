@@ -521,6 +521,22 @@ esp_err_t msc_host_handle_events(uint32_t timeout_ms)
     return usb_host_client_handle_events(s_msc_driver->client_handle, pdMS_TO_TICKS(timeout_ms));
 }
 
+static void copy_string_desc(wchar_t *dest, const usb_str_desc_t *src)
+{
+    if (dest == NULL) {
+        return;
+    }
+    if (src != NULL) {
+        size_t len = MIN((src->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
+        wcsncpy(dest, src->wData, len);
+        if (dest != NULL) { // This should be always true, we just check to avoid LoadProhibited exception
+            dest[len] = 0;
+        }
+    } else {
+        dest[0] = 0;
+    }
+}
+
 esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_device_info_t *info)
 {
     MSC_RETURN_ON_INVALID_ARG(device);
@@ -538,17 +554,9 @@ esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_dev
     info->sector_size = dev->disk.block_size;
     info->sector_count = dev->disk.block_count;
 
-    size_t len = MIN((dev_info.str_desc_manufacturer->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
-    wcsncpy(info->iManufacturer, dev_info.str_desc_manufacturer->wData, len);
-    info->iManufacturer[len] = 0;
-
-    len = MIN((dev_info.str_desc_product->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
-    wcsncpy(info->iProduct, dev_info.str_desc_product->wData, len);
-    info->iProduct[len] = 0;
-
-    len = MIN((dev_info.str_desc_serial_num->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
-    wcsncpy(info->iSerialNumber, dev_info.str_desc_serial_num->wData, len);
-    info->iSerialNumber[len] = 0;
+    copy_string_desc(info->iManufacturer, dev_info.str_desc_manufacturer);
+    copy_string_desc(info->iProduct, dev_info.str_desc_product);
+    copy_string_desc(info->iSerialNumber, dev_info.str_desc_serial_num);
 
     return ESP_OK;
 }
