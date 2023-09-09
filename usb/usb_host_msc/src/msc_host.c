@@ -12,6 +12,7 @@
 #include <sys/queue.h>
 #include <sys/param.h>
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -604,28 +605,38 @@ static usb_transfer_status_t wait_for_transfer_done(usb_transfer_t *xfer)
 esp_err_t msc_bulk_transfer_zcpy(msc_device_t *device, uint8_t *data, size_t size, msc_endpoint_t ep)
 {
     esp_err_t ret = ESP_OK;
-    MSC_RETURN_ON_FALSE(esp_ptr_dma_capable(data), ESP_FAIL); // The passed buffer must be DMA capable
+    uint8_t *data_cpy = NULL; // Pointer to copy of data in DMA capable region
+    bool realloc_data = !esp_ptr_dma_capable(data); // Flag that the data must be moved to DMA capable region
+
+    // Data that is not in DMA capable memory must be copied to DMA capable memory
+    if (realloc_data) {
+        data_cpy = heap_caps_malloc(size, MALLOC_CAP_DMA);
+        ESP_RETURN_ON_FALSE(data_cpy != NULL, ESP_ERR_NO_MEM, TAG, "Could not allocate %d bytes in DMA capable memory", size);
+    }
+
     usb_transfer_t *xfer = device->xfer;
-    uint8_t endpoint = (ep == MSC_EP_IN) ? device->config.bulk_in_ep : device->config.bulk_out_ep;
     uint8_t *backup_buffer = xfer->data_buffer;
     size_t backup_size = xfer->data_buffer_size;
-    size_t actual_size;
 
+    if (ep == MSC_EP_IN) {
+        xfer->bEndpointAddress = device->config.bulk_in_ep;
+        xfer->num_bytes = usb_round_up_to_mps(size, device->config.bulk_in_mps);
+    } else {
+        xfer->bEndpointAddress = device->config.bulk_out_ep;
+        xfer->num_bytes = size;
+        if (realloc_data) {
+            memcpy(data_cpy, data, size);
+        }
+    }
+
+    // Get pointers to start of data buffer and buffer size, so we can change it
     uint8_t **ptr = (uint8_t **)(&(xfer->data_buffer));
     size_t *siz = (size_t *)(&(xfer->data_buffer_size));
 
-    if (is_in_endpoint(endpoint)) {
-        actual_size = usb_round_up_to_mps(size, device->config.bulk_in_mps);
-    } else {
-        actual_size = size;
-    }
-
     // Attention: Here we modify 'private' members data_buffer and data_buffer_size
-    *ptr = data;
-    *siz = actual_size;
-    xfer->num_bytes = actual_size;
+    *ptr = realloc_data ? data_cpy : data; // This is actually xfer->data_buffer
+    *siz = xfer->num_bytes; // This is actually xfer->data_buffer_size
     xfer->device_handle = device->handle;
-    xfer->bEndpointAddress = endpoint;
     xfer->callback = transfer_callback;
     xfer->timeout_ms = 5000;
     xfer->context = device;
@@ -634,7 +645,11 @@ esp_err_t msc_bulk_transfer_zcpy(msc_device_t *device, uint8_t *data, size_t siz
     const usb_transfer_status_t status = wait_for_transfer_done(xfer);
     switch (status) {
     case USB_TRANSFER_STATUS_COMPLETED:
-        ret = ESP_OK; break;
+        if (realloc_data && (ep == MSC_EP_IN)) {
+            memcpy(data, data_cpy, xfer->actual_num_bytes);
+        }
+        ret = ESP_OK;
+        break;
     case USB_TRANSFER_STATUS_STALL:
         ret = ESP_ERR_MSC_STALL; break;
     default:
@@ -642,6 +657,9 @@ esp_err_t msc_bulk_transfer_zcpy(msc_device_t *device, uint8_t *data, size_t siz
     }
 
 fail:
+    if (realloc_data) {
+        heap_caps_free(data_cpy);
+    }
     *ptr = backup_buffer;
     *siz = backup_size;
     return ret;
