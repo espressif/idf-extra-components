@@ -152,6 +152,16 @@ bool esp_encrypted_img_is_complete_data_received(esp_decrypt_handle_t ctx);
 */
 esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx);
 
+/**
+* @brief  Get the size of pre encrypted binary image header (`struct pre_enc_bin_header`). The initial header in
+*         the image contains magic, credentials (symmetric key) and few other parameters. This API could be useful
+*         for scenarios where the entire decrypted image length must be computed by the application including the 
+*         image header.  
+*
+* @return
+*    - Header size of pre encrypted image
+*/
+uint16_t esp_encrypted_img_get_header_size(void);
 
 #ifdef __cplusplus
 }
