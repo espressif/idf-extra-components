@@ -419,7 +419,7 @@ esp_err_t tinyusb_msc_storage_init_sdmmc(const tinyusb_msc_sdmmc_config_t *confi
     s_storage_handle->is_fat_mounted = false;
     s_storage_handle->base_path = NULL;
     s_storage_handle->card = config->card;
-    s_storage_handle->max_files = mount_config->max_files;
+    s_storage_handle->max_files = config->mount_config.max_files;
 
     /* Callbacks setting up*/
     if (config->callback_mount_changed) {
