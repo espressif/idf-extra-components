@@ -387,7 +387,7 @@ esp_err_t tinyusb_msc_storage_init_spiflash(const tinyusb_msc_spiflash_config_t 
     s_storage_handle->is_fat_mounted = false;
     s_storage_handle->base_path = NULL;
     s_storage_handle->wl_handle = config->wl_handle;
-    s_storage_handle->max_files = mount_config->max_files;
+    s_storage_handle->max_files = config->mount_config.max_files;
 
     /* Callbacks setting up*/
     if (config->callback_mount_changed) {
