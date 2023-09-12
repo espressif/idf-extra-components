@@ -142,10 +142,17 @@ __attribute__((deprecated("use API from esp_private/msc_scsi_bot.h")));
 /**
  * @brief Handle MSC HOST events.
  *
- * @param[in]  timeout_ms  Timeout in miliseconds
- * @return esp_err_t
+ * If MSC Host install was called with create_background_task=false configuration,
+ * application needs to handle USB Host events itself.
+ * Do not call this function if MSC host install was called with create_background_task=true configuration
+ *
+ * @param[in]  timeout  Timeout in FreeRTOS tick
+ * @return
+ *     - ESP_OK:          All events handled
+ *     - ESP_ERR_TIMEOUT: No events handled within the timeout
+ *     - ESP_FAIL:        Event handling finished, driver uninstalled. You do not have to call this function further
  */
-esp_err_t msc_host_handle_events(uint32_t timeout_ms);
+esp_err_t msc_host_handle_events(uint32_t timeout);
 
 /**
  * @brief Gets devices information.
@@ -171,8 +178,8 @@ esp_err_t msc_host_print_descriptors(msc_host_device_handle_t device);
  *
  * @param[in] device Handle of MSC device
  * @return
- *       - ESP_OK:  The device was recovered from reset
- *       - ESP_FAI: Recovery unsuccessful, might indicate broken device
+ *       - ESP_OK:   The device was recovered from reset
+ *       - ESP_FAIL: Recovery unsuccessful, might indicate broken device
  */
 esp_err_t msc_host_reset_recovery(msc_host_device_handle_t device);
 

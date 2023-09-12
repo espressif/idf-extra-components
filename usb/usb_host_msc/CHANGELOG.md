@@ -2,6 +2,7 @@
 
 - Fix `msc_host_get_device_info` for devices without Serial Number string descriptor https://github.com/espressif/esp-idf/issues/12163
 - Fix regression from version 1.1.0 that files could not be opened in PSRAM https://github.com/espressif/idf-extra-components/issues/202
+- Fix MSC driver event handling without background task
 
 ## 1.1.0 - yanked
 
