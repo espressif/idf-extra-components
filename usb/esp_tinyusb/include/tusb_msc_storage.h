@@ -13,6 +13,7 @@ extern "C" {
 #include <stddef.h>
 #include "esp_err.h"
 #include "wear_levelling.h"
+#include "esp_vfs_fat.h"
 #if SOC_SDMMC_HOST_SUPPORTED
 #include "driver/sdmmc_host.h"
 #endif
@@ -58,6 +59,7 @@ typedef struct {
     sdmmc_card_t *card;                             /*!< Pointer to sdmmc card configuration structure */
     tusb_msc_callback_t callback_mount_changed;     /*!< Pointer to the function callback that will be delivered AFTER mount/unmount operation is successfully finished */
     tusb_msc_callback_t callback_premount_changed;  /*!< Pointer to the function callback that will be delivered BEFORE mount/unmount operation is started */
+    const esp_vfs_fat_mount_config_t mount_config; /*!< FATFS mount config */
 } tinyusb_msc_sdmmc_config_t;
 #endif
 
@@ -71,6 +73,7 @@ typedef struct {
     wl_handle_t wl_handle;                          /*!< Pointer to spiflash wera-levelling handle */
     tusb_msc_callback_t callback_mount_changed;     /*!< Pointer to the function callback that will be delivered AFTER mount/unmount operation is successfully finished */
     tusb_msc_callback_t callback_premount_changed;  /*!< Pointer to the function callback that will be delivered BEFORE mount/unmount operation is started */
+    const esp_vfs_fat_mount_config_t mount_config; /*!< FATFS mount config */
 } tinyusb_msc_spiflash_config_t;
 
 /**

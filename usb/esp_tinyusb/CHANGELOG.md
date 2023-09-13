@@ -1,3 +1,8 @@
+## 1.4.1
+
+- MSC: Fix maximum files open
+- Add uninstall function
+
 ## 1.4.0
 
 - MSC: Fix integer overflows
