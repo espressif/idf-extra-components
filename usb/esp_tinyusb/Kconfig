@@ -241,21 +241,11 @@ menu "TinyUSB Stack"
                 BTH ISO ALT COUNT.
     endmenu # "Bluetooth Host Device Class"
 
-    menu "Network driver (ECM/NCM/RNDIS)"
-        choice TINYUSB_NET_MODE
-            prompt "Network mode"
-            default TINYUSB_NET_MODE_NONE
+    menu "Network driver (NCM)"
+        config TINYUSB_NET_MODE_NCM
+            bool "Enable TinyUSB Network feature(NCM)"
+            default n
             help
-                Select network driver you want to use.
-
-            config TINYUSB_NET_MODE_ECM_RNDIS
-                bool "ECM/RNDIS"
-
-            config TINYUSB_NET_MODE_NCM
-                bool "NCM"
-
-            config TINYUSB_NET_MODE_NONE
-                bool "None"
-        endchoice
-    endmenu # "Network driver (ECM/NCM/RNDIS)"
+                Enable TinyUSB NCM feature. NCM is already supported on Linux/MAC/Windows11
+    endmenu # "Network driver (NCM)"
 endmenu # "TinyUSB Stack"

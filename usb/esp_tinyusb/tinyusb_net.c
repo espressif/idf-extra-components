@@ -142,6 +142,24 @@ esp_err_t tinyusb_net_init(tinyusb_usbdev_t usb_dev, const tinyusb_net_config_t 
     return ESP_OK;
 }
 
+esp_err_t tinyusb_net_connect(void)
+{
+    if (tud_network_connect()) {
+        return ESP_OK;
+    } else {
+        return ESP_FAIL;
+    }
+}
+
+esp_err_t tinyusb_net_disconnect(void)
+{
+    if (tud_network_disconnect()) {
+        return ESP_OK;
+    } else {
+        return ESP_FAIL;
+    }
+}
+
 //--------------------------------------------------------------------+
 // tinyusb callbacks
 //--------------------------------------------------------------------+
