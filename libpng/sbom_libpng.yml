@@ -1,0 +1,7 @@
+name: libpng
+version: 1.6.39
+cpe: cpe:2.3:a:libpng:libpng:{}:*:*:*:*:*:*:*
+supplier: 'Organization: libpng'
+description: Portable Network Graphics support, official PNG reference library
+url: https://github.com/glennrp/libpng
+hash: 07b8803110da160b158ebfef872627da6c85cbdf
