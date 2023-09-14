@@ -1,0 +1,4 @@
+dependencies:
+  espressif/catch2:
+    version: "*"
+    override_path: "../../../"

@@ -26,6 +26,7 @@ jobs:
           #
           directories: >
             bdc_motor;
+            catch2;
             cbor;
             ccomp_timer;
             coap;

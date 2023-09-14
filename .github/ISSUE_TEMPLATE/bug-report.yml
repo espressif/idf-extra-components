@@ -21,6 +21,7 @@ body:
       multiple: false
       options:
         - bdc_motor
+        - catch2
         - cbor
         - coap
         - coremark
