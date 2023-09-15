@@ -59,7 +59,11 @@ static bool verify_chip_id(void *bin_header_data)
     return true;
 }
 
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0))
+static esp_err_t write_cb(const uint8_t *buf_p, size_t size, void *user_data)
+#else
 static esp_err_t write_cb(const uint8_t *buf_p, size_t size)
+#endif
 {
     if (size <= 0) {
         return ESP_ERR_INVALID_ARG;
@@ -185,8 +189,16 @@ static void ota_example_task(void *pvParameter)
     }
     esp_delta_ota_cfg_t cfg = {
         .read_cb = &read_cb,
-        .write_cb = &write_cb,
     };
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0))
+    char *user_data = "https_delta_ota";
+    cfg.write_cb_with_user_data = &write_cb;
+    cfg.user_data = user_data;
+#else
+    cfg.write_cb = &write_cb;
+#endif
+
     esp_delta_ota_handle_t handle = esp_delta_ota_init(&cfg);
     if (handle == NULL) {
         ESP_LOGE(TAG, "delta_ota_set_cfg failed");
