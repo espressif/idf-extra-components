@@ -31,3 +31,17 @@ esp_jpeg/examples/get_started:
   enable:
     - if: IDF_VERSION_MAJOR > 4 and IDF_TARGET in ["esp32", "esp32s2", "esp32s3"]
       reason: Example depends on BSP, which is supported only for IDF >= 5.0 and limited targets
+
+catch2/examples/catch2-test:
+  enable:
+    - if: INCLUDE_DEFAULT == 1 or IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR < 5
+      reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
+    - if: IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 1 and IDF_TARGET == "linux"
+      reason: Docker container for release/v5.0 doesn't contain a C++ compiler
+
+catch2/examples/catch2-console:
+  disable:
+    - if: IDF_VERSION_MAJOR < 5
+      reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
