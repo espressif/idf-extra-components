@@ -66,9 +66,9 @@ static void decode_task()
             /* Decoding stage */
             err = quirc_decode(&code, &data);
             if (err)
-                printf("%d/%d] DECODE FAILED: %s\n", i,num_codes,quirc_strerror(err));
+                printf("%d/%d] DECODE FAILED: %s\n", i+1,num_codes,quirc_strerror(err));
             else
-                printf("%d/%d]Data: %s\n",i,num_codes,data.payload);
+                printf("%d/%d] DATA: %s\n",i+1,num_codes,data.payload);
         }
 
         esp_camera_fb_return(fb);
