@@ -1,7 +1,7 @@
 ## 2.4.0
 
-- Support configurable SPI mode to contorl leds
-  - recommend to enable DMA when using SPI mode
+- Support configurable SPI mode to control leds
+  - recommend enabling DMA when using SPI mode
   
 ## 2.3.0
 
