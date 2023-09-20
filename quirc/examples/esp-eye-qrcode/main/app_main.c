@@ -77,7 +77,6 @@ static void decode_task(void *args)
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
-    quirc_destroy(q);
 }
 
 
