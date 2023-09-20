@@ -5,6 +5,6 @@
 **fmt** is an open-source formatting library providing a fast and safe
 alternative to C stdio and C++ iostreams.
 
-See the project [README](fmtlib/fmt/blob/master/README.rst) for details.
+See the project [README](/fmtlib/fmt/blob/master/README.rst) for details.
 
 
