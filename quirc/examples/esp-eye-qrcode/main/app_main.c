@@ -10,11 +10,11 @@
 
 static const char *TAG = "APP_CODE_SCANNER";
 
-static void decode_task()
+static void decode_task(void *args)
 {
-    if(ESP_OK != app_camera_init()) {
-        vTaskDelete(NULL);
-        return;
+    if (app_camera_init() != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init camera");
+        exit(1);
     }
 
     camera_fb_t *fb = NULL;
@@ -22,40 +22,41 @@ static void decode_task()
     // Initializing the quirc handle
     struct quirc *q = quirc_new();
     if (!q) {
-        ESP_LOGE(TAG,"Failed to allocate memory\n");
+        ESP_LOGE(TAG, "Failed to allocate memory");
         exit(1);
     }
 
 
     // Get image size through fb parameters
     fb = esp_camera_fb_get();
-    if(fb == NULL){
-        ESP_LOGI(TAG, "camera get failed\n");
+    if (fb == NULL) {
+        ESP_LOGE(TAG, "Camera get failed");
+        exit(1);
     }
 
     uint16_t p_width = fb->width;
     uint16_t p_height = fb->height;
 
 
-    if (quirc_resize(q, p_width,p_height) < 0) {
-        ESP_LOGE(TAG,"Failed to allocate video  memory\n");
+    if (quirc_resize(q, p_width, p_height) < 0) {
+        ESP_LOGE(TAG, "Failed to allocate video  memory\n");
         exit(1);
-    }   
+    }
 
     struct quirc_code code;
     struct quirc_data data;
     quirc_decode_error_t err;
     uint16_t num_codes;
 
-    while (1)
-    {
+    while (1) {
         fb = esp_camera_fb_get();
-        if(fb == NULL){
-            ESP_LOGI(TAG, "camera get failed\n");
-            continue;
+        if (fb == NULL) {
+            ESP_LOGE(TAG, "Camera get failed");
+            exit(1);
         }
+
         // Decode Progress
-    
+
         memcpy(quirc_begin(q, NULL, NULL), fb->buf, fb->len);
         quirc_end(q);
 
@@ -65,10 +66,11 @@ static void decode_task()
             quirc_extract(q, i, &code);
             /* Decoding stage */
             err = quirc_decode(&code, &data);
-            if (err)
-                printf("%d/%d] DECODE FAILED: %s\n", i+1,num_codes,quirc_strerror(err));
-            else
-                printf("%d/%d] DATA: %s\n",i+1,num_codes,data.payload);
+            if (err) {
+                printf("%d/%d] DECODE FAILED: %s\n", i + 1, num_codes, quirc_strerror(err));
+            } else {
+                printf("%d/%d] DATA: %s\n", i + 1, num_codes, data.payload);
+            }
         }
 
         esp_camera_fb_return(fb);
@@ -79,7 +81,7 @@ static void decode_task()
 }
 
 
-void app_main()
+void app_main(void)
 {
     xTaskCreatePinnedToCore(decode_task, TAG, 40 * 1024, NULL, 6, NULL, 0);
 }

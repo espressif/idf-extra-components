@@ -241,8 +241,7 @@ extern "C"
 {
 #endif
 
-    esp_err_t app_camera_init();
-    esp_err_t app_lcd_init();
+esp_err_t app_camera_init(void);
 #ifdef __cplusplus
 }
 #endif
