@@ -86,6 +86,18 @@ typedef struct {
     uint8_t proto;                      /**< HID Interface Protocol */
 } hid_host_dev_params_t;
 
+
+/**
+ * @brief HID device descriptor common data
+*/
+typedef struct {
+    uint16_t VID;
+    uint16_t PID;
+    wchar_t iManufacturer[HID_STR_DESC_MAX_LENGTH];
+    wchar_t iProduct[HID_STR_DESC_MAX_LENGTH];
+    wchar_t iSerialNumber[HID_STR_DESC_MAX_LENGTH];
+} hid_host_dev_info_t;
+
 // ------------------------ USB HID Host callbacks -----------------------------
 /**
  * @brief HID Host callback parameters union
@@ -206,6 +218,15 @@ esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
  */
 esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle);
 esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle);
+
+/**
+ * @brief HID Host Get device information
+ *
+ * @param[in] hid_dev_handle   HID Device handle
+ * @param[out] hid_dev_info    Pointer to HID Device infomration structure
+*/
+esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
+                                   hid_host_dev_info_t *hid_dev_info);
 
 /**
  * @brief HID Host USB event handler

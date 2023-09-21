@@ -1512,7 +1512,7 @@ esp_err_t hid_host_device_open_new(uint8_t usb_addr,
     HID_EXIT_CRITICAL();
 
     *hid_dev_obj_hdl = hid_dev_obj;
-    ESP_LOGI(TAG, "USB Device at port=%d has been added to the tQ", hid_dev_obj->constant.usb_addr);
+    ESP_LOGD(TAG, "USB Device at port=%d has been added to the tQ", hid_dev_obj->constant.usb_addr);
 
     return ESP_OK;
 
@@ -1611,7 +1611,7 @@ esp_err_t hid_host_device_iface_open_new(hid_dev_obj_t *hid_dev_obj,
 
     for (int i = 0; i < HID_EP_MAX; i++) {
         if (hid_iface->constant.ep[i].num) {
-            ESP_LOGI(TAG, "HID Interface init EP %x", hid_iface->constant.ep[i].num);
+            ESP_LOGD(TAG, "HID Interface init EP %x", hid_iface->constant.ep[i].num);
             // create xfer for Endpoint
             ESP_ERROR_CHECK(usb_host_transfer_alloc(hid_iface->constant.ep[i].mps,
                                                     0,
@@ -1627,8 +1627,9 @@ esp_err_t hid_host_device_iface_open_new(hid_dev_obj_t *hid_dev_obj,
     hid_dev_obj->dynamic.flags.active_ifaces++;
     HID_EXIT_CRITICAL();
 
-    ESP_LOGI(TAG, "HID Interface %d has been added to the tQ", iface_num);
-    ESP_LOGI(TAG, "Parent addr: %lX", (uint32_t) hid_dev_obj);
+    ESP_LOGD(TAG, "HID Interface %d has been added to the tQ (USB port %d)",
+             iface_num,
+             hid_dev_obj->constant.usb_addr);
 
     // 7. Notify about opened Interface
     hid_host_event_data_t event_data = { 0 };
@@ -1726,11 +1727,9 @@ esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle)
     //                      "Unable to release HID Interface");
 
     // 4. Delete iface_obj from tQ
-    ESP_LOGI(TAG, "Remove HID Interface=%d from tQ", hid_iface->constant.num);
-
-    ESP_LOGI(TAG, "Parent addr: %lX", (uint32_t) hid_iface->constant.hid_dev_obj_hdl);
-
-    ESP_LOGI(TAG, "HID Device opened Interfaces: %d", hid_dev_obj_hdl->dynamic.flags.active_ifaces);
+    ESP_LOGD(TAG, "Remove HID Interface=%d from tQ (USB port %d)",
+             hid_iface->constant.num,
+             hid_dev_obj_hdl->constant.usb_addr);
 
     HID_ENTER_CRITICAL();
     STAILQ_REMOVE(&hid_dev_obj_hdl->dynamic.iface_opened_tailq,
@@ -1743,7 +1742,7 @@ esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle)
     // 5. Verify hid_dev_obj interfaces claimed
     // 6. If there are no claimed interfaces, free urb and close pipe for CTRL EP
     if (0 == hid_dev_obj_hdl->dynamic.flags.active_ifaces) {
-        ESP_LOGI(TAG, "Remove USB Device at port=%d from tQ", hid_dev_obj_hdl->constant.usb_addr);
+        ESP_LOGD(TAG, "Remove USB Device at port=%d from tQ", hid_dev_obj_hdl->constant.usb_addr);
         // 7. Close device in USB Host library
         ESP_ERROR_CHECK( usb_host_device_close(s_hid_driver->client_handle, hid_dev_obj_hdl->constant.dev_hdl));
         // 8. Remove hid_dev_obj from tQ
@@ -1815,6 +1814,37 @@ esp_err_t hid_host_handle_events(uint32_t timeout)
         return ESP_FAIL;
     }
     return ret;
+}
+
+esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
+                                   hid_host_dev_info_t *hid_dev_info)
+{
+    HID_RETURN_ON_INVALID_ARG(hid_dev_info);
+
+    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+    // hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
+    // HID_RETURN_ON_INVALID_ARG(iface);
+    // hid_device_t *hid_dev = iface->parent;
+
+    // Fill descriptor device information
+    const usb_device_desc_t *desc;
+    usb_device_info_t dev_info;
+    HID_RETURN_ON_ERROR( usb_host_get_device_descriptor(hid_dev_obj_hdl->constant.dev_hdl, &desc),
+                         "Unable to get device descriptor");
+    HID_RETURN_ON_ERROR( usb_host_device_info(hid_dev_obj_hdl->constant.dev_hdl, &dev_info),
+                         "Unable to get USB device info");
+    // VID, PID
+    hid_dev_info->VID = desc->idVendor;
+    hid_dev_info->PID = desc->idProduct;
+    // Strings
+    hid_host_string_descriptor_copy(hid_dev_info->iManufacturer,
+                                    dev_info.str_desc_manufacturer);
+    hid_host_string_descriptor_copy(hid_dev_info->iProduct,
+                                    dev_info.str_desc_product);
+    hid_host_string_descriptor_copy(hid_dev_info->iSerialNumber,
+                                    dev_info.str_desc_serial_num);
+    return ESP_OK;
 }
 
 esp_err_t hid_host_device_get_params(hid_host_device_handle_t hid_dev_handle,

@@ -529,12 +529,21 @@ void hid_host_event_callback(void *handler_args,
         // claim Keyboard Boot
         if ((HID_SUBCLASS_BOOT_INTERFACE == param->connect.usb.sub_class)
                 && (HID_PROTOCOL_KEYBOARD == param->connect.usb.proto)) {
-            hid_host_device_open_new_api(&param->connect.usb);
+            // hid_host_device_open_new_api(&param->connect.usb);
         }
         break;
     }
     case HID_HOST_OPEN_EVENT: {
         printf("HID Host open\n");
+        hid_host_dev_info_t hid_dev_info;
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_device_info(param->open.dev,
+                          &hid_dev_info) );
+
+        printf("\t VID: 0x%04X\n", hid_dev_info.VID);
+        printf("\t PID: 0x%04X\n", hid_dev_info.PID);
+        wprintf(L"\t iProduct: %S \n", hid_dev_info.iProduct);
+        wprintf(L"\t iManufacturer: %S \n", hid_dev_info.iManufacturer);
+        wprintf(L"\t iSerialNumber: %S \n", hid_dev_info.iSerialNumber);
         break;
     }
     case HID_HOST_DISCONNECT_EVENT: {
