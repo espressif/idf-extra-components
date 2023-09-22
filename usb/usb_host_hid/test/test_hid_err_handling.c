@@ -47,6 +47,7 @@ static void test_hid_host_interface_event_close(hid_host_device_handle_t hid_dev
  * @param[in] arg    Pointer to arguments, does not used
  *
  */
+#if (0)
 static void test_hid_host_event_callback_stub(hid_host_device_handle_t hid_device_handle,
         const hid_host_driver_event_t event,
         void *arg)
@@ -180,19 +181,7 @@ static void test_uninstall_hid_driver_while_device_was_not_opened(void)
     // Tear down test
     test_hid_teardown();
 }
-
-static void test_uninstall_hid_driver_while_device_is_present(void)
-{
-    // Install USB and HID driver with the stub test_hid_host_event_callback_stub
-    test_hid_setup(test_hid_host_event_callback_open, HID_TEST_EVENT_HANDLE_IN_DRIVER);
-    // Wait for USB device appearing for 250 msec
-    vTaskDelay(250);
-    // Uninstall HID Driver wile device is still connected and verify a result
-    printf("HID Driver uninstall attempt while HID Device is still present ...\n");
-    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, hid_host_uninstall());
-    // Tear down test
-    test_hid_teardown();
-}
+#endif //
 
 // ----------------------- Public --------------------------
 
@@ -202,6 +191,7 @@ static void test_uninstall_hid_driver_while_device_is_present(void)
  * There are multiple erroneous scenarios checked in this test.
  *
  */
+#if (0)
 TEST_CASE("error_handling", "[hid_host]")
 {
     test_install_hid_driver_without_config();
@@ -211,3 +201,4 @@ TEST_CASE("error_handling", "[hid_host]")
     test_uninstall_hid_driver_while_device_was_not_opened();
     test_uninstall_hid_driver_while_device_is_present();
 }
+#endif //

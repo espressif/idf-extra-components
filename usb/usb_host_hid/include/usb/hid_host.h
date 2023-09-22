@@ -44,7 +44,6 @@ typedef enum {
     HID_HOST_OPEN_EVENT,                            /*!< HID device opened */
     HID_HOST_INPUT_EVENT,                           /*!< Received HID device INPUT report */
     HID_HOST_FEATURE_EVENT,                         /*!< Received HID device FEATURE report */
-    HID_HOST_CLOSE_EVENT,                           /*!< HID device closed */
     HID_HOST_DISCONNECT_EVENT,
     HID_HOST_MAX_EVENT,                             /*!< HID events end marker */
 } hid_host_event_t;
@@ -86,7 +85,6 @@ typedef struct {
     uint8_t proto;                      /**< HID Interface Protocol */
 } hid_host_dev_params_t;
 
-
 /**
  * @brief HID device descriptor common data
 */
@@ -96,6 +94,9 @@ typedef struct {
     wchar_t iManufacturer[HID_STR_DESC_MAX_LENGTH];
     wchar_t iProduct[HID_STR_DESC_MAX_LENGTH];
     wchar_t iSerialNumber[HID_STR_DESC_MAX_LENGTH];
+    uint8_t InterfaceNum;                   /**< HID Interface Number */
+    uint8_t SubClass;                       /**< HID Interface SubClass */
+    uint8_t Protocol;                          /**< HID Interface Protocol */
 } hid_host_dev_info_t;
 
 // ------------------------ USB HID Host callbacks -----------------------------
@@ -121,11 +122,12 @@ typedef union {
      * @brief HID_HOST_INPUT_EVENT
      */
     struct {
+        hid_host_dev_params_t usb;              /*!< HID Device params */
         hid_host_device_handle_t dev;           /*!< HID Device handle */
         // esp_hid_usage_t usage;                   /*!< HID report usage */
         // uint16_t report_id;                      /*!< HID report index */
         uint16_t length;                         /*!< HID data length */
-        uint8_t *data;                           /*!< The pointer to the HID data */
+        uint8_t data[64];                        /*!< The HID report data */
     } input;
 
     /**
@@ -207,17 +209,13 @@ esp_err_t hid_host_uninstall(void);
  */
 esp_err_t hid_host_device_open_new_api(hid_host_dev_params_t *dev_params);
 
-esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
-                               const hid_host_device_config_t *config);
-
 /**
  * @brief USB HID Host close device
  *
  * @param[in] hid_dev_handle   Handle of the HID devive to close
  * @return esp_err_t
  */
-esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle);
-esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle);
+esp_err_t hid_host_device_close_new_api(hid_host_device_handle_t hid_dev_handle);
 
 /**
  * @brief HID Host Get device information

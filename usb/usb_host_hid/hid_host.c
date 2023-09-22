@@ -114,7 +114,7 @@ typedef struct hid_dev_obj {
         STAILQ_HEAD(interface, iface_obj) iface_opened_tailq;   /**< STAILQ of HID interfaces, related to current USB device, containing the HID compatible Interface */
         union {
             struct {
-                uint32_t active_ifaces: 8;                      /**< Claimed Interfaces */
+                uint32_t claimed_interfaces: 8;                     /**< Claimed Interfaces */
                 uint32_t reserved24: 24;                            /**< Reserved bit filed */
             };
             uint32_t val;
@@ -727,8 +727,25 @@ static esp_err_t hid_host_new_device(uint8_t dev_addr)
     return ESP_OK;
 }
 
-static esp_err_t hid_host_device_active(usb_device_handle_t dev_hdl,
-                                        hid_dev_obj_t **hid_dev_obj_hdl)
+static esp_err_t hid_host_device_get_opened(uint8_t usb_addr,
+        hid_dev_obj_t **hid_dev_obj_hdl)
+{
+    hid_dev_obj_t *dev_obj = NULL;
+
+    HID_ENTER_CRITICAL();
+    STAILQ_FOREACH(dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
+        if (usb_addr == dev_obj->constant.usb_addr) {
+            HID_EXIT_CRITICAL();
+            *hid_dev_obj_hdl = dev_obj;
+            return ESP_OK;
+        }
+    }
+    HID_EXIT_CRITICAL();
+    return ESP_ERR_NOT_FOUND;
+}
+
+static esp_err_t hid_host_device_get_active(usb_device_handle_t dev_hdl,
+        hid_dev_obj_t **hid_dev_obj_hdl)
 {
     hid_dev_obj_t *dev_obj = NULL;
 
@@ -744,6 +761,26 @@ static esp_err_t hid_host_device_active(usb_device_handle_t dev_hdl,
     return ESP_ERR_NOT_FOUND;
 }
 
+static esp_err_t hid_host_device_interface_claimed(hid_host_dev_params_t *dev_params)
+{
+    hid_iface_new_t *hid_iface = NULL;
+    hid_dev_obj_t *hid_dev_obj = NULL;
+    HID_ENTER_CRITICAL();
+    STAILQ_FOREACH(hid_dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
+        STAILQ_FOREACH(hid_iface, &hid_dev_obj->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
+            if ((dev_params->addr == hid_iface->constant.hid_dev_obj_hdl->constant.usb_addr)
+                    && (dev_params->iface_num == hid_iface->constant.num)
+                    && (dev_params->sub_class == hid_iface->constant.sub_class)
+                    && (dev_params->proto == hid_iface->constant.proto)) {
+                HID_EXIT_CRITICAL();
+                return ESP_OK;
+            }
+        }
+    }
+    HID_EXIT_CRITICAL();
+    return ESP_ERR_NOT_FOUND;
+}
+
 esp_err_t hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
 {
     hid_host_event_data_t event_data = { 0 };
@@ -752,7 +789,6 @@ esp_err_t hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
 
     HID_ENTER_CRITICAL();
     STAILQ_FOREACH(hid_iface, &hid_dev_obj_hdl->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
-
         event_data.disconnect.dev = (hid_host_device_handle_t) hid_iface;
         event_data.disconnect.usb.addr = hid_dev_obj_hdl->constant.usb_addr;
         event_data.disconnect.usb.iface_num = hid_iface->constant.num;
@@ -767,8 +803,6 @@ esp_err_t hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
                           portMAX_DELAY);
     }
     HID_EXIT_CRITICAL();
-
-
     return ESP_OK;
 }
 
@@ -783,12 +817,10 @@ static void client_event_cb(const usb_host_client_event_msg_t *event, void *arg)
     hid_dev_obj_t *hid_dev_obj_hdl;
     if (event->event == USB_HOST_CLIENT_EVENT_NEW_DEV) {
         hid_host_new_device(event->new_dev.address);
-        // hid_host_device_init_attempt(event->new_dev.address);
     } else if (event->event == USB_HOST_CLIENT_EVENT_DEV_GONE) {
-        if (ESP_OK == hid_host_device_active(event->dev_gone.dev_hdl, &hid_dev_obj_hdl)) {
+        if (ESP_OK == hid_host_device_get_active(event->dev_gone.dev_hdl, &hid_dev_obj_hdl)) {
             hid_host_device_notify_device_gone(hid_dev_obj_hdl);
         }
-        // hid_host_device_disconnected(event->dev_gone.dev_hdl);
     }
 }
 
@@ -883,17 +915,31 @@ static esp_err_t hid_host_disable_interface(hid_iface_t *iface)
 static void in_xfer_done(usb_transfer_t *in_xfer)
 {
     assert(in_xfer);
-#if (0)
-    hid_iface_t *iface = get_interface_by_ep(in_xfer->bEndpointAddress);
-    assert(iface);
-
-    // Interfaces' parent device should be the same as the hid_device in context
-    assert(get_hid_device_from_context(in_xfer) == iface->parent);
+    hid_iface_new_t *hid_iface = (hid_iface_new_t *)in_xfer->context;
 
     switch (in_xfer->status) {
     case USB_TRANSFER_STATUS_COMPLETED:
         // Notify user
-        hid_host_user_interface_callback(iface, HID_HOST_INTERFACE_EVENT_INPUT_REPORT);
+        // hid_host_user_interface_callback(iface, HID_HOST_INTERFACE_EVENT_INPUT_REPORT);
+        hid_host_event_data_t event_data = { 0 };
+        size_t event_data_size = sizeof(hid_host_event_data_t);
+
+        event_data.input.usb.addr = hid_iface->constant.hid_dev_obj_hdl->constant.usb_addr;
+        event_data.input.usb.iface_num = hid_iface->constant.num;
+        event_data.input.usb.sub_class = hid_iface->constant.sub_class;
+        event_data.input.usb.proto = hid_iface->constant.proto;
+
+        event_data.input.dev = (hid_host_device_handle_t) hid_iface;
+
+        event_data.input.length = in_xfer->actual_num_bytes;
+        memcpy(event_data.input.data, in_xfer->data_buffer, in_xfer->actual_num_bytes);
+
+        esp_event_post_to(s_hid_driver->event_loop_handle,
+                          HID_HOST_EVENTS,
+                          HID_HOST_INPUT_EVENT,
+                          &event_data,
+                          event_data_size,
+                          portMAX_DELAY);
         // Relaunch transfer
         usb_host_transfer_submit(in_xfer);
         return;
@@ -906,11 +952,8 @@ static void in_xfer_done(usb_transfer_t *in_xfer)
         // Any other error
         break;
     }
-
     ESP_LOGE(TAG, "Transfer failed, status %d", in_xfer->status);
-    // Notify user about transfer or any other error
-    hid_host_user_interface_callback(iface, HID_HOST_INTERFACE_EVENT_TRANSFER_ERROR);
-#endif //
+    // TODO: Notify user about transfer or any other error
 }
 
 /** Lock HID device from other task
@@ -1393,8 +1436,6 @@ esp_err_t hid_host_install(const hid_host_driver_config_t *config)
     HID_ENTER_CRITICAL();
     HID_GOTO_ON_FALSE_CRITICAL(!s_hid_driver, ESP_ERR_INVALID_STATE);
     s_hid_driver = driver;
-    // STAILQ_INIT(&s_hid_driver->hid_devices_tailq);
-    // STAILQ_INIT(&s_hid_driver->hid_ifaces_tailq);
     STAILQ_INIT(&s_hid_driver->dev_opened_tailq);
     HID_EXIT_CRITICAL();
 
@@ -1435,6 +1476,10 @@ esp_err_t hid_host_uninstall(void)
                         ESP_OK,
                         "HID Host driver was not installed");
 
+    // Flush Interface list if needed
+    // HID_RETURN_ON_ERROR(hid_host_interface_list_destroy(),
+    // "Unable to flush Interfaces list");
+
     // Make sure that hid driver
     // not being uninstalled from other task
     // and no hid device is registered
@@ -1460,8 +1505,8 @@ esp_err_t hid_host_uninstall(void)
     return ESP_OK;
 }
 
-esp_err_t hid_host_device_open_new(uint8_t usb_addr,
-                                   hid_dev_obj_t **hid_dev_obj_hdl)
+esp_err_t hid_host_device_add(uint8_t usb_addr,
+                              hid_dev_obj_t **hid_dev_obj_hdl)
 {
     usb_device_handle_t dev_hdl;
     // Open USB Device by USB addres on a bus
@@ -1518,9 +1563,10 @@ esp_err_t hid_host_device_open_new(uint8_t usb_addr,
     STAILQ_INSERT_TAIL(&s_hid_driver->dev_opened_tailq, hid_dev_obj, dynamic.tailq_entry);
     HID_EXIT_CRITICAL();
 
-    *hid_dev_obj_hdl = hid_dev_obj;
-    ESP_LOGD(TAG, "USB Device at port=%d has been added to the tQ", hid_dev_obj->constant.usb_addr);
+    ESP_LOGD(TAG, "New Device has been added to the tQ (USB port %d)",
+             hid_dev_obj->constant.usb_addr);
 
+    *hid_dev_obj_hdl = hid_dev_obj;
     return ESP_OK;
 
 mem_fail3:
@@ -1539,9 +1585,35 @@ fail:
     return ret;
 }
 
-#define HID_SET_ACTIVE_IFACE_BIT(iface_num)   (1 << (iface_num))
+esp_err_t hid_host_device_remove(hid_dev_obj_t *hid_dev_obj_hdl)
+{
+    ESP_ERROR_CHECK( usb_host_transfer_free(hid_dev_obj_hdl->constant.ctrl_xfer) );
 
-esp_err_t hid_host_device_iface_open_new(hid_dev_obj_t *hid_dev_obj,
+    if (hid_dev_obj_hdl->constant.ctrl_xfer_done) {
+        vSemaphoreDelete(hid_dev_obj_hdl->constant.ctrl_xfer_done);
+    }
+    if (hid_dev_obj_hdl->constant.device_busy) {
+        vSemaphoreDelete(hid_dev_obj_hdl->constant.device_busy);
+    }
+    // 7. Close device in USB Host library
+    ESP_ERROR_CHECK( usb_host_device_close(s_hid_driver->client_handle,
+                                           hid_dev_obj_hdl->constant.dev_hdl));
+    // 8. Remove hid_dev_obj from tQ
+    HID_ENTER_CRITICAL();
+    STAILQ_REMOVE(&s_hid_driver->dev_opened_tailq,
+                  hid_dev_obj_hdl,
+                  hid_dev_obj,
+                  dynamic.tailq_entry);
+    HID_EXIT_CRITICAL();
+
+    ESP_LOGD(TAG, "Device has been removed from tQ (USB port %d)",
+             hid_dev_obj_hdl->constant.usb_addr);
+
+    free(hid_dev_obj_hdl);
+    return ESP_OK;
+}
+
+esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
         uint8_t iface_num,
         uint8_t sub_class,
         uint8_t proto)
@@ -1552,7 +1624,7 @@ esp_err_t hid_host_device_iface_open_new(hid_dev_obj_t *hid_dev_obj,
     const usb_ep_desc_t *ep_desc = NULL;
     int offset = 0;
 
-    esp_err_t ret = usb_host_get_active_config_descriptor(hid_dev_obj->constant.dev_hdl,
+    esp_err_t ret = usb_host_get_active_config_descriptor(hid_dev_obj_hdl->constant.dev_hdl,
                     &config_desc);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Unable to get Configuration Descriptor");
@@ -1591,7 +1663,7 @@ esp_err_t hid_host_device_iface_open_new(hid_dev_obj_t *hid_dev_obj,
     }
 
     // fill the constant fields
-    hid_iface->constant.hid_dev_obj_hdl = hid_dev_obj;
+    hid_iface->constant.hid_dev_obj_hdl = hid_dev_obj_hdl;
     hid_iface->constant.num = iface_num;
     hid_iface->constant.sub_class = sub_class;
     hid_iface->constant.proto = proto;
@@ -1626,17 +1698,23 @@ esp_err_t hid_host_device_iface_open_new(hid_dev_obj_t *hid_dev_obj,
         }
     }
 
+    // 5. Claim Interface
+    HID_RETURN_ON_ERROR( usb_host_interface_claim( s_hid_driver->client_handle,
+                         hid_dev_obj_hdl->constant.dev_hdl,
+                         hid_iface->constant.num, 0),
+                         "Unable to claim Interface");
+
     // 6. Add Interface to the iface_opened queue
     HID_ENTER_CRITICAL();
-    STAILQ_INSERT_TAIL(&hid_dev_obj->dynamic.iface_opened_tailq,
+    STAILQ_INSERT_TAIL(&hid_dev_obj_hdl->dynamic.iface_opened_tailq,
                        hid_iface,
                        dynamic.tailq_entry);
-    hid_dev_obj->dynamic.flags.active_ifaces++;
+    hid_dev_obj_hdl->dynamic.flags.claimed_interfaces++;
     HID_EXIT_CRITICAL();
 
     ESP_LOGD(TAG, "HID Interface %d has been added to the tQ (USB port %d)",
              iface_num,
-             hid_dev_obj->constant.usb_addr);
+             hid_dev_obj_hdl->constant.usb_addr);
 
     // 7. Notify about opened Interface
     hid_host_event_data_t event_data = { 0 };
@@ -1657,33 +1735,73 @@ fail:
     return ret;
 }
 
+esp_err_t hid_host_device_interface_release(hid_iface_new_t *hid_iface)
+{
+    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+    // 1. Verify iface_obj in tQ
+    // if (hid_host_interface_active(hid_iface)) {
+    // 2. Stop EP IN transfer for the interface
+    // HID_RETURN_ON_ERROR( usb_host_endpoint_halt(iface->parent->dev_hdl, iface->ep_in),
+    //                      "Unable to HALT EP");
+    // HID_RETURN_ON_ERROR( usb_host_endpoint_flush(iface->parent->dev_hdl, iface->ep_in),
+    //                      "Unable to FLUSH EP");
+    // usb_host_endpoint_clear(iface->parent->dev_hdl, iface->ep_in);
+    // }
+
+    // 3. Release interface
+    HID_RETURN_ON_ERROR( usb_host_interface_release(s_hid_driver->client_handle,
+                         hid_dev_obj_hdl->constant.dev_hdl,
+                         hid_iface->constant.num),
+                         "Unable to release HID Interface");
+
+    // 4. Free all urb's and close pipe for EP IN
+    for (int i = 0; i < HID_EP_MAX; i++) {
+        if (hid_iface->constant.ep[i].num) {
+            ESP_LOGD(TAG, "HID Interface deinit EP %x", hid_iface->constant.ep[i].num);
+            ESP_ERROR_CHECK(usb_host_transfer_free(hid_iface->constant.ep[i].xfer));
+        }
+    }
+
+    // 5. Delete iface_obj from tQ
+    ESP_LOGD(TAG, "Remove HID Interface=%d from tQ (USB port %d)",
+             hid_iface->constant.num,
+             hid_dev_obj_hdl->constant.usb_addr);
+
+    HID_ENTER_CRITICAL();
+    STAILQ_REMOVE(&hid_dev_obj_hdl->dynamic.iface_opened_tailq,
+                  hid_iface,
+                  iface_obj,
+                  dynamic.tailq_entry);
+    hid_dev_obj_hdl->dynamic.flags.claimed_interfaces--;
+    HID_EXIT_CRITICAL();
+
+    free(hid_iface);
+    return ESP_OK;
+}
+
 esp_err_t hid_host_device_open_new_api(hid_host_dev_params_t *dev_params)
 {
     esp_err_t ret;
-    hid_dev_obj_t *hid_dev_obj_hdl;
-
+    hid_dev_obj_t *hid_dev_obj_hdl = NULL;
     // 1. Search the USB device by addr in dev_opened queue
-    // 2. If there is an opened USB Device, go to 4.
-    // 3. If the USB Device was not opened with such USB device addr, open USB Device and add it to the dev_opened queue
-    // Open new USB device
-    ret = hid_host_device_open_new(dev_params->addr, &hid_dev_obj_hdl);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Unable to open new USB Device");
-        // TODO: verify memory leakage
-        return ret;
+    if (ESP_ERR_NOT_FOUND == hid_host_device_get_opened(dev_params->addr, &hid_dev_obj_hdl)) {
+        // Open new USB device
+        HID_RETURN_ON_ERROR( hid_host_device_add(dev_params->addr, &hid_dev_obj_hdl),
+                             "Unable to open new USB Device");
     }
-    // 4. Verify Interface claim table
-    // 5. Claim Interface if possible
-    ret = hid_host_device_iface_open_new(hid_dev_obj_hdl,
-                                         dev_params->iface_num,
-                                         dev_params->sub_class,
-                                         dev_params->proto);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Unable to open new HID Interface");
-        // TODO: verify memory leakage
-        return ret;
+    // 2. Verify Interface has been already claimed
+    if (ESP_OK == hid_host_device_interface_claimed(dev_params)) {
+        ESP_LOGE(TAG, "HID Interface %d has been already claimed (USB Port %d)",
+                 dev_params->iface_num,
+                 dev_params->addr);
+        return ESP_ERR_INVALID_STATE;
     }
-
+    // 3. Claim Interface if possible
+    HID_RETURN_ON_ERROR( hid_host_device_interface_claim(hid_dev_obj_hdl,
+                         dev_params->iface_num,
+                         dev_params->sub_class,
+                         dev_params->proto),
+                         "Unable to open new HID Interface");
     return ESP_OK;
 }
 
@@ -1719,49 +1837,19 @@ esp_err_t hid_host_device_open(hid_host_device_handle_t hid_dev_handle,
     return ESP_OK;
 }
 
-esp_err_t hid_host_device_close_new(hid_host_device_handle_t hid_dev_handle)
+esp_err_t hid_host_device_close_new_api(hid_host_device_handle_t hid_dev_handle)
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
 
-    // 1. Verify iface_obj in tQ
-    // 2. Stop EP IN transfer for the interface
-    // 3. Free all urb's and close pipe for EP IN
+    HID_RETURN_ON_ERROR( hid_host_device_interface_release(hid_iface),
+                         "HID Interface release failure");
 
-    // HID_RETURN_ON_ERROR( usb_host_interface_release(s_hid_driver->client_handle,
-    //                      hid_iface->parent->dev_hdl,
-    //                      hid_iface->dev_params.iface_num),
-    //                      "Unable to release HID Interface");
-
-    // 4. Delete iface_obj from tQ
-    ESP_LOGD(TAG, "Remove HID Interface=%d from tQ (USB port %d)",
-             hid_iface->constant.num,
-             hid_dev_obj_hdl->constant.usb_addr);
-
-    HID_ENTER_CRITICAL();
-    STAILQ_REMOVE(&hid_dev_obj_hdl->dynamic.iface_opened_tailq,
-                  hid_iface,
-                  iface_obj,
-                  dynamic.tailq_entry);
-    hid_dev_obj_hdl->dynamic.flags.active_ifaces--;
-    HID_EXIT_CRITICAL();
-
-    // 5. Verify hid_dev_obj interfaces claimed
-    // 6. If there are no claimed interfaces, free urb and close pipe for CTRL EP
-    if (0 == hid_dev_obj_hdl->dynamic.flags.active_ifaces) {
-        ESP_LOGD(TAG, "Remove USB Device at port=%d from tQ", hid_dev_obj_hdl->constant.usb_addr);
-        // 7. Close device in USB Host library
-        ESP_ERROR_CHECK( usb_host_device_close(s_hid_driver->client_handle, hid_dev_obj_hdl->constant.dev_hdl));
-        // 8. Remove hid_dev_obj from tQ
-        HID_ENTER_CRITICAL();
-        STAILQ_REMOVE(&s_hid_driver->dev_opened_tailq,
-                      hid_dev_obj_hdl,
-                      hid_dev_obj,
-                      dynamic.tailq_entry);
-        HID_EXIT_CRITICAL();
+    // Remove device if no Interfaces are claimed
+    if (0 == hid_dev_obj_hdl->dynamic.flags.claimed_interfaces) {
+        HID_RETURN_ON_ERROR( hid_host_device_remove(hid_dev_obj_hdl),
+                             "USB HID Device close failure");
     }
-
-    // 9. Send event to user (yes, with status)
     return ESP_OK;
 }
 
@@ -1830,9 +1918,6 @@ esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
 
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
-    // hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
-    // HID_RETURN_ON_INVALID_ARG(iface);
-    // hid_device_t *hid_dev = iface->parent;
 
     // Fill descriptor device information
     const usb_device_desc_t *desc;
@@ -1851,6 +1936,11 @@ esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
                                     dev_info.str_desc_product);
     hid_host_string_descriptor_copy(hid_dev_info->iSerialNumber,
                                     dev_info.str_desc_serial_num);
+
+    // HID
+    hid_dev_info->InterfaceNum = hid_iface->constant.num;
+    hid_dev_info->SubClass = hid_iface->constant.sub_class;
+    hid_dev_info->Protocol = hid_iface->constant.proto;
     return ESP_OK;
 }
 
@@ -1903,49 +1993,33 @@ esp_err_t hid_host_device_get_raw_input_report_data(hid_host_device_handle_t hid
 }
 
 // ------------------------ USB HID Host driver API ----------------------------
-
 esp_err_t hid_host_device_start(hid_host_device_handle_t hid_dev_handle)
 {
-#if (0)
-    hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
-
-    HID_RETURN_ON_INVALID_ARG(iface);
-    HID_RETURN_ON_INVALID_ARG(iface->in_xfer);
-    HID_RETURN_ON_INVALID_ARG(iface->parent);
-
-    HID_RETURN_ON_FALSE(is_interface_in_list(iface),
-                        ESP_ERR_NOT_FOUND,
-                        "Interface handle not found");
-
-    HID_RETURN_ON_FALSE ((HID_INTERFACE_STATE_READY == iface->state),
-                         ESP_ERR_INVALID_STATE,
-                         "Interface wrong state");
-
+    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+    usb_transfer_t *xfer = hid_iface->constant.ep[HID_EP_IN].xfer;
     // prepare transfer
-    iface->in_xfer->device_handle = iface->parent->dev_hdl;
-    iface->in_xfer->callback = in_xfer_done;
-    iface->in_xfer->context = iface->parent;
-    iface->in_xfer->timeout_ms = DEFAULT_TIMEOUT_MS;
-    iface->in_xfer->bEndpointAddress = iface->ep_in;
-    iface->in_xfer->num_bytes = iface->ep_in_mps;
-
-    iface->state = HID_INTERFACE_STATE_ACTIVE;
-
-    // start data transfer
-    return usb_host_transfer_submit(iface->in_xfer);
-#endif //
-    return ESP_OK;
+    xfer->device_handle = hid_dev_obj_hdl->constant.dev_hdl;
+    xfer->callback = in_xfer_done;
+    xfer->context = hid_iface;
+    xfer->timeout_ms = DEFAULT_TIMEOUT_MS;
+    xfer->bEndpointAddress = hid_iface->constant.ep[HID_EP_IN].num;
+    xfer->num_bytes = hid_iface->constant.ep[HID_EP_IN].mps;
+    return usb_host_transfer_submit(xfer);
 }
 
 esp_err_t hid_host_device_stop(hid_host_device_handle_t hid_dev_handle)
 {
-#if (0)
-    hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
-
-    HID_RETURN_ON_INVALID_ARG(iface);
-
-    return hid_host_disable_interface(iface);
-#endif //
+    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+    HID_RETURN_ON_ERROR( usb_host_endpoint_halt(hid_dev_obj_hdl->constant.dev_hdl,
+                         hid_iface->constant.ep[HID_EP_IN].num),
+                         "Unable to HALT EP");
+    HID_RETURN_ON_ERROR( usb_host_endpoint_flush(hid_dev_obj_hdl->constant.dev_hdl,
+                         hid_iface->constant.ep[HID_EP_IN].num),
+                         "Unable to FLUSH EP");
+    usb_host_endpoint_clear(hid_dev_obj_hdl->constant.dev_hdl,
+                            hid_iface->constant.ep[HID_EP_IN].num);
     return ESP_OK;
 }
 

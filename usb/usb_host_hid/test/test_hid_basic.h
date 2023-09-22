@@ -19,8 +19,7 @@ typedef enum {
 
 // ------------------------ HID Test -------------------------------------------
 
-void test_hid_setup(hid_host_driver_event_cb_t device_callback,
-                    hid_test_event_handle_t hid_test_event_handle);
+void test_hid_setup(esp_event_handler_t device_callback);
 
 void test_hid_teardown(void);
 
