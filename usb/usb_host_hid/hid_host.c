@@ -164,11 +164,12 @@ typedef struct {
     esp_event_loop_handle_t  event_loop_handle;
     usb_host_client_handle_t client_handle;                     /**< Client task handle */
     // hid_host_driver_event_cb_t user_cb;                         /**< User application callback */
-    esp_event_handler_t user_cb;
+    esp_event_handler_t user_cb;                                /**< User application callback */
     void *user_arg;                                             /**< User application callback args */
     bool event_handling_started;                                /**< Events handler started flag */
     SemaphoreHandle_t all_events_handled;                       /**< Events handler semaphore */
-    volatile bool end_client_event_handling;                    /**< Client event handling flag */
+    volatile bool client_event_handling_started;                /**< Client event Start handling flag */
+    volatile bool end_client_event_handling;                    /**< Client event End handling flag */
 } hid_driver_t;
 
 static hid_driver_t *s_hid_driver;                              /**< Internal pointer to HID driver */
@@ -1414,6 +1415,9 @@ esp_err_t hid_host_install(const hid_host_driver_config_t *config)
 
 fail:
     s_hid_driver = NULL;
+    if (driver->event_loop_handle) {
+        esp_event_loop_delete(driver->event_loop_handle);
+    }
     if (driver->client_handle) {
         usb_host_client_deregister(driver->client_handle);
     }
@@ -1441,10 +1445,13 @@ esp_err_t hid_host_uninstall(void)
     s_hid_driver->end_client_event_handling = true;
     HID_EXIT_CRITICAL();
 
-    if (s_hid_driver->event_handling_started) {
+    if (s_hid_driver->client_event_handling_started) {
         ESP_ERROR_CHECK( usb_host_client_unblock(s_hid_driver->client_handle) );
         // In case the event handling started, we must wait until it finishes
         xSemaphoreTake(s_hid_driver->all_events_handled, portMAX_DELAY);
+    }
+    if (s_hid_driver->event_loop_handle) {
+        esp_event_loop_delete(s_hid_driver->event_loop_handle);
     }
     vSemaphoreDelete(s_hid_driver->all_events_handled);
     ESP_ERROR_CHECK( usb_host_client_deregister(s_hid_driver->client_handle) );
@@ -1806,8 +1813,8 @@ esp_err_t hid_host_handle_events(uint32_t timeout)
                         ESP_ERR_INVALID_STATE,
                         "HID Driver is not installed");
 
-    ESP_LOGD(TAG, "USB HID handling");
-    s_hid_driver->event_handling_started = true;
+    ESP_LOGD(TAG, "USB HID handle events");
+    s_hid_driver->client_event_handling_started = true;
     esp_err_t ret = usb_host_client_handle_events(s_hid_driver->client_handle, timeout);
     if (s_hid_driver->end_client_event_handling) {
         xSemaphoreGive(s_hid_driver->all_events_handled);
