@@ -30,7 +30,7 @@ extern "C" {
 */
 #define HID_STR_DESC_MAX_LENGTH           32
 
-typedef struct hid_interface *hid_host_device_handle_t;    /**< Device Handle. Handle to a particular HID interface */
+typedef struct iface_obj *hid_host_device_handle_t;    /**< Device Handle. Handle to a particular HID interface */
 
 // ------------------------ USB HID Host events --------------------------------
 ESP_EVENT_DECLARE_BASE(HID_HOST_EVENTS);
@@ -237,34 +237,6 @@ esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
  * @return esp_err_t
  */
 esp_err_t hid_host_handle_events(uint32_t timeout);
-
-/**
- * @brief HID Device get parameters by handle.
- *
- * @param[in] hid_dev_handle    HID Device handle
- * @param[out] dev_params       Pointer to a dev_params struct to fill
- *
- * @return esp_err_t
- */
-esp_err_t hid_host_device_get_params(hid_host_device_handle_t hid_dev_handle,
-                                     hid_host_dev_params_t *dev_params);
-/**
- * @brief HID Host get device raw input report data pointer by handle
- *
- * This functions should be called after HID Interface device event HID_HOST_INTERFACE_EVENT_INPUT_REPORT
- * to get the actual raw data of input report.
- *
- * @param[in] hid_dev_handle    HID Device handle
- * @param[in] data              Pointer to buffer where the input data will be copied
- * @param[in] data_length_max   Max length of data can be copied to data buffer
- * @param[out] data_length      Length of input report
- *
- * @return esp_err_t
- */
-esp_err_t hid_host_device_get_raw_input_report_data(hid_host_device_handle_t hid_dev_handle,
-        uint8_t *data,
-        size_t data_length_max,
-        size_t *data_length);
 
 // ------------------------ USB HID Host driver API ----------------------------
 
