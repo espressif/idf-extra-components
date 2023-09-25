@@ -1,101 +1,50 @@
-# Submodules SBOM information
-# ---------------------------
-# Submodules, which are used directly and not forked into espressif namespace should
-# contain SBOM information here. Other submodules should have the SBOM manifest file
-# included in the root of their project's repository.
-#
-# The sbom-hash entry records the submodule's checkout SHA as presented in git-tree
-# commit object. For example expat submodule:
-#
-# $ git ls-tree HEAD expat/expat
-# 160000 commit 454c6105bc2d0ea2521b8f8f7a5161c2abd8c386	expat/expat
-#
-# The hash can be also obtained with git submodule command
-#
-# $ git submodule status expat/expat/
-# 454c6105bc2d0ea2521b8f8f7a5161c2abd8c386 expat/expat (R_2_4_9-49-g454c6105)
-#
-# The submodule SHA recorded here has to match with SHA, which is presented in git-tree.
-# This is checked by CI. Also please don't forget to update the submodule version
-# if you are changing the sbom-hash. This is important for SBOM generation.
-
 [submodule "libsodium/libsodium"]
 	path = libsodium/libsodium
 	url = https://github.com/jedisct1/libsodium.git
+
 [submodule "cbor/tinycbor"]
 	path = cbor/tinycbor
 	url = https://github.com/intel/tinycbor.git
+
 [submodule "nghttp/nghttp2"]
 	path = nghttp/nghttp2
 	url = https://github.com/nghttp2/nghttp2.git
-	sbom-version = 1.52.0
-	sbom-cpe = cpe:2.3:a:nghttp2:nghttp2:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: nghttp2 <https://nghttp2.org/
-	sbom-url = https://github.com/nghttp2/nghttp2
-	sbom-description = nghttp2 - HTTP/2 C Library and tools
-	sbom-hash = be0491294a63d891bd12b6b1b7e372a45a5d0ffe
 
 [submodule "expat/expat"]
 	path = expat/expat
 	url = https://github.com/libexpat/libexpat.git
-	sbom-version = 2.5.0
-	sbom-cpe = cpe:2.3:a:libexpat_project:libexpat:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: libexpat_project
-	sbom-url = https://github.com/libexpat/libexpat/
-	sbom-description = Fast streaming XML parser written in C99
-	sbom-hash = 454c6105bc2d0ea2521b8f8f7a5161c2abd8c386
 
 [submodule "coap/libcoap"]
 	path = coap/libcoap
 	url = https://github.com/obgm/libcoap.git
-	sbom-version = 4.3.2
-	sbom-cpe = cpe:2.3:a:libcoap:libcoap:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: libcoap <https://libcoap.net/>
-	sbom-url = https://github.com/obgm/libcoap
-	sbom-description = A CoAP (RFC 7252) implementation in C
-	sbom-hash = 3f8bb33807f521e9a5bbddddb0fe002f60b78a68
 
 [submodule "usb/usb_host_uvc/libuvc"]
 	path = usb/usb_host_uvc/libuvc
 	url = https://github.com/libuvc/libuvc.git
+
 [submodule "eigen/eigen"]
 	path = eigen/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+
 [submodule "fmt/fmt"]
 	path = fmt/fmt
 	url = https://github.com/fmtlib/fmt.git
-	sbom-version = 10.1.0
-	sbom-cpe = cpe:2.3:a:fmt:fmt:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: fmt <https://fmt.dev/latest/index.html>
-	sbom-url = https://github.com/fmtlib/fmt/
-	sbom-description = A modern formatting library
-	sbom-hash = e57ca2e3685b160617d3d95fcd9e789c4e06ca88
 
 [submodule "esp_delta_ota/detools"]
 	path = esp_delta_ota/detools
 	url = https://github.com/eerimoq/detools.git
+
 [submodule "quirc/quirc"]
 	path = quirc/quirc
 	url = https://github.com/dlbeer/quirc.git
+
 [submodule "zlib/zlib"]
 	path = zlib/zlib
 	url = https://github.com/madler/zlib.git
-	sbom-version = 1.2.13
-	sbom-cpe = cpe:2.3:a:zlib:zlib:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: zlib <http://www.zlib.net/>
-	sbom-url = https://github.com/madler/zlib.git
-	sbom-description = A massively spiffy yet delicately unobtrusive compression library
-	sbom-hash = 04f42ceca40f73e2978b50e93806c2a18c1281fc
 
 [submodule "libpng/libpng"]
 	path = libpng/libpng
 	url = https://github.com/glennrp/libpng.git
-	sbom-version = 1.6.39
-	sbom-cpe = cpe:2.3:a:libpng:libpng:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: libpng
-	sbom-url = https://github.com/glennrp/libpng.git
-	sbom-description = Portable Network Graphics support, official PNG reference library
-	sbom-hash = 07b8803110da160b158ebfef872627da6c85cbdf
 
 [submodule "coremark/coremark"]
 	path = coremark/coremark
@@ -104,20 +53,7 @@
 [submodule "freetype/freetype"]
 	path = freetype/freetype
 	url = https://github.com/freetype/freetype.git
-	sbom-version = 2.13.0
-	sbom-cpe = cpe:2.3:a:freetype:freetype:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: freetype <https://www.freetype.org>
-	sbom-url = https://github.com/freetype/freetype.git
-	sbom-description = FreeType is a software font engine
-	sbom-hash = de8b92dd7ec634e9e2b25ef534c54a3537555c11
 
 [submodule "catch2/Catch2"]
 	path = catch2/Catch2
 	url = https://github.com/catchorg/Catch2.git
-	sbom-version = 3.4.0
-	sbom-cpe = cpe:2.3:a:catchorg:catch2:{}:*:*:*:*:*:*:*
-	sbom-supplier = Organization: catchorg <https://github.com/catchorg>
-	sbom-url = https://github.com/catchorg/Catch2
-	sbom-description = A modern, C++-native, test framework for unit-tests, TDD and BDD - using C++14, C++17 and later
-	sbom-hash = 6e79e682b726f524310d55dec8ddac4e9c52fb5f
-

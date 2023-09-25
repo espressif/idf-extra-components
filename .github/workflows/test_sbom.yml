@@ -1,4 +1,4 @@
-name: Run SBOM submodule test
+name: Run SBOM manifests validation test
 
 on:
   pull_request:
@@ -6,13 +6,11 @@ on:
 
 jobs:
   test_sbom:
-    name: Run SBOM submodule test
-    runs-on: ubuntu-20.04
-    container: espressif/idf:latest
+    name: Run SBOM manifests validation test
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: 'true'
       - run: |
           git config --global safe.directory $(pwd)
-          python3 ${IDF_PATH}/tools/test_sbom/test_submodules.py
+          pip install esp-idf-sbom
+          python3 -m esp_idf_sbom manifest validate
