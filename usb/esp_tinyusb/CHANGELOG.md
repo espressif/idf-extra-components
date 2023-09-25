@@ -1,4 +1,4 @@
-## 1.4.1
+## 1.4.2
 
 - MSC: Fix maximum files open
 - Add uninstall function
