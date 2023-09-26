@@ -387,7 +387,11 @@ esp_err_t tinyusb_msc_storage_init_spiflash(const tinyusb_msc_spiflash_config_t 
     s_storage_handle->is_fat_mounted = false;
     s_storage_handle->base_path = NULL;
     s_storage_handle->wl_handle = config->wl_handle;
-    s_storage_handle->max_files = config->mount_config.max_files;
+    // In case the user does not set mount_config.max_files
+    // and for backward compatibility with versions <1.4.2
+    // max_files is set to 2
+    const int max_files = config->mount_config.max_files;
+    s_storage_handle->max_files = max_files > 0 ? max_files : 2;
 
     /* Callbacks setting up*/
     if (config->callback_mount_changed) {
@@ -419,7 +423,11 @@ esp_err_t tinyusb_msc_storage_init_sdmmc(const tinyusb_msc_sdmmc_config_t *confi
     s_storage_handle->is_fat_mounted = false;
     s_storage_handle->base_path = NULL;
     s_storage_handle->card = config->card;
-    s_storage_handle->max_files = config->mount_config.max_files;
+    // In case the user does not set mount_config.max_files
+    // and for backward compatibility with versions <1.4.2
+    // max_files is set to 2
+    const int max_files = config->mount_config.max_files;
+    s_storage_handle->max_files = max_files > 0 ? max_files : 2;
 
     /* Callbacks setting up*/
     if (config->callback_mount_changed) {
