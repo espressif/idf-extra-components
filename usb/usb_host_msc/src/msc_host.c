@@ -12,6 +12,7 @@
 #include <sys/queue.h>
 #include <sys/param.h>
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -93,6 +94,7 @@ typedef struct {
     void *user_arg;
     SemaphoreHandle_t all_events_handled;
     volatile bool end_client_event_handling;
+    bool event_handling_started;
     STAILQ_HEAD(devices, msc_host_device) devices_tailq;
 } msc_driver_t;
 
@@ -320,17 +322,33 @@ static bool is_mass_storage_device(uint8_t dev_addr)
     return is_msc_device;
 }
 
+esp_err_t msc_host_handle_events(uint32_t timeout)
+{
+    MSC_RETURN_ON_FALSE(s_msc_driver != NULL, ESP_ERR_INVALID_STATE);
+
+    ESP_LOGV(TAG, "USB MSC handling");
+    s_msc_driver->event_handling_started = true;
+    esp_err_t ret = usb_host_client_handle_events(s_msc_driver->client_handle, timeout);
+    if (s_msc_driver->end_client_event_handling) {
+        xSemaphoreGive(s_msc_driver->all_events_handled);
+        return ESP_FAIL;
+    }
+    return ret;
+}
+
+/**
+ * @brief USB Client Event handler
+ *
+ * Handle all USB client events such as USB transfers and connections/disconnections
+ *
+ * @param[in] arg   Argument, not used
+ */
 static void event_handler_task(void *arg)
 {
-    while (1) {
-        usb_host_client_handle_events(s_msc_driver->client_handle, portMAX_DELAY);
-
-        if (s_msc_driver->end_client_event_handling) {
-            break;
-        }
+    ESP_LOGD(TAG, "USB HID handling start");
+    while (msc_host_handle_events(portMAX_DELAY) == ESP_OK) {
     }
-    ESP_ERROR_CHECK( usb_host_client_deregister(s_msc_driver->client_handle) );
-    xSemaphoreGive(s_msc_driver->all_events_handled);
+    ESP_LOGD(TAG, "USB HID handling stop");
     vTaskDelete(NULL);
 }
 
@@ -444,9 +462,13 @@ esp_err_t msc_host_uninstall(void)
     s_msc_driver->end_client_event_handling = true;
     MSC_EXIT_CRITICAL();
 
-    ESP_ERROR_CHECK( usb_host_client_unblock(s_msc_driver->client_handle) );
-    xSemaphoreTake(s_msc_driver->all_events_handled, portMAX_DELAY);
+    if (s_msc_driver->event_handling_started) {
+        ESP_ERROR_CHECK( usb_host_client_unblock(s_msc_driver->client_handle) );
+        // In case the event handling started, we must wait until it finishes
+        xSemaphoreTake(s_msc_driver->all_events_handled, portMAX_DELAY);
+    }
     vSemaphoreDelete(s_msc_driver->all_events_handled);
+    ESP_ERROR_CHECK( usb_host_client_deregister(s_msc_driver->client_handle) );
     free(s_msc_driver);
     s_msc_driver = NULL;
     return ESP_OK;
@@ -514,11 +536,20 @@ esp_err_t msc_host_write_sector(msc_host_device_handle_t device, size_t sector, 
     return scsi_cmd_write10(dev, data, sector, 1, dev->disk.block_size);
 }
 
-esp_err_t msc_host_handle_events(uint32_t timeout_ms)
+static void copy_string_desc(wchar_t *dest, const usb_str_desc_t *src)
 {
-    MSC_RETURN_ON_FALSE(s_msc_driver != NULL, ESP_ERR_INVALID_STATE);
-
-    return usb_host_client_handle_events(s_msc_driver->client_handle, pdMS_TO_TICKS(timeout_ms));
+    if (dest == NULL) {
+        return;
+    }
+    if (src != NULL) {
+        size_t len = MIN((src->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
+        wcsncpy(dest, src->wData, len);
+        if (dest != NULL) { // This should be always true, we just check to avoid LoadProhibited exception
+            dest[len] = 0;
+        }
+    } else {
+        dest[0] = 0;
+    }
 }
 
 esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_device_info_t *info)
@@ -538,17 +569,9 @@ esp_err_t msc_host_get_device_info(msc_host_device_handle_t device, msc_host_dev
     info->sector_size = dev->disk.block_size;
     info->sector_count = dev->disk.block_count;
 
-    size_t len = MIN((dev_info.str_desc_manufacturer->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
-    wcsncpy(info->iManufacturer, dev_info.str_desc_manufacturer->wData, len);
-    info->iManufacturer[len] = 0;
-
-    len = MIN((dev_info.str_desc_product->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
-    wcsncpy(info->iProduct, dev_info.str_desc_product->wData, len);
-    info->iProduct[len] = 0;
-
-    len = MIN((dev_info.str_desc_serial_num->bLength - USB_STANDARD_DESC_SIZE) / 2, MSC_STR_DESC_SIZE - 1);
-    wcsncpy(info->iSerialNumber, dev_info.str_desc_serial_num->wData, len);
-    info->iSerialNumber[len] = 0;
+    copy_string_desc(info->iManufacturer, dev_info.str_desc_manufacturer);
+    copy_string_desc(info->iProduct, dev_info.str_desc_product);
+    copy_string_desc(info->iSerialNumber, dev_info.str_desc_serial_num);
 
     return ESP_OK;
 }
@@ -596,28 +619,38 @@ static usb_transfer_status_t wait_for_transfer_done(usb_transfer_t *xfer)
 esp_err_t msc_bulk_transfer_zcpy(msc_device_t *device, uint8_t *data, size_t size, msc_endpoint_t ep)
 {
     esp_err_t ret = ESP_OK;
-    MSC_RETURN_ON_FALSE(esp_ptr_dma_capable(data), ESP_FAIL); // The passed buffer must be DMA capable
+    uint8_t *data_cpy = NULL; // Pointer to copy of data in DMA capable region
+    bool realloc_data = !esp_ptr_dma_capable(data); // Flag that the data must be moved to DMA capable region
+
+    // Data that is not in DMA capable memory must be copied to DMA capable memory
+    if (realloc_data) {
+        data_cpy = heap_caps_malloc(size, MALLOC_CAP_DMA);
+        ESP_RETURN_ON_FALSE(data_cpy != NULL, ESP_ERR_NO_MEM, TAG, "Could not allocate %d bytes in DMA capable memory", size);
+    }
+
     usb_transfer_t *xfer = device->xfer;
-    uint8_t endpoint = (ep == MSC_EP_IN) ? device->config.bulk_in_ep : device->config.bulk_out_ep;
     uint8_t *backup_buffer = xfer->data_buffer;
     size_t backup_size = xfer->data_buffer_size;
-    size_t actual_size;
 
+    if (ep == MSC_EP_IN) {
+        xfer->bEndpointAddress = device->config.bulk_in_ep;
+        xfer->num_bytes = usb_round_up_to_mps(size, device->config.bulk_in_mps);
+    } else {
+        xfer->bEndpointAddress = device->config.bulk_out_ep;
+        xfer->num_bytes = size;
+        if (realloc_data) {
+            memcpy(data_cpy, data, size);
+        }
+    }
+
+    // Get pointers to start of data buffer and buffer size, so we can change it
     uint8_t **ptr = (uint8_t **)(&(xfer->data_buffer));
     size_t *siz = (size_t *)(&(xfer->data_buffer_size));
 
-    if (is_in_endpoint(endpoint)) {
-        actual_size = usb_round_up_to_mps(size, device->config.bulk_in_mps);
-    } else {
-        actual_size = size;
-    }
-
     // Attention: Here we modify 'private' members data_buffer and data_buffer_size
-    *ptr = data;
-    *siz = actual_size;
-    xfer->num_bytes = actual_size;
+    *ptr = realloc_data ? data_cpy : data; // This is actually xfer->data_buffer
+    *siz = xfer->num_bytes; // This is actually xfer->data_buffer_size
     xfer->device_handle = device->handle;
-    xfer->bEndpointAddress = endpoint;
     xfer->callback = transfer_callback;
     xfer->timeout_ms = 5000;
     xfer->context = device;
@@ -626,7 +659,11 @@ esp_err_t msc_bulk_transfer_zcpy(msc_device_t *device, uint8_t *data, size_t siz
     const usb_transfer_status_t status = wait_for_transfer_done(xfer);
     switch (status) {
     case USB_TRANSFER_STATUS_COMPLETED:
-        ret = ESP_OK; break;
+        if (realloc_data && (ep == MSC_EP_IN)) {
+            memcpy(data, data_cpy, xfer->actual_num_bytes);
+        }
+        ret = ESP_OK;
+        break;
     case USB_TRANSFER_STATUS_STALL:
         ret = ESP_ERR_MSC_STALL; break;
     default:
@@ -634,6 +671,9 @@ esp_err_t msc_bulk_transfer_zcpy(msc_device_t *device, uint8_t *data, size_t siz
     }
 
 fail:
+    if (realloc_data) {
+        heap_caps_free(data_cpy);
+    }
     *ptr = backup_buffer;
     *siz = backup_size;
     return ret;

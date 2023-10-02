@@ -8,6 +8,7 @@
 #include "unity.h"
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include "esp_private/usb_phy.h"
 #include "esp_private/msc_scsi_bot.h"
 #include "usb/usb_host.h"
@@ -121,6 +122,22 @@ static void handle_usb_events(void *args)
     vTaskDelete(NULL);
 }
 
+/**
+ * @brief MSC driver handling task
+ *
+ * This task is only used if the MSC driver was installed with no background task
+ *
+ * @param[in] args Not used
+ */
+static void msc_task(void *args)
+{
+    ESP_LOGI(TAG, "USB MSC handling start");
+    while (msc_host_handle_events(portMAX_DELAY) == ESP_OK) {
+    }
+    ESP_LOGI(TAG, "USB MSC handling stop");
+    vTaskDelete(NULL);
+}
+
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 static void check_file_content(const char *file_path, const char *expected)
 {
@@ -165,7 +182,7 @@ static void check_sudden_disconnect(void)
     fclose(file);
 }
 
-static void msc_setup(void)
+static void msc_test_init(void)
 {
     BaseType_t task_created;
 
@@ -189,15 +206,10 @@ static void msc_setup(void)
 
     task_created = xTaskCreatePinnedToCore(handle_usb_events, "usb_events", 2 * 2048, NULL, 2, NULL, 0);
     TEST_ASSERT(task_created);
+}
 
-    const msc_host_driver_config_t msc_config = {
-        .create_backround_task = true,
-        .callback = msc_event_cb,
-        .stack_size = 4096,
-        .task_priority = 5,
-    };
-    ESP_OK_ASSERT( msc_host_install(&msc_config) );
-
+static void msc_test_wait_and_install_device(void)
+{
     ESP_LOGI(TAG, "Waiting for USB stick to be connected");
     msc_host_event_t app_event;
     xQueueReceive(app_queue, &app_event, portMAX_DELAY);
@@ -208,16 +220,32 @@ static void msc_setup(void)
     ESP_OK_ASSERT( msc_host_vfs_register(device, "/usb", &mount_config, &vfs_handle) );
 }
 
-static void msc_teardown(void)
+static void msc_setup(void)
 {
-    vTaskDelay(10); // Wait to finish any ongoing USB operations
+    msc_test_init();
+    const msc_host_driver_config_t msc_config = {
+        .create_backround_task = true,
+        .callback = msc_event_cb,
+        .stack_size = 4096,
+        .task_priority = 5,
+    };
+    ESP_OK_ASSERT( msc_host_install(&msc_config) );
+    msc_test_wait_and_install_device();
+}
 
+static void msc_test_uninstall_device(void)
+{
     ESP_OK_ASSERT( msc_host_vfs_unregister(vfs_handle) );
     ESP_OK_ASSERT( msc_host_uninstall_device(device) );
+}
+
+static void msc_test_deinit(void)
+{
     ESP_OK_ASSERT( msc_host_uninstall() );
 
     xSemaphoreTake(ready_to_deinit_usb, portMAX_DELAY);
     vSemaphoreDelete(ready_to_deinit_usb);
+    vTaskDelay(10); // Wait to finish any ongoing USB operations
     ESP_OK_ASSERT( usb_host_uninstall() );
     //Tear down USB PHY
     ESP_OK_ASSERT(usb_del_phy(phy_hdl));
@@ -225,6 +253,12 @@ static void msc_teardown(void)
 
     vQueueDelete(app_queue);
     vTaskDelay(10); // Wait for FreeRTOS to clean up deleted tasks
+}
+
+static void msc_teardown(void)
+{
+    msc_test_uninstall_device();
+    msc_test_deinit();
 }
 
 static void write_read_sectors(void)
@@ -418,6 +452,81 @@ TEST_CASE("can_be_formated", "[usb_msc]")
     TEST_ASSERT_FALSE(file_exists(FILE_NAME));
     msc_teardown();
     mount_config.format_if_mount_failed = false;
+}
+
+static void print_device_info(msc_host_device_info_t *info)
+{
+    const size_t megabyte = 1024 * 1024;
+    uint64_t capacity = ((uint64_t)info->sector_size * info->sector_count) / megabyte;
+
+    printf("Device info:\n");
+    printf("\t Capacity: %llu MB\n", capacity);
+    printf("\t Sector size: %"PRIu32"\n", info->sector_size);
+    printf("\t Sector count: %"PRIu32"\n", info->sector_count);
+    printf("\t PID: 0x%4X \n", info->idProduct);
+    printf("\t VID: 0x%4X \n", info->idVendor);
+    wprintf(L"\t iProduct: %S \n", info->iProduct);
+    wprintf(L"\t iManufacturer: %S \n", info->iManufacturer);
+    wprintf(L"\t iSerialNumber: %S \n", info->iSerialNumber);
+}
+
+/**
+ * @brief USB MSC device_info testcase
+ *
+ * Simple testcase that only runs msc_host_get_device_info()
+ * To make sure that we correctly handle missing string descriptors
+ */
+TEST_CASE("device_info", "[usb_msc]")
+{
+    msc_setup();
+    msc_host_device_info_t info;
+    esp_err_t err = msc_host_get_device_info(device, &info);
+    msc_teardown();
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+    print_device_info(&info);
+}
+
+/**
+ * @brief USB MSC driver with no background task
+ *
+ * Install the driver without background task
+ * and make sure that everything works
+ */
+TEST_CASE("no_background_task", "[usb_msc]")
+{
+    msc_test_init();
+    const msc_host_driver_config_t msc_config = {
+        .create_backround_task = false,
+        .callback = msc_event_cb,
+        .stack_size = 4096,
+        .task_priority = 5,
+    };
+    ESP_OK_ASSERT( msc_host_install(&msc_config) );
+    BaseType_t task_created = xTaskCreatePinnedToCore(msc_task, "msc_events", 2 * 2048, NULL, 2, NULL, 0);
+    TEST_ASSERT(task_created);
+    msc_test_wait_and_install_device();
+    write_read_sectors(); // Do some dummy operations
+    msc_teardown();
+}
+
+/**
+ * @brief USB MSC driver with no background task
+ *
+ * Install and uninstall the driver without background task
+ * without ever calling usb_host_client_handle_events()
+ */
+TEST_CASE("no_background_task_2", "[usb_msc]")
+{
+    msc_test_init();
+    const msc_host_driver_config_t msc_config = {
+        .create_backround_task = false,
+        .callback = msc_event_cb,
+    };
+    ESP_OK_ASSERT( msc_host_install(&msc_config) );
+
+    vTaskDelay(100); // Give USB Host Library some time for device enumeration
+
+    msc_test_deinit();
 }
 
 /**

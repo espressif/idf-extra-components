@@ -4,7 +4,7 @@
 
 This directory contains an implementation of a USB Mass Storage Class Driver implemented on top of the [USB Host Library](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/usb_host.html).
 
-MSC driver allows access to USB flash drivers using the BOT “Bulk-Only Transport” protocol and the Transparent SCSI command set.
+MSC driver allows access to USB flash drivers using the BOT (Bulk-Only Transport) protocol and the Transparent SCSI command set.
 
 ## Usage
 
@@ -22,12 +22,21 @@ MSC driver allows access to USB flash drivers using the BOT “Bulk-Only Transpo
   with `from usb_msc_get_device_info` function.
 - Obtained device handle is then used in helper function `usb_msc_vfs_register` mounting USB Disk to Virtual filesystem.
 - At this point, standard C functions for accessing storage (`fopen`, `fwrite`, `fread`, `mkdir` etc.) can be carried out.
-- In order to uninstall the whole USB stack, deinitializing counterparts to functions above has to be called in reverse order. 
+- In order to uninstall the whole USB stack, deinitializing counterparts to functions above has to be called in reverse order.
+
+## Performance tuning
+
+The following performance tuning options have significant impact on data throughput in USB HighSpeed implementations.
+For original FullSpeed implementations, the effects are negligible.
+- By default, Newlib (the implementation of C Standard Library) creates cache for each opened file
+- The greater the cache, the better performance for the cost of RAM
+- Size of the cache can be set with C STD library function `setvbuf()`
+- Sizes over 16kB do not improve the performance any more
 
 ## Known issues
 
-- Driver only supports USB 2.0 flash drives using the BOT “Bulk-Only Transport” protocol and the Transparent SCSI command set
+- Driver only supports flash drives using the BOT (Bulk-Only Transport) protocol and the Transparent SCSI command set
 
 ## Examples
 
-- For an example, refer to [msc_host_example](https://github.com/espressif/esp-idf/tree/master/examples/peripherals/usb/host/msc)
+- For an example, refer to [msc_host_example](https://github.com/espressif/esp-idf/tree/master/examples/peripherals/usb/host/msc) in ESP-IDF
