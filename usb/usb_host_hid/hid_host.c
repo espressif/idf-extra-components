@@ -111,6 +111,7 @@ typedef struct {
     usb_host_client_handle_t client_handle;                     /**< Client task handle */
     hid_host_driver_event_cb_t user_cb;                         /**< User application callback */
     void *user_arg;                                             /**< User application callback args */
+    bool event_handling_started;                                /**< Events handler started flag */
     SemaphoreHandle_t all_events_handled;                       /**< Events handler semaphore */
     volatile bool end_client_event_handling;                    /**< Client event handling flag */
 } hid_driver_t;
@@ -139,6 +140,9 @@ typedef struct hid_class_request {
     uint8_t *data;                  /**< Pointer to data */
 } hid_class_request_t;
 
+
+// ----------------- USB Event Handler - Internal Task -------------------------
+
 /**
  * @brief USB Event handler
  *
@@ -148,19 +152,10 @@ typedef struct hid_class_request {
  */
 static void event_handler_task(void *arg)
 {
-    while (1) {
-        /* Here wee need a timeout 50 ms to handle end_client_event_handling flag
-         * during situation when all devices were removed and it is time to remove
-         * and destroy everything.
-         */
-        usb_host_client_handle_events(s_hid_driver->client_handle, portMAX_DELAY);
-
-        if (s_hid_driver->end_client_event_handling) {
-            break;
-        }
+    ESP_LOGD(TAG, "USB HID handling start");
+    while (hid_host_handle_events(portMAX_DELAY) == ESP_OK) {
     }
-    ESP_ERROR_CHECK( usb_host_client_deregister(s_hid_driver->client_handle) );
-    xSemaphoreGive(s_hid_driver->all_events_handled);
+    ESP_LOGD(TAG, "USB HID handling stop");
     vTaskDelete(NULL);
 }
 
@@ -252,7 +247,7 @@ static hid_iface_t *get_iface_by_handle(hid_host_device_handle_t hid_dev_handle)
     hid_iface_t *hid_iface = (hid_iface_t *) hid_dev_handle;
 
     if (!is_interface_in_list(hid_iface)) {
-        ESP_LOGE(TAG, "HID device handle not found");
+        ESP_LOGE(TAG, "HID interface handle not found");
         return NULL;
     }
 
@@ -374,6 +369,22 @@ static esp_err_t hid_host_add_interface(hid_device_t *hid_device,
     STAILQ_INSERT_TAIL(&s_hid_driver->hid_ifaces_tailq, hid_iface, tailq_entry);
     HID_EXIT_CRITICAL();
 
+    return ESP_OK;
+}
+
+/**
+ * @brief Remove interface from a list
+ *
+ * Use only inside critical section
+ *
+ * @param[in] hid_iface    HID interface handle
+ * @return esp_err_t
+ */
+static esp_err_t _hid_host_remove_interface(hid_iface_t *hid_iface)
+{
+    hid_iface->state = HID_INTERFACE_STATE_NOT_INITIALIZED;
+    STAILQ_REMOVE(&s_hid_driver->hid_ifaces_tailq, hid_iface, hid_interface, tailq_entry);
+    free(hid_iface);
     return ESP_OK;
 }
 
@@ -502,60 +513,26 @@ static bool hid_host_device_init_attempt(uint8_t dev_addr)
  * @brief USB device was removed we need to shutdown HID Interface
  *
  * @param[in] hid_dev_handle    Handle of the HID devive to close
- * @param[in] force             To shutdown HID interface immediately
  * @return esp_err_t
  */
-static esp_err_t hid_host_interface_shutdown(hid_host_device_handle_t hid_dev_handle,
-        bool force)
+static esp_err_t hid_host_interface_shutdown(hid_host_device_handle_t hid_dev_handle)
 {
-    hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
+    hid_iface_t *hid_iface = get_iface_by_handle(hid_dev_handle);
 
-    HID_RETURN_ON_INVALID_ARG(iface);
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
 
-    iface->state = HID_INTERFACE_STATE_WAIT_USER_DELETION;
-
-    // Not force shutdown and Interface was started by user
-    if (!force && iface->user_cb) {
-        hid_host_user_interface_callback(iface, HID_HOST_INTERFACE_EVENT_DISCONNECTED);
-        return ESP_OK;
-    }
-
-    // Interface has not been opened, delete it right away
-    return hid_host_device_close(iface);
-}
-
-/**
- * @brief Destroy a list of available interfaces in RAM
- *
- * @return esp_err_t
- */
-static esp_err_t hid_host_interface_list_destroy(void)
-{
-    bool active_shutdown = false;
-
-    hid_iface_t *iface = STAILQ_FIRST(&s_hid_driver->hid_ifaces_tailq);
-    hid_iface_t *tmp = NULL;
-
-    while (iface != NULL) {
-        tmp = STAILQ_NEXT(iface, tailq_entry);
-        // free interface
-        if (HID_INTERFACE_STATE_NOT_INITIALIZED != iface->state) {
-            active_shutdown = true;
-            ESP_ERROR_CHECK( hid_host_device_close(iface) );
-            ESP_ERROR_CHECK( hid_host_interface_shutdown(iface, true));
-        }
-
+    if (hid_iface->user_cb) {
+        // Let user handle the remove process
+        hid_iface->state = HID_INTERFACE_STATE_WAIT_USER_DELETION;
+        hid_host_user_interface_callback(hid_iface, HID_HOST_INTERFACE_EVENT_DISCONNECTED);
+    } else {
+        // Remove HID Interface from the list right now
+        ESP_LOGD(TAG, "Remove addr %d, iface %d from list",
+                 hid_iface->dev_params.addr,
+                 hid_iface->dev_params.iface_num);
         HID_ENTER_CRITICAL();
-        iface->state = HID_INTERFACE_STATE_NOT_INITIALIZED;
-        STAILQ_REMOVE(&s_hid_driver->hid_ifaces_tailq, iface, hid_interface, tailq_entry);
-        free(iface);
+        _hid_host_remove_interface(hid_iface);
         HID_EXIT_CRITICAL();
-
-        iface = tmp;
-    }
-
-    if (active_shutdown) {
-        ESP_LOGE(TAG, "Shutdown active HID device.");
     }
 
     return ESP_OK;
@@ -570,22 +547,20 @@ static esp_err_t hid_host_interface_list_destroy(void)
 static esp_err_t hid_host_device_disconnected(usb_device_handle_t dev_hdl)
 {
     hid_device_t *hid_device = get_hid_device_by_handle(dev_hdl);
+    hid_iface_t *hid_iface = NULL;
     // Device should be in the list
     assert(hid_device);
 
     HID_ENTER_CRITICAL();
-    hid_iface_t *iface = STAILQ_FIRST(&s_hid_driver->hid_ifaces_tailq);
-    hid_iface_t *tmp = NULL;
-    while (iface != NULL) {
-        tmp = STAILQ_NEXT(iface, tailq_entry);
+    while (!STAILQ_EMPTY(&s_hid_driver->hid_ifaces_tailq)) {
+        hid_iface = STAILQ_FIRST(&s_hid_driver->hid_ifaces_tailq);
         HID_EXIT_CRITICAL();
-        if (iface->parent && (iface->parent->dev_addr == hid_device->dev_addr)) {
-            HID_RETURN_ON_ERROR( hid_host_device_close(iface),
+        if (hid_iface->parent && (hid_iface->parent->dev_addr == hid_device->dev_addr)) {
+            HID_RETURN_ON_ERROR( hid_host_device_close(hid_iface),
                                  "Unable to close device");
-            HID_RETURN_ON_ERROR( hid_host_interface_shutdown(iface, false),
+            HID_RETURN_ON_ERROR( hid_host_interface_shutdown(hid_iface),
                                  "Unable to shutdown interface");
         }
-        iface = tmp;
         HID_ENTER_CRITICAL();
     }
     HID_EXIT_CRITICAL();
@@ -836,7 +811,7 @@ static esp_err_t usb_class_request_get_descriptor(hid_device_t *hid_device, cons
         usb_device_info_t dev_info;
         ESP_ERROR_CHECK(usb_host_device_info(hid_device->dev_hdl, &dev_info));
         // reallocate the ctrl xfer buffer for new length
-        ESP_LOGI(TAG, "Change HID ctrl xfer size from %d to %d",
+        ESP_LOGD(TAG, "Change HID ctrl xfer size from %d to %d",
                  ctrl_size,
                  (int) (USB_SETUP_PACKET_SIZE + req->wLength));
 
@@ -1003,6 +978,28 @@ static esp_err_t hid_class_request_get(hid_device_t *hid_device,
 }
 
 // ---------------------------- Private ---------------------------------------
+static esp_err_t hid_host_string_descriptor_copy(wchar_t *dest,
+        const usb_str_desc_t *src)
+{
+    if (dest == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (src != NULL) {
+        size_t len = MIN((src->bLength - USB_STANDARD_DESC_SIZE) / 2, HID_STR_DESC_MAX_LENGTH - 1);
+        /*
+        * To pass the warning during compilation, there is a
+        * '-Wno-address-of-packed-member' flag added to this component
+        */
+        wcsncpy(dest, src->wData, len);
+        // This should be always true, we just check to avoid LoadProhibited exception
+        if (dest != NULL) {
+            dest[len] = 0;
+        }
+    } else {
+        dest[0] = 0;
+    }
+    return ESP_OK;
+}
 
 esp_err_t hid_host_install_device(uint8_t dev_addr,
                                   usb_device_handle_t dev_hdl,
@@ -1067,6 +1064,9 @@ esp_err_t hid_host_uninstall_device(hid_device_t *hid_device)
     if (hid_device->device_busy) {
         vSemaphoreDelete(hid_device->device_busy);
     }
+
+    ESP_LOGD(TAG, "Remove addr %d device from list",
+             hid_device->dev_addr);
 
     HID_ENTER_CRITICAL();
     STAILQ_REMOVE(&s_hid_driver->hid_devices_tailq, hid_device, hid_host_device, tailq_entry);
@@ -1166,10 +1166,6 @@ esp_err_t hid_host_uninstall(void)
                         ESP_OK,
                         "HID Host driver was not installed");
 
-    // Flush Interface list if needed
-    HID_RETURN_ON_ERROR(hid_host_interface_list_destroy(),
-                        "Unable to flush Interfaces list");
-
     // Make sure that hid driver
     // not being uninstalled from other task
     // and no hid device is registered
@@ -1180,9 +1176,13 @@ esp_err_t hid_host_uninstall(void)
     s_hid_driver->end_client_event_handling = true;
     HID_EXIT_CRITICAL();
 
-    ESP_ERROR_CHECK( usb_host_client_unblock(s_hid_driver->client_handle) );
-    xSemaphoreTake(s_hid_driver->all_events_handled, portMAX_DELAY);
+    if (s_hid_driver->event_handling_started) {
+        ESP_ERROR_CHECK( usb_host_client_unblock(s_hid_driver->client_handle) );
+        // In case the event handling started, we must wait until it finishes
+        xSemaphoreTake(s_hid_driver->all_events_handled, portMAX_DELAY);
+    }
     vSemaphoreDelete(s_hid_driver->all_events_handled);
+    ESP_ERROR_CHECK( usb_host_client_deregister(s_hid_driver->client_handle) );
     free(s_hid_driver);
     s_hid_driver = NULL;
     return ESP_OK;
@@ -1225,6 +1225,11 @@ esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle)
 
     HID_RETURN_ON_INVALID_ARG(hid_iface);
 
+    ESP_LOGD(TAG, "Close addr %d, iface %d, state %d",
+             hid_iface->dev_params.addr,
+             hid_iface->dev_params.iface_num,
+             hid_iface->state);
+
     if (HID_INTERFACE_STATE_ACTIVE == hid_iface->state) {
         HID_RETURN_ON_ERROR( hid_host_disable_interface(hid_iface),
                              "Unable to disable HID Interface");
@@ -1244,23 +1249,31 @@ esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle)
         hid_iface->user_cb_arg = NULL;
 
         /* Remove Interface from the list */
+        ESP_LOGD(TAG, "User Remove addr %d, iface %d from list",
+                 hid_iface->dev_params.addr,
+                 hid_iface->dev_params.iface_num);
         HID_ENTER_CRITICAL();
-        hid_iface->state = HID_INTERFACE_STATE_NOT_INITIALIZED;
-        STAILQ_REMOVE(&s_hid_driver->hid_ifaces_tailq, hid_iface, hid_interface, tailq_entry);
+        _hid_host_remove_interface(hid_iface);
         HID_EXIT_CRITICAL();
-        free(hid_iface);
     }
 
     return ESP_OK;
 }
 
-esp_err_t hid_host_handle_events(uint32_t timeout_ms)
+esp_err_t hid_host_handle_events(uint32_t timeout)
 {
-    HID_RETURN_ON_FALSE(s_hid_driver,
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
                         ESP_ERR_INVALID_STATE,
                         "HID Driver is not installed");
 
-    return usb_host_client_handle_events(s_hid_driver->client_handle, timeout_ms);
+    ESP_LOGD(TAG, "USB HID handling");
+    s_hid_driver->event_handling_started = true;
+    esp_err_t ret = usb_host_client_handle_events(s_hid_driver->client_handle, timeout);
+    if (s_hid_driver->end_client_event_handling) {
+        xSemaphoreGive(s_hid_driver->all_events_handled);
+        return ESP_FAIL;
+    }
+    return ret;
 }
 
 esp_err_t hid_host_device_get_params(hid_host_device_handle_t hid_dev_handle,
@@ -1279,6 +1292,7 @@ esp_err_t hid_host_device_get_params(hid_host_device_handle_t hid_dev_handle,
     memcpy(dev_params, &iface->dev_params, sizeof(hid_host_dev_params_t));
     return ESP_OK;
 }
+
 esp_err_t hid_host_device_get_raw_input_report_data(hid_host_device_handle_t hid_dev_handle,
         uint8_t *data,
         size_t data_length_max,
@@ -1369,6 +1383,36 @@ uint8_t *hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
     }
 
     return NULL;
+}
+
+esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
+                                   hid_host_dev_info_t *hid_dev_info)
+{
+    HID_RETURN_ON_INVALID_ARG(hid_dev_info);
+
+    hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
+    HID_RETURN_ON_INVALID_ARG(iface);
+
+    hid_device_t *hid_dev = iface->parent;
+
+    // Fill descriptor device information
+    const usb_device_desc_t *desc;
+    usb_device_info_t dev_info;
+    HID_RETURN_ON_ERROR( usb_host_get_device_descriptor(hid_dev->dev_hdl, &desc),
+                         "Unable to get device descriptor");
+    HID_RETURN_ON_ERROR( usb_host_device_info(hid_dev->dev_hdl, &dev_info),
+                         "Unable to get USB device info");
+    // VID, PID
+    hid_dev_info->VID = desc->idVendor;
+    hid_dev_info->PID = desc->idProduct;
+    // Strings
+    hid_host_string_descriptor_copy(hid_dev_info->iManufacturer,
+                                    dev_info.str_desc_manufacturer);
+    hid_host_string_descriptor_copy(hid_dev_info->iProduct,
+                                    dev_info.str_desc_product);
+    hid_host_string_descriptor_copy(hid_dev_info->iSerialNumber,
+                                    dev_info.str_desc_serial_num);
+    return ESP_OK;
 }
 
 esp_err_t hid_class_request_get_report(hid_host_device_handle_t hid_dev_handle,

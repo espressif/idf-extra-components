@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <wchar.h>
 #include <stdint.h>
 #include "esp_err.h"
 #include <freertos/FreeRTOS.h>
@@ -15,6 +16,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief USB HID HOST string descriptor maximal length
+ *
+ * The maximum possible number of characters in an embedded string is device specific.
+ * For USB devices, the maximum string length is 126 wide characters (not including the terminating NULL character).
+ * This is a length, which is available to upper level application during getting information
+ * of HID Device with 'hid_host_get_device_info' call.
+ *
+ * To decrease memory usage 32 wide characters (64 bytes per every string) is used.
+*/
+#define HID_STR_DESC_MAX_LENGTH           32
 
 typedef struct hid_interface *hid_host_device_handle_t;    /**< Device Handle. Handle to a particular HID interface */
 
@@ -36,10 +49,21 @@ typedef enum {
 } hid_host_interface_event_t;
 
 /**
+ * @brief HID device descriptor common data.
+*/
+typedef struct {
+    uint16_t VID;
+    uint16_t PID;
+    wchar_t iManufacturer[HID_STR_DESC_MAX_LENGTH];
+    wchar_t iProduct[HID_STR_DESC_MAX_LENGTH];
+    wchar_t iSerialNumber[HID_STR_DESC_MAX_LENGTH];
+} hid_host_dev_info_t;
+
+/**
  * @brief USB HID Host device parameters
 */
 typedef struct {
-    uint8_t addr;                       /**< USB Address of connected HID device.*/
+    uint8_t addr;                       /**< USB Address of connected HID device */
     uint8_t iface_num;                  /**< HID Interface Number */
     uint8_t sub_class;                  /**< HID Interface SubClass */
     uint8_t proto;                      /**< HID Interface Protocol */
@@ -130,10 +154,10 @@ esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle);
  * application needs to handle USB Host events itself.
  * Do not used if HID host install was made with create_background_task=true configuration
  *
- * @param[in]  timeout_ms  Timeout in milliseconds
+ * @param[in]  timeout  Timeout in ticks. For milliseconds, please use 'pdMS_TO_TICKS()' macros
  * @return esp_err_t
  */
-esp_err_t hid_host_handle_events(uint32_t timeout_ms);
+esp_err_t hid_host_handle_events(uint32_t timeout);
 
 /**
  * @brief HID Device get parameters by handle.
@@ -194,6 +218,15 @@ esp_err_t hid_host_device_stop(hid_host_device_handle_t hid_dev_handle);
  */
 uint8_t *hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
                                         size_t *report_desc_len);
+
+
+/**
+ * @brief HID Host Get device information
+ *
+ * @param[in] hid_dev_handle   HID Device handle
+*/
+esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
+                                   hid_host_dev_info_t *hid_dev_info);
 
 /**
  * @brief HID class specific request GET REPORT
