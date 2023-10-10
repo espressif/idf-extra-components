@@ -36,8 +36,8 @@ QueueHandle_t hid_host_test_event_queue;
 TaskHandle_t hid_test_task_handle;
 
 // Multiple tasks testing
-static hid_host_device_handle_t global_hdl;
-static int test_num_passed;
+// static hid_host_device_handle_t global_hdl;
+// static int test_num_passed;
 
 static const char *test_hid_sub_class_names[] = {
     "NO_SUBCLASS",
@@ -102,7 +102,7 @@ void hid_host_test_interface_callback(hid_host_device_handle_t hid_device_handle
         printf("USB port %d, iface num %d removed\n",
                dev_params.addr,
                dev_params.iface_num);
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(hid_device_handle) );
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(hid_device_handle));
         break;
     case HID_HOST_INTERFACE_EVENT_TRANSFER_ERROR:
         printf("USB Host transfer error\n");
@@ -136,8 +136,8 @@ void hid_host_test_callback(hid_host_device_handle_t hid_device_handle,
             .callback_arg = (void *) &user_arg_value
         };
 
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config) );
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_start(hid_device_handle) );
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config));
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_start(hid_device_handle));
 
         break;
     default:
@@ -169,8 +169,8 @@ void hid_host_test_concurrent(hid_host_device_handle_t hid_device_handle,
             .callback_arg = &user_arg_value
         };
 
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config) );
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_start(hid_device_handle) );
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config));
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_start(hid_device_handle));
 
         global_hdl = hid_device_handle;
         break;
@@ -222,7 +222,7 @@ void hid_host_test_requests_callback(hid_host_device_handle_t hid_device_handle,
             .callback_arg = &user_arg_value
         };
 
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config) );
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config));
 
         // Class device requests
         // hid_host_get_report_descriptor
@@ -234,7 +234,7 @@ void hid_host_test_requests_callback(hid_host_device_handle_t hid_device_handle,
         // // HID Device info
         hid_host_dev_info_t hid_dev_info;
         TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_device_info(hid_device_handle,
-                          &hid_dev_info) );
+                          &hid_dev_info));
 
         printf("\t VID: 0x%04X\n", hid_dev_info.VID);
         printf("\t PID: 0x%04X\n", hid_dev_info.PID);
@@ -320,7 +320,7 @@ void hid_host_test_requests_callback(hid_host_device_handle_t hid_device_handle,
             }
         }
 
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_start(hid_device_handle) );
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_start(hid_device_handle));
         break;
     default:
         TEST_FAIL_MESSAGE("HID Driver unhandled event");
@@ -360,10 +360,10 @@ void hid_host_test_polling_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
+#if (0)
 static void test_hid_host_device_touch(hid_host_dev_params_t *dev_params,
                                        hid_host_test_touch_way_t touch_way)
 {
-#if (0)
     uint8_t tmp[10] = { 0 };     // for input report
     size_t rep_len = 0;
     hid_report_protocol_t proto;
@@ -404,8 +404,8 @@ static void test_hid_host_device_touch(hid_host_dev_params_t *dev_params,
             }
         }
     }
-#endif //
 }
+#endif //
 
 #define MULTIPLE_TASKS_TASKS_NUM 10
 
@@ -493,7 +493,7 @@ static void usb_lib_task(void *arg)
         .skip_phy_setup = true,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
     };
-    TEST_ASSERT_EQUAL(ESP_OK, usb_host_install(&host_config) );
+    TEST_ASSERT_EQUAL(ESP_OK, usb_host_install(&host_config));
     printf("USB Host installed\n");
     xTaskNotifyGive(arg);
 
@@ -517,7 +517,6 @@ static void usb_lib_task(void *arg)
             usb_host_lib_info_t info;
             TEST_ASSERT_EQUAL(ESP_OK, usb_host_lib_info(&info));
             if (info.num_devices == 0) {
-                printf("USB Host lib: No device available\n");
                 all_dev_free = true;
             }
         }
@@ -557,14 +556,14 @@ void hid_host_event_callback(void *handler_args,
 #if (1)
         if ((HID_SUBCLASS_BOOT_INTERFACE == param->connect.usb.sub_class)
                 && (HID_PROTOCOL_KEYBOARD == param->connect.usb.proto)) {
-            hid_host_device_open_new_api(&param->connect.usb);
+            hid_host_device_open(&param->connect.usb);
         }
 #endif //
         // claim Mouse Boot
 #if (1)
         if ((HID_SUBCLASS_BOOT_INTERFACE == param->connect.usb.sub_class)
                 && (HID_PROTOCOL_MOUSE == param->connect.usb.proto)) {
-            hid_host_device_open_new_api(&param->connect.usb);
+            hid_host_device_open(&param->connect.usb);
         }
 #endif //
         break;
@@ -573,20 +572,21 @@ void hid_host_event_callback(void *handler_args,
         printf("HID Host open\n");
         hid_host_dev_info_t hid_dev_info;
         TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_device_info(param->open.dev,
-                          &hid_dev_info) );
+                          &hid_dev_info));
 
         printf("\t VID: 0x%04X\n", hid_dev_info.VID);
         printf("\t PID: 0x%04X\n", hid_dev_info.PID);
         wprintf(L"\t iProduct: %S \n", hid_dev_info.iProduct);
         wprintf(L"\t iManufacturer: %S \n", hid_dev_info.iManufacturer);
         wprintf(L"\t iSerialNumber: %S \n", hid_dev_info.iSerialNumber);
-        printf("\t InterfaceNum: %d\n", hid_dev_info.InterfaceNum);
-        printf("\t SubClass: '%s'\n", test_hid_sub_class_names[hid_dev_info.SubClass]);
-        printf("\t Protocol: '%s'\n", test_hid_proto_names[hid_dev_info.Protocol]);
-
+        printf("\t InterfaceNum: %d\n", hid_dev_info.bInterfaceNum);
+        printf("\t SubClass: '%s'\n", test_hid_sub_class_names[hid_dev_info.bSubClass]);
+        printf("\t Protocol: '%s'\n", test_hid_proto_names[hid_dev_info.bProtocol]);
+        printf("\t Report Descriptor Length: %d Byte(s) \n", hid_dev_info.wReportDescriptorLenght);
+        printf("\t CoutryCode: 0x%02X \n", hid_dev_info.bCountryCode);
 
         printf("HID Host start\n");
-        hid_host_device_start(param->open.dev);
+        hid_host_device_enable_input(param->open.dev);
         break;
     }
     case HID_HOST_DISCONNECT_EVENT: {
@@ -596,7 +596,7 @@ void hid_host_event_callback(void *handler_args,
                test_hid_sub_class_names[param->disconnect.usb.sub_class],
                test_hid_proto_names[param->disconnect.usb.proto]);
 
-        hid_host_device_close_new_api(param->disconnect.dev);
+        hid_host_device_close(param->disconnect.dev);
 
         break;
     }
@@ -636,9 +636,7 @@ void test_hid_setup(esp_event_handler_t device_callback)
 
     // HID host driver config
     const hid_host_driver_config_t hid_host_driver_config = {
-        .create_background_task = (hid_test_event_handle == HID_TEST_EVENT_HANDLE_IN_DRIVER)
-        ? true
-        : false,
+        .create_background_task = true,
         .task_priority = 5,
         .stack_size = 4096,
         .core_id = 0,
@@ -646,7 +644,7 @@ void test_hid_setup(esp_event_handler_t device_callback)
         .callback_arg = (void *) &user_arg_value
     };
 
-    TEST_ASSERT_EQUAL(ESP_OK, hid_host_install(&hid_host_driver_config) );
+    TEST_ASSERT_EQUAL(ESP_OK, hid_host_install(&hid_host_driver_config));
 }
 
 /**
@@ -661,12 +659,13 @@ void test_hid_teardown(void)
 {
     force_conn_state(false, pdMS_TO_TICKS(1000));
     vTaskDelay(50);
-    TEST_ASSERT_EQUAL(ESP_OK, hid_host_uninstall() );
+    TEST_ASSERT_EQUAL(ESP_OK, hid_host_uninstall());
     ulTaskNotifyValueClear(NULL, 1);
     vTaskDelay(20);
 }
 
 // ------------------------- HID Test ------------------------------------------
+#if (0)
 static void test_setup_hid_task(void)
 {
     // Task is working until the devices are gone
@@ -689,6 +688,7 @@ static void test_setup_hid_polling_task(void)
                                           4 * 1024,
                                           NULL, 2, NULL));
 }
+#endif //
 
 TEST_CASE("memory_leakage", "[hid_host]")
 {
@@ -699,12 +699,14 @@ TEST_CASE("memory_leakage", "[hid_host]")
     // Verify the memory leackage during test environment tearDown()
 }
 
-TEST_CASE("manual_connection", "[ignore][hid_host]")
+TEST_CASE("manual_connection", "[hid_host][ignore]")
 {
     // Install USB and HID driver with the regular hid_host_test_callback
     test_hid_setup(hid_host_event_callback);
+    // Wait
+    vTaskDelay(5 * 1000);
     // Tear down test
-    // test_hid_teardown();
+    test_hid_teardown();
     // Verify the memory leackage during test environment tearDown()
 }
 

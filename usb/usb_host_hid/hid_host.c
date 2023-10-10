@@ -57,21 +57,17 @@ static const char *TAG = "hid-host";
 
 #define DEFAULT_TIMEOUT_MS  (5000)
 
-
-typedef enum {
-    HID_INTERFACE_STATE_NOT_INITIALIZED = 0x00, /**< HID Interface not initialized */
-    HID_INTERFACE_STATE_IDLE,                   /**< HID Interface has been found in connected USB device */
-    HID_INTERFACE_STATE_READY,                  /**< HID Interface opened and ready to start transfer */
-    HID_INTERFACE_STATE_ACTIVE,                 /**< HID Interface is in use */
-    HID_INTERFACE_STATE_WAIT_USER_DELETION,     /**< HID Interface wait user to be removed */
-    HID_INTERFACE_STATE_MAX
-} hid_iface_state_t;
-
 typedef enum {
     HID_EP_IN = 0,
     HID_EP_OUT,
     HID_EP_MAX
 } hid_ep_num_t;
+
+typedef struct {
+    SemaphoreHandle_t busy;                                 /**< HID device main mutex */
+    SemaphoreHandle_t sem_done;                             /**< Control transfer semaphore */
+    usb_transfer_t *xfer;                                   /**< Pointer to control transfer buffer */
+} hid_host_ctrl_t;
 
 /**
  * @brief HID Device object
@@ -92,17 +88,8 @@ typedef struct hid_dev_obj {
     // Constant members do no change after registration thus do not require a critical section
     struct {
         uint8_t usb_addr;                                           /**< USB Device address on bus */
-        usb_device_handle_t dev_hdl;                                /**< USB device handle */
-
-        SemaphoreHandle_t device_busy;                              /**< HID device main mutex */
-        SemaphoreHandle_t ctrl_xfer_done;                           /**< Control transfer semaphore */
-        usb_transfer_t *ctrl_xfer;                                  /**< Pointer to control transfer buffer */
-        // TODO: can be merged to
-        // typedef struct {
-        //     SemaphoreHandle_t busy;
-        //     SemaphoreHandle_t done;
-        //     usb_transfer_t *xfer;
-        // } ctrl;
+        usb_device_handle_t dev_hdl;                                /**< USB Device handle */
+        hid_host_ctrl_t ctrl;                                       /**< USB Device Control EP */
     } constant;
 } hid_dev_obj_t;
 
@@ -119,6 +106,8 @@ typedef struct iface_obj {
         uint8_t num;                        /**< HID Interface Number */
         uint8_t sub_class;                  /**< HID Interface SubClass */
         uint8_t proto;                      /**< HID Interface Protocol */
+        uint16_t report_descriptor_length;  /**< HID Report Descriptor Length */
+        uint8_t country_code;               /**< HID Coutry Code */
         struct {
             uint8_t num;
             uint16_t mps;
@@ -149,7 +138,6 @@ typedef struct {
 
 static hid_driver_t *s_hid_driver;                              /**< Internal pointer to HID driver */
 
-
 // ----------------------- Private Prototypes ----------------------------------
 
 // --------------------------- Internal Logic ----------------------------------
@@ -163,7 +151,6 @@ typedef struct hid_class_request {
     uint16_t wLength;               /**< wLength: Report Length */
     uint8_t *data;                  /**< Pointer to data */
 } hid_class_request_t;
-
 
 // ----------------- USB Event Handler - Internal Task -------------------------
 
@@ -183,7 +170,41 @@ static void event_handler_task(void *arg)
     vTaskDelete(NULL);
 }
 
-static esp_err_t hid_host_new_device(uint8_t dev_addr)
+static esp_err_t hid_host_device_get_opened_by_addr(uint8_t usb_addr,
+        hid_dev_obj_t **hid_dev_obj_hdl)
+{
+    hid_dev_obj_t *dev_obj = NULL;
+
+    HID_ENTER_CRITICAL();
+    STAILQ_FOREACH(dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
+        if (usb_addr == dev_obj->constant.usb_addr) {
+            HID_EXIT_CRITICAL();
+            *hid_dev_obj_hdl = dev_obj;
+            return ESP_OK;
+        }
+    }
+    HID_EXIT_CRITICAL();
+    return ESP_ERR_NOT_FOUND;
+}
+
+static esp_err_t hid_host_device_get_opened_by_handle(usb_device_handle_t dev_hdl,
+        hid_dev_obj_t **hid_dev_obj_hdl)
+{
+    hid_dev_obj_t *dev_obj = NULL;
+
+    HID_ENTER_CRITICAL();
+    STAILQ_FOREACH(dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
+        if (dev_hdl == dev_obj->constant.dev_hdl) {
+            HID_EXIT_CRITICAL();
+            *hid_dev_obj_hdl = dev_obj;
+            return ESP_OK;
+        }
+    }
+    HID_EXIT_CRITICAL();
+    return ESP_ERR_NOT_FOUND;
+}
+
+static void hid_host_new_device_event(uint8_t dev_addr)
 {
     usb_device_handle_t dev_hdl;
     const usb_config_desc_t *config_desc = NULL;
@@ -218,65 +239,10 @@ static esp_err_t hid_host_new_device(uint8_t dev_addr)
         }
     }
     // close device
-    usb_host_device_close(s_hid_driver->client_handle, dev_hdl);
-    return ESP_OK;
+    ESP_ERROR_CHECK(usb_host_device_close(s_hid_driver->client_handle, dev_hdl));
 }
 
-static esp_err_t hid_host_device_get_opened(uint8_t usb_addr,
-        hid_dev_obj_t **hid_dev_obj_hdl)
-{
-    hid_dev_obj_t *dev_obj = NULL;
-
-    HID_ENTER_CRITICAL();
-    STAILQ_FOREACH(dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
-        if (usb_addr == dev_obj->constant.usb_addr) {
-            HID_EXIT_CRITICAL();
-            *hid_dev_obj_hdl = dev_obj;
-            return ESP_OK;
-        }
-    }
-    HID_EXIT_CRITICAL();
-    return ESP_ERR_NOT_FOUND;
-}
-
-static esp_err_t hid_host_device_get_active(usb_device_handle_t dev_hdl,
-        hid_dev_obj_t **hid_dev_obj_hdl)
-{
-    hid_dev_obj_t *dev_obj = NULL;
-
-    HID_ENTER_CRITICAL();
-    STAILQ_FOREACH(dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
-        if (dev_hdl == dev_obj->constant.dev_hdl) {
-            HID_EXIT_CRITICAL();
-            *hid_dev_obj_hdl = dev_obj;
-            return ESP_OK;
-        }
-    }
-    HID_EXIT_CRITICAL();
-    return ESP_ERR_NOT_FOUND;
-}
-
-static esp_err_t hid_host_device_interface_claimed(hid_host_dev_params_t *dev_params)
-{
-    hid_iface_new_t *hid_iface = NULL;
-    hid_dev_obj_t *hid_dev_obj = NULL;
-    HID_ENTER_CRITICAL();
-    STAILQ_FOREACH(hid_dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
-        STAILQ_FOREACH(hid_iface, &hid_dev_obj->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
-            if ((dev_params->addr == hid_iface->constant.hid_dev_obj_hdl->constant.usb_addr)
-                    && (dev_params->iface_num == hid_iface->constant.num)
-                    && (dev_params->sub_class == hid_iface->constant.sub_class)
-                    && (dev_params->proto == hid_iface->constant.proto)) {
-                HID_EXIT_CRITICAL();
-                return ESP_OK;
-            }
-        }
-    }
-    HID_EXIT_CRITICAL();
-    return ESP_ERR_NOT_FOUND;
-}
-
-esp_err_t hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
+static void hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
 {
     hid_host_event_data_t event_data = { 0 };
     size_t event_data_size = sizeof(hid_host_event_data_t);
@@ -298,7 +264,34 @@ esp_err_t hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
                           portMAX_DELAY);
     }
     HID_EXIT_CRITICAL();
-    return ESP_OK;
+}
+
+static void hid_host_remove_device_event(usb_device_handle_t dev_hdl)
+{
+    hid_dev_obj_t *hid_dev_obj_hdl;
+    if (ESP_OK == hid_host_device_get_opened_by_handle(dev_hdl, &hid_dev_obj_hdl)) {
+        hid_host_device_notify_device_gone(hid_dev_obj_hdl);
+    }
+}
+
+static esp_err_t hid_host_device_interface_is_claimed(hid_host_dev_params_t *dev_params)
+{
+    hid_iface_new_t *hid_iface = NULL;
+    hid_dev_obj_t *hid_dev_obj = NULL;
+    HID_ENTER_CRITICAL();
+    STAILQ_FOREACH(hid_dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
+        STAILQ_FOREACH(hid_iface, &hid_dev_obj->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
+            if ((dev_params->addr == hid_iface->constant.hid_dev_obj_hdl->constant.usb_addr)
+                    && (dev_params->iface_num == hid_iface->constant.num)
+                    && (dev_params->sub_class == hid_iface->constant.sub_class)
+                    && (dev_params->proto == hid_iface->constant.proto)) {
+                HID_EXIT_CRITICAL();
+                return ESP_OK;
+            }
+        }
+    }
+    HID_EXIT_CRITICAL();
+    return ESP_ERR_NOT_FOUND;
 }
 
 /**
@@ -309,13 +302,10 @@ esp_err_t hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
  */
 static void client_event_cb(const usb_host_client_event_msg_t *event, void *arg)
 {
-    hid_dev_obj_t *hid_dev_obj_hdl;
     if (event->event == USB_HOST_CLIENT_EVENT_NEW_DEV) {
-        hid_host_new_device(event->new_dev.address);
+        hid_host_new_device_event(event->new_dev.address);
     } else if (event->event == USB_HOST_CLIENT_EVENT_DEV_GONE) {
-        if (ESP_OK == hid_host_device_get_active(event->dev_gone.dev_hdl, &hid_dev_obj_hdl)) {
-            hid_host_device_notify_device_gone(hid_dev_obj_hdl);
-        }
+        hid_host_remove_device_event(event->dev_gone.dev_hdl);
     }
 }
 
@@ -364,8 +354,36 @@ static void in_xfer_done(usb_transfer_t *in_xfer)
         // Any other error
         break;
     }
-    ESP_LOGE(TAG, "Transfer failed, status %d", in_xfer->status);
+    ESP_LOGE(TAG, "Transfer failed, IN EP 0x%02X, status %d", in_xfer->bEndpointAddress,
+             in_xfer->status);
     // TODO: Notify user about transfer or any other error
+}
+
+/**
+ * @brief HID IN Transfer complete callback
+ *
+ * @param[in] transfer  Pointer to transfer data structure
+ */
+static void out_xfer_done(usb_transfer_t *out_xfer)
+{
+    assert(out_xfer);
+    switch (out_xfer->status) {
+    case USB_TRANSFER_STATUS_COMPLETED:
+        // Great, nothing to do here
+        return;
+    case USB_TRANSFER_STATUS_NO_DEVICE:
+    case USB_TRANSFER_STATUS_CANCELED:
+        // User is notified about device disconnection from usb_event_cb
+        // No need to do anything
+        return;
+    default:
+        // Any other error
+        break;
+    }
+    ESP_LOGE(TAG, "Transfer failed, OUT EP 0x%02X, status %d", out_xfer->bEndpointAddress,
+             out_xfer->status);
+    // TODO: Notify user about transfer or any other error
+    // hid_iface_new_t *hid_iface = (hid_iface_new_t *)out_xfer->context;
 }
 
 /** Lock HID device from other task
@@ -375,21 +393,17 @@ static void in_xfer_done(usb_transfer_t *in_xfer)
  * @param[in] timeout_ms    Timeout of trying to take the mutex
  * @return esp_err_t
  */
-static inline esp_err_t hid_dev_obj_claim_ctrl_xfer(hid_dev_obj_t *hid_dev_obj_hdl,
+static inline esp_err_t hid_dev_obj_ctrl_claim(hid_host_ctrl_t *ctrl,
         uint32_t timeout_ms,
         usb_transfer_t **xfer)
 {
-    HID_RETURN_ON_INVALID_ARG(hid_dev_obj_hdl);
-    HID_RETURN_ON_INVALID_ARG(hid_dev_obj_hdl->constant.ctrl_xfer);
+    HID_RETURN_ON_INVALID_ARG(ctrl);
+    HID_RETURN_ON_INVALID_ARG(ctrl->xfer);
 
-    if (ESP_OK == xSemaphoreTake(hid_dev_obj_hdl->constant.device_busy, pdMS_TO_TICKS(timeout_ms))) {
-        *xfer = hid_dev_obj_hdl->constant.ctrl_xfer;
+    if (ESP_OK == xSemaphoreTake(ctrl->busy, pdMS_TO_TICKS(timeout_ms))) {
+        *xfer = ctrl->xfer;
         return ESP_OK;
     }
-
-    ESP_LOGE(TAG, "HID Device is busy by other task (USB port %d)",
-             hid_dev_obj_hdl->constant.usb_addr);
-
     return ESP_ERR_TIMEOUT;
 }
 
@@ -399,9 +413,9 @@ static inline esp_err_t hid_dev_obj_claim_ctrl_xfer(hid_dev_obj_t *hid_dev_obj_h
  * @param[in] timeout_ms    Timeout of trying to take the mutex
  * @return esp_err_t
  */
-static inline void hid_dev_obj_release_ctrl_xfer(hid_dev_obj_t *hid_dev_obj_hdl)
+static inline void hid_dev_obj_ctrl_release(hid_host_ctrl_t *ctrl)
 {
-    xSemaphoreGive(hid_dev_obj_hdl->constant.device_busy);
+    xSemaphoreGive(ctrl->busy);
 }
 
 /**
@@ -412,8 +426,10 @@ static inline void hid_dev_obj_release_ctrl_xfer(hid_dev_obj_t *hid_dev_obj_hdl)
 static void ctrl_xfer_done(usb_transfer_t *ctrl_xfer)
 {
     assert(ctrl_xfer);
-    hid_dev_obj_t *hid_dev_obj_hdl = (hid_dev_obj_t *)ctrl_xfer->context;
-    xSemaphoreGive(hid_dev_obj_hdl->constant.ctrl_xfer_done);
+    hid_host_ctrl_t *ctrl = (hid_host_ctrl_t *)ctrl_xfer->context;
+    // TODO: verify context xfer and xfer done
+    // assert(ctrl->xfer == ctrl_xfer);
+    xSemaphoreGive(ctrl->sem_done);
 }
 
 /**
@@ -428,42 +444,37 @@ static void ctrl_xfer_done(usb_transfer_t *ctrl_xfer)
  * @param[in] timeout_ms       Timeout in ms
  * @return esp_err_t
  */
-static esp_err_t hid_dev_obj_ctrl_xfer(hid_dev_obj_t *hid_dev_obj_hdl,
-                                       //   usb_device_handle_t dev_hdl,
-                                       //   usb_transfer_t *ctrl_xfer,
-                                       //   void *context,
+static esp_err_t hid_dev_obj_ctrl_xfer(hid_host_ctrl_t *ctrl,
+                                       usb_device_handle_t dev_hdl,
                                        size_t len,
                                        uint32_t timeout_ms)
 {
-    usb_transfer_t *ctrl_xfer = hid_dev_obj_hdl->constant.ctrl_xfer;
-    ctrl_xfer->device_handle = hid_dev_obj_hdl->constant.dev_hdl;
-    ctrl_xfer->callback = ctrl_xfer_done;
-    ctrl_xfer->context = hid_dev_obj_hdl;
-    ctrl_xfer->bEndpointAddress = 0;
-    ctrl_xfer->timeout_ms = timeout_ms;
-    ctrl_xfer->num_bytes = len;
+    usb_transfer_t *xfer = ctrl->xfer;
+    xfer->device_handle = dev_hdl;
+    xfer->callback = ctrl_xfer_done;
+    xfer->context = (void *) ctrl;
+    xfer->bEndpointAddress = 0;
+    xfer->timeout_ms = timeout_ms;
+    xfer->num_bytes = len;
 
-    HID_RETURN_ON_ERROR( usb_host_transfer_submit_control(s_hid_driver->client_handle,
-                         ctrl_xfer),
-                         "Unable to submit control transfer");
+    HID_RETURN_ON_ERROR(usb_host_transfer_submit_control(s_hid_driver->client_handle,
+                        xfer),
+                        "Unable to submit control transfer");
 
-    BaseType_t received = xSemaphoreTake(hid_dev_obj_hdl->constant.ctrl_xfer_done,
-                                         pdMS_TO_TICKS(ctrl_xfer->timeout_ms));
+    BaseType_t received = xSemaphoreTake(ctrl->sem_done,
+                                         pdMS_TO_TICKS(xfer->timeout_ms));
     if (received != pdTRUE) {
         // Transfer was not finished, error in USB LIB. Reset the endpoint
         ESP_LOGE(TAG, "Control Transfer Timeout");
 
-        HID_RETURN_ON_ERROR( usb_host_endpoint_halt(hid_dev_obj_hdl->constant.dev_hdl,
-                             ctrl_xfer->bEndpointAddress),
-                             "Unable to HALT EP");
-        HID_RETURN_ON_ERROR( usb_host_endpoint_flush(hid_dev_obj_hdl->constant.dev_hdl,
-                             ctrl_xfer->bEndpointAddress),
-                             "Unable to FLUSH EP");
-        usb_host_endpoint_clear(hid_dev_obj_hdl->constant.dev_hdl,
-                                ctrl_xfer->bEndpointAddress);
+        HID_RETURN_ON_ERROR(usb_host_endpoint_halt(dev_hdl, xfer->bEndpointAddress),
+                            "Unable to HALT EP");
+        HID_RETURN_ON_ERROR(usb_host_endpoint_flush(dev_hdl, xfer->bEndpointAddress),
+                            "Unable to FLUSH EP");
+        usb_host_endpoint_clear(dev_hdl, xfer->bEndpointAddress);
         return ESP_ERR_TIMEOUT;
     }
-    ESP_LOG_BUFFER_HEXDUMP(TAG, ctrl_xfer->data_buffer, ctrl_xfer->actual_num_bytes, ESP_LOG_DEBUG);
+    ESP_LOG_BUFFER_HEXDUMP(TAG, xfer->data_buffer, xfer->actual_num_bytes, ESP_LOG_DEBUG);
     return ESP_OK;
 }
 
@@ -483,10 +494,10 @@ static esp_err_t usb_class_request_get_descriptor(hid_dev_obj_t *hid_dev_obj_hdl
     HID_RETURN_ON_INVALID_ARG(req);
     HID_RETURN_ON_INVALID_ARG(req->data);
 
-    HID_RETURN_ON_ERROR( hid_dev_obj_claim_ctrl_xfer(hid_dev_obj_hdl,
-                         DEFAULT_TIMEOUT_MS,
-                         &xfer),
-                         "Control xfer buffer is busy");
+    HID_RETURN_ON_ERROR(hid_dev_obj_claim_ctrl_xfer(hid_dev_obj_hdl,
+                        DEFAULT_TIMEOUT_MS,
+                        &xfer),
+                        "Control xfer buffer is busy");
 
     const size_t ctrl_size = xfer->data_buffer_size;
 
@@ -496,13 +507,13 @@ static esp_err_t usb_class_request_get_descriptor(hid_dev_obj_t *hid_dev_obj_hdl
         // reallocate the ctrl xfer buffer for new length
         ESP_LOGD(TAG, "Change HID ctrl xfer size from %d to %d",
                  ctrl_size,
-                 (int) (USB_SETUP_PACKET_SIZE + req->wLength));
+                 (int)(USB_SETUP_PACKET_SIZE + req->wLength));
 
         usb_host_transfer_free(hid_dev_obj_hdl->constant.ctrl_xfer);
-        HID_RETURN_ON_ERROR( usb_host_transfer_alloc(USB_SETUP_PACKET_SIZE + req->wLength,
-                             0,
-                             &hid_dev_obj_hdl->constant.ctrl_xfer),
-                             "Unable to allocate transfer buffer for EP0");
+        HID_RETURN_ON_ERROR(usb_host_transfer_alloc(USB_SETUP_PACKET_SIZE + req->wLength,
+                            0,
+                            &hid_dev_obj_hdl->constant.ctrl_xfer),
+                            "Unable to allocate transfer buffer for EP0");
     }
 
     usb_setup_packet_t *setup = (usb_setup_packet_t *)xfer->data_buffer;
@@ -575,10 +586,10 @@ static esp_err_t hid_class_request_set(hid_dev_obj_t *hid_dev_obj_hdl,
     esp_err_t ret;
     usb_transfer_t *xfer;
 
-    HID_RETURN_ON_ERROR( hid_dev_obj_claim_ctrl_xfer(hid_dev_obj_hdl,
-                         DEFAULT_TIMEOUT_MS,
-                         &xfer),
-                         "Control xfer buffer is busy");
+    HID_RETURN_ON_ERROR(hid_dev_obj_ctrl_claim(&hid_dev_obj_hdl->constant.ctrl,
+                        DEFAULT_TIMEOUT_MS,
+                        &xfer),
+                        "USB Device is busy by other task");
 
     usb_setup_packet_t *setup = (usb_setup_packet_t *)xfer->data_buffer;
     setup->bmRequestType = USB_BM_REQUEST_TYPE_DIR_OUT |
@@ -593,13 +604,12 @@ static esp_err_t hid_class_request_set(hid_dev_obj_t *hid_dev_obj_hdl,
         memcpy(xfer->data_buffer + USB_SETUP_PACKET_SIZE, req->data, req->wLength);
     }
 
-    ret = hid_dev_obj_ctrl_xfer(hid_dev_obj_hdl, /* ->constant.dev_hdl, */
-                                //    xfer,
-                                //    (void *) hid_dev_obj_hdl,
+    ret = hid_dev_obj_ctrl_xfer(&hid_dev_obj_hdl->constant.ctrl,
+                                hid_dev_obj_hdl->constant.dev_hdl,
                                 USB_SETUP_PACKET_SIZE + setup->wLength,
                                 DEFAULT_TIMEOUT_MS);
 
-    hid_dev_obj_release_ctrl_xfer(hid_dev_obj_hdl);
+    hid_dev_obj_ctrl_release(&hid_dev_obj_hdl->constant.ctrl);
     return ret;
 }
 
@@ -618,10 +628,10 @@ static esp_err_t hid_class_request_get(hid_dev_obj_t *hid_dev_obj_hdl,
     esp_err_t ret;
     usb_transfer_t *xfer;
 
-    HID_RETURN_ON_ERROR( hid_dev_obj_claim_ctrl_xfer(hid_dev_obj_hdl,
-                         DEFAULT_TIMEOUT_MS,
-                         &xfer),
-                         "Ctrl xfer buffer is busy");
+    HID_RETURN_ON_ERROR(hid_dev_obj_ctrl_claim(&hid_dev_obj_hdl->constant.ctrl,
+                        DEFAULT_TIMEOUT_MS,
+                        &xfer),
+                        "USB Device is busy by other task");
 
     usb_setup_packet_t *setup = (usb_setup_packet_t *)xfer->data_buffer;
 
@@ -633,9 +643,8 @@ static esp_err_t hid_class_request_get(hid_dev_obj_t *hid_dev_obj_hdl,
     setup->wIndex = req->wIndex;
     setup->wLength = req->wLength;
 
-    ret = hid_dev_obj_ctrl_xfer(hid_dev_obj_hdl, /* ->constant.dev_hdl, */
-                                //    xfer,
-                                //    (void *) hid_dev_obj_hdl,
+    ret = hid_dev_obj_ctrl_xfer(&hid_dev_obj_hdl->constant.ctrl,
+                                hid_dev_obj_hdl->constant.dev_hdl,
                                 USB_SETUP_PACKET_SIZE + setup->wLength,
                                 DEFAULT_TIMEOUT_MS);
 
@@ -654,7 +663,7 @@ static esp_err_t hid_class_request_get(hid_dev_obj_t *hid_dev_obj_hdl,
         }
     }
 
-    hid_dev_obj_release_ctrl_xfer(hid_dev_obj_hdl);
+    hid_dev_obj_ctrl_release(&hid_dev_obj_hdl->constant.ctrl);
     return ret;
 }
 
@@ -693,16 +702,14 @@ static void hid_host_event_handler_wrapper(void *event_handler_arg,
     }
 }
 
-
 esp_err_t hid_host_install(const hid_host_driver_config_t *config)
 {
     esp_err_t ret;
 
-
     HID_RETURN_ON_INVALID_ARG(config);
     HID_RETURN_ON_INVALID_ARG(config->callback);
 
-    if ( config->create_background_task ) {
+    if (config->create_background_task) {
         HID_RETURN_ON_FALSE(config->stack_size != 0,
                             ESP_ERR_INVALID_ARG,
                             "Wrong stack size value");
@@ -737,9 +744,9 @@ esp_err_t hid_host_install(const hid_host_driver_config_t *config)
                       ESP_ERR_NO_MEM,
                       "Unable to create semaphore");
 
-    HID_GOTO_ON_ERROR( usb_host_client_register(&client_config,
-                       &driver->client_handle),
-                       "Unable to register USB Host client");
+    HID_GOTO_ON_ERROR(usb_host_client_register(&client_config,
+                      &driver->client_handle),
+                      "Unable to register USB Host client");
 
     // create event loop
     esp_event_loop_args_t event_task_args = {
@@ -749,16 +756,16 @@ esp_err_t hid_host_install(const hid_host_driver_config_t *config)
         .task_stack_size = 4096,
         .task_core_id = tskNO_AFFINITY
     };
-    HID_GOTO_ON_ERROR( esp_event_loop_create(&event_task_args,
-                       &driver->event_loop_handle),
-                       "HID device event loop could not be created");
+    HID_GOTO_ON_ERROR(esp_event_loop_create(&event_task_args,
+                                            &driver->event_loop_handle),
+                      "HID device event loop could not be created");
 
-    HID_GOTO_ON_ERROR( esp_event_handler_register_with(driver->event_loop_handle,
-                       HID_HOST_EVENTS,
-                       HID_HOST_ANY_EVENT,
-                       hid_host_event_handler_wrapper,
-                       config->callback_arg),
-                       "HID device event loop register handler failure");
+    HID_GOTO_ON_ERROR(esp_event_handler_register_with(driver->event_loop_handle,
+                      HID_HOST_EVENTS,
+                      HID_HOST_ANY_EVENT,
+                      hid_host_event_handler_wrapper,
+                      config->callback_arg),
+                      "HID device event loop register handler failure");
 
     HID_ENTER_CRITICAL();
     HID_GOTO_ON_FALSE_CRITICAL(!s_hid_driver, ESP_ERR_INVALID_STATE);
@@ -806,13 +813,13 @@ esp_err_t hid_host_uninstall(void)
     // Make sure that hid driver not being uninstalled from other task
     // and no hid device is opened
     HID_ENTER_CRITICAL();
-    HID_RETURN_ON_FALSE_CRITICAL( !s_hid_driver->end_client_event_handling, ESP_ERR_INVALID_STATE );
-    HID_RETURN_ON_FALSE_CRITICAL( STAILQ_EMPTY(&s_hid_driver->dev_opened_tailq), ESP_ERR_INVALID_STATE );
+    HID_RETURN_ON_FALSE_CRITICAL(!s_hid_driver->end_client_event_handling, ESP_ERR_INVALID_STATE);
+    HID_RETURN_ON_FALSE_CRITICAL(STAILQ_EMPTY(&s_hid_driver->dev_opened_tailq), ESP_ERR_INVALID_STATE);
     s_hid_driver->end_client_event_handling = true;
     HID_EXIT_CRITICAL();
 
     if (s_hid_driver->client_event_handling_started) {
-        ESP_ERROR_CHECK( usb_host_client_unblock(s_hid_driver->client_handle) );
+        ESP_ERROR_CHECK(usb_host_client_unblock(s_hid_driver->client_handle));
         // In case the event handling started, we must wait until it finishes
         xSemaphoreTake(s_hid_driver->all_events_handled, portMAX_DELAY);
     }
@@ -820,7 +827,7 @@ esp_err_t hid_host_uninstall(void)
         esp_event_loop_delete(s_hid_driver->event_loop_handle);
     }
     vSemaphoreDelete(s_hid_driver->all_events_handled);
-    ESP_ERROR_CHECK( usb_host_client_deregister(s_hid_driver->client_handle) );
+    ESP_ERROR_CHECK(usb_host_client_deregister(s_hid_driver->client_handle));
     free(s_hid_driver);
     s_hid_driver = NULL;
     return ESP_OK;
@@ -848,17 +855,17 @@ esp_err_t hid_host_device_add(uint8_t usb_addr,
         goto config_fail;
     }
 
-    hid_dev_obj->constant.device_busy = xSemaphoreCreateMutex();
+    hid_dev_obj->constant.ctrl.busy = xSemaphoreCreateMutex();
 
-    if (NULL == hid_dev_obj->constant.device_busy) {
+    if (NULL == hid_dev_obj->constant.ctrl.busy) {
         ESP_LOGE(TAG, "Unable to create mutex for HID Device");
         ret = ESP_ERR_NO_MEM;
         goto mem_fail;
     }
 
-    hid_dev_obj->constant.ctrl_xfer_done =  xSemaphoreCreateBinary();
+    hid_dev_obj->constant.ctrl.sem_done =  xSemaphoreCreateBinary();
 
-    if (NULL == hid_dev_obj->constant.ctrl_xfer_done) {
+    if (NULL == hid_dev_obj->constant.ctrl.sem_done) {
         ESP_LOGE(TAG, "Unable to create semaphore for HID Device");
         ret = ESP_ERR_NO_MEM;
         goto mem_fail2;
@@ -869,7 +876,7 @@ esp_err_t hid_host_device_add(uint8_t usb_addr,
     * To take the size of a report descriptor into a consideration,
     * we need to allocate more here, e.g. 512 bytes.
     */
-    ret = usb_host_transfer_alloc(512, 0, &hid_dev_obj->constant.ctrl_xfer);
+    ret = usb_host_transfer_alloc(512, 0, &hid_dev_obj->constant.ctrl.xfer);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Unable to allocate transfer buffer");
         goto mem_fail3;
@@ -891,12 +898,12 @@ esp_err_t hid_host_device_add(uint8_t usb_addr,
     return ESP_OK;
 
 mem_fail3:
-    if (hid_dev_obj->constant.ctrl_xfer_done) {
-        vSemaphoreDelete(hid_dev_obj->constant.ctrl_xfer_done);
+    if (hid_dev_obj->constant.ctrl.sem_done) {
+        vSemaphoreDelete(hid_dev_obj->constant.ctrl.sem_done);
     }
 mem_fail2:
-    if (hid_dev_obj->constant.device_busy) {
-        vSemaphoreDelete(hid_dev_obj->constant.device_busy);
+    if (hid_dev_obj->constant.ctrl.busy) {
+        vSemaphoreDelete(hid_dev_obj->constant.ctrl.busy);
     }
 mem_fail:
     free(hid_dev_obj);
@@ -908,17 +915,17 @@ fail:
 
 esp_err_t hid_host_device_remove(hid_dev_obj_t *hid_dev_obj_hdl)
 {
-    ESP_ERROR_CHECK( usb_host_transfer_free(hid_dev_obj_hdl->constant.ctrl_xfer) );
+    ESP_ERROR_CHECK(usb_host_transfer_free(hid_dev_obj_hdl->constant.ctrl.xfer));
 
-    if (hid_dev_obj_hdl->constant.ctrl_xfer_done) {
-        vSemaphoreDelete(hid_dev_obj_hdl->constant.ctrl_xfer_done);
+    if (hid_dev_obj_hdl->constant.ctrl.sem_done) {
+        vSemaphoreDelete(hid_dev_obj_hdl->constant.ctrl.sem_done);
     }
-    if (hid_dev_obj_hdl->constant.device_busy) {
-        vSemaphoreDelete(hid_dev_obj_hdl->constant.device_busy);
+    if (hid_dev_obj_hdl->constant.ctrl.busy) {
+        vSemaphoreDelete(hid_dev_obj_hdl->constant.ctrl.busy);
     }
     // 7. Close device in USB Host library
-    ESP_ERROR_CHECK( usb_host_device_close(s_hid_driver->client_handle,
-                                           hid_dev_obj_hdl->constant.dev_hdl));
+    ESP_ERROR_CHECK(usb_host_device_close(s_hid_driver->client_handle,
+                                          hid_dev_obj_hdl->constant.dev_hdl));
     // 8. Remove hid_dev_obj from tQ
     HID_ENTER_CRITICAL();
     STAILQ_REMOVE(&s_hid_driver->dev_opened_tailq,
@@ -967,9 +974,12 @@ esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
         goto fail;
     }
 
-    // Get EP IN, get EP OUT
-    hid_iface->constant.ep[HID_EP_IN].num = 0;
-    hid_iface->constant.ep[HID_EP_OUT].num = 0;
+    // Flush EP
+    for (int i = 0; i < HID_EP_MAX; i++) {
+        hid_iface->constant.ep[i].num = 0;
+        hid_iface->constant.ep[i].mps = 0;
+        hid_iface->constant.ep[i].xfer = NULL;
+    }
 
     // HID descriptor
     size_t total_length = config_desc->wTotalLength;
@@ -988,6 +998,8 @@ esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
     hid_iface->constant.num = iface_num;
     hid_iface->constant.sub_class = sub_class;
     hid_iface->constant.proto = proto;
+    hid_iface->constant.report_descriptor_length = hid_desc->wReportDescriptorLength;
+    hid_iface->constant.country_code = hid_desc->bCountryCode;
     // EP descriptors for Interface
     for (int i = 0; i < iface_desc->bNumEndpoints; i++) {
         int ep_offset = 0;
@@ -1020,10 +1032,10 @@ esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
     }
 
     // 5. Claim Interface
-    HID_RETURN_ON_ERROR( usb_host_interface_claim( s_hid_driver->client_handle,
-                         hid_dev_obj_hdl->constant.dev_hdl,
-                         hid_iface->constant.num, 0),
-                         "Unable to claim Interface");
+    HID_RETURN_ON_ERROR(usb_host_interface_claim(s_hid_driver->client_handle,
+                        hid_dev_obj_hdl->constant.dev_hdl,
+                        hid_iface->constant.num, 0),
+                        "Unable to claim Interface");
 
     // 6. Add Interface to the iface_opened queue
     HID_ENTER_CRITICAL();
@@ -1070,10 +1082,10 @@ esp_err_t hid_host_device_interface_release(hid_iface_new_t *hid_iface)
     // }
 
     // 3. Release interface
-    HID_RETURN_ON_ERROR( usb_host_interface_release(s_hid_driver->client_handle,
-                         hid_dev_obj_hdl->constant.dev_hdl,
-                         hid_iface->constant.num),
-                         "Unable to release HID Interface");
+    HID_RETURN_ON_ERROR(usb_host_interface_release(s_hid_driver->client_handle,
+                        hid_dev_obj_hdl->constant.dev_hdl,
+                        hid_iface->constant.num),
+                        "Unable to release HID Interface");
 
     // 4. Free all urb's and close pipe for EP IN
     for (int i = 0; i < HID_EP_MAX; i++) {
@@ -1100,43 +1112,43 @@ esp_err_t hid_host_device_interface_release(hid_iface_new_t *hid_iface)
     return ESP_OK;
 }
 
-esp_err_t hid_host_device_open_new_api(hid_host_dev_params_t *dev_params)
+esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params)
 {
     hid_dev_obj_t *hid_dev_obj_hdl = NULL;
     // 1. Search the USB device by addr in dev_opened queue
-    if (ESP_ERR_NOT_FOUND == hid_host_device_get_opened(dev_params->addr, &hid_dev_obj_hdl)) {
+    if (ESP_ERR_NOT_FOUND == hid_host_device_get_opened_by_addr(dev_params->addr, &hid_dev_obj_hdl)) {
         // Open new USB device
-        HID_RETURN_ON_ERROR( hid_host_device_add(dev_params->addr, &hid_dev_obj_hdl),
-                             "Unable to open new USB Device");
+        HID_RETURN_ON_ERROR(hid_host_device_add(dev_params->addr, &hid_dev_obj_hdl),
+                            "Unable to open new USB Device");
     }
     // 2. Verify Interface has been already claimed
-    if (ESP_OK == hid_host_device_interface_claimed(dev_params)) {
+    if (ESP_OK == hid_host_device_interface_is_claimed(dev_params)) {
         ESP_LOGE(TAG, "HID Interface %d has been already claimed (USB Port %d)",
                  dev_params->iface_num,
                  dev_params->addr);
         return ESP_ERR_INVALID_STATE;
     }
     // 3. Claim Interface if possible
-    HID_RETURN_ON_ERROR( hid_host_device_interface_claim(hid_dev_obj_hdl,
-                         dev_params->iface_num,
-                         dev_params->sub_class,
-                         dev_params->proto),
-                         "Unable to open new HID Interface");
+    HID_RETURN_ON_ERROR(hid_host_device_interface_claim(hid_dev_obj_hdl,
+                        dev_params->iface_num,
+                        dev_params->sub_class,
+                        dev_params->proto),
+                        "Unable to open new HID Interface");
     return ESP_OK;
 }
 
-esp_err_t hid_host_device_close_new_api(hid_host_device_handle_t hid_dev_handle)
+esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle)
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
 
-    HID_RETURN_ON_ERROR( hid_host_device_interface_release(hid_iface),
-                         "HID Interface release failure");
+    HID_RETURN_ON_ERROR(hid_host_device_interface_release(hid_iface),
+                        "HID Interface release failure");
 
     // Remove device if no Interfaces are claimed
     if (0 == hid_dev_obj_hdl->dynamic.flags.claimed_interfaces) {
-        HID_RETURN_ON_ERROR( hid_host_device_remove(hid_dev_obj_hdl),
-                             "USB HID Device close failure");
+        HID_RETURN_ON_ERROR(hid_host_device_remove(hid_dev_obj_hdl),
+                            "USB HID Device close failure");
     }
     return ESP_OK;
 }
@@ -1168,13 +1180,15 @@ esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
     // Fill descriptor device information
     const usb_device_desc_t *desc;
     usb_device_info_t dev_info;
-    HID_RETURN_ON_ERROR( usb_host_get_device_descriptor(hid_dev_obj_hdl->constant.dev_hdl, &desc),
-                         "Unable to get device descriptor");
-    HID_RETURN_ON_ERROR( usb_host_device_info(hid_dev_obj_hdl->constant.dev_hdl, &dev_info),
-                         "Unable to get USB device info");
+
+    HID_RETURN_ON_ERROR(usb_host_get_device_descriptor(hid_dev_obj_hdl->constant.dev_hdl, &desc),
+                        "Unable to get device descriptor");
+    HID_RETURN_ON_ERROR(usb_host_device_info(hid_dev_obj_hdl->constant.dev_hdl, &dev_info),
+                        "Unable to get USB device info");
     // VID, PID
     hid_dev_info->VID = desc->idVendor;
     hid_dev_info->PID = desc->idProduct;
+
     // Strings
     hid_host_string_descriptor_copy(hid_dev_info->iManufacturer,
                                     dev_info.str_desc_manufacturer);
@@ -1183,15 +1197,18 @@ esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
     hid_host_string_descriptor_copy(hid_dev_info->iSerialNumber,
                                     dev_info.str_desc_serial_num);
 
-    // HID
-    hid_dev_info->InterfaceNum = hid_iface->constant.num;
-    hid_dev_info->SubClass = hid_iface->constant.sub_class;
-    hid_dev_info->Protocol = hid_iface->constant.proto;
+    // HID related info
+    hid_dev_info->bInterfaceNum = hid_iface->constant.num;
+    hid_dev_info->bSubClass = hid_iface->constant.sub_class;
+    hid_dev_info->bProtocol = hid_iface->constant.proto;
+    hid_dev_info->wReportDescriptorLenght = hid_iface->constant.report_descriptor_length;
+    hid_dev_info->bCountryCode = hid_iface->constant.country_code;
+
     return ESP_OK;
 }
 
 // ------------------------ USB HID Host driver API ----------------------------
-esp_err_t hid_host_device_start(hid_host_device_handle_t hid_dev_handle)
+esp_err_t hid_host_device_enable_input(hid_host_device_handle_t hid_dev_handle)
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
@@ -1206,19 +1223,49 @@ esp_err_t hid_host_device_start(hid_host_device_handle_t hid_dev_handle)
     return usb_host_transfer_submit(xfer);
 }
 
-esp_err_t hid_host_device_stop(hid_host_device_handle_t hid_dev_handle)
+esp_err_t hid_host_device_disable_input(hid_host_device_handle_t hid_dev_handle)
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
-    HID_RETURN_ON_ERROR( usb_host_endpoint_halt(hid_dev_obj_hdl->constant.dev_hdl,
-                         hid_iface->constant.ep[HID_EP_IN].num),
-                         "Unable to HALT EP");
-    HID_RETURN_ON_ERROR( usb_host_endpoint_flush(hid_dev_obj_hdl->constant.dev_hdl,
-                         hid_iface->constant.ep[HID_EP_IN].num),
-                         "Unable to FLUSH EP");
+    HID_RETURN_ON_ERROR(usb_host_endpoint_halt(hid_dev_obj_hdl->constant.dev_hdl,
+                        hid_iface->constant.ep[HID_EP_IN].num),
+                        "Unable to HALT EP");
+    HID_RETURN_ON_ERROR(usb_host_endpoint_flush(hid_dev_obj_hdl->constant.dev_hdl,
+                        hid_iface->constant.ep[HID_EP_IN].num),
+                        "Unable to FLUSH EP");
     usb_host_endpoint_clear(hid_dev_obj_hdl->constant.dev_hdl,
                             hid_iface->constant.ep[HID_EP_IN].num);
     return ESP_OK;
+}
+
+esp_err_t hid_host_device_output(hid_host_device_handle_t hid_dev_handle,
+                                 const uint8_t *data,
+                                 const size_t length)
+{
+    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+    usb_transfer_t *xfer = hid_iface->constant.ep[HID_EP_OUT].xfer;
+
+    if (xfer == NULL) {
+        ESP_LOGE(TAG, "USB HID Device doesn't have OUT EP");
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    if (length > hid_iface->constant.ep[HID_EP_OUT].mps) {
+        // TODO: we can easily send the data by chunks
+        // so, lets leave it to the next version
+        ESP_LOGE(TAG, "Data length overflow OUT EP mps");
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    // Prepare transfer
+    xfer->device_handle = hid_dev_obj_hdl->constant.dev_hdl;
+    xfer->callback = out_xfer_done;
+    xfer->context = hid_iface;
+    xfer->timeout_ms = DEFAULT_TIMEOUT_MS;
+    xfer->bEndpointAddress = hid_iface->constant.ep[HID_EP_OUT].num;
+    xfer->num_bytes = hid_iface->constant.ep[HID_EP_OUT].mps;
+    return usb_host_transfer_submit(xfer);
 }
 
 uint8_t *hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
@@ -1244,36 +1291,6 @@ uint8_t *hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
     }
 #endif //
     return NULL;
-}
-
-esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
-                                   hid_host_dev_info_t *hid_dev_info)
-{
-    HID_RETURN_ON_INVALID_ARG(hid_dev_info);
-
-    hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
-    HID_RETURN_ON_INVALID_ARG(iface);
-
-    hid_device_t *hid_dev = iface->parent;
-
-    // Fill descriptor device information
-    const usb_device_desc_t *desc;
-    usb_device_info_t dev_info;
-    HID_RETURN_ON_ERROR( usb_host_get_device_descriptor(hid_dev->dev_hdl, &desc),
-                         "Unable to get device descriptor");
-    HID_RETURN_ON_ERROR( usb_host_device_info(hid_dev->dev_hdl, &dev_info),
-                         "Unable to get USB device info");
-    // VID, PID
-    hid_dev_info->VID = desc->idVendor;
-    hid_dev_info->PID = desc->idProduct;
-    // Strings
-    hid_host_string_descriptor_copy(hid_dev_info->iManufacturer,
-                                    dev_info.str_desc_manufacturer);
-    hid_host_string_descriptor_copy(hid_dev_info->iProduct,
-                                    dev_info.str_desc_product);
-    hid_host_string_descriptor_copy(hid_dev_info->iSerialNumber,
-                                    dev_info.str_desc_serial_num);
-    return ESP_OK;
 }
 
 esp_err_t hid_class_request_get_report(hid_host_device_handle_t hid_dev_handle,
@@ -1311,10 +1328,10 @@ esp_err_t hid_class_request_get_idle(hid_host_device_handle_t hid_dev_handle,
         .data = tmp
     };
 
-    HID_RETURN_ON_ERROR( hid_class_request_get(hid_iface->constant.hid_dev_obj_hdl,
-                         &get_idle,
-                         NULL),
-                         "HID class request transfer failure");
+    HID_RETURN_ON_ERROR(hid_class_request_get(hid_iface->constant.hid_dev_obj_hdl,
+                        &get_idle,
+                        NULL),
+                        "HID class request transfer failure");
 
     *idle_rate = tmp[0];
     return ESP_OK;
@@ -1335,10 +1352,10 @@ esp_err_t hid_class_request_get_protocol(hid_host_device_handle_t hid_dev_handle
         .data = tmp
     };
 
-    HID_RETURN_ON_ERROR( hid_class_request_get(hid_iface->constant.hid_dev_obj_hdl,
-                         &get_proto,
-                         NULL),
-                         "HID class request failure");
+    HID_RETURN_ON_ERROR(hid_class_request_get(hid_iface->constant.hid_dev_obj_hdl,
+                        &get_proto,
+                        NULL),
+                        "HID class request failure");
 
     *protocol = (hid_report_protocol_t) tmp[0];
     return ESP_OK;

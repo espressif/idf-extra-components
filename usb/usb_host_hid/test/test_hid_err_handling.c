@@ -24,6 +24,7 @@
  * @param[in] arg    Pointer to arguments, does not used
  *
  */
+#if (0)
 static void test_hid_host_interface_event_close(hid_host_device_handle_t hid_device_handle,
         const hid_host_interface_event_t event,
         void *arg)
@@ -33,10 +34,11 @@ static void test_hid_host_interface_event_close(hid_host_device_handle_t hid_dev
     case HID_HOST_INTERFACE_EVENT_TRANSFER_ERROR:
         break;
     case HID_HOST_INTERFACE_EVENT_DISCONNECTED:
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(hid_device_handle) );
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(hid_device_handle));
         break;
     }
 }
+#endif //
 
 /**
  * @brief USB HID Host event callback stub.
@@ -76,7 +78,7 @@ static void test_hid_host_event_callback_open(hid_host_device_handle_t hid_devic
             .callback_arg = NULL
         };
 
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config) );
+        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config));
     }
 }
 
@@ -152,7 +154,7 @@ static void test_claim_interface_without_driver(void)
     };
 
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE,
-                      hid_host_device_open(hid_dev_handle, &dev_config) );
+                      hid_host_device_open(hid_dev_handle, &dev_config));
 }
 
 static void test_install_hid_driver_when_already_installed(void)
