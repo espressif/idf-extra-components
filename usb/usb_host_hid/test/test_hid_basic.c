@@ -566,6 +566,15 @@ void hid_host_event_callback(void *handler_args,
             hid_host_device_open(&param->connect.usb);
         }
 #endif //
+
+        // Claim Protocol None HID Device
+#if (0)
+        if ((HID_SUBCLASS_NO_SUBCLASS == param->connect.usb.sub_class)
+                && (HID_PROTOCOL_NONE == param->connect.usb.proto)) {
+            hid_host_device_open(&param->connect.usb);
+        }
+#endif //
+
         break;
     }
     case HID_HOST_OPEN_EVENT: {
@@ -587,6 +596,27 @@ void hid_host_event_callback(void *handler_args,
 
         printf("HID Host start\n");
         hid_host_device_enable_input(param->open.dev);
+
+        // Send OUT report
+#if (0)
+        uint8_t data[64] = { 0 };
+
+        data[0] = 0x01;
+        data[1] = 0x00;
+        hid_host_device_output(param->open.dev,
+                               data,
+                               64);
+
+        for (int i = 0; i < 10; i++) {
+            vTaskDelay(pdMS_TO_TICKS(5 * 1000));
+            data[0] = 0x02;
+            data[1] ^= 0x01;
+            hid_host_device_output(param->open.dev,
+                                   data,
+                                   64);
+        }
+#endif
+
         break;
     }
     case HID_HOST_DISCONNECT_EVENT: {

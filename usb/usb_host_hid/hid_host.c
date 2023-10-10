@@ -1264,7 +1264,8 @@ esp_err_t hid_host_device_output(hid_host_device_handle_t hid_dev_handle,
     xfer->context = hid_iface;
     xfer->timeout_ms = DEFAULT_TIMEOUT_MS;
     xfer->bEndpointAddress = hid_iface->constant.ep[HID_EP_OUT].num;
-    xfer->num_bytes = hid_iface->constant.ep[HID_EP_OUT].mps;
+    xfer->num_bytes = length;
+    memcpy(xfer->data_buffer, data, length);
     return usb_host_transfer_submit(xfer);
 }
 
