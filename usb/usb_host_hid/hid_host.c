@@ -323,7 +323,7 @@ static void in_xfer_done(usb_transfer_t *in_xfer)
     case USB_TRANSFER_STATUS_COMPLETED:
         // Notify user
         // hid_host_user_interface_callback(iface, HID_HOST_INTERFACE_EVENT_INPUT_REPORT);
-        hid_host_event_data_t event_data = { 0 };
+        hid_host_event_data_t event_data;
         size_t event_data_size = sizeof(hid_host_event_data_t);
 
         event_data.input.usb.addr = hid_iface->constant.hid_dev_obj_hdl->constant.usb_addr;
