@@ -594,6 +594,26 @@ void hid_host_event_callback(void *handler_args,
         printf("\t Report Descriptor Length: %d Byte(s) \n", hid_dev_info.wReportDescriptorLenght);
         printf("\t CoutryCode: 0x%02X \n", hid_dev_info.bCountryCode);
 
+        // Get Report Descriptor
+        uint8_t *hid_report_descriptor = malloc(hid_dev_info.wReportDescriptorLenght);
+        size_t length = 0;
+        hid_host_get_report_descriptor(param->open.dev,
+                                       hid_report_descriptor,
+                                       hid_dev_info.wReportDescriptorLenght,
+                                       &length);
+        // Print report descriptor
+        for (uint8_t i = 0; i < length; ++i) {
+            printf("%02X ", hid_report_descriptor[i]);
+            if ((i % 0x10) == 0xf) {
+                printf("\n");
+            }
+        }
+        if (length % 0x10) {
+            printf("\n");
+        }
+        //
+        free(hid_report_descriptor);
+
         printf("HID Host start\n");
         hid_host_device_enable_input(param->open.dev);
 

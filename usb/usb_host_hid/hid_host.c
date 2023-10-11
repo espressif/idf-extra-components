@@ -400,11 +400,12 @@ static inline esp_err_t hid_dev_obj_ctrl_claim(hid_host_ctrl_t *ctrl,
     HID_RETURN_ON_INVALID_ARG(ctrl);
     HID_RETURN_ON_INVALID_ARG(ctrl->xfer);
 
-    if (ESP_OK == xSemaphoreTake(ctrl->busy, pdMS_TO_TICKS(timeout_ms))) {
-        *xfer = ctrl->xfer;
-        return ESP_OK;
+    BaseType_t taken = xSemaphoreTake(ctrl->busy, pdMS_TO_TICKS(timeout_ms));
+    if (!taken) {
+        return ESP_ERR_TIMEOUT;
     }
-    return ESP_ERR_TIMEOUT;
+    *xfer = ctrl->xfer;
+    return ESP_OK;
 }
 
 /** Unlock HID device from other task
@@ -478,7 +479,6 @@ static esp_err_t hid_dev_obj_ctrl_xfer(hid_host_ctrl_t *ctrl,
     return ESP_OK;
 }
 
-#if (0)
 /**
  * @brief USB class standard request get descriptor
  *
@@ -491,13 +491,11 @@ static esp_err_t usb_class_request_get_descriptor(hid_dev_obj_t *hid_dev_obj_hdl
 {
     esp_err_t ret;
     usb_transfer_t *xfer;
-    HID_RETURN_ON_INVALID_ARG(req);
-    HID_RETURN_ON_INVALID_ARG(req->data);
 
-    HID_RETURN_ON_ERROR(hid_dev_obj_claim_ctrl_xfer(hid_dev_obj_hdl,
+    HID_RETURN_ON_ERROR(hid_dev_obj_ctrl_claim(&hid_dev_obj_hdl->constant.ctrl,
                         DEFAULT_TIMEOUT_MS,
                         &xfer),
-                        "Control xfer buffer is busy");
+                        "USB Device is busy by other task");
 
     const size_t ctrl_size = xfer->data_buffer_size;
 
@@ -505,14 +503,14 @@ static esp_err_t usb_class_request_get_descriptor(hid_dev_obj_t *hid_dev_obj_hdl
         usb_device_info_t dev_info;
         ESP_ERROR_CHECK(usb_host_device_info(hid_dev_obj_hdl->constant.dev_hdl, &dev_info));
         // reallocate the ctrl xfer buffer for new length
-        ESP_LOGD(TAG, "Change HID ctrl xfer size from %d to %d",
+        ESP_LOGD(TAG, "Change Control xfer size from %d to %d",
                  ctrl_size,
                  (int)(USB_SETUP_PACKET_SIZE + req->wLength));
 
-        usb_host_transfer_free(hid_dev_obj_hdl->constant.ctrl_xfer);
+        usb_host_transfer_free(hid_dev_obj_hdl->constant.ctrl.xfer);
         HID_RETURN_ON_ERROR(usb_host_transfer_alloc(USB_SETUP_PACKET_SIZE + req->wLength,
                             0,
-                            &hid_dev_obj_hdl->constant.ctrl_xfer),
+                            &hid_dev_obj_hdl->constant.ctrl.xfer),
                             "Unable to allocate transfer buffer for EP0");
     }
 
@@ -526,9 +524,8 @@ static esp_err_t usb_class_request_get_descriptor(hid_dev_obj_t *hid_dev_obj_hdl
     setup->wIndex = req->wIndex;
     setup->wLength = req->wLength;
 
-    ret = hid_dev_obj_ctrl_xfer(hid_dev_obj_hdl, /* ->constant.dev_hdl, */
-                                //    xfer,
-                                //    (void *) hid_dev_obj_hdl,
+    ret = hid_dev_obj_ctrl_xfer(&hid_dev_obj_hdl->constant.ctrl,
+                                hid_dev_obj_hdl->constant.dev_hdl,
                                 USB_SETUP_PACKET_SIZE + req->wLength,
                                 DEFAULT_TIMEOUT_MS);
 
@@ -540,38 +537,10 @@ static esp_err_t usb_class_request_get_descriptor(hid_dev_obj_t *hid_dev_obj_hdl
             ret = ESP_ERR_INVALID_SIZE;
         }
     }
-    hid_dev_obj_release_ctrl_xfer(hid_dev_obj_hdl);
+    hid_dev_obj_ctrl_release(&hid_dev_obj_hdl->constant.ctrl);
 
     return ret;
 }
-
-/**
- * @brief HID Host Request Report Descriptor
- *
- * @param[in] hidh_iface      // TODO:
- * @return esp_err_t
- */
-static esp_err_t hid_host_class_request_report_descriptor(hid_dev_obj_t *hid_dev_obj_hdl)
-{
-    HID_RETURN_ON_INVALID_ARG(iface);
-
-    iface->report_desc = malloc(iface->report_desc_size);
-    HID_RETURN_ON_FALSE(iface->report_desc,
-                        ESP_ERR_NO_MEM,
-                        "Unable to allocate memory");
-
-    const hid_class_request_t get_desc = {
-        .bRequest = USB_B_REQUEST_GET_DESCRIPTOR,
-        .wValue = (HID_CLASS_DESCRIPTOR_TYPE_REPORT << 8),
-        .wIndex = iface->dev_params.iface_num,
-        .wLength = iface->report_desc_size,
-        .data = iface->report_desc
-    };
-
-    return usb_class_request_get_descriptor(iface->parent, &get_desc);
-    return ESP_OK;
-}
-#endif //
 
 /**
  * @brief HID class specific request Set
@@ -1269,29 +1238,34 @@ esp_err_t hid_host_device_output(hid_host_device_handle_t hid_dev_handle,
     return usb_host_transfer_submit(xfer);
 }
 
-uint8_t *hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
-                                        size_t *report_desc_len)
+esp_err_t hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
+        uint8_t *data,
+        size_t max_length,
+        size_t *length)
 {
-#if (0)
-    hid_iface_t *iface = get_iface_by_handle(hid_dev_handle);
+    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
 
-    if (NULL == iface) {
-        return NULL;
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_INVALID_ARG(data);
+    HID_RETURN_ON_INVALID_ARG(length);
+
+    if (hid_iface->constant.report_descriptor_length > max_length) {
+        return ESP_ERR_INVALID_SIZE;
     }
 
-    // Report Descriptor was already requested, return pointer
-    if (iface->report_desc) {
-        *report_desc_len = iface->report_desc_size;
-        return iface->report_desc;
-    }
+    const hid_class_request_t get_desc = {
+        .bRequest = USB_B_REQUEST_GET_DESCRIPTOR,
+        .wValue = (HID_CLASS_DESCRIPTOR_TYPE_REPORT << 8),
+        .wIndex = hid_iface->constant.num,
+        .wLength = hid_iface->constant.report_descriptor_length,
+        .data = data
+    };
 
-    // Request Report Descriptor
-    if (ESP_OK == hid_class_request_report_descriptor(iface)) {
-        *report_desc_len = iface->report_desc_size;
-        return iface->report_desc;
-    }
-#endif //
-    return NULL;
+    HID_RETURN_ON_ERROR(usb_class_request_get_descriptor(hid_iface->constant.hid_dev_obj_hdl,
+                        &get_desc),
+                        "HID class request transfer failure");
+    *length = hid_iface->constant.report_descriptor_length;
+    return ESP_OK;
 }
 
 esp_err_t hid_class_request_get_report(hid_host_device_handle_t hid_dev_handle,

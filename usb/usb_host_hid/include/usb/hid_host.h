@@ -265,13 +265,17 @@ esp_err_t hid_host_device_output(hid_host_device_handle_t hid_dev_handle,
 /**
  * @brief HID Host Get Report Descriptor
  *
- * @param[in] hid_dev_handle   HID Device handle
- * @param[out] report_desc_len Length of report descriptor
+ * @param[in] hid_dev_handle            HID Device handle
+ * @param[out] data                     HID Report Descriptor data pointer
+ * @param[in] max_length                Data buffer maximal length
+ * @param[out] length                   HID Report descriptor length
  *
- * @return a uint8_t pointer to report descriptor data
+ * @return esp_err_t
  */
-uint8_t *hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
-                                        size_t *report_desc_len);
+esp_err_t hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle,
+        uint8_t *data,
+        size_t max_length,
+        size_t *length);
 
 /**
  * @brief HID Host Get device information
