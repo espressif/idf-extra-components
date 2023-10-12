@@ -217,6 +217,8 @@ static void hid_host_new_device_event(uint8_t dev_addr)
     if (usb_host_device_open(s_hid_driver->client_handle, dev_addr, &dev_hdl) == ESP_OK) {
         // get config descriptor
         if (usb_host_get_active_config_descriptor(dev_hdl, &config_desc) == ESP_OK) {
+            // close device, we dont need it anymore
+            ESP_ERROR_CHECK(usb_host_device_close(s_hid_driver->client_handle, dev_hdl));
             // for every interface
             for (int num = 0; num < config_desc->bNumInterfaces; num++) {
                 iface_desc = usb_parse_interface_descriptor(config_desc, num, 0, &offset);
@@ -236,10 +238,12 @@ static void hid_host_new_device_event(uint8_t dev_addr)
                                       portMAX_DELAY);
                 }
             }
+        } else {
+            // Unable to get configuration descriptor - close USB Device
+            ESP_LOGE(TAG, "Unable to get Configuration descriptor");
+            ESP_ERROR_CHECK(usb_host_device_close(s_hid_driver->client_handle, dev_hdl));
         }
     }
-    // close device
-    ESP_ERROR_CHECK(usb_host_device_close(s_hid_driver->client_handle, dev_hdl));
 }
 
 static void hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
@@ -280,19 +284,26 @@ static esp_err_t hid_host_device_interface_is_claimed(hid_host_dev_params_t *dev
     hid_dev_obj_t *hid_dev_obj = NULL;
     HID_ENTER_CRITICAL();
     STAILQ_FOREACH(hid_dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
-        STAILQ_FOREACH(hid_iface, &hid_dev_obj->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
-            if ((dev_params->addr == hid_iface->constant.hid_dev_obj_hdl->constant.usb_addr)
-                    && (dev_params->iface_num == hid_iface->constant.num)
-                    && (dev_params->sub_class == hid_iface->constant.sub_class)
-                    && (dev_params->proto == hid_iface->constant.proto)) {
-                HID_EXIT_CRITICAL();
-                return ESP_OK;
+        // Verify Interface list only if usb device address fits
+        if (dev_params->addr == hid_dev_obj->constant.usb_addr) {
+            STAILQ_FOREACH(hid_iface, &hid_dev_obj->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
+                if ((dev_params->iface_num == hid_iface->constant.num)
+                        && (dev_params->sub_class == hid_iface->constant.sub_class)
+                        && (dev_params->proto == hid_iface->constant.proto)) {
+                    HID_EXIT_CRITICAL();
+                    return ESP_OK;
+                }
             }
         }
     }
     HID_EXIT_CRITICAL();
     return ESP_ERR_NOT_FOUND;
 }
+
+
+// =============================================================================
+// ======================== Host Client Callback ===============================
+// =============================================================================
 
 /**
  * @brief USB Host Client's event callback
@@ -429,7 +440,7 @@ static void ctrl_xfer_done(usb_transfer_t *ctrl_xfer)
     assert(ctrl_xfer);
     hid_host_ctrl_t *ctrl = (hid_host_ctrl_t *)ctrl_xfer->context;
     // TODO: verify context xfer and xfer done
-    // assert(ctrl->xfer == ctrl_xfer);
+    assert(ctrl->xfer == ctrl_xfer);
     xSemaphoreGive(ctrl->sem_done);
 }
 
@@ -462,9 +473,9 @@ static esp_err_t hid_dev_obj_ctrl_xfer(hid_host_ctrl_t *ctrl,
                         xfer),
                         "Unable to submit control transfer");
 
-    BaseType_t received = xSemaphoreTake(ctrl->sem_done,
-                                         pdMS_TO_TICKS(xfer->timeout_ms));
-    if (received != pdTRUE) {
+    BaseType_t taken = xSemaphoreTake(ctrl->sem_done,
+                                      pdMS_TO_TICKS(xfer->timeout_ms));
+    if (taken != pdTRUE) {
         // Transfer was not finished, error in USB LIB. Reset the endpoint
         ESP_LOGE(TAG, "Control Transfer Timeout");
 
@@ -811,7 +822,7 @@ esp_err_t hid_host_device_add(uint8_t usb_addr,
                                          usb_addr,
                                          &dev_hdl);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Unable to open USB Device with params");
+        ESP_LOGE(TAG, "Unable to open USB Device with params, err %d", ret);
         goto fail;
     }
 

@@ -49,22 +49,6 @@ typedef enum {
 } hid_host_event_t;
 
 /**
- * @brief USB HID HOST Device event id
-*/
-typedef enum {
-    HID_HOST_DRIVER_EVENT_CONNECTED = 0x00,        /**< HID Device has been found in connected USB device (at least one) */
-} hid_host_driver_event_t;
-
-/**
- * @brief USB HID HOST Interface event id
-*/
-typedef enum {
-    HID_HOST_INTERFACE_EVENT_INPUT_REPORT = 0x00,     /**< HID Device input report */
-    HID_HOST_INTERFACE_EVENT_TRANSFER_ERROR,          /**< HID Device transfer error */
-    HID_HOST_INTERFACE_EVENT_DISCONNECTED,            /**< HID Device has been disconnected */
-} hid_host_interface_event_t;
-
-/**
  * @brief USB HID Host device parameters
 */
 typedef struct {
@@ -131,28 +115,6 @@ typedef union {
 
 } hid_host_event_data_t;
 
-/**
- * @brief USB HID driver event callback.
- *
- * @param[in] hid_handle  HID device handle (HID Interface)
- * @param[in] event       HID driver event
- * @param[in] arg         User argument from HID driver configuration structure
-*/
-typedef void (*hid_host_driver_event_cb_t)(hid_host_device_handle_t hid_device_handle,
-        const hid_host_driver_event_t event,
-        void *arg);
-
-/**
- * @brief USB HID Interface event callback.
- *
- * @param[in] hid_device_handle     HID device handle (HID Interface)
- * @param[in] event                 HID Interface event
- * @param[in] arg                   User argument
-*/
-typedef void (*hid_host_interface_event_cb_t)(hid_host_device_handle_t hid_device_handle,
-        const hid_host_interface_event_t event,
-        void *arg);
-
 // ----------------------------- Public ---------------------------------------
 /**
  * @brief HID configuration structure.
@@ -163,18 +125,9 @@ typedef struct {
     size_t task_priority;                   /**< Task priority of created background task */
     size_t stack_size;                      /**< Stack size of created background task */
     BaseType_t core_id;                     /**< Select core on which background task will run or tskNO_AFFINITY  */
-    // hid_host_driver_event_cb_t callback;    /**< Callback invoked when HID driver event occurs. Must not be NULL. */
-    esp_event_handler_t callback;
+    esp_event_handler_t callback;           /**< Callback invoked when HID driver event occurs. Must not be NULL. */
     void *callback_arg;                     /**< User provided argument passed to callback */
 } hid_host_driver_config_t;
-
-/**
- * @brief HID device configuration structure (HID Interface)
-*/
-typedef struct {
-    hid_host_interface_event_cb_t callback;     /**< Callback invoked when HID Interface event occurs */
-    void *callback_arg;                         /**< User provided argument passed to callback */
-} hid_host_device_config_t;
 
 /**
  * @brief USB HID Host install USB Host HID Class driver
