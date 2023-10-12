@@ -42,6 +42,7 @@ jobs:
 
   run-target:
     name: Run examples on target
+    if: ${{ github.repository_owner == 'espressif' }}
     needs: build
     strategy:
       fail-fast: false
@@ -66,6 +67,7 @@ jobs:
 
   run-ethernet-based-examples:
     name: Run examples on ethernet runners
+    if: ${{ github.repository_owner == 'espressif' }}
     needs: build
     strategy:
       fail-fast: false

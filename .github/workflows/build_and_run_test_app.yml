@@ -67,6 +67,7 @@ jobs:
 
   run-target:
     name: Run Test App on target
+    if: ${{ github.repository_owner == 'espressif' }}
     needs: build
     strategy:
       fail-fast: false
@@ -99,10 +100,10 @@ jobs:
           name: test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
           path: test_app/*.xml
 
-  publish-results: # @todo fix this for public forks
+  publish-results:
     name: Publish Test App results
     needs: run-target
-    if: always() # Run even if the previous step failed
+    if: ${{ always() && github.repository_owner == 'espressif' }} # Run even if the previous step failed
     runs-on: ubuntu-20.04
     steps:
       - name: Download Test results
