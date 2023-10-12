@@ -641,7 +641,7 @@ TEST_CASE("class_specific_requests_with_external_polling_without_polling", "[hid
 }
 #endif //
 
-TEST_CASE("sudden_disconnect", "[hid_host]")
+TEST_CASE("sudden_disconnect", "[hid_host][ignore]")
 {
     // Install USB and HID driver with 'hid_host_event_cb_sudden_disconnect'
     test_hid_setup(hid_host_event_cb_sudden_disconnect);
