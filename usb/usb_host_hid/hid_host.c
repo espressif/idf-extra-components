@@ -500,6 +500,10 @@ static esp_err_t usb_class_request_get_descriptor(hid_dev_obj_t *hid_dev_obj_hdl
     esp_err_t ret;
     usb_transfer_t *xfer;
 
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
     HID_RETURN_ON_ERROR(hid_dev_obj_ctrl_claim(&hid_dev_obj_hdl->constant.ctrl,
                         DEFAULT_TIMEOUT_MS,
                         &xfer),
@@ -563,6 +567,10 @@ static esp_err_t hid_class_request_set(hid_dev_obj_t *hid_dev_obj_hdl,
     esp_err_t ret;
     usb_transfer_t *xfer;
 
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
     HID_RETURN_ON_ERROR(hid_dev_obj_ctrl_claim(&hid_dev_obj_hdl->constant.ctrl,
                         DEFAULT_TIMEOUT_MS,
                         &xfer),
@@ -604,6 +612,10 @@ static esp_err_t hid_class_request_get(hid_dev_obj_t *hid_dev_obj_hdl,
 {
     esp_err_t ret;
     usb_transfer_t *xfer;
+
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
 
     HID_RETURN_ON_ERROR(hid_dev_obj_ctrl_claim(&hid_dev_obj_hdl->constant.ctrl,
                         DEFAULT_TIMEOUT_MS,
@@ -1092,6 +1104,11 @@ esp_err_t hid_host_device_interface_release(hid_iface_new_t *hid_iface)
 esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params)
 {
     hid_dev_obj_t *hid_dev_obj_hdl = NULL;
+
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
     // 1. Search the USB device by addr in dev_opened queue
     if (ESP_ERR_NOT_FOUND == hid_host_device_get_opened_by_addr(dev_params->addr, &hid_dev_obj_hdl)) {
         // Open new USB device
@@ -1116,6 +1133,12 @@ esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params)
 
 esp_err_t hid_host_device_close(hid_host_device_handle_t hid_dev_handle)
 {
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
+
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
 
@@ -1149,6 +1172,7 @@ esp_err_t hid_host_handle_events(uint32_t timeout)
 esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
                                    hid_host_dev_info_t *hid_dev_info)
 {
+    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
     HID_RETURN_ON_INVALID_ARG(hid_dev_info);
 
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
@@ -1187,9 +1211,15 @@ esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
 // ------------------------ USB HID Host driver API ----------------------------
 esp_err_t hid_host_device_enable_input(hid_host_device_handle_t hid_dev_handle)
 {
+    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
     usb_transfer_t *xfer = hid_iface->constant.ep[HID_EP_IN].xfer;
+
     // prepare transfer
     xfer->device_handle = hid_dev_obj_hdl->constant.dev_hdl;
     xfer->callback = in_xfer_done;
@@ -1202,8 +1232,15 @@ esp_err_t hid_host_device_enable_input(hid_host_device_handle_t hid_dev_handle)
 
 esp_err_t hid_host_device_disable_input(hid_host_device_handle_t hid_dev_handle)
 {
+    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+
+
     HID_RETURN_ON_ERROR(usb_host_endpoint_halt(hid_dev_obj_hdl->constant.dev_hdl,
                         hid_iface->constant.ep[HID_EP_IN].num),
                         "Unable to HALT EP");
@@ -1219,6 +1256,11 @@ esp_err_t hid_host_device_output(hid_host_device_handle_t hid_dev_handle,
                                  const uint8_t *data,
                                  const size_t length)
 {
+    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
     hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
     usb_transfer_t *xfer = hid_iface->constant.ep[HID_EP_OUT].xfer;
@@ -1284,6 +1326,8 @@ esp_err_t hid_class_request_get_report(hid_host_device_handle_t hid_dev_handle,
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
 
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
+
     const hid_class_request_t get_report = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_GET_REPORT,
         .wValue = (report_type << 8) | report_id,
@@ -1300,6 +1344,8 @@ esp_err_t hid_class_request_get_idle(hid_host_device_handle_t hid_dev_handle,
                                      uint8_t *idle_rate)
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
 
     uint8_t tmp[1] = { 0xff };
 
@@ -1324,6 +1370,8 @@ esp_err_t hid_class_request_get_protocol(hid_host_device_handle_t hid_dev_handle
         hid_report_protocol_t *protocol)
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
 
     uint8_t tmp[1] = { 0xff };
 
@@ -1352,6 +1400,8 @@ esp_err_t hid_class_request_set_report(hid_host_device_handle_t hid_dev_handle,
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
 
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
+
     const hid_class_request_t set_report = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_SET_REPORT,
         .wValue = (report_type << 8) | report_id,
@@ -1369,6 +1419,8 @@ esp_err_t hid_class_request_set_idle(hid_host_device_handle_t hid_dev_handle,
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
 
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
+
     const hid_class_request_t set_idle = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_SET_IDLE,
         .wValue = (duration << 8) | report_id,
@@ -1384,6 +1436,8 @@ esp_err_t hid_class_request_set_protocol(hid_host_device_handle_t hid_dev_handle
         hid_report_protocol_t protocol)
 {
     hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
 
     const hid_class_request_t set_proto = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_SET_PROTOCOL,

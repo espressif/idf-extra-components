@@ -45,40 +45,49 @@ static void test_hid_host_interface_event_close(hid_host_device_handle_t hid_dev
  *
  * Does not handle anything.
  *
- * @param[in] event  HID Host device event
- * @param[in] arg    Pointer to arguments, does not used
- *
+ * @param[in] handler_args
+ * @param[in] base
+ * @param[in] id
+ * @param[in] event_data
  */
-#if (0)
-static void test_hid_host_event_callback_stub(hid_host_device_handle_t hid_device_handle,
-        const hid_host_driver_event_t event,
-        void *arg)
+static void hid_host_event_cb_stub(void *handler_args,
+                                   esp_event_base_t base,
+                                   int32_t id,
+                                   void *event_data)
 {
-    if (event == HID_HOST_DRIVER_EVENT_CONNECTED) {
-        // Device connected
+    hid_host_event_t event = (hid_host_event_t)id;
+    switch (event) {
+    case HID_HOST_CONNECT_EVENT:
+    case HID_HOST_OPEN_EVENT:
+    case HID_HOST_DISCONNECT_EVENT:
+    case HID_HOST_INPUT_EVENT:
+    default:
+        printf("HID Host stub event: %d\n", event);
+        break;
     }
 }
 
-/**
- * @brief USB HID Host event callback.
- *
- * Handle connected event and open a device.
- *
- * @param[in] event  HID Host device event
- * @param[in] arg    Pointer to arguments, does not used
- *
- */
-static void test_hid_host_event_callback_open(hid_host_device_handle_t hid_device_handle,
-        const hid_host_driver_event_t event,
-        void *arg)
+static void hid_host_event_cb_open_close(void *handler_args,
+        esp_event_base_t base,
+        int32_t id,
+        void *event_data)
 {
-    if (event == HID_HOST_DRIVER_EVENT_CONNECTED) {
-        const hid_host_device_config_t dev_config = {
-            .callback = test_hid_host_interface_event_close,
-            .callback_arg = NULL
-        };
-
-        TEST_ASSERT_EQUAL(ESP_OK,  hid_host_device_open(hid_device_handle, &dev_config));
+    hid_host_event_t event = (hid_host_event_t)id;
+    hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    switch (event) {
+    case HID_HOST_CONNECT_EVENT:
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
+        break;
+    case HID_HOST_OPEN_EVENT:
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
+        break;
+    case HID_HOST_DISCONNECT_EVENT:
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        break;
+    case HID_HOST_INPUT_EVENT:
+    default:
+        printf("HID Host unhandled event: %d\n", event);
+        break;
     }
 }
 
@@ -87,6 +96,7 @@ static void test_install_hid_driver_without_config(void)
 {
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, hid_host_install(NULL));
 }
+
 
 // Install HID driver without USB Host and with configuration
 static void test_install_hid_driver_with_wrong_config(void)
@@ -100,74 +110,90 @@ static void test_install_hid_driver_with_wrong_config(void)
         .callback_arg = NULL
     };
 
-    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, hid_host_install(&hid_host_config_callback_null));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG,
+                      hid_host_install(&hid_host_config_callback_null));
 
     const hid_host_driver_config_t hid_host_config_stack_size_null = {
         .create_background_task = true,
         .task_priority = 5,
         .stack_size = 0, /* error expected */
         .core_id = 0,
-        .callback = test_hid_host_event_callback_stub,
+        .callback = hid_host_event_cb_stub,
         .callback_arg = NULL
     };
 
-    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, hid_host_install(&hid_host_config_stack_size_null));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG,
+                      hid_host_install(&hid_host_config_stack_size_null));
 
     const hid_host_driver_config_t hid_host_config_task_priority_null = {
         .create_background_task = true,
         .task_priority = 0,/* error expected */
         .stack_size = 4096,
         .core_id = 0,
-        .callback = test_hid_host_event_callback_stub,
+        .callback = hid_host_event_cb_stub,
         .callback_arg = NULL
     };
 
-    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, hid_host_install(&hid_host_config_task_priority_null));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG,
+                      hid_host_install(&hid_host_config_task_priority_null));
 
     const hid_host_driver_config_t hid_host_config_correct = {
         .create_background_task = true,
         .task_priority = 5,
         .stack_size = 4096,
         .core_id = 0,
-        .callback = test_hid_host_event_callback_stub,
+        .callback = hid_host_event_cb_stub,
         .callback_arg = NULL
     };
     // Invalid state without USB Host installed
-    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, hid_host_install(&hid_host_config_correct));
-}
-
-void test_interface_callback_handler(hid_host_device_handle_t hid_device_handle,
-                                     const hid_host_interface_event_t event,
-                                     void *arg)
-{
-    // ...
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE,
+                      hid_host_install(&hid_host_config_correct));
 }
 
 // Open device without installed driver
-static void test_claim_interface_without_driver(void)
+static void test_device_api_without_driver(void)
 {
     hid_host_device_handle_t hid_dev_handle = NULL;
-
-    const hid_host_device_config_t dev_config = {
-        .callback = test_interface_callback_handler,
-        .callback_arg = NULL
+    hid_host_dev_params_t dev_params = {
+        .addr = 0x01,
+        .iface_num = 0x00,
+        .proto = HID_PROTOCOL_NONE,
+        .sub_class = HID_SUBCLASS_NO_SUBCLASS
     };
 
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE,
-                      hid_host_device_open(hid_dev_handle, &dev_config));
+                      hid_host_device_open(&dev_params));
+
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE,
+                      hid_host_device_close(hid_dev_handle));
+
+    // hid_host_get_device_info
+    // hid_host_handle_events
+    // hid_host_device_enable_input
+    // hid_host_device_disable_input
+    // hid_host_device_output
+    // hid_host_get_report_descriptor
+    // hid_host_get_device_info
+    // hid_class_request_get_report
+    // hid_class_request_get_idle
+    // hid_class_request_get_protocol
+    // hid_class_request_set_report
+    // hid_class_request_set_idle
+    // hid_class_request_set_protocol
 }
 
 static void test_install_hid_driver_when_already_installed(void)
 {
-    // Install USB and HID driver with the stub test_hid_host_event_callback_stub
-    test_hid_setup(test_hid_host_event_callback_stub, HID_TEST_EVENT_HANDLE_IN_DRIVER);
+    // Install USB and HID driver with the stub 'hid_host_event_cb_stub'
+    test_hid_setup(hid_host_event_cb_stub,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Try to install HID driver again
     const hid_host_driver_config_t hid_host_config = {
         .create_background_task = true,
         .task_priority = 5,
         .stack_size = 4096,
         .core_id = 0,
-        .callback = test_hid_host_event_callback_stub,
+        .callback = hid_host_event_cb_stub,
         .callback_arg = NULL
     };
     // Verify error code
@@ -178,12 +204,25 @@ static void test_install_hid_driver_when_already_installed(void)
 
 static void test_uninstall_hid_driver_while_device_was_not_opened(void)
 {
-    // Install USB and HID driver with the stub test_hid_host_event_callback_stub
-    test_hid_setup(test_hid_host_event_callback_stub, HID_TEST_EVENT_HANDLE_IN_DRIVER);
+    // Install USB and HID driver with the stub 'hid_host_event_cb_stub'
+    test_hid_setup(hid_host_event_cb_stub,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Tear down test
     test_hid_teardown();
 }
-#endif //
+
+static void test_uninstall_hid_driver_while_device_is_present(void)
+{
+    // Install USB and HID driver with the stub 'hid_host_event_cb_stub'
+    test_hid_setup(hid_host_event_cb_open_close,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
+    // Wait until device appears
+    vTaskDelay(pdMS_TO_TICKS(500));
+    // Try uninstall hid driver
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, hid_host_uninstall());
+    // Tear down test
+    test_hid_teardown();
+}
 
 // ----------------------- Public --------------------------
 
@@ -193,14 +232,12 @@ static void test_uninstall_hid_driver_while_device_was_not_opened(void)
  * There are multiple erroneous scenarios checked in this test.
  *
  */
-#if (0)
 TEST_CASE("error_handling", "[hid_host]")
 {
     test_install_hid_driver_without_config();
     test_install_hid_driver_with_wrong_config();
-    test_claim_interface_without_driver();
+    test_device_api_without_driver();
     test_install_hid_driver_when_already_installed();
     test_uninstall_hid_driver_while_device_was_not_opened();
     test_uninstall_hid_driver_while_device_is_present();
 }
-#endif //

@@ -31,7 +31,6 @@ static uint32_t user_arg_value = 0x8A53E0A4; // Just a constant random number
 // Queue and task for possibility to interact with USB device
 // IMPORTANT: Interaction is not possible within device/interface callback
 static bool time_to_shutdown = false;
-static bool time_to_stop_polling = false;
 QueueHandle_t hid_host_test_event_queue;
 TaskHandle_t hid_test_task_handle;
 
@@ -66,13 +65,9 @@ static void force_conn_state(bool connected, TickType_t delay_ticks)
     ESP_ERROR_CHECK(usb_phy_action(phy_hdl, (connected) ? USB_PHY_ACTION_HOST_ALLOW_CONN : USB_PHY_ACTION_HOST_FORCE_DISCONN));
 }
 
-void hid_host_test_polling_task(void *pvParameters)
+void hid_host_test_external_polling_task(void *pvParameters)
 {
-    // Wait queue
-    while (!time_to_stop_polling) {
-        hid_host_handle_events(portMAX_DELAY);
-    }
-
+    while (hid_host_handle_events(portMAX_DELAY) == ESP_OK);
     vTaskDelete(NULL);
 }
 
@@ -247,17 +242,17 @@ static void hid_host_event_cb_regular(void *handler_args,
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        hid_host_device_open(&param->connect.usb);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
         break;
     }
 
     case HID_HOST_OPEN_EVENT: {
-        hid_host_device_enable_input(param->open.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        hid_host_device_close(param->disconnect.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -280,7 +275,7 @@ static void hid_host_event_cb_get_info(void *handler_args,
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        hid_host_device_open(&param->connect.usb);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
         break;
     }
 
@@ -303,10 +298,10 @@ static void hid_host_event_cb_get_info(void *handler_args,
         // Get Report Descriptor
         uint8_t *hid_report_descriptor = malloc(hid_dev_info.wReportDescriptorLenght);
         size_t length = 0;
-        hid_host_get_report_descriptor(param->open.dev,
-                                       hid_report_descriptor,
-                                       hid_dev_info.wReportDescriptorLenght,
-                                       &length);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_report_descriptor(param->open.dev,
+                          hid_report_descriptor,
+                          hid_dev_info.wReportDescriptorLenght,
+                          &length));
         // Print report descriptor
         for (uint8_t i = 0; i < length; ++i) {
             printf("%02X ", hid_report_descriptor[i]);
@@ -319,12 +314,12 @@ static void hid_host_event_cb_get_info(void *handler_args,
         }
         //
         free(hid_report_descriptor);
-        hid_host_device_enable_input(param->open.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        hid_host_device_close(param->disconnect.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
         break;
     }
 
@@ -353,13 +348,13 @@ static void hid_host_event_cb_concurrent(void *handler_args,
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        hid_host_device_open(&param->connect.usb);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
         test_hid_device_expected++;
         break;
     }
 
     case HID_HOST_OPEN_EVENT: {
-        hid_host_device_enable_input(param->open.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
         // Create tasks that will try to access HID Device
         for (int i = 0; i < MULTIPLE_TASKS_TASKS_NUM; i++) {
             TEST_ASSERT_EQUAL(pdTRUE,
@@ -374,7 +369,7 @@ static void hid_host_event_cb_concurrent(void *handler_args,
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        hid_host_device_close(param->disconnect.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -397,18 +392,18 @@ static void hid_host_event_cb_class_specific(void *handler_args,
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        hid_host_device_open(&param->connect.usb);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
         break;
     }
 
     case HID_HOST_OPEN_EVENT: {
-        hid_host_device_enable_input(param->open.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
         test_class_specific_requests(param->open.dev);
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        hid_host_device_close(param->disconnect.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -431,12 +426,12 @@ static void hid_host_event_cb_sudden_disconnect(void *handler_args,
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        hid_host_device_open(&param->connect.usb);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
         break;
     }
 
     case HID_HOST_OPEN_EVENT: {
-        hid_host_device_enable_input(param->open.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
         // Create tasks that will try to access HID Device
         TEST_ASSERT_EQUAL(pdTRUE,
                           xTaskCreate(get_report_task,
@@ -449,7 +444,7 @@ static void hid_host_event_cb_sudden_disconnect(void *handler_args,
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        hid_host_device_close(param->disconnect.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -472,12 +467,12 @@ static void hid_host_event_cb_out_ep(void *handler_args,
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        hid_host_device_open(&param->connect.usb);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
         break;
     }
 
     case HID_HOST_OPEN_EVENT: {
-        hid_host_device_enable_input(param->open.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
         // Send OUT report
         uint8_t data[64] = { 0 };
         TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_output(param->open.dev,
@@ -487,7 +482,7 @@ static void hid_host_event_cb_out_ep(void *handler_args,
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        hid_host_device_close(param->disconnect.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
         break;
     }
 
@@ -506,13 +501,16 @@ static void hid_host_event_cb_out_ep(void *handler_args,
     }
 }
 
+
+
 /**
  * @brief Setups HID testing
  *
  * - Create USB lib task
  * - Install HID Host driver
  */
-void test_hid_setup(esp_event_handler_t device_callback)
+void test_hid_setup(esp_event_handler_t device_callback,
+                    hid_test_event_handle_type_t event_handle_type)
 {
     TEST_ASSERT_EQUAL(pdTRUE, xTaskCreatePinnedToCore(usb_lib_task,
                       "usb_events",
@@ -524,7 +522,9 @@ void test_hid_setup(esp_event_handler_t device_callback)
 
     // HID host driver config
     const hid_host_driver_config_t hid_host_driver_config = {
-        .create_background_task = true,
+        .create_background_task = (event_handle_type == HID_TEST_EVENT_HANDLE_TYPE_DRIVER)
+        ? true
+        : false,
         .task_priority = 5,
         .stack_size = 4096,
         .core_id = 0,
@@ -553,22 +553,21 @@ void test_hid_teardown(void)
 }
 
 // ------------------------- HID Test ------------------------------------------
-#if (0)
 static void test_setup_hid_polling_task(void)
 {
-    time_to_stop_polling = false;
-
-    TEST_ASSERT_EQUAL(pdTRUE, xTaskCreate(&hid_host_test_polling_task,
+    TEST_ASSERT_EQUAL(pdTRUE, xTaskCreate(&hid_host_test_external_polling_task,
                                           "hid_task_polling",
                                           4 * 1024,
-                                          NULL, 2, NULL));
+                                          NULL,
+                                          2,
+                                          NULL));
 }
-#endif //
 
 TEST_CASE("memory_leakage", "[hid_host]")
 {
     // Install USB and HID driver with the 'hid_host_event_cb_regular'
-    test_hid_setup(hid_host_event_cb_regular);
+    test_hid_setup(hid_host_event_cb_regular,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Tear down test
     test_hid_teardown();
     // Verify the memory leakage during test environment tearDown()
@@ -577,19 +576,33 @@ TEST_CASE("memory_leakage", "[hid_host]")
 TEST_CASE("device_info", "[hid_host]")
 {
     // Install USB and HID driver with 'hid_host_event_cb_get_info'
-    test_hid_setup(hid_host_event_cb_get_info);
+    test_hid_setup(hid_host_event_cb_get_info,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Tear down test
     test_hid_teardown();
     // Verify the memory leakage during test environment tearDown()
 }
 
-TEST_CASE("multiple_task_access", "[hid_host]")
+TEST_CASE("class_specific_requests", "[hid_host]")
+{
+    // Install USB and HID driver with 'hid_host_test_device_callback_to_queue'
+    test_hid_setup(hid_host_event_cb_class_specific,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
+    // Wait for test completed for 250 ms
+    vTaskDelay(pdMS_TO_TICKS(250));
+    // Tear down test
+    test_hid_teardown();
+    // Verify the memory leakage during test environment tearDown()
+}
+
+TEST_CASE("concurrent_access", "[hid_host]")
 {
     // Refresh the num passed test value
     test_hid_device_expected = 0;
     test_num_passed = 0;
     // Install USB and HID driver with 'hid_host_event_cb_concurrent'
-    test_hid_setup(hid_host_event_cb_concurrent);
+    test_hid_setup(hid_host_event_cb_concurrent,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Wait until all tasks finish
     vTaskDelay(pdMS_TO_TICKS(500));
     // Tear down test
@@ -600,51 +613,50 @@ TEST_CASE("multiple_task_access", "[hid_host]")
     // Verify the memory leakage during test environment tearDown()
 }
 
-TEST_CASE("class_specific_requests", "[hid_host]")
+TEST_CASE("concurrent_with_external_polling", "[hid_host]")
 {
-    // Install USB and HID driver with 'hid_host_test_device_callback_to_queue'
-    test_hid_setup(hid_host_event_cb_class_specific);
-    // Wait for test completed for 250 ms
-    vTaskDelay(pdMS_TO_TICKS(250));
-    // Tear down test
-    test_hid_teardown();
-    // Verify the memory leakage during test environment tearDown()
-}
-
-#if (0)
-TEST_CASE("class_specific_requests_with_external_polling", "[hid_host]")
-{
-    // Install USB and HID driver with 'hid_host_test_device_callback_to_queue'
-    test_hid_setup(hid_host_test_device_callback_to_queue, HID_TEST_EVENT_HANDLE_EXTERNAL);
+    // Refresh the num passed test value
+    test_hid_device_expected = 0;
+    test_num_passed = 0;
+    // Install USB and HID driver with 'hid_host_event_cb_concurrent'
+    test_hid_setup(hid_host_event_cb_concurrent,
+                   HID_TEST_EVENT_HANDLE_TYPE_EXTERNAL);
     // Create HID Driver events polling task
     test_setup_hid_polling_task();
-    // Wait for test completed for 250 ms
-    vTaskDelay(250);
+    // Wait until all tasks finish
+    vTaskDelay(pdMS_TO_TICKS(500));
     // Tear down test
     test_hid_teardown();
+    // Verify how much tests was done
+    TEST_ASSERT_EQUAL(test_hid_device_expected * MULTIPLE_TASKS_TASKS_NUM,
+                      test_num_passed);
     // Verify the memory leakage during test environment tearDown()
 }
 
-TEST_CASE("class_specific_requests_with_external_polling_without_polling", "[hid_host]")
+TEST_CASE("concurrent_with_external_polling_without_polling", "[hid_host]")
 {
-    // Create external HID events task
-    test_setup_hid_task();
-    // Install USB and HID driver with 'hid_host_test_device_callback_to_queue'
-    test_hid_setup(hid_host_test_device_callback_to_queue, HID_TEST_EVENT_HANDLE_EXTERNAL);
-    // Do not create HID Driver events polling task to eliminate events polling
+    // Refresh the num passed test value
+    test_hid_device_expected = 0;
+    test_num_passed = 0;
+    // Install USB and HID driver with 'hid_host_event_cb_concurrent'
+    test_hid_setup(hid_host_event_cb_concurrent,
+                   HID_TEST_EVENT_HANDLE_TYPE_EXTERNAL);
+    // Do not create HID Driver events polling task
     // ...
-    // Wait for 250 ms
-    vTaskDelay(250);
+    // Wait for 500 ms
+    vTaskDelay(pdMS_TO_TICKS(500));
     // Tear down test
     test_hid_teardown();
+    // Verify no test were done tests was done
+    TEST_ASSERT_EQUAL(0, test_num_passed);
     // Verify the memory leakage during test environment tearDown()
 }
-#endif //
 
 TEST_CASE("sudden_disconnect", "[hid_host][ignore]")
 {
     // Install USB and HID driver with 'hid_host_event_cb_sudden_disconnect'
-    test_hid_setup(hid_host_event_cb_sudden_disconnect);
+    test_hid_setup(hid_host_event_cb_sudden_disconnect,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Tear down test during thr task_access stress the HID device
     test_hid_teardown();
 }
@@ -652,7 +664,8 @@ TEST_CASE("sudden_disconnect", "[hid_host][ignore]")
 TEST_CASE("output_endpoint", "[hid_host][ignore]")
 {
     // Install USB and HID driver with 'hid_host_test_device_callback_to_queue'
-    test_hid_setup(hid_host_event_cb_out_ep);
+    test_hid_setup(hid_host_event_cb_out_ep,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Wait for test completed for 250 ms
     vTaskDelay(pdMS_TO_TICKS(250));
     // Tear down test
@@ -663,7 +676,8 @@ TEST_CASE("output_endpoint", "[hid_host][ignore]")
 TEST_CASE("manual_connection", "[hid_host][ignore]")
 {
     // Install USB and HID driver with the regular hid_host_test_callback
-    test_hid_setup(hid_host_event_cb_get_info);
+    test_hid_setup(hid_host_event_cb_get_info,
+                   HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
     // Wait for USB HID device plug in manually
     vTaskDelay(pdMS_TO_TICKS(5 * 1000));
     // Tear down test
