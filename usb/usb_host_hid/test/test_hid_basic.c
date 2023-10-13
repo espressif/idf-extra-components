@@ -239,20 +239,17 @@ static void hid_host_event_cb_regular(void *handler_args,
 {
     hid_host_event_t event = (hid_host_event_t)id;
     hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_device_handle_t hid_dev_hdl;
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
-        break;
-    }
-
-    case HID_HOST_OPEN_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb, &hid_dev_hdl));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(hid_dev_hdl));
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.hid_dev_hdl));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -272,17 +269,13 @@ static void hid_host_event_cb_get_info(void *handler_args,
 {
     hid_host_event_t event = (hid_host_event_t)id;
     hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_device_handle_t hid_dev_hdl;
+    hid_host_dev_info_t hid_dev_info;
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
-        break;
-    }
-
-    case HID_HOST_OPEN_EVENT: {
-        hid_host_dev_info_t hid_dev_info;
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_device_info(param->open.dev,
-                          &hid_dev_info));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb, &hid_dev_hdl));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_device_info(hid_dev_hdl, &hid_dev_info));
 
         printf("\t VID: 0x%04X\n", hid_dev_info.VID);
         printf("\t PID: 0x%04X\n", hid_dev_info.PID);
@@ -298,7 +291,7 @@ static void hid_host_event_cb_get_info(void *handler_args,
         // Get Report Descriptor
         uint8_t *hid_report_descriptor = malloc(hid_dev_info.wReportDescriptorLenght);
         size_t length = 0;
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_report_descriptor(param->open.dev,
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_get_report_descriptor(hid_dev_hdl,
                           hid_report_descriptor,
                           hid_dev_info.wReportDescriptorLenght,
                           &length));
@@ -314,12 +307,12 @@ static void hid_host_event_cb_get_info(void *handler_args,
         }
         //
         free(hid_report_descriptor);
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(hid_dev_hdl));
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.hid_dev_hdl));
         break;
     }
 
@@ -345,23 +338,20 @@ static void hid_host_event_cb_concurrent(void *handler_args,
 {
     hid_host_event_t event = (hid_host_event_t)id;
     hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_device_handle_t hid_dev_hdl;
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb, &hid_dev_hdl));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(hid_dev_hdl));
         test_hid_device_expected++;
-        break;
-    }
-
-    case HID_HOST_OPEN_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
         // Create tasks that will try to access HID Device
         for (int i = 0; i < MULTIPLE_TASKS_TASKS_NUM; i++) {
             TEST_ASSERT_EQUAL(pdTRUE,
                               xTaskCreate(concurrent_task,
                                           "HID multi touch",
                                           4096,
-                                          (void *) param->open.dev,
+                                          (void *) hid_dev_hdl,
                                           i + 3,
                                           NULL));
         }
@@ -369,7 +359,7 @@ static void hid_host_event_cb_concurrent(void *handler_args,
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.hid_dev_hdl));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -389,21 +379,18 @@ static void hid_host_event_cb_class_specific(void *handler_args,
 {
     hid_host_event_t event = (hid_host_event_t)id;
     hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_device_handle_t hid_dev_hdl;
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
-        break;
-    }
-
-    case HID_HOST_OPEN_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
-        test_class_specific_requests(param->open.dev);
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb, &hid_dev_hdl));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(hid_dev_hdl));
+        test_class_specific_requests(hid_dev_hdl);
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.hid_dev_hdl));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -423,28 +410,25 @@ static void hid_host_event_cb_sudden_disconnect(void *handler_args,
 {
     hid_host_event_t event = (hid_host_event_t)id;
     hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_device_handle_t hid_dev_hdl;
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
-        break;
-    }
-
-    case HID_HOST_OPEN_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb, &hid_dev_hdl));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(hid_dev_hdl));
         // Create tasks that will try to access HID Device
         TEST_ASSERT_EQUAL(pdTRUE,
                           xTaskCreate(get_report_task,
                                       "HID Device Get Report",
                                       4096,
-                                      (void *) param->open.dev,
+                                      (void *) hid_dev_hdl,
                                       3,
                                       NULL));
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.hid_dev_hdl));
         break;
     }
     case HID_HOST_INPUT_EVENT: {
@@ -464,25 +448,22 @@ static void hid_host_event_cb_out_ep(void *handler_args,
 {
     hid_host_event_t event = (hid_host_event_t)id;
     hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_device_handle_t hid_dev_hdl;
 
     switch (event) {
     case HID_HOST_CONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
-        break;
-    }
-
-    case HID_HOST_OPEN_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb, &hid_dev_hdl));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(hid_dev_hdl));
         // Send OUT report
         uint8_t data[64] = { 0 };
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_output(param->open.dev,
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_output(hid_dev_hdl,
                           data,
                           64));
         break;
     }
 
     case HID_HOST_DISCONNECT_EVENT: {
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.hid_dev_hdl));
         break;
     }
 
@@ -678,8 +659,8 @@ TEST_CASE("manual_connection", "[hid_host][ignore]")
     // Install USB and HID driver with the regular hid_host_test_callback
     test_hid_setup(hid_host_event_cb_get_info,
                    HID_TEST_EVENT_HANDLE_TYPE_DRIVER);
-    // Wait for USB HID device plug in manually
-    vTaskDelay(pdMS_TO_TICKS(5 * 1000));
+    // Wait for USB HID device plug in manually for 30 sec
+    vTaskDelay(pdMS_TO_TICKS(30 * 1000));
     // Tear down test
     test_hid_teardown();
     // Verify the memory leakage during test environment tearDown()

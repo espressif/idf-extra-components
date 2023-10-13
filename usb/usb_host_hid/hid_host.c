@@ -254,7 +254,7 @@ static void hid_host_device_notify_device_gone(hid_dev_obj_t *hid_dev_obj_hdl)
 
     HID_ENTER_CRITICAL();
     STAILQ_FOREACH(hid_iface, &hid_dev_obj_hdl->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
-        event_data.disconnect.dev = (hid_host_device_handle_t) hid_iface;
+        event_data.disconnect.hid_dev_hdl = (hid_host_device_handle_t) hid_iface;
         event_data.disconnect.usb.addr = hid_dev_obj_hdl->constant.usb_addr;
         event_data.disconnect.usb.iface_num = hid_iface->constant.num;
         event_data.disconnect.usb.sub_class = hid_iface->constant.sub_class;
@@ -931,9 +931,8 @@ esp_err_t hid_host_device_remove(hid_dev_obj_t *hid_dev_obj_hdl)
 }
 
 esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
-        uint8_t iface_num,
-        uint8_t sub_class,
-        uint8_t proto)
+        hid_host_dev_params_t *dev_params,
+        hid_host_device_handle_t *hid_dev_handle)
 {
     const usb_config_desc_t *config_desc = NULL;
     const usb_intf_desc_t *iface_desc = NULL;
@@ -948,7 +947,7 @@ esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
         return ret;
     }
 
-    iface_desc = usb_parse_interface_descriptor(config_desc, iface_num, 0, &offset);
+    iface_desc = usb_parse_interface_descriptor(config_desc, dev_params->iface_num, 0, &offset);
     if (NULL == iface_desc) {
         ESP_LOGE(TAG, "Unable to get Interface Descriptor");
         return ret;
@@ -984,9 +983,9 @@ esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
 
     // fill the constant fields
     hid_iface->constant.hid_dev_obj_hdl = hid_dev_obj_hdl;
-    hid_iface->constant.num = iface_num;
-    hid_iface->constant.sub_class = sub_class;
-    hid_iface->constant.proto = proto;
+    hid_iface->constant.num = dev_params->iface_num;
+    hid_iface->constant.sub_class = dev_params->sub_class;
+    hid_iface->constant.proto = dev_params->proto;
     hid_iface->constant.report_descriptor_length = hid_desc->wReportDescriptorLength;
     hid_iface->constant.country_code = hid_desc->bCountryCode;
     // EP descriptors for Interface
@@ -1035,20 +1034,21 @@ esp_err_t hid_host_device_interface_claim(hid_dev_obj_t *hid_dev_obj_hdl,
     HID_EXIT_CRITICAL();
 
     ESP_LOGD(TAG, "HID Interface %d has been added to the tQ (USB port %d)",
-             iface_num,
+             hid_iface->constant.num,
              hid_dev_obj_hdl->constant.usb_addr);
 
     // 7. Notify about opened Interface
-    hid_host_event_data_t event_data = { 0 };
-    size_t event_data_size = sizeof(hid_host_event_data_t);
-    event_data.open.dev = (hid_host_device_handle_t) hid_iface;
-    esp_event_post_to(s_hid_driver->event_loop_handle,
-                      HID_HOST_EVENTS,
-                      HID_HOST_OPEN_EVENT,
-                      &event_data,
-                      event_data_size,
-                      portMAX_DELAY);
+    // hid_host_event_data_t event_data = { 0 };
+    // size_t event_data_size = sizeof(hid_host_event_data_t);
+    // event_data.open.dev = (hid_host_device_handle_t) hid_iface;
+    // esp_event_post_to(s_hid_driver->event_loop_handle,
+    //                   HID_HOST_EVENTS,
+    //                   HID_HOST_OPEN_EVENT,
+    //                   &event_data,
+    //                   event_data_size,
+    //                   portMAX_DELAY);
 
+    *hid_dev_handle = (hid_host_device_handle_t) hid_iface;
     return ESP_OK;
 
 mem_fail:
@@ -1101,7 +1101,8 @@ esp_err_t hid_host_device_interface_release(hid_iface_new_t *hid_iface)
     return ESP_OK;
 }
 
-esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params)
+esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params,
+                               hid_host_device_handle_t *hid_dev_handle)
 {
     hid_dev_obj_t *hid_dev_obj_hdl = NULL;
 
@@ -1124,9 +1125,8 @@ esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params)
     }
     // 3. Claim Interface if possible
     HID_RETURN_ON_ERROR(hid_host_device_interface_claim(hid_dev_obj_hdl,
-                        dev_params->iface_num,
-                        dev_params->sub_class,
-                        dev_params->proto),
+                        dev_params,
+                        hid_dev_handle),
                         "Unable to open new HID Interface");
     return ESP_OK;
 }

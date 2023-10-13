@@ -58,7 +58,6 @@ static void hid_host_event_cb_stub(void *handler_args,
     hid_host_event_t event = (hid_host_event_t)id;
     switch (event) {
     case HID_HOST_CONNECT_EVENT:
-    case HID_HOST_OPEN_EVENT:
     case HID_HOST_DISCONNECT_EVENT:
     case HID_HOST_INPUT_EVENT:
     default:
@@ -74,15 +73,15 @@ static void hid_host_event_cb_open_close(void *handler_args,
 {
     hid_host_event_t event = (hid_host_event_t)id;
     hid_host_event_data_t *param = (hid_host_event_data_t *)event_data;
+    hid_host_device_handle_t hid_dev_hdl;
+
     switch (event) {
     case HID_HOST_CONNECT_EVENT:
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb));
-        break;
-    case HID_HOST_OPEN_EVENT:
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(param->open.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_open(&param->connect.usb, &hid_dev_hdl));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_enable_input(hid_dev_hdl));
         break;
     case HID_HOST_DISCONNECT_EVENT:
-        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.dev));
+        TEST_ASSERT_EQUAL(ESP_OK, hid_host_device_close(param->disconnect.hid_dev_hdl));
         break;
     case HID_HOST_INPUT_EVENT:
     default:
@@ -161,8 +160,9 @@ static void test_device_api_without_driver(void)
         .sub_class = HID_SUBCLASS_NO_SUBCLASS
     };
 
+
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE,
-                      hid_host_device_open(&dev_params));
+                      hid_host_device_open(&dev_params, &hid_dev_handle));
 
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE,
                       hid_host_device_close(hid_dev_handle));

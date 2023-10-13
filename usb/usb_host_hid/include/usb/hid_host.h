@@ -41,7 +41,6 @@ ESP_EVENT_DECLARE_BASE(HID_HOST_EVENTS);
 typedef enum {
     HID_HOST_ANY_EVENT = ESP_EVENT_ANY_ID,          /*!< HID device any event */
     HID_HOST_CONNECT_EVENT = 0,                     /*!< HID device connected */
-    HID_HOST_OPEN_EVENT,                            /*!< HID device opened */
     HID_HOST_INPUT_EVENT,                           /*!< Received HID device INPUT report */
     HID_HOST_FEATURE_EVENT,                         /*!< Received HID device FEATURE report */
     HID_HOST_DISCONNECT_EVENT,
@@ -87,13 +86,6 @@ typedef union {
     } connect;
 
     /**
-    * @brief HID_HOST_OPEN_EVENT
-    */
-    struct {
-        hid_host_device_handle_t dev;            /*!< HID Device handle */
-    } open;
-
-    /**
      * @brief HID_HOST_INPUT_EVENT
      */
     struct {
@@ -109,7 +101,7 @@ typedef union {
      * @brief HID_HOST_DISCONNECT_EVENT
      */
     struct {
-        hid_host_device_handle_t dev;            /*!< HID Device handle */
+        hid_host_device_handle_t hid_dev_hdl;   /*!< HID Device handle */
         hid_host_dev_params_t usb;              /*!< HID Device params */
     } disconnect;
 
@@ -147,10 +139,11 @@ esp_err_t hid_host_uninstall(void);
  * @brief USB HID Host open a device with specific device parameters
  *
  * @param[in] iface_handle     Handle of the HID devive to open
- * @param[in] config           Configuration structure HID device to open
+ * @param[in] hid_dev_handle
  * @return esp_err_t
  */
-esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params);
+esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params,
+                               hid_host_device_handle_t *hid_dev_handle);
 
 /**
  * @brief USB HID Host close device
