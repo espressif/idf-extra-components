@@ -61,16 +61,19 @@ typedef struct {
  * @brief HID device descriptor common data
 */
 typedef struct {
-    uint16_t VID;
-    uint16_t PID;
-    wchar_t iManufacturer[HID_STR_DESC_MAX_LENGTH];
-    wchar_t iProduct[HID_STR_DESC_MAX_LENGTH];
-    wchar_t iSerialNumber[HID_STR_DESC_MAX_LENGTH];
-    uint8_t bInterfaceNum;                   /**< HID Interface Number */
-    uint8_t bSubClass;                       /**< HID Interface SubClass */
-    uint8_t bProtocol;                       /**< HID Interface Protocol */
-    uint16_t wReportDescriptorLenght;        /**< HID Interface report descriptor size */
-    uint8_t bCountryCode;                    /**< HID Interface Country Code */
+    // Device Desriptor
+    uint16_t VID;                                   /**< HID Vendor Identificator */
+    uint16_t PID;                                   /**< HID Product Identificator */
+    // Config Descriptor
+    wchar_t iManufacturer[HID_STR_DESC_MAX_LENGTH]; /**< Manufacturer string */
+    wchar_t iProduct[HID_STR_DESC_MAX_LENGTH];      /**< Product string */
+    wchar_t iSerialNumber[HID_STR_DESC_MAX_LENGTH]; /**< Serial Number string */
+    uint8_t bInterfaceNum;                          /**< HID Interface Number */
+    uint8_t bSubClass;                              /**< HID Interface SubClass */
+    uint8_t bProtocol;                              /**< HID Interface Protocol */
+    // HID Decriptor
+    uint16_t wReportDescriptorLenght;               /**< HID Interface report descriptor size */
+    uint8_t bCountryCode;                           /**< HID Interface Country Code */
 } hid_host_dev_info_t;
 
 // ------------------------ USB HID Host callbacks -----------------------------
@@ -138,8 +141,8 @@ esp_err_t hid_host_uninstall(void);
 /**
  * @brief USB HID Host open a device with specific device parameters
  *
- * @param[in] iface_handle     Handle of the HID devive to open
- * @param[in] hid_dev_handle
+ * @param[in] dev_params        HID Device paramters: USB port, Interface Number, Sub Class and Protocol
+ * @param[out] hid_dev_handle   HID Device handle
  * @return esp_err_t
  */
 esp_err_t hid_host_device_open(hid_host_dev_params_t *dev_params,
@@ -227,6 +230,7 @@ esp_err_t hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle
  * @brief HID Host Get device information
  *
  * @param[in] hid_dev_handle   HID Device handle
+ * @param[out] hid_dev_info    HID Device information
 */
 esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
                                    hid_host_dev_info_t *hid_dev_info);

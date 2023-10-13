@@ -161,6 +161,9 @@ void get_report_task(void *arg)
     hid_report_protocol_t proto;
 
     while (1) {
+        // Decreasing this timeout could lead to Device Descriptor data lost
+        // during the "next" connection of USB Device
+        vTaskDelay(pdMS_TO_TICKS(50));
         if (ESP_OK != hid_class_request_get_protocol(hid_dev_hdl, &proto)) {
             printf("Get Protocol return error");
             break;
@@ -633,7 +636,7 @@ TEST_CASE("concurrent_with_external_polling_without_polling", "[hid_host]")
     // Verify the memory leakage during test environment tearDown()
 }
 
-TEST_CASE("sudden_disconnect", "[hid_host][ignore]")
+TEST_CASE("sudden_disconnect", "[hid_host]")
 {
     // Install USB and HID driver with 'hid_host_event_cb_sudden_disconnect'
     test_hid_setup(hid_host_event_cb_sudden_disconnect,

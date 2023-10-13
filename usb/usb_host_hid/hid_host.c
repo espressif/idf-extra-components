@@ -204,6 +204,32 @@ static esp_err_t hid_host_device_get_opened_by_handle(usb_device_handle_t dev_hd
     return ESP_ERR_NOT_FOUND;
 }
 
+static esp_err_t hid_host_verify_handle(hid_host_device_handle_t hid_dev_hdl,
+                                        hid_iface_new_t **hid_iface,
+                                        hid_dev_obj_t **hid_dev_obj_hdl)
+{
+    hid_iface_new_t *iface = NULL;
+    hid_dev_obj_t *hid_dev_obj = NULL;
+
+    HID_RETURN_ON_INVALID_ARG(hid_dev_hdl);
+    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_INVALID_ARG(hid_dev_obj_hdl);
+
+    HID_ENTER_CRITICAL();
+    STAILQ_FOREACH(hid_dev_obj, &s_hid_driver->dev_opened_tailq, dynamic.tailq_entry) {
+        STAILQ_FOREACH(iface, &hid_dev_obj->dynamic.iface_opened_tailq, dynamic.tailq_entry) {
+            if ((hid_iface_new_t *)hid_dev_hdl == iface) {
+                HID_EXIT_CRITICAL();
+                *hid_iface = iface;
+                *hid_dev_obj_hdl = iface->constant.hid_dev_obj_hdl;
+                return ESP_OK;
+            }
+        }
+    }
+    HID_EXIT_CRITICAL();
+    return ESP_ERR_NOT_FOUND;
+}
+
 static void hid_host_new_device_event(uint8_t dev_addr)
 {
     usb_device_handle_t dev_hdl;
@@ -299,7 +325,6 @@ static esp_err_t hid_host_device_interface_is_claimed(hid_host_dev_params_t *dev
     HID_EXIT_CRITICAL();
     return ESP_ERR_NOT_FOUND;
 }
-
 
 // =============================================================================
 // ======================== Host Client Callback ===============================
@@ -1211,13 +1236,18 @@ esp_err_t hid_host_get_device_info(hid_host_device_handle_t hid_dev_handle,
 // ------------------------ USB HID Host driver API ----------------------------
 esp_err_t hid_host_device_enable_input(hid_host_device_handle_t hid_dev_handle)
 {
-    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
+
     HID_RETURN_ON_FALSE(s_hid_driver != NULL,
                         ESP_ERR_INVALID_STATE,
                         "HID Driver is not installed");
 
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
-    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
+
     usb_transfer_t *xfer = hid_iface->constant.ep[HID_EP_IN].xfer;
 
     // prepare transfer
@@ -1232,14 +1262,17 @@ esp_err_t hid_host_device_enable_input(hid_host_device_handle_t hid_dev_handle)
 
 esp_err_t hid_host_device_disable_input(hid_host_device_handle_t hid_dev_handle)
 {
-    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
+
     HID_RETURN_ON_FALSE(s_hid_driver != NULL,
                         ESP_ERR_INVALID_STATE,
                         "HID Driver is not installed");
 
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
-    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
-
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     HID_RETURN_ON_ERROR(usb_host_endpoint_halt(hid_dev_obj_hdl->constant.dev_hdl,
                         hid_iface->constant.ep[HID_EP_IN].num),
@@ -1256,13 +1289,18 @@ esp_err_t hid_host_device_output(hid_host_device_handle_t hid_dev_handle,
                                  const uint8_t *data,
                                  const size_t length)
 {
-    HID_RETURN_ON_INVALID_ARG(hid_dev_handle);
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
+
     HID_RETURN_ON_FALSE(s_hid_driver != NULL,
                         ESP_ERR_INVALID_STATE,
                         "HID Driver is not installed");
 
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
-    hid_dev_obj_t *hid_dev_obj_hdl = hid_iface->constant.hid_dev_obj_hdl;
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
+
     usb_transfer_t *xfer = hid_iface->constant.ep[HID_EP_OUT].xfer;
 
     if (xfer == NULL) {
@@ -1293,7 +1331,17 @@ esp_err_t hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle
         size_t max_length,
         size_t *length)
 {
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
+
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     HID_RETURN_ON_INVALID_ARG(hid_iface);
     HID_RETURN_ON_INVALID_ARG(data);
@@ -1311,8 +1359,7 @@ esp_err_t hid_host_get_report_descriptor(hid_host_device_handle_t hid_dev_handle
         .data = data
     };
 
-    HID_RETURN_ON_ERROR(usb_class_request_get_descriptor(hid_iface->constant.hid_dev_obj_hdl,
-                        &get_desc),
+    HID_RETURN_ON_ERROR(usb_class_request_get_descriptor(hid_dev_obj_hdl, &get_desc),
                         "HID class request transfer failure");
     *length = hid_iface->constant.report_descriptor_length;
     return ESP_OK;
@@ -1324,9 +1371,17 @@ esp_err_t hid_class_request_get_report(hid_host_device_handle_t hid_dev_handle,
                                        uint8_t *report,
                                        size_t *report_length)
 {
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
 
-    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     const hid_class_request_t get_report = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_GET_REPORT,
@@ -1336,16 +1391,24 @@ esp_err_t hid_class_request_get_report(hid_host_device_handle_t hid_dev_handle,
         .data = report
     };
 
-    return hid_class_request_get(hid_iface->constant.hid_dev_obj_hdl, &get_report, report_length);
+    return hid_class_request_get(hid_dev_obj_hdl, &get_report, report_length);
 }
 
 esp_err_t hid_class_request_get_idle(hid_host_device_handle_t hid_dev_handle,
                                      uint8_t report_id,
                                      uint8_t *idle_rate)
 {
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
 
-    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     uint8_t tmp[1] = { 0xff };
 
@@ -1357,9 +1420,7 @@ esp_err_t hid_class_request_get_idle(hid_host_device_handle_t hid_dev_handle,
         .data = tmp
     };
 
-    HID_RETURN_ON_ERROR(hid_class_request_get(hid_iface->constant.hid_dev_obj_hdl,
-                        &get_idle,
-                        NULL),
+    HID_RETURN_ON_ERROR(hid_class_request_get(hid_dev_obj_hdl, &get_idle, NULL),
                         "HID class request transfer failure");
 
     *idle_rate = tmp[0];
@@ -1369,9 +1430,17 @@ esp_err_t hid_class_request_get_idle(hid_host_device_handle_t hid_dev_handle,
 esp_err_t hid_class_request_get_protocol(hid_host_device_handle_t hid_dev_handle,
         hid_report_protocol_t *protocol)
 {
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
 
-    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     uint8_t tmp[1] = { 0xff };
 
@@ -1383,9 +1452,7 @@ esp_err_t hid_class_request_get_protocol(hid_host_device_handle_t hid_dev_handle
         .data = tmp
     };
 
-    HID_RETURN_ON_ERROR(hid_class_request_get(hid_iface->constant.hid_dev_obj_hdl,
-                        &get_proto,
-                        NULL),
+    HID_RETURN_ON_ERROR(hid_class_request_get(hid_dev_obj_hdl, &get_proto, NULL),
                         "HID class request failure");
 
     *protocol = (hid_report_protocol_t) tmp[0];
@@ -1398,9 +1465,17 @@ esp_err_t hid_class_request_set_report(hid_host_device_handle_t hid_dev_handle,
                                        uint8_t *report,
                                        size_t report_length)
 {
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
 
-    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     const hid_class_request_t set_report = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_SET_REPORT,
@@ -1410,16 +1485,24 @@ esp_err_t hid_class_request_set_report(hid_host_device_handle_t hid_dev_handle,
         .data = report
     };
 
-    return hid_class_request_set(hid_iface->constant.hid_dev_obj_hdl, &set_report);
+    return hid_class_request_set(hid_dev_obj_hdl, &set_report);
 }
 
 esp_err_t hid_class_request_set_idle(hid_host_device_handle_t hid_dev_handle,
                                      uint8_t duration,
                                      uint8_t report_id)
 {
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
 
-    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     const hid_class_request_t set_idle = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_SET_IDLE,
@@ -1429,15 +1512,23 @@ esp_err_t hid_class_request_set_idle(hid_host_device_handle_t hid_dev_handle,
         .data = NULL
     };
 
-    return hid_class_request_set(hid_iface->constant.hid_dev_obj_hdl, &set_idle);
+    return hid_class_request_set(hid_dev_obj_hdl, &set_idle);
 }
 
 esp_err_t hid_class_request_set_protocol(hid_host_device_handle_t hid_dev_handle,
         hid_report_protocol_t protocol)
 {
-    hid_iface_new_t *hid_iface = (hid_iface_new_t *)hid_dev_handle;
+    hid_iface_new_t *hid_iface;
+    hid_dev_obj_t *hid_dev_obj_hdl;
 
-    HID_RETURN_ON_INVALID_ARG(hid_iface);
+    HID_RETURN_ON_FALSE(s_hid_driver != NULL,
+                        ESP_ERR_INVALID_STATE,
+                        "HID Driver is not installed");
+
+    HID_RETURN_ON_ERROR(hid_host_verify_handle(hid_dev_handle,
+                        &hid_iface,
+                        &hid_dev_obj_hdl),
+                        "HID Device handle not found");
 
     const hid_class_request_t set_proto = {
         .bRequest = HID_CLASS_SPECIFIC_REQ_SET_PROTOCOL,
@@ -1447,5 +1538,5 @@ esp_err_t hid_class_request_set_protocol(hid_host_device_handle_t hid_dev_handle
         .data = NULL
     };
 
-    return hid_class_request_set(hid_iface->constant.hid_dev_obj_hdl, &set_proto);
+    return hid_class_request_set(hid_dev_obj_hdl, &set_proto);
 }
