@@ -3,23 +3,37 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_system.h"
+#include "bsp/esp-bsp.h"
 #include "freertos/FreeRTOS.h"
+#include "esp_camera.h"
 #include "freertos/task.h"
-#include "app_peripherals.h"
+//#include "app_peripherals.h"
 #include "quirc.h"
 
 static const char *TAG = "APP_CODE_SCANNER";
 
 static void decode_task(void *args)
 {
-    if (app_camera_init() != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to init camera");
+
+    bsp_i2c_init();
+    bsp_leds_init();
+    bsp_led_set(BSP_LED_GREEN, false);
+    /* Camera init start*/
+    camera_config_t camera_config = BSP_CAMERA_DEFAULT_CONFIG;
+    camera_config.pixel_format = PIXFORMAT_GRAYSCALE;
+    camera_config.xclk_freq_hz = 20000000;
+    if (esp_camera_init(&camera_config) != ESP_OK) {
+        ESP_LOGE(TAG, "Camera Init Failed");
         exit(1);
     }
+    sensor_t *s = esp_camera_sensor_get();
+    s->set_vflip(s, 1);
+    ESP_LOGI(TAG, "Camera Init done");
+    /* Camera init end*/
 
     camera_fb_t *fb = NULL;
 
-    // Initializing the quirc handle
+    /* Initializing the quirc handle */
     struct quirc *q = quirc_new();
     if (!q) {
         ESP_LOGE(TAG, "Failed to allocate memory");
@@ -27,7 +41,7 @@ static void decode_task(void *args)
     }
 
 
-    // Get image size through fb parameters
+    /* Get image size through fb parameters */
     fb = esp_camera_fb_get();
     if (fb == NULL) {
         ESP_LOGE(TAG, "Camera get failed");
@@ -37,6 +51,7 @@ static void decode_task(void *args)
     uint16_t p_width = fb->width;
     uint16_t p_height = fb->height;
 
+    printf("Detected width:%d \t height:%d \n\n", p_width, p_height);
 
     if (quirc_resize(q, p_width, p_height) < 0) {
         ESP_LOGE(TAG, "Failed to allocate video  memory\n");
@@ -70,11 +85,13 @@ static void decode_task(void *args)
                 printf("%d/%d] DECODE FAILED: %s\n", i + 1, num_codes, quirc_strerror(err));
             } else {
                 printf("%d/%d] DATA: %s\n", i + 1, num_codes, data.payload);
+                bsp_led_set(BSP_LED_GREEN, true);
             }
         }
 
         esp_camera_fb_return(fb);
         vTaskDelay(10 / portTICK_PERIOD_MS);
+        bsp_led_set(BSP_LED_GREEN, false);
     }
 
 }

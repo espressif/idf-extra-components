@@ -1,5 +1,6 @@
 ## IDF Component Manager Manifest File
 dependencies:
+  espressif/esp32_s3_eye: "^3.0.2"
   espressif/esp32-camera: "^2.0.5"
   espressif/quirc: 
     version: "^1.2.0"
