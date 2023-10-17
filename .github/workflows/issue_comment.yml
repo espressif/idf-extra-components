@@ -11,6 +11,7 @@ jobs:
   sync_issue_comments_to_jira:
     name: Sync Issue Comments to Jira
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'espressif' }}
     steps:
       - uses: actions/checkout@v2
       - name: Sync issue comments to JIRA

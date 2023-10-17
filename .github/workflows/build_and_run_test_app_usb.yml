@@ -45,6 +45,7 @@ jobs:
 
   run-target:
     name: Run USB Test App on target
+    if: ${{ github.repository_owner == 'espressif' }}
     needs: build
     strategy:
       fail-fast: false
