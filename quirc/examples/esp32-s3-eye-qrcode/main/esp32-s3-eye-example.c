@@ -30,10 +30,8 @@ void grayscale_to_rgb565(uint8_t *grayscale_buf, uint8_t *rgb565_buf, uint16_t l
     uint16_t k = 0;
     for (k = 0; k < length; k++) {
         reduced = (grayscale_buf[k] >> 3) & 0b00011111;
-        //rgb565_buf[rgb565_counter] = ((reduced << 6) | (reduced)); // G2 G1 G0(=0) B4 B3 B2 B1 B0
         rgb565_buf[rgb565_counter] = ((reduced << 3) | (reduced >> 2));
         rgb565_counter++;
-        //rgb565_buf[rgb565_counter] = ((reduced << 3) | (reduced>>2)); // R4 R3 R2 R1 R0 G4 G3 G2
         rgb565_buf[rgb565_counter] = ((reduced << 6) | (reduced));
         rgb565_counter++;
     }
@@ -47,12 +45,13 @@ static void decode_task(void *args)
 
     // Initialize the camera
     camera_config_t camera_config = BSP_CAMERA_DEFAULT_CONFIG;
-    camera_config.pixel_format = PIXFORMAT_GRAYSCALE;
+    camera_config.pixel_format = PIXFORMAT_GRAYSCALE; // required by quirc
     esp_err_t err = esp_camera_init(&camera_config);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera Init Failed");
-        return;
+        exit(1);
     }
+
     sensor_t *s = esp_camera_sensor_get();
     s->set_vflip(s, 1);
     s->set_hmirror(s, 1);
@@ -68,7 +67,7 @@ static void decode_task(void *args)
     bsp_display_unlock();
 
     camera_fb_t *pic = esp_camera_fb_get();
-    uint8_t *buf_shown = (uint8_t *)lv_mem_alloc(pic->len * 2); // double the size because the canvas requires a color RGB565
+    uint8_t *buf_shown = (uint8_t *)lv_mem_alloc(pic->len * 2); // double the size because the canvas requires a RGB565, i.e. 2 bytes per pixel
     esp_camera_fb_return(pic);
 
     /* Initializing the quirc handle */
@@ -89,9 +88,8 @@ static void decode_task(void *args)
 
     while (1) {
         pic = esp_camera_fb_get();
-        //printf("w: %d\th: %d\tbytes: %d\tformat: %d\n", pic->width, pic->height,pic->len, pic->format);
-        if (pic) {
 
+        if (pic) {
             bsp_display_lock(0);
             grayscale_to_rgb565(pic->buf, buf_shown, pic->len);
             lv_canvas_set_buffer(camera_canvas, buf_shown, pic->width, pic->height, LV_IMG_CF_TRUE_COLOR);
@@ -116,6 +114,7 @@ static void decode_task(void *args)
             esp_camera_fb_return(pic);
         } else {
             ESP_LOGE(TAG, "Get frame failed");
+            exit(1);
         }
 
     }
