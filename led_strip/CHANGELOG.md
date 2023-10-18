@@ -1,3 +1,9 @@
+## 2.5.0
+
+- Enabled support for IDF4.4 and above
+    - only with RMT backend
+- Added API `led_strip_set_pixel_hsv`
+
 ## 2.4.0
 
 - Support configurable SPI mode to control leds
