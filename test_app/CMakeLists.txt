@@ -17,7 +17,12 @@ if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.0")
     list(APPEND EXTRA_COMPONENT_DIRS ../bdc_motor ../led_strip ../sh2lib ../nghttp ../esp_serial_slave_link ../onewire_bus ../ccomp_timer ../catch2 ../dhara)
 endif()
 
-# 4. Add here if the component is compatible with IDF >= v5.3
+# 4. Add here if the component is compatible with IDF >= v5.1
+if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.1")
+    list(APPEND EXTRA_COMPONENT_DIRS ../network_provisioning)
+endif()
+
+# 5. Add here if the component is compatible with IDF >= v5.3
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.3")
     list(APPEND EXTRA_COMPONENT_DIRS ../esp_lcd_qemu_rgb)
 endif()
