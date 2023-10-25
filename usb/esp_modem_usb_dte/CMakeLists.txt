@@ -15,5 +15,5 @@ endif()
 
 # esp_modem_usb_dte includes some files from private includes of esp_modem
 idf_component_get_property(esp_modem_dir ${esp_modem_name} COMPONENT_DIR)
-idf_component_get_property(esp_modem_private_include ${esp_modem_name} PRIV_INCLUDE_DIRS)
-target_include_directories(${COMPONENT_LIB} PRIVATE "${esp_modem_dir}/${esp_modem_private_include}")
+idf_component_get_property(esp_modem_include ${esp_modem_name} INCLUDE_DIRS)
+target_include_directories(${COMPONENT_LIB} PRIVATE "${esp_modem_dir}/${esp_modem_include}")
