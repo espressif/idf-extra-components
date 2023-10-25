@@ -27,9 +27,13 @@ led_strip_config_t strip_config = {
 };
 
 led_strip_rmt_config_t rmt_config = {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+    .rmt_channel = 0,
+#else
     .clk_src = RMT_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
     .resolution_hz = 10 * 1000 * 1000, // 10MHz
     .flags.with_dma = false, // whether to enable the DMA feature
+#endif
 };
 ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
 ```

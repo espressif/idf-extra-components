@@ -1,7 +1,4 @@
 led_strip/examples/led_strip_rmt_ws2812:
-  enable:
-    - if: IDF_VERSION_MAJOR > 4
-      reason: Example uses the new RMT driver which was introduced in IDF v5.0
   disable:
     - if: CONFIG_SOC_RMT_SUPPORTED != 1
       reason: Relevant only for RMT enabled targets
