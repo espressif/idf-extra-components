@@ -2,7 +2,7 @@ idf_component_register(SRCS "esp_modem_usb.cpp" "esp_modem_usb_api_target.cpp" "
                        REQUIRED_IDF_TARGETS esp32s2 esp32s3
                        PRIV_INCLUDE_DIRS "private_include"
                        INCLUDE_DIRS "include"
-                       PRIV_REQUIRES esp_modem driver esp_netif )
+                       PRIV_REQUIRES usb usb_host_cdc_acm esp_modem driver esp_netif )
 
 set_target_properties(${COMPONENT_LIB} PROPERTIES CXX_STANDARD 17)
 
