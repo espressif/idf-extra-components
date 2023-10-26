@@ -20,12 +20,7 @@ static const char *TAG = "led_strip_rmt";
 #define WS2812_T1L_NS   (350)
 #define WS2812_DELAY_MS (100)
 
-// the memory size of each RMT channel, in words (4 bytes)
-#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
-#define LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS 8
-#else
 #define LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS 6
-#endif
 
 static uint32_t ws2812_t0h_ticks = 0;
 static uint32_t ws2812_t1h_ticks = 0;
