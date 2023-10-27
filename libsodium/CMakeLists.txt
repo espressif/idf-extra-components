@@ -2,8 +2,8 @@ set(SRC libsodium/src/libsodium)
 # Derived from libsodium/src/libsodium/Makefile.am
 # (ignoring the !MINIMAL set)
 set(srcs
-    "${SRC}/crypto_aead/chacha20poly1305/sodium/aead_chacha20poly1305.c"
-    "${SRC}/crypto_aead/xchacha20poly1305/sodium/aead_xchacha20poly1305.c"
+    "${SRC}/crypto_aead/chacha20poly1305/aead_chacha20poly1305.c"
+    "${SRC}/crypto_aead/xchacha20poly1305/aead_xchacha20poly1305.c"
     "${SRC}/crypto_auth/crypto_auth.c"
     "${SRC}/crypto_auth/hmacsha256/auth_hmacsha256.c"
     "${SRC}/crypto_auth/hmacsha512/auth_hmacsha512.c"
@@ -102,7 +102,7 @@ set(srcs
     "${SRC}/crypto_stream/salsa208/stream_salsa208.c"
     "${SRC}/crypto_stream/xchacha20/stream_xchacha20.c"
     "${SRC}/crypto_stream/xsalsa20/stream_xsalsa20.c"
-    "${SRC}/crypto_verify/sodium/verify.c"
+    "${SRC}/crypto_verify/verify.c"
     "${SRC}/randombytes/randombytes.c"
     "${SRC}/sodium/codecs.c"
     "${SRC}/sodium/core.c"
