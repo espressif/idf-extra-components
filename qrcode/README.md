@@ -6,4 +6,4 @@ This component contains a QR code generator written in C. This component is base
 This component is used as part of the following ESP-IDF examples:
 - [DPP Enrollee Example](https://github.com/espressif/esp-idf/tree/master/examples/wifi/wifi_easy_connect/dpp-enrollee).
 
-To learn more about how to use this component, please check API Documentation from header file [qrcode.h](https://github.com/espressif/esp-bsp/tree/master/qrcode/include/qrcode.h).
+To learn more about how to use this component, please check API Documentation from header file [qrcode.h](https://github.com/espressif/idf-extra-components/tree/master/qrcode/include/qrcode.h).
