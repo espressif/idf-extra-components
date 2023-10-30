@@ -91,4 +91,7 @@ The number of LED strip objects can be created depends on how many free SPI buse
     F --> |No| H[RMT backend] --> D
     ```
 
+* How to set the brightness of the LED strip?
+  * You can tune the brightness by scaling the value of each R-G-B element with a **same** factor. But pay attention to the overflow of the value.
+
 [^1]: The RMT DMA feature is not available on all ESP chips. Please check the data sheet before using it.
