@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#ifdef LWIP_IPV4
+#if LWIP_IPV4
 #define COAP_IPV4_SUPPORT 1
 #else /* ! _LWIP_IPV4 */
 struct sockaddr_in {
@@ -31,6 +31,22 @@ struct sockaddr_in {
     struct in_addr  sin_addr;
 };
 #endif /* ! LWIP_IPV4 */
+
+#if LWIP_IPV6
+#define COAP_IPV6_SUPPORT 1
+#else /* ! LWIP_IPV6 */
+struct sockaddr_in6 {
+    u8_t            sin6_len;
+    sa_family_t     sin6_family;
+    in_port_t       sin6_port;
+    u32_t           sin6_flowinfo;
+    struct in_addr  sin6_addr;
+    u32_t           sin6_scope_id;
+};
+#ifndef INET6_ADDRSTRLEN
+#define INET6_ADDRSTRLEN 40
+#endif /* INET6_ADDRSTRLEN */
+#endif /* ! LWIP_IPV6 */
 
 #include "coap3/libcoap.h"
 

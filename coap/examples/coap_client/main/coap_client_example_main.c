@@ -78,6 +78,9 @@ const static char *TAG = "CoAP_client";
 static int resp_wait = 1;
 static coap_optlist_t *optlist = NULL;
 static int wait_ms;
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+coap_oscore_conf_t *oscore_conf = NULL;
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
 
 #ifdef CONFIG_COAP_MBEDTLS_PKI
 /* CA cert, taken from coap_ca.pem
@@ -98,6 +101,11 @@ extern uint8_t client_crt_end[]   asm("_binary_coap_client_crt_end");
 extern uint8_t client_key_start[] asm("_binary_coap_client_key_start");
 extern uint8_t client_key_end[]   asm("_binary_coap_client_key_end");
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
+
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+extern uint8_t oscore_conf_start[] asm("_binary_coap_oscore_conf_start");
+extern uint8_t oscore_conf_end[]   asm("_binary_coap_oscore_conf_end");
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
 
 static coap_response_t
 message_handler(coap_session_t *session,
@@ -168,61 +176,6 @@ coap_log_handler (coap_log_t level, const char *message)
     }
 }
 
-static int
-coap_build_optlist(coap_uri_t *uri)
-{
-#define BUFSIZE 40
-    unsigned char _buf[BUFSIZE];
-    unsigned char *buf;
-    size_t buflen;
-    int res;
-
-    optlist = NULL;
-
-    if (uri->scheme == COAP_URI_SCHEME_COAPS && !coap_dtls_is_supported()) {
-        ESP_LOGE(TAG, "MbedTLS DTLS Client Mode not configured");
-        return 0;
-    }
-    if (uri->scheme == COAP_URI_SCHEME_COAPS_TCP && !coap_tls_is_supported()) {
-        ESP_LOGE(TAG, "MbedTLS TLS Client Mode not configured");
-        return 0;
-    }
-    if (uri->scheme == COAP_URI_SCHEME_COAP_TCP && !coap_tcp_is_supported()) {
-        ESP_LOGE(TAG, "TCP Client Mode not configured");
-        return 0;
-    }
-
-    if (uri->path.length) {
-        buflen = BUFSIZE;
-        buf = _buf;
-        res = coap_split_path(uri->path.s, uri->path.length, buf, &buflen);
-
-        while (res--) {
-            coap_insert_optlist(&optlist,
-                                coap_new_optlist(COAP_OPTION_URI_PATH,
-                                                 coap_opt_length(buf),
-                                                 coap_opt_value(buf)));
-
-            buf += coap_opt_size(buf);
-        }
-    }
-
-    if (uri->query.length) {
-        buflen = BUFSIZE;
-        buf = _buf;
-        res = coap_split_query(uri->query.s, uri->query.length, buf, &buflen);
-
-        while (res--) {
-            coap_insert_optlist(&optlist,
-                                coap_new_optlist(COAP_OPTION_URI_QUERY,
-                                                 coap_opt_length(buf),
-                                                 coap_opt_value(buf)));
-
-            buf += coap_opt_size(buf);
-        }
-    }
-    return 1;
-}
 #ifdef CONFIG_COAP_MBEDTLS_PSK
 static coap_session_t *
 coap_start_psk_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t *uri, coap_proto_t proto)
@@ -245,8 +198,13 @@ coap_start_psk_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t
     dtls_psk.psk_info.identity.length = sizeof(EXAMPLE_COAP_PSK_IDENTITY) - 1;
     dtls_psk.psk_info.key.s = (const uint8_t *)EXAMPLE_COAP_PSK_KEY;
     dtls_psk.psk_info.key.length = sizeof(EXAMPLE_COAP_PSK_KEY) - 1;
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+    return coap_new_client_session_oscore_psk(ctx, NULL, dst_addr, proto,
+            &dtls_psk, oscore_conf);
+#else /* ! CONFIG_COAP_OSCORE_SUPPORT */
     return coap_new_client_session_psk2(ctx, NULL, dst_addr, proto,
                                         &dtls_psk);
+#endif /* ! CONFIG_COAP_OSCORE_SUPPORT */
 }
 #endif /* CONFIG_COAP_MBEDTLS_PSK */
 
@@ -303,8 +261,13 @@ coap_start_pki_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t
     dtls_pki.pki_key.key.pem_buf.ca_cert = ca_pem_start;
     dtls_pki.pki_key.key.pem_buf.ca_cert_len = ca_pem_bytes;
 
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+    return coap_new_client_session_oscore_pki(ctx, NULL, dst_addr, proto,
+            &dtls_pki, oscore_conf);
+#else /* ! CONFIG_COAP_OSCORE_SUPPORT */
     return coap_new_client_session_pki(ctx, NULL, dst_addr, proto,
                                        &dtls_pki);
+#endif /* ! CONFIG_COAP_OSCORE_SUPPORT */
 }
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
 
@@ -321,6 +284,11 @@ static void coap_example_client(void *p)
     coap_addr_info_t *info_list = NULL;
     coap_proto_t proto;
     char tmpbuf[INET6_ADDRSTRLEN];
+#define BUFSIZE 40
+    unsigned char uri_path[BUFSIZE];
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+    coap_str_const_t osc_conf = { 0, 0};
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
 
     /* Initialize libcoap library */
     coap_startup();
@@ -344,9 +312,6 @@ static void coap_example_client(void *p)
         ESP_LOGE(TAG, "CoAP server uri %s error", server_uri);
         goto clean_up;
     }
-    if (!coap_build_optlist(&uri)) {
-        goto clean_up;
-    }
 
     info_list = coap_resolve_address_info(&uri.host, uri.port, uri.port,
                                           uri.port, uri.port,
@@ -362,9 +327,23 @@ static void coap_example_client(void *p)
     memcpy(&dst_addr, &info_list->addr, sizeof(dst_addr));
     coap_free_address_info(info_list);
 
+    /* Convert provided uri into CoAP options */
+    if (coap_uri_into_options(&uri, &dst_addr, &optlist, 1,
+                              uri_path, sizeof(uri_path)) < 0) {
+        ESP_LOGE(TAG, "Failed to create options for URI %s", server_uri);
+        goto clean_up;
+    }
     /* This is to keep the test suites happy */
     coap_print_ip_addr(&dst_addr, tmpbuf, sizeof(tmpbuf));
     ESP_LOGI(TAG, "DNS lookup succeeded. IP=%s", tmpbuf);
+
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+    osc_conf.s = oscore_conf_start;
+    osc_conf.length = oscore_conf_end - oscore_conf_start;
+    oscore_conf = coap_new_oscore_conf(osc_conf,
+                                       NULL,
+                                       NULL, 0);
+#endif /* CONFIG_COAP_OSCORE_SUPPORT */
 
     /*
      * Note that if the URI starts with just coap:// (not coaps://) the
@@ -384,7 +363,11 @@ static void coap_example_client(void *p)
         session = coap_start_pki_session(ctx, &dst_addr, &uri, proto);
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
     } else {
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+        session = coap_new_client_session_oscore(ctx, NULL, &dst_addr, proto, oscore_conf);
+#else /* ! CONFIG_COAP_OSCORE_SUPPORT */
         session = coap_new_client_session(ctx, NULL, &dst_addr, proto);
+#endif /* ! CONFIG_COAP_OSCORE_SUPPORT */
     }
     if (!session) {
         ESP_LOGE(TAG, "coap_new_client_session() failed");

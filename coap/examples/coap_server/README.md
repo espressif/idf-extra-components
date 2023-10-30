@@ -4,7 +4,9 @@
 
 # CoAP server example
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+(See the README.md file in the upper level esp-idf 'examples' directory for more information
+about examples.)
+
 This CoAP server example is very simplified adaptation of one of the
 [libcoap](https://github.com/obgm/libcoap) examples.
 
@@ -43,6 +45,10 @@ Component config  --->
 Example CoAP Server Configuration  --->
  * If PSK, Set CoAP Preshared Key to use for connections to the server
 
+Note:
+ * For enabled PKI, the certificates are stored in main/certs.
+ * For enabled OSCORE, the OSCORE configuration is stored in main/oscore.
+
 ### Build and Flash
 
 Build the project and flash it to the board, then run monitor tool to view serial output:
@@ -78,19 +84,21 @@ I (2622) CoAP_server: Connected to AP
 If a CoAP client queries the `/Espressif` resource, CoAP server will return `"Hello World!"`
 until a CoAP client does a PUT with different data.
 
+If a clent queries the `/oscore` resource, CoAP server will return `OSCORE Success!` if
+OSCORE is enable AND the client is using OSCORE.
+
 ## libcoap Documentation
 This can be found at [libcoap Documentation](https://libcoap.net/documentation.html).
-The current API is 4.3.2.
+The current API is 4.3.4.
 
 ## libcoap Specific Issues
 These can be raised at [libcoap Issues](https://github.com/obgm/libcoap/issues).
 
 ## Troubleshooting
-* Please make sure CoAP client fetchs or puts data under path: `/Espressif` or
-fetches `/.well-known/core`
+* Please make sure CoAP client gets or puts data under path: `/Espressif` or
+gets `/.well-known/core`.
 
-* CoAP logging can be enabled by running 'idf.py menuconfig -> Component config -> CoAP Configuration -> Enable CoAP debugging'
-and setting appropriate log level.  If Mbed TLS logging is required, this needs to be configured separately under mbedTLS
-Component Configuration and the CoAP logging level set to mbedTLS.
-
-* CoAP library does not support IPv6 only configuration, so it is necessary to enable `LWIP_IPv4`
+* CoAP logging can be enabled by running
+'idf.py menuconfig -> Component config -> CoAP Configuration -> Enable CoAP debugging'
+and setting appropriate log level.  If Mbed TLS logging is required, this needs to be
+configured separately under mbedTLS Component Configuration.

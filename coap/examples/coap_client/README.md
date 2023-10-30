@@ -4,7 +4,9 @@
 
 # CoAP client example
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+(See the README.md file in the upper level esp-idf 'examples' directory for more information
+about examples.)
+
 This CoAP client example is very simplified adaptation of one of the
 [libcoap](https://github.com/obgm/libcoap) examples.
 
@@ -17,6 +19,9 @@ the DTLS protocol using the defined Pre-Shared Keys(PSK) or Public Key Infrastru
 CoAP server needs to know about.
 
 If the URI is prefixed with coap+tcp://, then the CoAP will try to use TCP for the communication.
+
+If the URI is prefixed with coap+ws://, then the CoAP will try to use WebSockets (over TCP) for
+the communication, which assumes that CoAP WebSockets is enabled in the build.
 
 The Constrained Application Protocol (CoAP) is a specialized web transfer protocol for use with
 constrained nodes and constrained networks in the Internet of Things.
@@ -46,6 +51,11 @@ Example CoAP Client Configuration  --->
  * Set CoAP Target Uri
  * If PSK, Set CoAP Preshared Key to use in connection to the server
  * If PSK, Set CoAP PSK Client identity (username)
+
+Note:
+ * For enabled PKI, the certificates are stored in main/certs.
+ * For enabled OSCORE, the OSCORE configuration is stored in main/oscore and will be used on
+   every request.
 
 ### Build and Flash
 
@@ -94,7 +104,7 @@ published under EPL+EDL: http://www.eclipse.org/californium/
 
 ## libcoap Documentation
 This can be found at [libcoap Documentation](https://libcoap.net/documentation.html).
-The current API is 4.3.2.
+The current API is 4.3.4.
 
 ## libcoap Specific Issues
 These can be raised at [libcoap Issues](https://github.com/obgm/libcoap/issues).
@@ -106,8 +116,7 @@ optional `path`, and begins with `coap://`, `coaps://`, `coap+tcp://`, `coaps+tc
   * Not all hosts support TCP/TLS including coap+tcp://californium.eclipseprojects.io
   * Not all hosts support WebSockets, which needs to be enabled as an option
 
-* CoAP logging can be enabled by running 'idf.py menuconfig -> Component config -> CoAP Configuration -> Enable CoAP debugging'
-and setting appropriate log level.  If Mbed TLS logging is required, this needs to be configured separately under mbedTLS
-Component Configuration and the CoAP logging level set to mbedTLS.
-
-* CoAP library does not support IPv6 only configuration, so it is necessary to enable `LWIP_IPv4`
+* CoAP logging can be enabled by running
+'idf.py menuconfig -> Component config -> CoAP Configuration -> Enable CoAP debugging'
+and setting appropriate log level.  If Mbed TLS logging is required, this needs to be
+configured separately under mbedTLS Component Configuration.
