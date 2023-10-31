@@ -22,7 +22,7 @@ typedef struct {
     spi_host_device_t spi_bus;  /*!< SPI bus ID. Which buses are available depends on the specific chip */
     struct {
         uint32_t with_dma: 1;   /*!< Use DMA to transmit data */
-    } flags;
+    } flags;                    /*!< Extra driver flags */
 } led_strip_spi_config_t;
 
 /**

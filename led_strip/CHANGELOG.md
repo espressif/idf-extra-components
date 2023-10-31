@@ -1,14 +1,14 @@
 ## 2.5.0
 
 - Enabled support for IDF4.4 and above
-    - only with RMT backend
+  - with RMT backend only
 - Added API `led_strip_set_pixel_hsv`
 
 ## 2.4.0
 
 - Support configurable SPI mode to control leds
   - recommend enabling DMA when using SPI mode
-  
+
 ## 2.3.0
 
 - Support configurable RMT channel size by setting `mem_block_symbols`

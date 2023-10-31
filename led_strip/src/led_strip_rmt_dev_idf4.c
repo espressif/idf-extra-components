@@ -14,18 +14,29 @@
 
 static const char *TAG = "led_strip_rmt";
 
-#define WS2812_T0H_NS   (350)
-#define WS2812_T0L_NS   (1000)
-#define WS2812_T1H_NS   (1000)
-#define WS2812_T1L_NS   (350)
-#define WS2812_DELAY_MS (100)
+#define WS2812_T0H_NS   (300)
+#define WS2812_T0L_NS   (900)
+#define WS2812_T1H_NS   (900)
+#define WS2812_T1L_NS   (300)
 
-#define LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS 6
+#define SK6812_T0H_NS   (300)
+#define SK6812_T0L_NS   (900)
+#define SK6812_T1H_NS   (600)
+#define SK6812_T1L_NS   (600)
 
-static uint32_t ws2812_t0h_ticks = 0;
-static uint32_t ws2812_t1h_ticks = 0;
-static uint32_t ws2812_t0l_ticks = 0;
-static uint32_t ws2812_t1l_ticks = 0;
+#define LED_STRIP_RESET_MS (10)
+
+// the memory size of each RMT channel, in words (4 bytes)
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+#define LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS 64
+#else
+#define LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS 48
+#endif
+
+static uint32_t led_t0h_ticks = 0;
+static uint32_t led_t1h_ticks = 0;
+static uint32_t led_t0l_ticks = 0;
+static uint32_t led_t1l_ticks = 0;
 
 typedef struct {
     led_strip_t base;
@@ -43,8 +54,8 @@ static void IRAM_ATTR ws2812_rmt_adapter(const void *src, rmt_item32_t *dest, si
         *item_num = 0;
         return;
     }
-    const rmt_item32_t bit0 = {{{ ws2812_t0h_ticks, 1, ws2812_t0l_ticks, 0 }}}; //Logical 0
-    const rmt_item32_t bit1 = {{{ ws2812_t1h_ticks, 1, ws2812_t1l_ticks, 0 }}}; //Logical 1
+    const rmt_item32_t bit0 = {{{ led_t0h_ticks, 1, led_t0l_ticks, 0 }}}; //Logical 0
+    const rmt_item32_t bit1 = {{{ led_t1h_ticks, 1, led_t1l_ticks, 0 }}}; //Logical 1
     size_t size = 0;
     size_t num = 0;
     uint8_t *psrc = (uint8_t *)src;
@@ -87,13 +98,14 @@ static esp_err_t led_strip_rmt_refresh(led_strip_t *strip)
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_ERROR(rmt_write_sample(rmt_strip->rmt_channel, rmt_strip->buffer, rmt_strip->strip_len * rmt_strip->bytes_per_pixel, true), TAG,
                         "transmit RMT samples failed");
-    return rmt_wait_tx_done(rmt_strip->rmt_channel, pdMS_TO_TICKS(WS2812_DELAY_MS));
+    vTaskDelay(pdMS_TO_TICKS(LED_STRIP_RESET_MS));
+    return ESP_OK;
 }
 
 static esp_err_t led_strip_rmt_clear(led_strip_t *strip)
 {
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
-    // Write zero to turn off all leds
+    // Write zero to turn off all LEDs
     memset(rmt_strip->buffer, 0, rmt_strip->strip_len * rmt_strip->bytes_per_pixel);
     return led_strip_rmt_refresh(strip);
 }
@@ -101,6 +113,7 @@ static esp_err_t led_strip_rmt_clear(led_strip_t *strip)
 static esp_err_t led_strip_rmt_del(led_strip_t *strip)
 {
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+    ESP_RETURN_ON_ERROR(rmt_driver_uninstall(rmt_strip->rmt_channel), TAG, "uninstall RMT driver failed");
     free(rmt_strip);
     return ESP_OK;
 }
@@ -108,8 +121,10 @@ static esp_err_t led_strip_rmt_del(led_strip_t *strip)
 esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *dev_config, led_strip_handle_t *ret_strip)
 {
     led_strip_rmt_obj *rmt_strip = NULL;
+    esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE(led_config && dev_config && ret_strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     ESP_RETURN_ON_FALSE(led_config->led_pixel_format < LED_PIXEL_FORMAT_INVALID, ESP_ERR_INVALID_ARG, TAG, "invalid led_pixel_format");
+    ESP_RETURN_ON_FALSE(dev_config->flags.with_dma == 0, ESP_ERR_NOT_SUPPORTED, TAG, "DMA is not supported");
 
     uint8_t bytes_per_pixel = 3;
     if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
@@ -120,33 +135,44 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
         assert(false);
     }
 
+    // allocate memory for led_strip object
+    rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
+    ESP_RETURN_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, TAG, "request memory for les_strip failed");
+
+    // install RMT channel driver
     rmt_config_t config = RMT_DEFAULT_CONFIG_TX(led_config->strip_gpio_num, dev_config->rmt_channel);
-    // set counter clock to 40MHz
+    // set the minimal clock division because the LED strip needs a high clock resolution
     config.clk_div = 2;
 
-    size_t mem_block_symbols = LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS;
-    // override the default value if the user sets it
+    uint8_t mem_block_num = 2;
+    // override the default value if the user specify the mem block size
     if (dev_config->mem_block_symbols) {
-        mem_block_symbols = dev_config->mem_block_symbols;
+        mem_block_num = (dev_config->mem_block_symbols + LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS / 2) / LED_STRIP_RMT_DEFAULT_MEM_BLOCK_SYMBOLS;
     }
-    config.mem_block_num = mem_block_symbols;
+    config.mem_block_num = mem_block_num;
 
-    ESP_RETURN_ON_ERROR(rmt_config(&config), TAG, "RMT config failed");
-    ESP_RETURN_ON_ERROR(rmt_driver_install(config.channel, 0, 0), TAG, "RMT install failed");
-
-    rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
-    ESP_RETURN_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, TAG, "request memory for ws2812 failed");
+    ESP_GOTO_ON_ERROR(rmt_config(&config), err, TAG, "RMT config failed");
+    ESP_GOTO_ON_ERROR(rmt_driver_install(config.channel, 0, 0), err, TAG, "RMT install failed");
 
     uint32_t counter_clk_hz = 0;
-    ESP_RETURN_ON_ERROR(rmt_get_counter_clock((rmt_channel_t)dev_config->rmt_channel, &counter_clk_hz), TAG, "get rmt counter clock failed");
+    rmt_get_counter_clock((rmt_channel_t)dev_config->rmt_channel, &counter_clk_hz);
     // ns -> ticks
     float ratio = (float)counter_clk_hz / 1e9;
-    ws2812_t0h_ticks = (uint32_t)(ratio * WS2812_T0H_NS);
-    ws2812_t0l_ticks = (uint32_t)(ratio * WS2812_T0L_NS);
-    ws2812_t1h_ticks = (uint32_t)(ratio * WS2812_T1H_NS);
-    ws2812_t1l_ticks = (uint32_t)(ratio * WS2812_T1L_NS);
+    if (led_config->led_model == LED_MODEL_WS2812) {
+        led_t0h_ticks = (uint32_t)(ratio * WS2812_T0H_NS);
+        led_t0l_ticks = (uint32_t)(ratio * WS2812_T0L_NS);
+        led_t1h_ticks = (uint32_t)(ratio * WS2812_T1H_NS);
+        led_t1l_ticks = (uint32_t)(ratio * WS2812_T1L_NS);
+    } else if (led_config->led_model == LED_MODEL_SK6812) {
+        led_t0h_ticks = (uint32_t)(ratio * SK6812_T0H_NS);
+        led_t0l_ticks = (uint32_t)(ratio * SK6812_T0L_NS);
+        led_t1h_ticks = (uint32_t)(ratio * SK6812_T1H_NS);
+        led_t1l_ticks = (uint32_t)(ratio * SK6812_T1L_NS);
+    } else {
+        assert(false);
+    }
 
-    // set ws2812 to rmt adapter
+    // adapter to translates the LES strip date frame into RMT symbols
     rmt_translator_init((rmt_channel_t)dev_config->rmt_channel, ws2812_rmt_adapter);
 
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
@@ -158,9 +184,11 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip->base.del = led_strip_rmt_del;
 
     *ret_strip = &rmt_strip->base;
-
-    // Clear LED strip (turn off all LEDs)
-    ESP_RETURN_ON_ERROR((*ret_strip)->clear(*ret_strip), TAG, "LED strip clear failed");
-
     return ESP_OK;
+
+err:
+    if (rmt_strip) {
+        free(rmt_strip);
+    }
+    return ret;
 }
