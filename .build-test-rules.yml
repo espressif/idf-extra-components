@@ -42,3 +42,8 @@ catch2/examples/catch2-console:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
+
+l8w8jwt/examples/es256:
+  enable:
+    - if: IDF_VERSION_MAJOR > 4
+      reason: Supported only on IDF versions with Mbed TLS v3.x
