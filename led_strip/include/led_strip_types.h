@@ -46,7 +46,7 @@ typedef struct {
 
     struct {
         uint32_t invert_out: 1; /*!< Invert output signal */
-    } flags;
+    } flags;                    /*!< Extra driver flags */
 } led_strip_config_t;
 
 #ifdef __cplusplus
