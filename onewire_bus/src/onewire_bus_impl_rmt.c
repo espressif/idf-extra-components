@@ -9,6 +9,7 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "esp_check.h"
+#include "esp_attr.h"
 #include "driver/rmt_tx.h"
 #include "driver/rmt_rx.h"
 #include "onewire_bus_impl_rmt.h"
@@ -124,21 +125,21 @@ typedef struct {
     SemaphoreHandle_t bus_mutex;
 } onewire_bus_rmt_obj_t;
 
-const static rmt_symbol_word_t onewire_reset_pulse_symbol = {
+static rmt_symbol_word_t onewire_reset_pulse_symbol = {
     .level0 = 0,
     .duration0 = ONEWIRE_RESET_PULSE_DURATION,
     .level1 = 1,
     .duration1 = ONEWIRE_RESET_WAIT_DURATION
 };
 
-const static rmt_symbol_word_t onewire_bit0_symbol = {
+static rmt_symbol_word_t onewire_bit0_symbol = {
     .level0 = 0,
     .duration0 = ONEWIRE_SLOT_START_DURATION + ONEWIRE_SLOT_BIT_DURATION,
     .level1 = 1,
     .duration1 = ONEWIRE_SLOT_RECOVERY_DURATION
 };
 
-const static rmt_symbol_word_t onewire_bit1_symbol = {
+static rmt_symbol_word_t onewire_bit1_symbol = {
     .level0 = 0,
     .duration0 = ONEWIRE_SLOT_START_DURATION,
     .level1 = 1,
@@ -163,7 +164,8 @@ static esp_err_t onewire_bus_rmt_reset(onewire_bus_handle_t bus);
 static esp_err_t onewire_bus_rmt_del(onewire_bus_handle_t bus);
 static esp_err_t onewire_bus_rmt_destroy(onewire_bus_rmt_obj_t *bus_rmt);
 
-static bool onewire_rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
+IRAM_ATTR
+bool onewire_rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
     BaseType_t task_woken = pdFALSE;
     onewire_bus_rmt_obj_t *bus_rmt = (onewire_bus_rmt_obj_t *)user_data;
@@ -312,7 +314,7 @@ esp_err_t onewire_new_bus_rmt(const onewire_bus_config_t *bus_config, const onew
     ESP_GOTO_ON_ERROR(rmt_enable(bus_rmt->tx_channel), err, TAG, "enable rmt tx channel failed");
 
     // release the bus by sending a special RMT symbol
-    static const rmt_symbol_word_t release_symbol = {
+    static rmt_symbol_word_t release_symbol = {
         .level0 = 1,
         .duration0 = 1,
         .level1 = 1,
