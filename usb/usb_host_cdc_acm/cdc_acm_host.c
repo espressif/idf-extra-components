@@ -579,11 +579,20 @@ static void cdc_acm_transfers_free(cdc_dev_t *cdc_dev)
  * @param[in] in_buf_len    Length of data IN buffer
  * @param[in] out_ep_desc   Pointer to data OUT EP descriptor
  * @param[in] out_buf_len   Length of data OUT buffer
- * @return esp_err_t
+ * @return
+ *     - ESP_OK:            Success
+ *     - ESP_ERR_NO_MEM:    Not enough memory for transfers and semaphores allocation
+ *     - ESP_ERR_NOT_FOUND: IN or OUT endpoints were not found in the selected interface
  */
 static esp_err_t cdc_acm_transfers_allocate(cdc_dev_t *cdc_dev, const usb_ep_desc_t *notif_ep_desc, const usb_ep_desc_t *in_ep_desc, size_t in_buf_len, const usb_ep_desc_t *out_ep_desc, size_t out_buf_len)
 {
     esp_err_t ret;
+
+    // 0. Check IN and OUT endpoints
+    // If your open functions fail here, it signals that you either selected wrong interface number
+    // or that you are trying to open IAD CDC device with cdc_acm_host_open_vendor_specific() instead of cdc_acm_host_open()
+    // Refer to README.md for more information
+    ESP_RETURN_ON_FALSE(in_ep_desc && out_ep_desc, ESP_ERR_NOT_FOUND, TAG, "IN or OUT endpoint not found in this data interface");
 
     // 1. Setup notification transfer if it is supported
     if (notif_ep_desc) {
@@ -660,7 +669,9 @@ err:
  * @param[out] notif_ep Pointer to notification EP descriptor
  * @param[out] in_ep    Pointer to data IN EP descriptor
  * @param[out] out_ep   Pointer to data OUT EP descriptor
- * @return esp_err_t
+ * @return
+ *     - ESP_OK:            Success
+ *     - ESP_ERR_NOT_FOUND: Interfaces and endpoints NOT found
  */
 static esp_err_t cdc_acm_find_intf_and_ep_desc(cdc_dev_t *cdc_dev, uint8_t intf_idx, const usb_ep_desc_t **notif_ep, const usb_ep_desc_t **in_ep, const usb_ep_desc_t **out_ep)
 {
