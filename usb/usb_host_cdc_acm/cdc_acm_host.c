@@ -824,7 +824,7 @@ esp_err_t cdc_acm_host_open_vendor_specific(uint16_t vid, uint16_t pid, uint8_t 
     cdc_dev->data.intf_desc = usb_parse_interface_descriptor(config_desc, interface_num, 0, &desc_offset);
     ESP_GOTO_ON_FALSE(
         cdc_dev->data.intf_desc,
-        ESP_ERR_NOT_FOUND, err, TAG, "Required interfece no %d was not found.", interface_num);
+        ESP_ERR_NOT_FOUND, err, TAG, "Required interface no %d was not found.", interface_num);
     const int temp_offset = desc_offset; // Save this offset for later
 
     // The interface can have 2-3 endpoints. 2 for data and 1 optional for notifications
