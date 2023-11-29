@@ -57,3 +57,6 @@
 [submodule "catch2/Catch2"]
 	path = catch2/Catch2
 	url = https://github.com/catchorg/Catch2.git
+[submodule "l8w8jwt/l8w8jwt"]
+	path = l8w8jwt/l8w8jwt
+	url = https://github.com/GlitchedPolygons/l8w8jwt.git

@@ -51,6 +51,7 @@ jobs:
             json_generator;
             json_parser;
             led_strip;
+            l8w8jwt;
             libsodium;
             nghttp;
             onewire_bus;

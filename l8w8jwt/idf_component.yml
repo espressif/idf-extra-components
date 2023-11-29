@@ -1,0 +1,7 @@
+version: "2.2.1"
+description: "Minimal, OpenSSL-less and super lightweight JWT library written in C"
+url: https://github.com/espressif/idf-extra-components/tree/master/l8w8jwt
+dependencies:
+  idf: ">=5.0"
+  espressif/jsmn:
+    version: "^1.1.0"

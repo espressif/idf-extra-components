@@ -1,0 +1,8 @@
+## IDF Component Manager Manifest File
+version: "1.0.0"
+description: l8w8jwt Example
+dependencies:
+  idf: ">=5.0"
+  espressif/l8w8jwt:
+    version: '>=2.2.1'
+    override_path: '../../../'
