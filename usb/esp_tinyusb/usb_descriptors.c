@@ -82,7 +82,7 @@ const char *descriptor_str_kconfig[] = {
     "",
 #endif
 
-#if CONFIG_TINYUSB_NET_MODE_ECM_RNDIS || CONFIG_TINYUSB_NET_MODE_NCM
+#if CONFIG_TINYUSB_NET_MODE_NCM
     "USB net",                               // 6. NET Interface
     "",                                      // 7. MAC
 #endif

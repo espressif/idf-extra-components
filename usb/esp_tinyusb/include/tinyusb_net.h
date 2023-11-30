@@ -92,6 +92,21 @@ esp_err_t tinyusb_net_send_sync(void *buffer, uint16_t len, void *buff_free_arg,
  */
 esp_err_t tinyusb_net_send_async(void *buffer, uint16_t len, void *buff_free_arg);
 
+/**
+ * @brief TinyUSB NET driver notify HOST that the device is connected to AP, 
+ * @note This interface should be called when WiFi connected
+ * @return ESP_OK on success notify
+ *         ESP_FAIL on fail notify
+ */
+esp_err_t tinyusb_net_connect(void);
+
+/**
+ * @brief TinyUSB NET driver notify HOST that the device is disconnected to AP, 
+ * @note This interface should be called when WiFi disconnected
+ * @return esp_err_t
+ */
+esp_err_t tinyusb_net_disconnect(void);
+
 #endif // (CONFIG_TINYUSB_NET_MODE_NONE != 1)
 
 #ifdef __cplusplus
