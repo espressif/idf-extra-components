@@ -1,4 +1,4 @@
-version: "1.2.13~1"
+version: "1.3.0"
 description: zlib C library
 url: https://github.com/espressif/idf-extra-components/tree/master/zlib
 repository: "https://github.com/espressif/idf-extra-components.git"
