@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSL-1.0
  * Note: same license as Catch2
  */
+#include "esp_err.h"
 #if WITH_CONSOLE
 #include "Catch2/src/catch2/catch_config.hpp"
 #include "esp_console.h"
@@ -30,4 +31,11 @@ extern "C" esp_err_t register_catch2(const char *cmd_name)
     return esp_console_cmd_register(&cmd);
 }
 
+#else // WITH_CONSOLE
+// Defined to avoid ranlib warning on macOS
+// (the table of contents is empty (no object file members in the library define global symbols))
+extern "C" esp_err_t register_catch2(const char *cmd_name)
+{
+    return ESP_OK;
+}
 #endif // WITH_CONSOLE
