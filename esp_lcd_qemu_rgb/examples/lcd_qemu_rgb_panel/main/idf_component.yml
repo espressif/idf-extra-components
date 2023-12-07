@@ -1,0 +1,6 @@
+## IDF Component Manager Manifest File
+dependencies:
+  espressif/esp_lcd_qemu_rgb:
+    version: '^1'
+    override_path: '../../../'
+  lvgl/lvgl: "~8.3.0"

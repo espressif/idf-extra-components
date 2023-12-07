@@ -1,0 +1,9 @@
+menu "Example Configuration"
+
+    config EXAMPLE_QEMU_RGB_PANEL_DEDIC_FB
+        bool "Use QEMU RGB panel dedicated framebuffer"
+        default "n"
+        help
+            Use QEMU RGB panel dedicated framebuffer as the framebuffer for LVGL.
+
+endmenu
