@@ -1,3 +1,6 @@
+## 1.4.3
+- esp_tinyusb: Add AUDIO class driver configuration or tinyUSB
+
 ## 1.4.2
 
 - MSC: Fix maximum files open

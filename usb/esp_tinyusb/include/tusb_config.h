@@ -49,6 +49,10 @@ extern "C" {
 #   define CONFIG_TINYUSB_HID_COUNT 0
 #endif
 
+#ifndef CONFIG_TINYUSB_AUDIO_ENABLED
+#   define CONFIG_TINYUSB_AUDIO_ENABLED 0
+#endif
+
 #ifndef CONFIG_TINYUSB_MIDI_COUNT
 #   define CONFIG_TINYUSB_MIDI_COUNT 0
 #endif
@@ -114,6 +118,17 @@ extern "C" {
 // MSC Buffer size of Device Mass storage
 #define CFG_TUD_MSC_BUFSIZE         CONFIG_TINYUSB_MSC_BUFSIZE
 
+// AUDIO macros
+#define CFG_TUD_AUDIO_FUNC_1_DESC_LEN                                 TUD_AUDIO_MIC_ONE_CH_DESC_LEN
+#define CFG_TUD_AUDIO_FUNC_1_N_AS_INT                                 1
+#define CFG_TUD_AUDIO_FUNC_1_CTRL_BUF_SZ                              64
+#define CFG_TUD_AUDIO_ENABLE_EP_IN                                    1
+#define CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_TX                    2
+#define CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX                            1
+#define CFG_TUD_AUDIO_EP_SZ_IN                                        (48+1) * CFG_TUD_AUDIO_FUNC_1_N_BYTES_PER_SAMPLE_TX * CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_TX
+#define CFG_TUD_AUDIO_FUNC_1_EP_IN_SZ_MAX                             CFG_TUD_AUDIO_EP_SZ_IN
+#define CFG_TUD_AUDIO_FUNC_1_EP_IN_SW_BUF_SZ                          CFG_TUD_AUDIO_EP_SZ_IN + 1
+
 // MIDI macros
 #define CFG_TUD_MIDI_EP_BUFSIZE     64
 #define CFG_TUD_MIDI_EPSIZE         CFG_TUD_MIDI_EP_BUFSIZE
@@ -135,6 +150,7 @@ extern "C" {
 #define CFG_TUD_CDC                 CONFIG_TINYUSB_CDC_COUNT
 #define CFG_TUD_MSC                 CONFIG_TINYUSB_MSC_ENABLED
 #define CFG_TUD_HID                 CONFIG_TINYUSB_HID_COUNT
+#define CFG_TUD_AUDIO               CONFIG_TINYUSB_AUDIO_ENABLED
 #define CFG_TUD_MIDI                CONFIG_TINYUSB_MIDI_COUNT
 #define CFG_TUD_CUSTOM_CLASS        CONFIG_TINYUSB_CUSTOM_CLASS_ENABLED
 #define CFG_TUD_ECM_RNDIS           CONFIG_TINYUSB_NET_MODE_ECM_RNDIS

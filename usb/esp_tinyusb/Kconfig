@@ -184,6 +184,14 @@ menu "TinyUSB Stack"
                 CDC FIFO size of TX channel.
     endmenu # "Communication Device Class"
 
+    menu "Audio Device Class (ADC)"
+        config TINYUSB_AUDIO_ENABLED
+            bool "Enable TinyUSB AUDIO feature"
+            default n
+            help
+                Enable TinyUSB Audio feature.
+    endmenu # "Audio Device Class"
+
     menu "Musical Instrument Digital Interface (MIDI)"
         config TINYUSB_MIDI_COUNT
             int "TinyUSB MIDI interfaces count"
