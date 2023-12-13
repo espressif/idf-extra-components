@@ -42,3 +42,8 @@ catch2/examples/catch2-console:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
+
+esp_lcd_qemu_rgb/examples/lcd_qemu_rgb_panel:
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR > 5)) and (IDF_TARGET in ["esp32", "esp32c3"])
+      reason: Example is meant to be run under QEMU, which currently only supports ESP32 and ESP32-C3

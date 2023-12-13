@@ -41,6 +41,7 @@ jobs:
             eigen;
             esp_delta_ota;
             esp_encrypted_img;
+            esp_lcd_qemu_rgb;
             esp_jpeg;
             esp_serial_slave_link;
             expat;
