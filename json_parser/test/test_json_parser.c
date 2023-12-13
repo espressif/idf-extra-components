@@ -30,7 +30,7 @@ TEST_CASE("json_parser basic tests", "[json_parser]")
     TEST_ASSERT_EQUAL_STRING("JSON Parser", str_val);
 
     TEST_ASSERT_EQUAL(OS_SUCCESS, json_obj_get_float(&jctx, "float_val", &float_val));
-    TEST_ASSERT(fabs(float_val - 2.0f) < 0.0001f)
+    TEST_ASSERT(fabs(float_val - 2.0f) < 0.0001f);
 
     TEST_ASSERT_EQUAL(OS_SUCCESS, json_obj_get_int(&jctx, "int_val", &int_val));
     TEST_ASSERT_EQUAL_INT(2017, int_val);
