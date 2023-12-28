@@ -1,1 +1,2 @@
 DeprecationWarning: pkg_resources is deprecated as an API
+error: missing initializer for member 'esp_console_cmd_t::func_w_context'
