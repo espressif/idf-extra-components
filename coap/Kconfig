@@ -1,21 +1,27 @@
 menu "CoAP Configuration"
-    choice COAP_MBEDTLS_ENCRYPTION_MODE
-        prompt "CoAP Encryption method"
-        default COAP_MBEDTLS_PSK
+    config COAP_MBEDTLS_PSK
+        bool "Pre-Shared Keys"
+        default y
         help
             If the CoAP information is to be encrypted, the encryption environment
-            can be set up in one of two ways (default being Pre-Shared key mode)
+            can be set up using Pre-Shared keys (PSK) mode.
 
             - Encrypt using defined Pre-Shared Keys (PSK if uri includes coaps://)
+            - Note: If PKI is set as well, a server will decide which method to use
+                    based on the incoming encryption request. It is up to the client
+                    logic to decide which one to use.
+
+    config COAP_MBEDTLS_PKI
+        bool "PKI Certificates"
+        default n
+        help
+            If the CoAP information is to be encrypted, the encryption environment
+            can be set up using Public Key Infrastructure (PKI) mode.
+
             - Encrypt using defined Public Key Infrastructure (PKI if uri includes coaps://)
-
-        config COAP_MBEDTLS_PSK
-            bool "Pre-Shared Keys"
-
-        config COAP_MBEDTLS_PKI
-            bool "PKI Certificates"
-
-    endchoice #COAP_MBEDTLS_ENCRYPTION_MODE
+            - Note: If PSK is set as well, a server will decide which method to use
+                    based on the incoming encryption request. It is up to the client
+                    logic to decide which one to use.
 
     config COAP_DEBUGGING
         bool "Enable CoAP debugging"

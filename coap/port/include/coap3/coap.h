@@ -5,7 +5,7 @@
  *
  * coap.h -- main header file for CoAP stack of libcoap
  *
- * Copyright (C) 2010-2012,2015-2016 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2010-2012,2015-2024 Olaf Bergmann <bergmann@tzi.org>
  *               2015 Carsten Schoenert <c.schoenert@t-online.de>
  *
  * Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD

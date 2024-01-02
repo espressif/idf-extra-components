@@ -38,10 +38,12 @@ Example Connection Configuration  --->
  * Set WiFi Password
 Component config  --->
   CoAP Configuration  --->
-    * Set encryption method definition, PSK (default) or PKI
+    * Set encryption method definition, PSK (default) and/or PKI
     * Enable CoAP debugging if required
-    * Disable CoAP using TCP if this is not required (TCP needed for TLS)
+    * Disable CoAP using TCP if this is not required (TCP needed for TLS or WebSockets)
     * Disable CoAP client functionality to reduce code size unless this server is a proxy
+    * Enable OSCORE (RFC8613) support if required
+    * Enable WebSockets (RFC8323) support if required
 Example CoAP Server Configuration  --->
  * If PSK, Set CoAP Preshared Key to use for connections to the server
 
