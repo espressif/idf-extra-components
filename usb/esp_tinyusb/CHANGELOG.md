@@ -1,3 +1,6 @@
+## 1.4.3
+- esp_tinyusb: ESP32P4 HS only support
+
 ## 1.4.2
 
 - MSC: Fix maximum files open

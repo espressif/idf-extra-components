@@ -6,6 +6,17 @@ menu "TinyUSB Stack"
         help
             Specify verbosity of TinyUSB log output.
 
+    choice TINYUSB_RHPORT
+        depends on IDF_TARGET_ESP32P4
+        prompt "TinyUSB PHY"
+        default TINYUSB_RHPORT_HS
+        help
+            Allows set the USB PHY Controller for TinyUSB: HS (USB OTG2.0 PHY for HighSpeed)
+             
+        config TINYUSB_RHPORT_HS
+            bool "HS"
+    endchoice
+
     menu "TinyUSB task configuration"
         config TINYUSB_NO_DEFAULT_TASK
             bool "Do not create a TinyUSB task"
