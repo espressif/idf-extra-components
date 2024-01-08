@@ -16,7 +16,6 @@
 extern "C" {
 #endif
 
-#ifdef CONFIG_SPI_FLASH_NAND_ENABLED
 /**
  * @brief Convenience function to initialize FAT filesystem in SPI nand flash and register it in VFS
  *
@@ -35,9 +34,9 @@ extern "C" {
  *      - ESP_ERR_NO_MEM if memory can not be allocated
  *      - other error codes from nand driver, SPI flash driver, or FATFS drivers
  */
-esp_err_t esp_vfs_fat_nand_mount(const char* base_path,
+esp_err_t esp_vfs_fat_nand_mount(const char *base_path,
                                  spi_nand_flash_device_t *nand_device,
-                                 const esp_vfs_fat_mount_config_t* mount_config);
+                                 const esp_vfs_fat_mount_config_t *mount_config);
 
 /**
  * @brief Unmount FAT filesystem and release resources acquired using esp_vfs_fat_nand_mount
@@ -50,8 +49,7 @@ esp_err_t esp_vfs_fat_nand_mount(const char* base_path,
  *      - ESP_ERR_INVALID_STATE if esp_vfs_fat_nand_mount hasn't been called
  */
 
-esp_err_t esp_vfs_fat_nand_unmount(const char* base_path, spi_nand_flash_device_t *nand_device);
-#endif // CONFIG_SPI_FLASH_NAND_ENABLED
+esp_err_t esp_vfs_fat_nand_unmount(const char *base_path, spi_nand_flash_device_t *nand_device);
 
 #ifdef __cplusplus
 }

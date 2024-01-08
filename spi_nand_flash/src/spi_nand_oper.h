@@ -12,6 +12,10 @@
 #include <esp_err.h>
 #include <driver/spi_master.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct spi_nand_transaction_t {
     uint8_t command;
     uint8_t address_bytes;
@@ -59,3 +63,7 @@ esp_err_t spi_nand_read(spi_device_handle_t device, uint8_t *data, uint16_t colu
 esp_err_t spi_nand_program_execute(spi_device_handle_t device, uint32_t page);
 esp_err_t spi_nand_program_load(spi_device_handle_t device, const uint8_t *data, uint16_t column, uint16_t length);
 esp_err_t spi_nand_erase_block(spi_device_handle_t device, uint32_t page);
+
+#ifdef __cplusplus
+}
+#endif

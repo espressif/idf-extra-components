@@ -21,7 +21,7 @@ extern "C" {
  * @param pdrv  drive number
  * @param device pointer to a nand flash device structure; device should be initialized before calling f_mount.
  */
-esp_err_t ff_diskio_register_nand(BYTE pdrv, spi_nand_flash_device_t* device);
+esp_err_t ff_diskio_register_nand(BYTE pdrv, spi_nand_flash_device_t *device);
 
 /**
  * @brief Get the driver number corresponding to a device
@@ -29,7 +29,7 @@ esp_err_t ff_diskio_register_nand(BYTE pdrv, spi_nand_flash_device_t* device);
  * @param device The device for which to return its driver
  * @return Driver number of the device
  */
-BYTE ff_diskio_get_pdrv_nand(const spi_nand_flash_device_t* device);
+BYTE ff_diskio_get_pdrv_nand(const spi_nand_flash_device_t *device);
 
 /**
  * @brief Clear a registered nand driver, so it can be reused

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#pragma once
+
 //Manufacturer IDs (MI) for supported nand flash devices
 #define SPI_NAND_FLASH_GIGADEVICE_MI  0xC8
 #define SPI_NAND_FLASH_ALLIANCE_MI    0x52

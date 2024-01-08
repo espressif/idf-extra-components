@@ -88,16 +88,16 @@ DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         uint16_t num_sectors;
         ESP_GOTO_ON_ERROR(spi_nand_flash_get_capacity(dev, &num_sectors),
                           fail, TAG, "get_capacity failed");
-        *((DWORD*)buff) = num_sectors;
-        ESP_LOGV(TAG, "capacity=%ld", *((DWORD *) buff));
+        *((DWORD *)buff) = num_sectors;
+        ESP_LOGV(TAG, "capacity=%"PRIu32"", *((DWORD *) buff));
         break;
     }
     case GET_SECTOR_SIZE: {
         uint16_t capacity;
         ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &capacity),
                           fail, TAG, "get_sector_size failed");
-        *((WORD*)buff) = capacity;
-        ESP_LOGV(TAG, "sector size=%d", *((WORD*)buff));
+        *((WORD *)buff) = capacity;
+        ESP_LOGV(TAG, "sector size=%d", *((WORD *)buff));
         break;
     }
     default:

@@ -1,0 +1,4 @@
+dependencies:
+  espressif/spi_nand_flash:
+    version: '0.1.0'
+    override_path: '../../'

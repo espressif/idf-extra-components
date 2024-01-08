@@ -8,6 +8,15 @@
 
 #pragma once
 
+#include <stdint.h>
+#include "spi_nand_flash.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define INVALID_PAGE 0xFFFF
 
 struct spi_nand_flash_device_t {
@@ -25,3 +34,7 @@ struct spi_nand_flash_device_t {
 };
 
 esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_operation_time_us, uint8_t *status_out);
+
+#ifdef __cplusplus
+}
+#endif

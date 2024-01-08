@@ -61,6 +61,7 @@ jobs:
             qrcode;
             quirc;
             sh2lib;
+            spi_nand_flash;
             usb/esp_modem_usb_dte;
             usb/esp_tinyusb;
             usb/usb_host_cdc_acm;

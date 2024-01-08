@@ -72,7 +72,7 @@ int dhara_nand_is_bad(const struct dhara_nand *n, dhara_block_t b)
     ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, (uint8_t *) &bad_block_indicator, dev->page_size, 2),
                       fail, TAG, "");
 
-    ESP_LOGD(TAG, "is_bad, block=%ld, page=%ld,indicator = %04x", b, first_block_page, bad_block_indicator);
+    ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", b, first_block_page, bad_block_indicator);
     return bad_block_indicator != 0xFFFF;
 
 fail:
@@ -87,7 +87,7 @@ void dhara_nand_mark_bad(const struct dhara_nand *n, dhara_block_t b)
 
     dhara_page_t first_block_page = b * (1 << n->log2_ppb);
     uint16_t bad_block_indicator = 0;
-    ESP_LOGD(TAG, "mark_bad, block=%ld, page=%ld,indicator = %04x", b, first_block_page, bad_block_indicator);
+    ESP_LOGD(TAG, "mark_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", b, first_block_page, bad_block_indicator);
 
     ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
     ESP_GOTO_ON_ERROR(spi_nand_erase_block(dev->config.device_handle, first_block_page),
@@ -105,7 +105,7 @@ fail:
 
 int dhara_nand_erase(const struct dhara_nand *n, dhara_block_t b, dhara_error_t *err)
 {
-    ESP_LOGD(TAG, "erase_block, block=%ld,", b);
+    ESP_LOGD(TAG, "erase_block, block=%"PRIu32",", b);
     spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
     esp_err_t ret;
 
@@ -133,7 +133,7 @@ fail:
 
 int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *data, dhara_error_t *err)
 {
-    ESP_LOGV(TAG, "prog, page=%ld,", p);
+    ESP_LOGV(TAG, "prog, page=%"PRIu32",", p);
     spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
     esp_err_t ret;
     uint8_t status;
@@ -149,7 +149,7 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
     ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, p, &status), fail, TAG, "");
 
     if ((status & STAT_PROGRAM_FAILED) != 0) {
-        ESP_LOGD(TAG, "prog failed, page=%ld,", p);
+        ESP_LOGD(TAG, "prog failed, page=%"PRIu32",", p);
         dhara_set_error(err, DHARA_E_BAD_BLOCK);
         return -1;
     }
@@ -171,14 +171,14 @@ int dhara_nand_is_free(const struct dhara_nand *n, dhara_page_t p)
                                     dev->page_size + 2, 2),
                       fail, TAG, "");
 
-    ESP_LOGD(TAG, "is free, page=%ld, used_marker=%04x,", p, used_marker);
+    ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%04x,", p, used_marker);
     return used_marker == 0xFFFF;
 fail:
     ESP_LOGE(TAG, "Error in dhara_nand_is_free %d", ret);
     return 0;
 }
 
-int is_ecc_error(uint8_t status)
+static int is_ecc_error(uint8_t status)
 {
     return (status & STAT_ECC1) != 0 && (status & STAT_ECC0) == 0;
 }
@@ -186,7 +186,7 @@ int is_ecc_error(uint8_t status)
 int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, size_t length,
                     uint8_t *data, dhara_error_t *err)
 {
-    ESP_LOGV(TAG, "read, page=%ld, offset=%d, length=%d", p, offset, length);
+    ESP_LOGV(TAG, "read, page=%"PRIu32", offset=%d, length=%d", p, offset, length);
     assert(p < n->num_blocks * (1 << n->log2_ppb));
     spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
     esp_err_t ret;
@@ -195,7 +195,7 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, &status), fail, TAG, "");
 
     if (is_ecc_error(status)) {
-        ESP_LOGD(TAG, "read ecc error, page=%ld", p);
+        ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", p);
         dhara_set_error(err, DHARA_E_ECC);
         return -1;
     }
@@ -210,7 +210,7 @@ fail:
 
 int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t dst, dhara_error_t *err)
 {
-    ESP_LOGD(TAG, "copy, src=%ld, dst=%ld", src, dst);
+    ESP_LOGD(TAG, "copy, src=%"PRIu32", dst=%"PRIu32"", src, dst);
     spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
     esp_err_t ret;
     uint8_t status;

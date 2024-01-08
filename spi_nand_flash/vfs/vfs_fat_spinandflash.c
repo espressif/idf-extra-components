@@ -18,8 +18,8 @@
 
 static const char *TAG = "vfs_fat_nand";
 
-esp_err_t esp_vfs_fat_nand_mount(const char* base_path, spi_nand_flash_device_t *nand_device,
-                                 const esp_vfs_fat_mount_config_t* mount_config)
+esp_err_t esp_vfs_fat_nand_mount(const char *base_path, spi_nand_flash_device_t *nand_device,
+                                 const esp_vfs_fat_mount_config_t *mount_config)
 {
     esp_err_t ret = ESP_OK;
     void *workbuf = NULL;
@@ -90,7 +90,7 @@ fail:
     return ret;
 }
 
-esp_err_t esp_vfs_fat_nand_unmount(const char* base_path, spi_nand_flash_device_t *nand_device)
+esp_err_t esp_vfs_fat_nand_unmount(const char *base_path, spi_nand_flash_device_t *nand_device)
 {
     BYTE pdrv = ff_diskio_get_pdrv_nand(nand_device);
     if (pdrv == 0xff) {
