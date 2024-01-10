@@ -21,13 +21,10 @@ static int cmd_catch2(int argc, char **argv)
 
 extern "C" esp_err_t register_catch2(const char *cmd_name)
 {
-    const esp_console_cmd_t cmd = {
-        .command = cmd_name,
-        .help = "Run tests",
-        .hint = NULL,
-        .func = &cmd_catch2,
-        .argtable = NULL
-    };
+    esp_console_cmd_t cmd = {};
+    cmd.command = cmd_name,
+    cmd.help = "Run tests";
+    cmd.func = &cmd_catch2;
     return esp_console_cmd_register(&cmd);
 }
 
