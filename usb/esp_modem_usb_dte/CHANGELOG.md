@@ -8,3 +8,7 @@
 - Provide default configurations for tested modems
 - Fix USB receive path bug, where received data could be overwritten by new data
 - Initial support for modems with two AT ports
+
+## Unreleased
+
+- Fix C++ build error for `usb_host_config_t` backward compatibility
