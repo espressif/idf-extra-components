@@ -53,10 +53,10 @@ public:
 
         // Install USB Host driver (if not already installed)
         if (usb_config->install_usb_host && !usb_host_lib_task) {
-            const usb_host_config_t host_config = {
-                .skip_phy_setup = false,
-                .intr_flags = ESP_INTR_FLAG_LEVEL1,
-            };
+            usb_host_config_t host_config = {};
+            host_config.skip_phy_setup = false;
+            host_config.intr_flags = ESP_INTR_FLAG_LEVEL1;
+
             ESP_MODEM_THROW_IF_ERROR(usb_host_install(&host_config), "USB Host install failed");
             ESP_LOGD(TAG, "USB Host installed");
             ESP_MODEM_THROW_IF_FALSE(
