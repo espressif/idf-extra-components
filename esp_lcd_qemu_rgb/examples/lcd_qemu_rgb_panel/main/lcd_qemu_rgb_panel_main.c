@@ -21,10 +21,14 @@
 static const char *TAG = "example";
 
 /**
- * Only 32-bit colors are currently supported by QEMU RGB Panel
+ * 32-bit and 16-bit colors are currently supported by QEMU RGB Panel
  */
-#if !CONFIG_LV_COLOR_DEPTH_32
-#error "QEMU RGB Panel only support 32-bit colors, please enable LV_COLOR_DEPTH_32"
+#if CONFIG_LV_COLOR_DEPTH_32
+#define CURRENT_COLOR_DEPTH RGB_QEMU_BPP_32
+#elif CONFIG_LV_COLOR_DEPTH_16
+#define CURRENT_COLOR_DEPTH RGB_QEMU_BPP_16
+#else
+#error "QEMU RGB Panel only supports 32-bit and 16-bit colors, please enable LV_COLOR_DEPTH_32 or LV_COLOR_DEPTH_16"
 #endif
 
 // The pixel number in horizontal and vertical
@@ -120,7 +124,8 @@ void app_main(void)
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_rgb_qemu_config_t panel_config = {
         .width = EXAMPLE_LCD_H_RES,
-        .height = EXAMPLE_LCD_V_RES
+        .height = EXAMPLE_LCD_V_RES,
+        .bpp = CURRENT_COLOR_DEPTH,
     };
     ESP_ERROR_CHECK(esp_lcd_new_rgb_qemu(&panel_config, &panel_handle));
 

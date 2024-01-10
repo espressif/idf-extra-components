@@ -50,6 +50,7 @@ typedef volatile struct rgb_qemu_dev_s {
         };
         uint32_t val;
     } update_st;
+    uint32_t bpp;
 } rgb_qemu_dev_t;
 
 #ifdef __cplusplus
