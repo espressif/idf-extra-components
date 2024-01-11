@@ -1,0 +1,84 @@
+name: "Pre Encrypted OTA: Build and Run Example"
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  build_pre_encrypted_ota:
+    name: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["latest"]
+        test: [ { app: example, path: "examples/pre_encrypted_ota" } ]
+    runs-on: ubuntu-20.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    env:
+      TEST_DIR: esp_encrypted_img/${{ matrix.test.path }}
+    steps:
+      - name: Checkout idf-extra-components
+        uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Build ${{ matrix.example }} with IDF-${{ matrix.idf_ver }} for ${{ matrix.idf_target }}
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          python -m pip install idf-component-manager idf-build-apps --upgrade
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          cd ${TEST_DIR}
+          idf.py set-target esp32
+          cat sdkconfig.ci >> sdkconfig
+          idf.py build
+
+          for dir in `ls -d build`; do
+          find $1 ! -regex ".*/build[^/]*/[^/]+.\(bin\|elf\)" -a ! -regex ".*\(bootloader\|partition-table\).bin" -a ! -name "flasher_args.json" -a ! -regex ".*/build[^/]*/config/sdkconfig.\(h\|json\)" -delete || true
+          zip -qur artifacts.zip $dir
+          done
+      - uses: actions/upload-artifact@v3
+        with:
+          name: pre_encrypted_ota_bin_esp32_${{ matrix.idf_ver }}_${{ matrix.test.app }}
+          path: ${{ env.TEST_DIR }}/artifacts.zip
+          if-no-files-found: error
+
+  run-target-pre-encrypted-ota:
+    # Skip running on forks since it won't have access to secrets
+    name: Target test
+    needs: build_pre_encrypted_ota
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ["latest"]
+        idf_target: ["esp32"]
+        test: [ { app: example, path: "examples/pre_encrypted_ota" }]
+    runs-on:
+      - self-hosted
+      - ESP32-ETHERNET-KIT
+    env:
+      TEST_DIR: esp_encrypted_img/${{ matrix.test.path }}
+    container:
+      image: python:3.7-buster
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: pre_encrypted_ota_bin_esp32_${{ matrix.idf_ver }}_${{ matrix.test.app }}
+          # path: ${{ env.TEST_DIR }}/ci/
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary pytest-embedded cryptography pytest-embedded-serial-esp pytest-embedded-idf rangehttpserver
+      - name: Run Pre Encrypted OTA Test on target
+        working-directory: ${{ env.TEST_DIR }}
+        run: |
+          rm -rf build sdkconfig.defaults
+          unzip artifacts.zip
+          python -m pytest --log-cli-level DEBUG --junit-xml=./results_${{ matrix.test.app }}_${{ matrix.idf_target }}_${{ matrix.idf_ver }}_${dir#"build"}.xml --target=${{ matrix.idf_target }}
+          done
