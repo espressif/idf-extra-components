@@ -82,7 +82,12 @@ extern "C" {
 #   define CONFIG_TINYUSB_DEBUG_LEVEL 0
 #endif
 
-#define CFG_TUSB_RHPORT0_MODE       OPT_MODE_DEVICE | OPT_MODE_FULL_SPEED
+#ifdef CONFIG_TINYUSB_RHPORT_HS
+#   define CFG_TUSB_RHPORT1_MODE    OPT_MODE_DEVICE | OPT_MODE_HIGH_SPEED
+#else
+#   define CFG_TUSB_RHPORT0_MODE    OPT_MODE_DEVICE | OPT_MODE_FULL_SPEED
+#endif
+
 #define CFG_TUSB_OS                 OPT_OS_FREERTOS
 
 /* USB DMA on some MCUs can only access a specific SRAM region with restriction on alignment.
