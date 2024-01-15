@@ -271,6 +271,35 @@ coap_start_pki_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t
 }
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
 
+static coap_session_t *
+coap_start_anon_pki_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t *uri, coap_proto_t proto)
+{
+    static coap_dtls_pki_t dtls_pki;
+    static char client_sni[256];
+
+    memset (&dtls_pki, 0, sizeof(dtls_pki));
+    dtls_pki.version = COAP_DTLS_PKI_SETUP_VERSION;
+    memset(client_sni, 0, sizeof(client_sni));
+    if (uri->host.length) {
+        memcpy(client_sni, uri->host.s, MIN(uri->host.length, sizeof(client_sni)));
+    } else {
+        memcpy(client_sni, "localhost", 9);
+    }
+    dtls_pki.client_sni = client_sni;
+    dtls_pki.pki_key.key_type = COAP_PKI_KEY_PEM;
+    dtls_pki.pki_key.key.pem.public_cert = NULL;
+    dtls_pki.pki_key.key.pem.private_key = NULL;
+    dtls_pki.pki_key.key.pem.ca_file = NULL;
+
+#ifdef CONFIG_COAP_OSCORE_SUPPORT
+    return coap_new_client_session_oscore_pki(ctx, NULL, dst_addr, proto,
+            &dtls_pki, oscore_conf);
+#else /* ! CONFIG_COAP_OSCORE_SUPPORT */
+    return coap_new_client_session_pki(ctx, NULL, dst_addr, proto,
+                                       &dtls_pki);
+#endif /* ! CONFIG_COAP_OSCORE_SUPPORT */
+}
+
 static void coap_example_client(void *p)
 {
     coap_address_t   dst_addr;
@@ -355,13 +384,23 @@ static void coap_example_client(void *p)
         goto clean_up;
 #endif /* CONFIG_MBEDTLS_TLS_CLIENT */
 
+        /*
+         * Encrypted request.  Client needs to choose whether using PSK (if configured)
+         * or PKI (if configured) or anonymous PKI (where certificates are not defined locally).
+         * This code chooses PSK (if configured), then PKI (if configured) then anonymous
+         * PKI where certificates are not defined locally.
+         */
 #ifdef CONFIG_COAP_MBEDTLS_PSK
         session = coap_start_psk_session(ctx, &dst_addr, &uri, proto);
 #endif /* CONFIG_COAP_MBEDTLS_PSK */
-
 #ifdef CONFIG_COAP_MBEDTLS_PKI
-        session = coap_start_pki_session(ctx, &dst_addr, &uri, proto);
-#endif /* CONFIG_COAP_MBEDTLS_PKI */
+        if (!session) {
+            session = coap_start_pki_session(ctx, &dst_addr, &uri, proto);
+        }
+#endif /*  CONFIG_COAP_MBEDTLS_PKI */
+        if (!session) {
+            session = coap_start_anon_pki_session(ctx, &dst_addr, &uri, proto);
+        }
     } else {
 #ifdef CONFIG_COAP_OSCORE_SUPPORT
         session = coap_new_client_session_oscore(ctx, NULL, &dst_addr, proto, oscore_conf);

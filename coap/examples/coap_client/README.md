@@ -16,12 +16,22 @@ as well as supporting the Observer extensions [RFC7641](https://tools.ietf.org/h
 
 If the URI is prefixed with coaps:// instead of coap://, then the CoAP client will attempt to use
 the DTLS protocol using the defined Pre-Shared Keys(PSK) or Public Key Infrastructure (PKI) which the
-CoAP server needs to know about.
+CoAP server needs to know about. If both PSK and PKI are defined, then it is the responsibility
+of the client code to decide (PSK or PKI) which to use.
 
 If the URI is prefixed with coap+tcp://, then the CoAP will try to use TCP for the communication.
 
+If the URI is prefixed with coaps+tcp://, then the CoAP will try to use TLS for the communication.
+If both PSK and PKI are defined, then it is the responsibility of the client code to decide (PSK
+or PKI) which to use.
+
 If the URI is prefixed with coap+ws://, then the CoAP will try to use WebSockets (over TCP) for
 the communication, which assumes that CoAP WebSockets is enabled in the build.
+
+If the URI is prefixed with coaps+ws://, then the CoAP will try to use WebSockets (over TLS) for
+the communication, which assumes that CoAP WebSockets is enabled in the build.
+If both PSK and PKI are defined, then it is the responsibility of the client code to decide (PSK
+or PKI) which to use.
 
 The Constrained Application Protocol (CoAP) is a specialized web transfer protocol for use with
 constrained nodes and constrained networks in the Internet of Things.
@@ -43,10 +53,12 @@ Example Connection Configuration  --->
  * Set WiFi Password
 Component config  --->
   CoAP Configuration  --->
-    * Set encryption method definition, PSK (default) or PKI
+    * Set encryption method definition, PSK (default) and/or PKI
     * Enable CoAP debugging if required
-    * Disable CoAP using TCP if this is not required (TCP needed for TLS)
+    * Disable CoAP using TCP if this is not required (TCP needed for TLS or WebSockets)
     * Disable CoAP server functionality to reduce code size
+    * Enable OSCORE (RFC8613) support if required
+    * Enable WebSockets (RFC8323) support if required
 Example CoAP Client Configuration  --->
  * Set CoAP Target Uri
  * If PSK, Set CoAP Preshared Key to use in connection to the server
