@@ -7,6 +7,7 @@ on:
     types: [opened, reopened, synchronize]
     paths:
       - 'usb/**'
+      - 'workflows/build_and_run_test_app_usb.yml'
 
 jobs:
   build:
@@ -14,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v4.4", "release-v5.0", "latest"]
+        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"]
         idf_target: ["esp32s2", "esp32s3"]
     runs-on: ubuntu-20.04
     container: espressif/idf:${{ matrix.idf_ver }}
@@ -50,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v5.0", "latest"]
+        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "latest"]
         idf_target: ["esp32s2"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "usb_host"]
     container:
