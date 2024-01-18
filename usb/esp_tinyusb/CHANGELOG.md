@@ -1,3 +1,6 @@
+## 1.4.4
+- esp_tinyusb: Make usb_phy available only for ESP32S2 and ESP32S3
+
 ## 1.4.3
 - esp_tinyusb: ESP32P4 HS only support
 
