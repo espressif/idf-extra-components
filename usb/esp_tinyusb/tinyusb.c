@@ -10,8 +10,7 @@
 #include "esp_err.h"
 #include "esp_private/periph_ctrl.h"
 #if (CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3)
-#include "esp_private/usb_phy.h"
-#include "soc/usb_pins.h"
+#include "tinyusb_ext_phy.h"
 #endif // ESP32S2 || ESP32S3
 #include "tinyusb.h"
 #include "descriptors_control.h"
@@ -20,10 +19,6 @@
 #include "tusb_tasks.h"
 
 const static char *TAG = "TinyUSB";
-
-#if (CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3)
-static usb_phy_handle_t phy_hdl;
-#endif // ESP32S2 || ESP32S3
 
 esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
 {
@@ -34,37 +29,10 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
     ESP_RETURN_ON_FALSE(config, ESP_ERR_INVALID_ARG, TAG, "Config can't be NULL");
 
 #if (CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3)
-    // Configure USB PHY
-    usb_phy_config_t phy_conf = {
-        .controller = USB_PHY_CTRL_OTG,
-        .otg_mode = USB_OTG_MODE_DEVICE,
-    };
-
-    if (config->external_phy) {
-        // External PHY IOs config
-        usb_phy_ext_io_conf_t ext_io_conf = { 0 };
-        ext_io_conf.vp_io_num = USBPHY_VP_NUM;
-        ext_io_conf.vm_io_num = USBPHY_VM_NUM;
-        ext_io_conf.rcv_io_num = USBPHY_RCV_NUM;
-        ext_io_conf.oen_io_num = USBPHY_OEN_NUM;
-        ext_io_conf.vpo_io_num = USBPHY_VPO_NUM;
-        ext_io_conf.vmo_io_num = USBPHY_VMO_NUM;
-
-        phy_conf.target = USB_PHY_TARGET_EXT;
-        phy_conf.ext_io_conf = &ext_io_conf;
-    } else {
-        phy_conf.target = USB_PHY_TARGET_INT;
-    }
-
-    // OTG IOs config
-    const usb_phy_otg_io_conf_t otg_io_conf = USB_PHY_SELF_POWERED_DEVICE(config->vbus_monitor_io);
-    if (config->self_powered) {
-        phy_conf.otg_io_conf = &otg_io_conf;
-    }
-    ESP_RETURN_ON_ERROR(usb_new_phy(&phy_conf, &phy_hdl), TAG, "Install USB PHY failed");
+    ESP_RETURN_ON_ERROR(tinyusb_ext_phy_new(config), TAG, "Install USB PHY failed");
 #else
     if (config->external_phy) {
-        ESP_LOGE(TAG, "Current target '%s' doesn't support usb external phy", CONFIG_IDF_TARGET);
+        ESP_LOGE(TAG, "Target '%s' doesn't support External USB PHY", CONFIG_IDF_TARGET);
         return ESP_FAIL;
     }
 #endif // ESP32S2 || ESP32S3
@@ -79,7 +47,6 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
         cfg_descriptor = descriptor_cfg_kconfig;
         ESP_LOGW(TAG, "The device's configuration descriptor is not provided by user, using default.");
 #endif
-
     }
 
     if (config->string_descriptor) {
@@ -116,9 +83,9 @@ esp_err_t tinyusb_driver_install(const tinyusb_config_t *config)
 esp_err_t tinyusb_driver_uninstall()
 {
 #if (CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3)
-    return usb_del_phy(phy_hdl);
+    return tinyusb_ext_phy_delete();
 #else
-    ESP_LOGW(TAG, "Current target '%s' doesn't support usb external phy", CONFIG_IDF_TARGET);
+    ESP_LOGW(TAG, "Target '%s' doesn't support External USB PHY", CONFIG_IDF_TARGET);
     return ESP_OK;
 #endif // ESP32S2 || ESP32S3
 }

@@ -4,6 +4,10 @@ set(srcs
     "usb_descriptors.c"
     )
 
+if(CONFIG_IDF_TARGET_ESP32S2 OR CONFIG_IDF_TARGET_ESP32S3)
+    list(APPEND srcs "tinyusb_ext_phy.c")
+endif()
+
 if(NOT CONFIG_TINYUSB_NO_DEFAULT_TASK)
     list(APPEND srcs "tusb_tasks.c")
 endif() # CONFIG_TINYUSB_NO_DEFAULT_TASK
@@ -37,7 +41,7 @@ idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS "include"
                        PRIV_INCLUDE_DIRS "include_private"
                        PRIV_REQUIRES usb
-                       REQUIRES fatfs vfs                 
+                       REQUIRES fatfs vfs
                        )
 
 # Determine whether tinyusb is fetched from component registry or from local path
