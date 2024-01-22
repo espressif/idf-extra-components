@@ -13,12 +13,17 @@
 extern "C" {
 #endif
 
+typedef enum {
+    RGB_QEMU_BPP_32 = 32,
+    RGB_QEMU_BPP_16 = 16,
+} esp_lcd_rgb_qemu_bpp_t;
 /**
  * @brief QEMU RGB panel configuration structure
  */
 typedef struct {
     uint32_t width;             /*!< Width of the graphical window in pixels */
     uint32_t height;            /*!< Height of the graphical window in pixels */
+    esp_lcd_rgb_qemu_bpp_t bpp;                /*!< BPP - bit per pixel*/
 } esp_lcd_rgb_qemu_config_t;
 
 /**

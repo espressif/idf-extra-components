@@ -58,9 +58,10 @@ esp_err_t esp_lcd_new_rgb_qemu(const esp_lcd_rgb_qemu_config_t *rgb_config, esp_
     rgb_panel = calloc(1, sizeof(esp_rgb_qemu_t));
     ESP_GOTO_ON_FALSE(rgb_panel, ESP_ERR_NO_MEM, err, TAG, "no mem for rgb qemu panel");
 
-    /* Resize the window */
+    /* Resize the window and setup bpp*/
     s_rgb_dev->size.height = rgb_config->height;
     s_rgb_dev->size.width = rgb_config->width;
+    s_rgb_dev->bpp = rgb_config->bpp ? rgb_config->bpp : RGB_QEMU_BPP_32;
     /* If the configured size is bigger than authorized, the hardware will arrange it.
      * So, read back the configured size */
     rgb_panel->height = rgb_config->height;
