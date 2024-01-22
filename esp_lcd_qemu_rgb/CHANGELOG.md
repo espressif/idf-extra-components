@@ -1,6 +1,7 @@
-## Unreleased
+## 1.0.2
 
 - Switched to RGB565 color format in the example by default
+- Fixed compatibility with IDF v5.3-dev
 
 ## 1.0.1
 
