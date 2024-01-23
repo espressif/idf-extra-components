@@ -424,6 +424,8 @@ static void hid_host_notify_interface_connected(hid_device_t *hid_device)
 static esp_err_t hid_host_interface_list_create(hid_device_t *hid_device,
         const usb_config_desc_t *config_desc)
 {
+    assert(hid_device);
+    assert(config_desc);
     size_t total_length = config_desc->wTotalLength;
     const usb_intf_desc_t *iface_desc = NULL;
     const hid_descriptor_t *hid_desc = NULL;
@@ -432,42 +434,49 @@ static esp_err_t hid_host_interface_list_create(hid_device_t *hid_device,
     int offset = 0;
 
     // For every Interface
-    for (int i = 0; i < config_desc->bNumInterfaces; i++) {
-        iface_desc = usb_parse_interface_descriptor(config_desc, i, 0, &offset);
-        hid_desc = NULL;
-        ep_in_desc = NULL;
+    iface_desc = (const usb_intf_desc_t *)usb_parse_next_descriptor_of_type((const usb_standard_desc_t *)config_desc,
+                 config_desc->wTotalLength,
+                 USB_B_DESCRIPTOR_TYPE_INTERFACE,
+                 &offset);
 
+    while (iface_desc != NULL) {
         if (USB_CLASS_HID == iface_desc->bInterfaceClass) {
             // HID descriptor
+            ESP_LOGI(TAG, "Found HID, bInterfaceNumber=%d, offset=%d",
+                     iface_desc->bInterfaceNumber,
+                     offset);
+            // Get HID descriptor and parse Endpoints
             hid_desc = (const hid_descriptor_t *) usb_parse_next_descriptor_of_type((const usb_standard_desc_t *) iface_desc,
                        total_length,
                        HID_CLASS_DESCRIPTOR_TYPE_HID,
                        &offset);
-            if (!hid_desc) {
-                return ESP_ERR_NOT_FOUND;
-            }
-
-            // EP descriptors for Interface
-            for (int i = 0; i < iface_desc->bNumEndpoints; i++) {
-                int ep_offset = 0;
-                ep_desc = usb_parse_endpoint_descriptor_by_index(iface_desc, i, total_length, &ep_offset);
-
-                if (ep_desc) {
-                    if (USB_EP_DESC_GET_EP_DIR(ep_desc)) {
-                        ep_in_desc = ep_desc;
+            if (hid_desc) {
+                ep_in_desc = NULL;
+                // EP descriptors for Interface
+                for (int i = 0; i < iface_desc->bNumEndpoints; i++) {
+                    int ep_offset = 0;
+                    ep_desc = usb_parse_endpoint_descriptor_by_index(iface_desc, i, total_length, &ep_offset);
+                    if (ep_desc) {
+                        if (USB_EP_DESC_GET_EP_DIR(ep_desc)) {
+                            ep_in_desc = ep_desc;
+                        }
                     }
-                } else {
-                    return ESP_ERR_NOT_FOUND;
-                }
-            } // for every EP within Interface
+                } // for every EP within Interface
 
-            // Add Interface to the list
-            HID_RETURN_ON_ERROR( hid_host_add_interface(hid_device,
-                                 iface_desc,
-                                 hid_desc,
-                                 ep_in_desc),
-                                 "Unable to add HID Interface to the RAM list");
-        } // USB_CLASS_HID
+                if (ep_in_desc) {
+                    // Add Interface to the list
+                    HID_RETURN_ON_ERROR( hid_host_add_interface(hid_device,
+                                         iface_desc,
+                                         hid_desc,
+                                         ep_in_desc),
+                                         "Unable to add HID Interface to the RAM list");
+                }
+            }
+        } // HID Interface
+        iface_desc = (const usb_intf_desc_t *)usb_parse_next_descriptor_of_type((const usb_standard_desc_t *)iface_desc,
+                     config_desc->wTotalLength,
+                     USB_B_DESCRIPTOR_TYPE_INTERFACE,
+                     &offset);
     }
 
     hid_host_notify_interface_connected(hid_device);
