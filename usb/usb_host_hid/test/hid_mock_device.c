@@ -68,7 +68,7 @@ static const uint8_t hid_configuration_descriptor_two_ifaces[] = {
 
     // Interface number, string index, boot protocol, report descriptor len, EP In address, size & polling interval
     TUD_HID_DESCRIPTOR(0, 4, HID_ITF_PROTOCOL_KEYBOARD, sizeof(hid_keyboard_report_descriptor), 0x81, 16, 10),
-    TUD_HID_DESCRIPTOR(1, 4, HID_ITF_PROTOCOL_MOUSE, sizeof(hid_mouse_report_descriptor), 0x82, 16, 10),
+    TUD_HID_DESCRIPTOR(2, 4, HID_ITF_PROTOCOL_MOUSE, sizeof(hid_mouse_report_descriptor), 0x82, 16, 10),
 };
 
 static const uint8_t *hid_configuration_descriptor_list[TUSB_IFACE_COUNT_MAX] = {
