@@ -63,6 +63,7 @@ jobs:
             quirc;
             sh2lib;
             spi_nand_flash;
+            supertinycron;
             zlib;
             libpng;
           namespace: "espressif"
