@@ -57,3 +57,6 @@
 [submodule "catch2/Catch2"]
 	path = catch2/Catch2
 	url = https://github.com/catchorg/Catch2.git
+[submodule "ccronexpr/ccronexpr"]
+	path = ccronexpr/ccronexpr
+	url = https://github.com/exander77/supertinycron.git
