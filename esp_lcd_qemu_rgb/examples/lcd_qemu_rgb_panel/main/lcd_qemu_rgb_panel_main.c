@@ -11,7 +11,6 @@
 #include "freertos/semphr.h"
 #include "esp_timer.h"
 #include "esp_lcd_panel_ops.h"
-#include "esp_lcd_panel_rgb.h"
 #include "esp_lcd_qemu_rgb.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
