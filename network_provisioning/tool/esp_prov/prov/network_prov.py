@@ -23,6 +23,8 @@ def config_get_status_request(network_type, security_ctx):
         cfg1.cmd_get_status.net_type = 0
     elif network_type == 'thread':
         cfg1.cmd_get_status.net_type = 1
+    else:
+        raise RuntimeError
     encrypted_cfg = security_ctx.encrypt_data(cfg1.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (Encrypted CmdGetStatus): 0x{encrypted_cfg.hex()}')
     return encrypted_cfg.decode('latin-1')
@@ -85,6 +87,8 @@ def config_set_config_request(network_type, security_ctx, ssid_or_dataset_tlvs, 
     elif network_type == 'thread':
         cmd.cmd_set_config.net_type = 1
         cmd.cmd_set_config.thread_config.dataset = hex_str_to_bytes(ssid_or_dataset_tlvs)
+    else:
+        raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (SetConfig cmd): 0x{enc_cmd.hex()}')
     return enc_cmd.decode('latin-1')
@@ -107,6 +111,8 @@ def config_apply_config_request(network_type, security_ctx):
         cmd.cmd_apply_config.net_type = 0
     elif network_type == 'thread':
         cmd.cmd_apply_config.net_type = 1
+    else:
+        raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (ApplyConfig cmd): 0x{enc_cmd.hex()}')
     return enc_cmd.decode('latin-1')

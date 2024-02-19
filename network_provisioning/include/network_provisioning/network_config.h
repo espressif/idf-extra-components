@@ -100,7 +100,6 @@ typedef enum {
 typedef struct {
     uint32_t pan_id; /*!< PAN ID */
     uint16_t channel; /*!< Channel */
-    uint8_t network_key[16]; /*!< Network Key */
     char name[17]; /*!< Network Name */
     uint8_t ext_pan_id[8]; /*!< Extended PAN ID */
 } network_prov_thread_conn_info_t;

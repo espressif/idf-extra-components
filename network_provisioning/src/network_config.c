@@ -173,17 +173,6 @@ static esp_err_t cmd_get_status_handler(NetworkConfigPayload *req,
                         return ESP_ERR_NO_MEM;
                     }
                     memcpy(attached->name, resp_data.conn_info.name, sizeof(resp_data.conn_info.name));
-
-                    attached->network_key.data = (uint8_t *)malloc(sizeof(resp_data.conn_info.network_key));
-                    if (!attached->network_key.data) {
-                        free(attached->ext_pan_id.data);
-                        free(attached->name);
-                        free(attached);
-                        free(resp_payload);
-                        return ESP_ERR_NO_MEM;
-                    }
-                    attached->network_key.len = sizeof(resp_data.conn_info.network_key);
-                    memcpy(attached->network_key.data, resp_data.conn_info.network_key, attached->network_key.len);
                 } else if (resp_data.thread_state == NETWORK_PROV_THREAD_DETACHED) {
                     resp_payload->thread_state = THREAD_NETWORK_STATE__AttachingFailed;
                     resp_payload->state_case = RESP_GET_STATUS__STATE_THREAD_FAIL_REASON;
@@ -392,9 +381,6 @@ static void network_prov_config_command_cleanup(NetworkConfigPayload *resp, void
                 if (resp->resp_get_status->thread_attached) {
                     if (resp->resp_get_status->thread_attached->name) {
                         free(resp->resp_get_status->thread_attached->name);
-                    }
-                    if (resp->resp_get_status->thread_attached->network_key.data) {
-                        free(resp->resp_get_status->thread_attached->network_key.data);
                     }
                     free(resp->resp_get_status->thread_attached);
                 }

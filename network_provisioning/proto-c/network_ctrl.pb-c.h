@@ -27,46 +27,50 @@ typedef struct NetworkCtrlPayload NetworkCtrlPayload;
 /* --- enums --- */
 
 typedef enum _NetworkCtrlMsgType {
-    NETWORK_CTRL_MSG_TYPE__TypeCtrlReserved = 0,
-    NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlReset = 1,
-    NETWORK_CTRL_MSG_TYPE__TypeRespCtrlReset = 2,
-    NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlReprov = 3,
-    NETWORK_CTRL_MSG_TYPE__TypeRespCtrlReprov = 4
-            PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CTRL_MSG_TYPE)
+  NETWORK_CTRL_MSG_TYPE__TypeCtrlReserved = 0,
+  NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlReset = 1,
+  NETWORK_CTRL_MSG_TYPE__TypeRespCtrlReset = 2,
+  NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlReprov = 3,
+  NETWORK_CTRL_MSG_TYPE__TypeRespCtrlReprov = 4
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CTRL_MSG_TYPE)
 } NetworkCtrlMsgType;
 
 /* --- messages --- */
 
-struct  CmdCtrlReset {
-    ProtobufCMessage base;
-    NetworkType net_type;
+struct  CmdCtrlReset
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
 };
 #define CMD_CTRL_RESET__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmd_ctrl_reset__descriptor) \
     , NETWORK_TYPE__WifiNetwork }
 
 
-struct  RespCtrlReset {
-    ProtobufCMessage base;
-    NetworkType net_type;
+struct  RespCtrlReset
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
 };
 #define RESP_CTRL_RESET__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&resp_ctrl_reset__descriptor) \
     , NETWORK_TYPE__WifiNetwork }
 
 
-struct  CmdCtrlReprov {
-    ProtobufCMessage base;
-    NetworkType net_type;
+struct  CmdCtrlReprov
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
 };
 #define CMD_CTRL_REPROV__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmd_ctrl_reprov__descriptor) \
     , NETWORK_TYPE__WifiNetwork }
 
 
-struct  RespCtrlReprov {
-    ProtobufCMessage base;
-    NetworkType net_type;
+struct  RespCtrlReprov
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
 };
 #define RESP_CTRL_REPROV__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&resp_ctrl_reprov__descriptor) \
@@ -74,25 +78,26 @@ struct  RespCtrlReprov {
 
 
 typedef enum {
-    NETWORK_CTRL_PAYLOAD__PAYLOAD__NOT_SET = 0,
-    NETWORK_CTRL_PAYLOAD__PAYLOAD_CMD_CTRL_RESET = 11,
-    NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_RESET = 12,
-    NETWORK_CTRL_PAYLOAD__PAYLOAD_CMD_CTRL_REPROV = 13,
-    NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_REPROV = 14
-            PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CTRL_PAYLOAD__PAYLOAD__CASE)
+  NETWORK_CTRL_PAYLOAD__PAYLOAD__NOT_SET = 0,
+  NETWORK_CTRL_PAYLOAD__PAYLOAD_CMD_CTRL_RESET = 11,
+  NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_RESET = 12,
+  NETWORK_CTRL_PAYLOAD__PAYLOAD_CMD_CTRL_REPROV = 13,
+  NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_REPROV = 14
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CTRL_PAYLOAD__PAYLOAD__CASE)
 } NetworkCtrlPayload__PayloadCase;
 
-struct  NetworkCtrlPayload {
-    ProtobufCMessage base;
-    NetworkCtrlMsgType msg;
-    Status status;
-    NetworkCtrlPayload__PayloadCase payload_case;
-    union {
-        CmdCtrlReset *cmd_ctrl_reset;
-        RespCtrlReset *resp_ctrl_reset;
-        CmdCtrlReprov *cmd_ctrl_reprov;
-        RespCtrlReprov *resp_ctrl_reprov;
-    };
+struct  NetworkCtrlPayload
+{
+  ProtobufCMessage base;
+  NetworkCtrlMsgType msg;
+  Status status;
+  NetworkCtrlPayload__PayloadCase payload_case;
+  union {
+    CmdCtrlReset *cmd_ctrl_reset;
+    RespCtrlReset *resp_ctrl_reset;
+    CmdCtrlReprov *cmd_ctrl_reprov;
+    RespCtrlReprov *resp_ctrl_reprov;
+  };
 };
 #define NETWORK_CTRL_PAYLOAD__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&network_ctrl_payload__descriptor) \
@@ -101,116 +106,116 @@ struct  NetworkCtrlPayload {
 
 /* CmdCtrlReset methods */
 void   cmd_ctrl_reset__init
-(CmdCtrlReset         *message);
+                     (CmdCtrlReset         *message);
 size_t cmd_ctrl_reset__get_packed_size
-(const CmdCtrlReset   *message);
+                     (const CmdCtrlReset   *message);
 size_t cmd_ctrl_reset__pack
-(const CmdCtrlReset   *message,
- uint8_t             *out);
+                     (const CmdCtrlReset   *message,
+                      uint8_t             *out);
 size_t cmd_ctrl_reset__pack_to_buffer
-(const CmdCtrlReset   *message,
- ProtobufCBuffer     *buffer);
+                     (const CmdCtrlReset   *message,
+                      ProtobufCBuffer     *buffer);
 CmdCtrlReset *
-cmd_ctrl_reset__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       cmd_ctrl_reset__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   cmd_ctrl_reset__free_unpacked
-(CmdCtrlReset *message,
- ProtobufCAllocator *allocator);
+                     (CmdCtrlReset *message,
+                      ProtobufCAllocator *allocator);
 /* RespCtrlReset methods */
 void   resp_ctrl_reset__init
-(RespCtrlReset         *message);
+                     (RespCtrlReset         *message);
 size_t resp_ctrl_reset__get_packed_size
-(const RespCtrlReset   *message);
+                     (const RespCtrlReset   *message);
 size_t resp_ctrl_reset__pack
-(const RespCtrlReset   *message,
- uint8_t             *out);
+                     (const RespCtrlReset   *message,
+                      uint8_t             *out);
 size_t resp_ctrl_reset__pack_to_buffer
-(const RespCtrlReset   *message,
- ProtobufCBuffer     *buffer);
+                     (const RespCtrlReset   *message,
+                      ProtobufCBuffer     *buffer);
 RespCtrlReset *
-resp_ctrl_reset__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       resp_ctrl_reset__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   resp_ctrl_reset__free_unpacked
-(RespCtrlReset *message,
- ProtobufCAllocator *allocator);
+                     (RespCtrlReset *message,
+                      ProtobufCAllocator *allocator);
 /* CmdCtrlReprov methods */
 void   cmd_ctrl_reprov__init
-(CmdCtrlReprov         *message);
+                     (CmdCtrlReprov         *message);
 size_t cmd_ctrl_reprov__get_packed_size
-(const CmdCtrlReprov   *message);
+                     (const CmdCtrlReprov   *message);
 size_t cmd_ctrl_reprov__pack
-(const CmdCtrlReprov   *message,
- uint8_t             *out);
+                     (const CmdCtrlReprov   *message,
+                      uint8_t             *out);
 size_t cmd_ctrl_reprov__pack_to_buffer
-(const CmdCtrlReprov   *message,
- ProtobufCBuffer     *buffer);
+                     (const CmdCtrlReprov   *message,
+                      ProtobufCBuffer     *buffer);
 CmdCtrlReprov *
-cmd_ctrl_reprov__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       cmd_ctrl_reprov__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   cmd_ctrl_reprov__free_unpacked
-(CmdCtrlReprov *message,
- ProtobufCAllocator *allocator);
+                     (CmdCtrlReprov *message,
+                      ProtobufCAllocator *allocator);
 /* RespCtrlReprov methods */
 void   resp_ctrl_reprov__init
-(RespCtrlReprov         *message);
+                     (RespCtrlReprov         *message);
 size_t resp_ctrl_reprov__get_packed_size
-(const RespCtrlReprov   *message);
+                     (const RespCtrlReprov   *message);
 size_t resp_ctrl_reprov__pack
-(const RespCtrlReprov   *message,
- uint8_t             *out);
+                     (const RespCtrlReprov   *message,
+                      uint8_t             *out);
 size_t resp_ctrl_reprov__pack_to_buffer
-(const RespCtrlReprov   *message,
- ProtobufCBuffer     *buffer);
+                     (const RespCtrlReprov   *message,
+                      ProtobufCBuffer     *buffer);
 RespCtrlReprov *
-resp_ctrl_reprov__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       resp_ctrl_reprov__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   resp_ctrl_reprov__free_unpacked
-(RespCtrlReprov *message,
- ProtobufCAllocator *allocator);
+                     (RespCtrlReprov *message,
+                      ProtobufCAllocator *allocator);
 /* NetworkCtrlPayload methods */
 void   network_ctrl_payload__init
-(NetworkCtrlPayload         *message);
+                     (NetworkCtrlPayload         *message);
 size_t network_ctrl_payload__get_packed_size
-(const NetworkCtrlPayload   *message);
+                     (const NetworkCtrlPayload   *message);
 size_t network_ctrl_payload__pack
-(const NetworkCtrlPayload   *message,
- uint8_t             *out);
+                     (const NetworkCtrlPayload   *message,
+                      uint8_t             *out);
 size_t network_ctrl_payload__pack_to_buffer
-(const NetworkCtrlPayload   *message,
- ProtobufCBuffer     *buffer);
+                     (const NetworkCtrlPayload   *message,
+                      ProtobufCBuffer     *buffer);
 NetworkCtrlPayload *
-network_ctrl_payload__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       network_ctrl_payload__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   network_ctrl_payload__free_unpacked
-(NetworkCtrlPayload *message,
- ProtobufCAllocator *allocator);
+                     (NetworkCtrlPayload *message,
+                      ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
 typedef void (*CmdCtrlReset_Closure)
-(const CmdCtrlReset *message,
- void *closure_data);
+                 (const CmdCtrlReset *message,
+                  void *closure_data);
 typedef void (*RespCtrlReset_Closure)
-(const RespCtrlReset *message,
- void *closure_data);
+                 (const RespCtrlReset *message,
+                  void *closure_data);
 typedef void (*CmdCtrlReprov_Closure)
-(const CmdCtrlReprov *message,
- void *closure_data);
+                 (const CmdCtrlReprov *message,
+                  void *closure_data);
 typedef void (*RespCtrlReprov_Closure)
-(const RespCtrlReprov *message,
- void *closure_data);
+                 (const RespCtrlReprov *message,
+                  void *closure_data);
 typedef void (*NetworkCtrlPayload_Closure)
-(const NetworkCtrlPayload *message,
- void *closure_data);
+                 (const NetworkCtrlPayload *message,
+                  void *closure_data);
 
 /* --- services --- */
 

@@ -187,7 +187,6 @@ static esp_err_t thread_get_status_handler(network_prov_config_get_thread_data_t
         strncpy(resp_data->conn_info.name, dataset.mNetworkName.m8,
                 strnlen(dataset.mNetworkName.m8, sizeof(dataset.mNetworkName.m8)));
         resp_data->conn_info.pan_id = dataset.mPanId;
-        memcpy(resp_data->conn_info.network_key, dataset.mNetworkKey.m8, sizeof(dataset.mNetworkKey.m8));
         /* Tell manager to stop provisioning service */
         network_prov_mgr_done();
     } else if (resp_data->thread_state == NETWORK_PROV_THREAD_DETACHED) {

@@ -50,7 +50,7 @@ def get_security(secver, username, password, pop='', verbose=False):
     return None
 
 
-def get_thread_dataset_tlsv(network_info, network_key):
+def get_thread_dataset_tlvs(network_info, network_key):
     # Get the simple dataset tlvs from the PAN ID, Channel, Extended PAN ID, and Network Key
     pan_id = network_info['pan_id']
     channel = network_info['channel']
@@ -521,9 +521,10 @@ async def main():
 
     parser.add_argument('--dataset_tlvs', dest='dataset_tlvs', type=str,
                         help=desc_format(
-                            'This configures the device to use Dataset Tlvs for the Thread network to '
+                            'This configures the device to use Dataset Tlvs of the Thread network to '
                             'which we would like it to attach to permanently, once provisioning is '
-                            'complete.'))
+                            'complete. If Thread scanning is supported by the provisioning service, this '
+                            'need not be specified'))
 
     parser.add_argument('--custom_data', dest='custom_data', type=str, default='',
                         help=desc_format(
@@ -713,7 +714,7 @@ async def main():
 
                         if select != 0:
                             network_key = getpass('Enter Thread network key string : ')
-                            args.dataset_tlvs = get_thread_dataset_tlsv(Networks[select], network_key)
+                            args.dataset_tlvs = get_thread_dataset_tlvs(Networks[select], network_key)
                             break
 
             print('\n==== Sending Thread Dataset to Target ====')

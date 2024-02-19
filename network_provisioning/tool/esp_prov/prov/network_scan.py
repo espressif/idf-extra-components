@@ -26,6 +26,8 @@ def scan_start_request(network_type, security_ctx, blocking=True, passive=False,
         cmd.cmd_scan_start.net_type = 1
         cmd.cmd_scan_start.thread_scan_start.blocking = blocking
         cmd.cmd_scan_start.thread_scan_start.channel_mask = 0
+    else:
+        raise RuntimeError
 
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (Encrypted CmdScanStart): 0x{enc_cmd.hex()}')
@@ -50,6 +52,8 @@ def scan_status_request(network_type, security_ctx):
         cmd.cmd_scan_status.net_type = 0
     elif network_type == 'thread':
         cmd.cmd_scan_status.net_type = 1
+    else:
+        raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (Encrypted CmdScanStatus): 0x{enc_cmd.hex()}')
     return enc_cmd.decode('latin-1')
@@ -74,6 +78,8 @@ def scan_result_request(network_type, security_ctx, index, count):
         cmd.cmd_scan_result.net_type = 0
     elif network_type == 'thread':
         cmd.cmd_scan_result.net_type = 1
+    else:
+        raise RuntimeError
     cmd.cmd_scan_result.start_index = index
     cmd.cmd_scan_result.count = count
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())

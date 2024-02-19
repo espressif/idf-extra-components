@@ -21,6 +21,8 @@ def ctrl_reset_request(network_type, security_ctx):
         cmd.cmd_ctrl_reset.net_type = 0
     elif network_type == 'thread':
         cmd.cmd_ctrl_reset.net_type = 1
+    else:
+        raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (Encrypted CmdCtrlReset): 0x{enc_cmd.hex()}')
     return enc_cmd.decode('latin-1')
@@ -44,6 +46,8 @@ def ctrl_reprov_request(network_type, security_ctx):
         cmd.cmd_ctrl_reprov.net_type = 0
     elif network_type == 'thread':
         cmd.cmd_ctrl_reprov.net_type = 1
+    else:
+        raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (Encrypted CmdCtrlReset): 0x{enc_cmd.hex()}')
     return enc_cmd.decode('latin-1')

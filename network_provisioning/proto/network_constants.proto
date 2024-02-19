@@ -53,5 +53,4 @@ message ThreadAttachState {
     bytes ext_pan_id = 2;
     uint32 channel = 3;
     string name = 4;
-    bytes network_key = 5;
 }

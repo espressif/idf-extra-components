@@ -31,20 +31,21 @@ typedef struct NetworkConfigPayload NetworkConfigPayload;
 /* --- enums --- */
 
 typedef enum _NetworkConfigMsgType {
-    NETWORK_CONFIG_MSG_TYPE__TypeCmdGetStatus = 0,
-    NETWORK_CONFIG_MSG_TYPE__TypeRespGetStatus = 1,
-    NETWORK_CONFIG_MSG_TYPE__TypeCmdSetConfig = 2,
-    NETWORK_CONFIG_MSG_TYPE__TypeRespSetConfig = 3,
-    NETWORK_CONFIG_MSG_TYPE__TypeCmdApplyConfig = 4,
-    NETWORK_CONFIG_MSG_TYPE__TypeRespApplyConfig = 5
-            PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CONFIG_MSG_TYPE)
+  NETWORK_CONFIG_MSG_TYPE__TypeCmdGetStatus = 0,
+  NETWORK_CONFIG_MSG_TYPE__TypeRespGetStatus = 1,
+  NETWORK_CONFIG_MSG_TYPE__TypeCmdSetConfig = 2,
+  NETWORK_CONFIG_MSG_TYPE__TypeRespSetConfig = 3,
+  NETWORK_CONFIG_MSG_TYPE__TypeCmdApplyConfig = 4,
+  NETWORK_CONFIG_MSG_TYPE__TypeRespApplyConfig = 5
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CONFIG_MSG_TYPE)
 } NetworkConfigMsgType;
 
 /* --- messages --- */
 
-struct  CmdGetStatus {
-    ProtobufCMessage base;
-    NetworkType net_type;
+struct  CmdGetStatus
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
 };
 #define CMD_GET_STATUS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmd_get_status__descriptor) \
@@ -52,58 +53,61 @@ struct  CmdGetStatus {
 
 
 typedef enum {
-    RESP_GET_STATUS__PAYLOAD__NOT_SET = 0,
-    RESP_GET_STATUS__PAYLOAD_WIFI_STA_STATE = 10,
-    RESP_GET_STATUS__PAYLOAD_THREAD_STATE = 11
-                                            PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(RESP_GET_STATUS__PAYLOAD__CASE)
+  RESP_GET_STATUS__PAYLOAD__NOT_SET = 0,
+  RESP_GET_STATUS__PAYLOAD_WIFI_STA_STATE = 10,
+  RESP_GET_STATUS__PAYLOAD_THREAD_STATE = 11
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(RESP_GET_STATUS__PAYLOAD__CASE)
 } RespGetStatus__PayloadCase;
 
 typedef enum {
-    RESP_GET_STATUS__STATE__NOT_SET = 0,
-    RESP_GET_STATUS__STATE_WIFI_FAIL_REASON = 20,
-    RESP_GET_STATUS__STATE_WIFI_CONNECTED = 21,
-    RESP_GET_STATUS__STATE_THREAD_FAIL_REASON = 22,
-    RESP_GET_STATUS__STATE_THREAD_ATTACHED = 23
-            PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(RESP_GET_STATUS__STATE__CASE)
+  RESP_GET_STATUS__STATE__NOT_SET = 0,
+  RESP_GET_STATUS__STATE_WIFI_FAIL_REASON = 20,
+  RESP_GET_STATUS__STATE_WIFI_CONNECTED = 21,
+  RESP_GET_STATUS__STATE_THREAD_FAIL_REASON = 22,
+  RESP_GET_STATUS__STATE_THREAD_ATTACHED = 23
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(RESP_GET_STATUS__STATE__CASE)
 } RespGetStatus__StateCase;
 
-struct  RespGetStatus {
-    ProtobufCMessage base;
-    NetworkType net_type;
-    Status status;
-    RespGetStatus__PayloadCase payload_case;
-    union {
-        WifiStationState wifi_sta_state;
-        ThreadNetworkState thread_state;
-    };
-    RespGetStatus__StateCase state_case;
-    union {
-        WifiConnectFailedReason wifi_fail_reason;
-        WifiConnectedState *wifi_connected;
-        ThreadAttachFailedReason thread_fail_reason;
-        ThreadAttachState *thread_attached;
-    };
+struct  RespGetStatus
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
+  Status status;
+  RespGetStatus__PayloadCase payload_case;
+  union {
+    WifiStationState wifi_sta_state;
+    ThreadNetworkState thread_state;
+  };
+  RespGetStatus__StateCase state_case;
+  union {
+    WifiConnectFailedReason wifi_fail_reason;
+    WifiConnectedState *wifi_connected;
+    ThreadAttachFailedReason thread_fail_reason;
+    ThreadAttachState *thread_attached;
+  };
 };
 #define RESP_GET_STATUS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&resp_get_status__descriptor) \
     , NETWORK_TYPE__WifiNetwork, STATUS__Success, RESP_GET_STATUS__PAYLOAD__NOT_SET, {0}, RESP_GET_STATUS__STATE__NOT_SET, {0} }
 
 
-struct  WifiSetConfig {
-    ProtobufCMessage base;
-    ProtobufCBinaryData ssid;
-    ProtobufCBinaryData passphrase;
-    ProtobufCBinaryData bssid;
-    int32_t channel;
+struct  WifiSetConfig
+{
+  ProtobufCMessage base;
+  ProtobufCBinaryData ssid;
+  ProtobufCBinaryData passphrase;
+  ProtobufCBinaryData bssid;
+  int32_t channel;
 };
 #define WIFI_SET_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&wifi_set_config__descriptor) \
     , {0,NULL}, {0,NULL}, {0,NULL}, 0 }
 
 
-struct  ThreadSetConfig {
-    ProtobufCMessage base;
-    ProtobufCBinaryData dataset;
+struct  ThreadSetConfig
+{
+  ProtobufCMessage base;
+  ProtobufCBinaryData dataset;
 };
 #define THREAD_SET_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&thread_set_config__descriptor) \
@@ -111,49 +115,53 @@ struct  ThreadSetConfig {
 
 
 typedef enum {
-    CMD_SET_CONFIG__PAYLOAD__NOT_SET = 0,
-    CMD_SET_CONFIG__PAYLOAD_WIFI_CONFIG = 10,
-    CMD_SET_CONFIG__PAYLOAD_THREAD_CONFIG = 11
-                                            PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(CMD_SET_CONFIG__PAYLOAD__CASE)
+  CMD_SET_CONFIG__PAYLOAD__NOT_SET = 0,
+  CMD_SET_CONFIG__PAYLOAD_WIFI_CONFIG = 10,
+  CMD_SET_CONFIG__PAYLOAD_THREAD_CONFIG = 11
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(CMD_SET_CONFIG__PAYLOAD__CASE)
 } CmdSetConfig__PayloadCase;
 
-struct  CmdSetConfig {
-    ProtobufCMessage base;
-    NetworkType net_type;
-    CmdSetConfig__PayloadCase payload_case;
-    union {
-        WifiSetConfig *wifi_config;
-        ThreadSetConfig *thread_config;
-    };
+struct  CmdSetConfig
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
+  CmdSetConfig__PayloadCase payload_case;
+  union {
+    WifiSetConfig *wifi_config;
+    ThreadSetConfig *thread_config;
+  };
 };
 #define CMD_SET_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmd_set_config__descriptor) \
     , NETWORK_TYPE__WifiNetwork, CMD_SET_CONFIG__PAYLOAD__NOT_SET, {0} }
 
 
-struct  RespSetConfig {
-    ProtobufCMessage base;
-    NetworkType net_type;
-    Status status;
+struct  RespSetConfig
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
+  Status status;
 };
 #define RESP_SET_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&resp_set_config__descriptor) \
     , NETWORK_TYPE__WifiNetwork, STATUS__Success }
 
 
-struct  CmdApplyConfig {
-    ProtobufCMessage base;
-    NetworkType net_type;
+struct  CmdApplyConfig
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
 };
 #define CMD_APPLY_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmd_apply_config__descriptor) \
     , NETWORK_TYPE__WifiNetwork }
 
 
-struct  RespApplyConfig {
-    ProtobufCMessage base;
-    NetworkType net_type;
-    Status status;
+struct  RespApplyConfig
+{
+  ProtobufCMessage base;
+  NetworkType net_type;
+  Status status;
 };
 #define RESP_APPLY_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&resp_apply_config__descriptor) \
@@ -161,28 +169,29 @@ struct  RespApplyConfig {
 
 
 typedef enum {
-    NETWORK_CONFIG_PAYLOAD__PAYLOAD__NOT_SET = 0,
-    NETWORK_CONFIG_PAYLOAD__PAYLOAD_CMD_GET_STATUS = 10,
-    NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_GET_STATUS = 11,
-    NETWORK_CONFIG_PAYLOAD__PAYLOAD_CMD_SET_CONFIG = 12,
-    NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_SET_CONFIG = 13,
-    NETWORK_CONFIG_PAYLOAD__PAYLOAD_CMD_APPLY_CONFIG = 14,
-    NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_APPLY_CONFIG = 15
-            PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CONFIG_PAYLOAD__PAYLOAD__CASE)
+  NETWORK_CONFIG_PAYLOAD__PAYLOAD__NOT_SET = 0,
+  NETWORK_CONFIG_PAYLOAD__PAYLOAD_CMD_GET_STATUS = 10,
+  NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_GET_STATUS = 11,
+  NETWORK_CONFIG_PAYLOAD__PAYLOAD_CMD_SET_CONFIG = 12,
+  NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_SET_CONFIG = 13,
+  NETWORK_CONFIG_PAYLOAD__PAYLOAD_CMD_APPLY_CONFIG = 14,
+  NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_APPLY_CONFIG = 15
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_CONFIG_PAYLOAD__PAYLOAD__CASE)
 } NetworkConfigPayload__PayloadCase;
 
-struct  NetworkConfigPayload {
-    ProtobufCMessage base;
-    NetworkConfigMsgType msg;
-    NetworkConfigPayload__PayloadCase payload_case;
-    union {
-        CmdGetStatus *cmd_get_status;
-        RespGetStatus *resp_get_status;
-        CmdSetConfig *cmd_set_config;
-        RespSetConfig *resp_set_config;
-        CmdApplyConfig *cmd_apply_config;
-        RespApplyConfig *resp_apply_config;
-    };
+struct  NetworkConfigPayload
+{
+  ProtobufCMessage base;
+  NetworkConfigMsgType msg;
+  NetworkConfigPayload__PayloadCase payload_case;
+  union {
+    CmdGetStatus *cmd_get_status;
+    RespGetStatus *resp_get_status;
+    CmdSetConfig *cmd_set_config;
+    RespSetConfig *resp_set_config;
+    CmdApplyConfig *cmd_apply_config;
+    RespApplyConfig *resp_apply_config;
+  };
 };
 #define NETWORK_CONFIG_PAYLOAD__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&network_config_payload__descriptor) \
@@ -191,204 +200,204 @@ struct  NetworkConfigPayload {
 
 /* CmdGetStatus methods */
 void   cmd_get_status__init
-(CmdGetStatus         *message);
+                     (CmdGetStatus         *message);
 size_t cmd_get_status__get_packed_size
-(const CmdGetStatus   *message);
+                     (const CmdGetStatus   *message);
 size_t cmd_get_status__pack
-(const CmdGetStatus   *message,
- uint8_t             *out);
+                     (const CmdGetStatus   *message,
+                      uint8_t             *out);
 size_t cmd_get_status__pack_to_buffer
-(const CmdGetStatus   *message,
- ProtobufCBuffer     *buffer);
+                     (const CmdGetStatus   *message,
+                      ProtobufCBuffer     *buffer);
 CmdGetStatus *
-cmd_get_status__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       cmd_get_status__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   cmd_get_status__free_unpacked
-(CmdGetStatus *message,
- ProtobufCAllocator *allocator);
+                     (CmdGetStatus *message,
+                      ProtobufCAllocator *allocator);
 /* RespGetStatus methods */
 void   resp_get_status__init
-(RespGetStatus         *message);
+                     (RespGetStatus         *message);
 size_t resp_get_status__get_packed_size
-(const RespGetStatus   *message);
+                     (const RespGetStatus   *message);
 size_t resp_get_status__pack
-(const RespGetStatus   *message,
- uint8_t             *out);
+                     (const RespGetStatus   *message,
+                      uint8_t             *out);
 size_t resp_get_status__pack_to_buffer
-(const RespGetStatus   *message,
- ProtobufCBuffer     *buffer);
+                     (const RespGetStatus   *message,
+                      ProtobufCBuffer     *buffer);
 RespGetStatus *
-resp_get_status__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       resp_get_status__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   resp_get_status__free_unpacked
-(RespGetStatus *message,
- ProtobufCAllocator *allocator);
+                     (RespGetStatus *message,
+                      ProtobufCAllocator *allocator);
 /* WifiSetConfig methods */
 void   wifi_set_config__init
-(WifiSetConfig         *message);
+                     (WifiSetConfig         *message);
 size_t wifi_set_config__get_packed_size
-(const WifiSetConfig   *message);
+                     (const WifiSetConfig   *message);
 size_t wifi_set_config__pack
-(const WifiSetConfig   *message,
- uint8_t             *out);
+                     (const WifiSetConfig   *message,
+                      uint8_t             *out);
 size_t wifi_set_config__pack_to_buffer
-(const WifiSetConfig   *message,
- ProtobufCBuffer     *buffer);
+                     (const WifiSetConfig   *message,
+                      ProtobufCBuffer     *buffer);
 WifiSetConfig *
-wifi_set_config__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       wifi_set_config__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   wifi_set_config__free_unpacked
-(WifiSetConfig *message,
- ProtobufCAllocator *allocator);
+                     (WifiSetConfig *message,
+                      ProtobufCAllocator *allocator);
 /* ThreadSetConfig methods */
 void   thread_set_config__init
-(ThreadSetConfig         *message);
+                     (ThreadSetConfig         *message);
 size_t thread_set_config__get_packed_size
-(const ThreadSetConfig   *message);
+                     (const ThreadSetConfig   *message);
 size_t thread_set_config__pack
-(const ThreadSetConfig   *message,
- uint8_t             *out);
+                     (const ThreadSetConfig   *message,
+                      uint8_t             *out);
 size_t thread_set_config__pack_to_buffer
-(const ThreadSetConfig   *message,
- ProtobufCBuffer     *buffer);
+                     (const ThreadSetConfig   *message,
+                      ProtobufCBuffer     *buffer);
 ThreadSetConfig *
-thread_set_config__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       thread_set_config__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   thread_set_config__free_unpacked
-(ThreadSetConfig *message,
- ProtobufCAllocator *allocator);
+                     (ThreadSetConfig *message,
+                      ProtobufCAllocator *allocator);
 /* CmdSetConfig methods */
 void   cmd_set_config__init
-(CmdSetConfig         *message);
+                     (CmdSetConfig         *message);
 size_t cmd_set_config__get_packed_size
-(const CmdSetConfig   *message);
+                     (const CmdSetConfig   *message);
 size_t cmd_set_config__pack
-(const CmdSetConfig   *message,
- uint8_t             *out);
+                     (const CmdSetConfig   *message,
+                      uint8_t             *out);
 size_t cmd_set_config__pack_to_buffer
-(const CmdSetConfig   *message,
- ProtobufCBuffer     *buffer);
+                     (const CmdSetConfig   *message,
+                      ProtobufCBuffer     *buffer);
 CmdSetConfig *
-cmd_set_config__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       cmd_set_config__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   cmd_set_config__free_unpacked
-(CmdSetConfig *message,
- ProtobufCAllocator *allocator);
+                     (CmdSetConfig *message,
+                      ProtobufCAllocator *allocator);
 /* RespSetConfig methods */
 void   resp_set_config__init
-(RespSetConfig         *message);
+                     (RespSetConfig         *message);
 size_t resp_set_config__get_packed_size
-(const RespSetConfig   *message);
+                     (const RespSetConfig   *message);
 size_t resp_set_config__pack
-(const RespSetConfig   *message,
- uint8_t             *out);
+                     (const RespSetConfig   *message,
+                      uint8_t             *out);
 size_t resp_set_config__pack_to_buffer
-(const RespSetConfig   *message,
- ProtobufCBuffer     *buffer);
+                     (const RespSetConfig   *message,
+                      ProtobufCBuffer     *buffer);
 RespSetConfig *
-resp_set_config__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       resp_set_config__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   resp_set_config__free_unpacked
-(RespSetConfig *message,
- ProtobufCAllocator *allocator);
+                     (RespSetConfig *message,
+                      ProtobufCAllocator *allocator);
 /* CmdApplyConfig methods */
 void   cmd_apply_config__init
-(CmdApplyConfig         *message);
+                     (CmdApplyConfig         *message);
 size_t cmd_apply_config__get_packed_size
-(const CmdApplyConfig   *message);
+                     (const CmdApplyConfig   *message);
 size_t cmd_apply_config__pack
-(const CmdApplyConfig   *message,
- uint8_t             *out);
+                     (const CmdApplyConfig   *message,
+                      uint8_t             *out);
 size_t cmd_apply_config__pack_to_buffer
-(const CmdApplyConfig   *message,
- ProtobufCBuffer     *buffer);
+                     (const CmdApplyConfig   *message,
+                      ProtobufCBuffer     *buffer);
 CmdApplyConfig *
-cmd_apply_config__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       cmd_apply_config__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   cmd_apply_config__free_unpacked
-(CmdApplyConfig *message,
- ProtobufCAllocator *allocator);
+                     (CmdApplyConfig *message,
+                      ProtobufCAllocator *allocator);
 /* RespApplyConfig methods */
 void   resp_apply_config__init
-(RespApplyConfig         *message);
+                     (RespApplyConfig         *message);
 size_t resp_apply_config__get_packed_size
-(const RespApplyConfig   *message);
+                     (const RespApplyConfig   *message);
 size_t resp_apply_config__pack
-(const RespApplyConfig   *message,
- uint8_t             *out);
+                     (const RespApplyConfig   *message,
+                      uint8_t             *out);
 size_t resp_apply_config__pack_to_buffer
-(const RespApplyConfig   *message,
- ProtobufCBuffer     *buffer);
+                     (const RespApplyConfig   *message,
+                      ProtobufCBuffer     *buffer);
 RespApplyConfig *
-resp_apply_config__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       resp_apply_config__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   resp_apply_config__free_unpacked
-(RespApplyConfig *message,
- ProtobufCAllocator *allocator);
+                     (RespApplyConfig *message,
+                      ProtobufCAllocator *allocator);
 /* NetworkConfigPayload methods */
 void   network_config_payload__init
-(NetworkConfigPayload         *message);
+                     (NetworkConfigPayload         *message);
 size_t network_config_payload__get_packed_size
-(const NetworkConfigPayload   *message);
+                     (const NetworkConfigPayload   *message);
 size_t network_config_payload__pack
-(const NetworkConfigPayload   *message,
- uint8_t             *out);
+                     (const NetworkConfigPayload   *message,
+                      uint8_t             *out);
 size_t network_config_payload__pack_to_buffer
-(const NetworkConfigPayload   *message,
- ProtobufCBuffer     *buffer);
+                     (const NetworkConfigPayload   *message,
+                      ProtobufCBuffer     *buffer);
 NetworkConfigPayload *
-network_config_payload__unpack
-(ProtobufCAllocator  *allocator,
- size_t               len,
- const uint8_t       *data);
+       network_config_payload__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
 void   network_config_payload__free_unpacked
-(NetworkConfigPayload *message,
- ProtobufCAllocator *allocator);
+                     (NetworkConfigPayload *message,
+                      ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
 typedef void (*CmdGetStatus_Closure)
-(const CmdGetStatus *message,
- void *closure_data);
+                 (const CmdGetStatus *message,
+                  void *closure_data);
 typedef void (*RespGetStatus_Closure)
-(const RespGetStatus *message,
- void *closure_data);
+                 (const RespGetStatus *message,
+                  void *closure_data);
 typedef void (*WifiSetConfig_Closure)
-(const WifiSetConfig *message,
- void *closure_data);
+                 (const WifiSetConfig *message,
+                  void *closure_data);
 typedef void (*ThreadSetConfig_Closure)
-(const ThreadSetConfig *message,
- void *closure_data);
+                 (const ThreadSetConfig *message,
+                  void *closure_data);
 typedef void (*CmdSetConfig_Closure)
-(const CmdSetConfig *message,
- void *closure_data);
+                 (const CmdSetConfig *message,
+                  void *closure_data);
 typedef void (*RespSetConfig_Closure)
-(const RespSetConfig *message,
- void *closure_data);
+                 (const RespSetConfig *message,
+                  void *closure_data);
 typedef void (*CmdApplyConfig_Closure)
-(const CmdApplyConfig *message,
- void *closure_data);
+                 (const CmdApplyConfig *message,
+                  void *closure_data);
 typedef void (*RespApplyConfig_Closure)
-(const RespApplyConfig *message,
- void *closure_data);
+                 (const RespApplyConfig *message,
+                  void *closure_data);
 typedef void (*NetworkConfigPayload_Closure)
-(const NetworkConfigPayload *message,
- void *closure_data);
+                 (const NetworkConfigPayload *message,
+                  void *closure_data);
 
 /* --- services --- */
 

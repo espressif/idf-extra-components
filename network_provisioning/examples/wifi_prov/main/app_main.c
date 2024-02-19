@@ -278,7 +278,7 @@ static void wifi_prov_print_qr(const char *name, const char *username, const cha
     ESP_LOGI(TAG, "Scan this QR code from the provisioning application for Provisioning.");
     esp_qrcode_config_t cfg = ESP_QRCODE_CONFIG_DEFAULT();
     esp_qrcode_generate(&cfg, payload);
-#endif /* CONFIG_APP_WIFI_PROV_SHOW_QR */
+#endif /* CONFIG_EXAMPLE_PROV_SHOW_QR */
     ESP_LOGI(TAG, "If QR code is not visible, copy paste the below URL in a browser.\n%s?data=%s", QRCODE_BASE_URL, payload);
 }
 
@@ -322,12 +322,12 @@ void app_main(void)
     /* Configuration for the provisioning manager */
     network_prov_mgr_config_t config = {
         /* What is the Provisioning Scheme that we want ?
-         * wifi_prov_scheme_softap or wifi_prov_scheme_ble */
+         * network_prov_scheme_softap or network_prov_scheme_ble */
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_BLE
         .scheme = network_prov_scheme_ble,
 #endif /* CONFIG_EXAMPLE_PROV_TRANSPORT_BLE */
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP
-        .scheme = wifi_prov_scheme_softap,
+        .scheme = network_prov_scheme_softap,
 #endif /* CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP */
 
         /* Any default scheme specific event handler that you would
@@ -337,12 +337,12 @@ void app_main(void)
          * (in case when device is already provisioned). Choosing
          * appropriate scheme specific event handler allows the manager
          * to take care of this automatically. This can be set to
-         * WIFI_PROV_EVENT_HANDLER_NONE when using wifi_prov_scheme_softap*/
+         * NETWORK_PROV_EVENT_HANDLER_NONE when using network_prov_scheme_softap*/
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_BLE
         .scheme_event_handler = NETWORK_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM
 #endif /* CONFIG_EXAMPLE_PROV_TRANSPORT_BLE */
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP
-        .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
+        .scheme_event_handler = NETWORK_PROV_EVENT_HANDLER_NONE
 #endif /* CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP */
     };
 
@@ -364,19 +364,19 @@ void app_main(void)
 
         /* What is the Device Service Name that we want
          * This translates to :
-         *     - Wi-Fi SSID when scheme is wifi_prov_scheme_softap
-         *     - device name when scheme is wifi_prov_scheme_ble
+         *     - Wi-Fi SSID when scheme is network_prov_scheme_softap
+         *     - device name when scheme is network_prov_scheme_ble
          */
         char service_name[12];
         get_device_service_name(service_name, sizeof(service_name));
 
 #ifdef CONFIG_EXAMPLE_PROV_SECURITY_VERSION_1
         /* What is the security level that we want (0, 1, 2):
-         *      - WIFI_PROV_SECURITY_0 is simply plain text communication.
-         *      - WIFI_PROV_SECURITY_1 is secure communication which consists of secure handshake
+         *      - NETWORK_PROV_SECURITY_0 is simply plain text communication.
+         *      - NETWORK_PROV_SECURITY_1 is secure communication which consists of secure handshake
          *          using X25519 key exchange and proof of possession (pop) and AES-CTR
          *          for encryption/decryption of messages.
-         *      - WIFI_PROV_SECURITY_2 SRP6a based authentication and key exchange
+         *      - NETWORK_PROV_SECURITY_2 SRP6a based authentication and key exchange
          *        + AES-GCM encryption/decryption of messages
          */
         network_prov_security_t security = NETWORK_PROV_SECURITY_1;
@@ -414,7 +414,7 @@ void app_main(void)
         /* This is the structure for passing security parameters
          * for the protocomm security 2.
          * If dynamically allocated, sec2_params pointer and its content
-         * must be valid till WIFI_PROV_END event is triggered.
+         * must be valid till NETWORK_PROV_END event is triggered.
          */
         network_prov_security2_params_t sec2_params = {};
 
@@ -425,14 +425,14 @@ void app_main(void)
 #endif
         /* What is the service key (could be NULL)
          * This translates to :
-         *     - Wi-Fi password when scheme is wifi_prov_scheme_softap
+         *     - Wi-Fi password when scheme is network_prov_scheme_softap
          *          (Minimum expected length: 8, maximum 64 for WPA2-PSK)
-         *     - simply ignored when scheme is wifi_prov_scheme_ble
+         *     - simply ignored when scheme is network_prov_scheme_ble
          */
         const char *service_key = NULL;
 
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_BLE
-        /* This step is only useful when scheme is wifi_prov_scheme_ble. This will
+        /* This step is only useful when scheme is network_prov_scheme_ble. This will
          * set a custom 128 bit UUID which will be included in the BLE advertisement
          * and will correspond to the primary GATT service that provides provisioning
          * endpoints as GATT characteristics. Each GATT characteristic will be
