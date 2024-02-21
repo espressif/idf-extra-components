@@ -38,6 +38,7 @@ jobs:
             ccomp_timer;
             coap;
             coremark;
+            dhara;
             eigen;
             esp_delta_ota;
             esp_encrypted_img;

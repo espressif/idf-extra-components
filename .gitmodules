@@ -57,3 +57,7 @@
 [submodule "catch2/Catch2"]
 	path = catch2/Catch2
 	url = https://github.com/catchorg/Catch2.git
+
+[submodule "dhara/dhara"]
+	path = dhara/dhara
+	url = https://github.com/dlbeer/dhara.git
