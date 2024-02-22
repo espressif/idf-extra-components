@@ -14,6 +14,10 @@
 
 /* Define to 1 if you have the `getpagesize' function. */
 #define HAVE_GETPAGESIZE 1
+
+/* Define to 1 if you have the `getrandom' function. */
+#define HAVE_GETRANDOM 1
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
@@ -63,7 +67,7 @@
 #define PACKAGE_NAME "expat"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "expat 2.5.0"
+#define PACKAGE_STRING "expat 2.6.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "expat"
@@ -72,13 +76,13 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.5.0"
+#define PACKAGE_VERSION "2.6.0"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "2.5.0"
+#define VERSION "2.6.0"
 
 /* whether byteorder is bigendian */
 /* #undef WORDS_BIGENDIAN */
@@ -89,6 +93,9 @@
 
 /* Define to make parameter entity parsing functionality available. */
 #define XML_DTD 1
+
+/* Define as 1/0 to enable/disable support for general entities. */
+#define XML_GE 1
 
 /* Define to make XML Namespaces functionality available. */
 #define XML_NS 1
