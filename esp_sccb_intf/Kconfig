@@ -1,0 +1,9 @@
+menu "SCCB Configurations"
+
+    config SCCB_ISR_IRAM_SAFE
+        bool "Place SCCB ISR functions into IRAM"
+        default n
+        help
+            Place SCCB ISR functions into IRAM.
+
+endmenu
