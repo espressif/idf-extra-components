@@ -1,7 +1,7 @@
 name: libexpat
-version: 2.5.0
+version: 2.6.0
 cpe: cpe:2.3:a:libexpat_project:libexpat:{}:*:*:*:*:*:*:*
 supplier: 'Organization: libexpat_project'
 description: Fast streaming XML parser written in C99
 url: https://github.com/libexpat/libexpat/
-hash: 454c6105bc2d0ea2521b8f8f7a5161c2abd8c386
+hash: 849da3e3fe727fccef5e96ef35482d66447f06a2
