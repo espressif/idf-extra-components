@@ -1,4 +1,4 @@
-menu "ccronexpr"
+menu "CRON Expression Parser"
 
     config CRON_DISABLE_YEARS
         bool "Enable macro to diable year function"
