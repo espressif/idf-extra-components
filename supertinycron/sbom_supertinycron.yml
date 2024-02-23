@@ -1,0 +1,7 @@
+name: supertinycron
+version: 2.0.0
+cpe: cpe:2.3:a:supertinycron:supertinycron:{}:*:*:*:*:*:*:*
+supplier: 'Organization: supertinycron'
+description: Cron expression parsing in ANSI C with tinycron tool
+url: https://github.com/exander77/supertinycron
+hash: 30b9e373234c3c16c279e5a05f65dc07f5be9161
