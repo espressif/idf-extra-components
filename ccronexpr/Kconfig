@@ -2,7 +2,7 @@ menu "CRON Expression Parser"
 
     config CRON_DISABLE_YEARS
         bool "Disable support for parsing years"
-        default y
+        default n
         help
             Enable it will lower memory footriprint by 29 bytes for cron_expr.
             It will still accept year field, but field will not be validated and it will be triggered every year.
