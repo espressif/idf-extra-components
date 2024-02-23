@@ -5,6 +5,6 @@ menu "CRON Expression Parser"
         default n
         help
             When this option is selected, year parsing support will be disabled, reducing memory footprint  for cron_expr by 29 bytes.
-            It will still accept year field, but field will not be validated and it will be triggered every year.
+            The library will still accept the year field. However, the field will not be validated and the cron event will be triggered every year.
 
 endmenu
