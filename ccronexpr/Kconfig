@@ -1,7 +1,7 @@
 menu "CRON Expression Parser"
 
     config CRON_DISABLE_YEARS
-        bool "Enable macro to diable year function"
+        bool "Disable support for parsing years"
         default y
         help
             Enable it will lower memory footriprint by 29 bytes for cron_expr.
