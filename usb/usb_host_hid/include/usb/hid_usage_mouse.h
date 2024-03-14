@@ -29,6 +29,7 @@ typedef struct {
     } buttons;
     int8_t x_displacement;
     int8_t y_displacement;
+    int8_t scrollwheel;
 } __attribute__((packed)) hid_mouse_input_report_boot_t;
 
 #ifdef __cplusplus
