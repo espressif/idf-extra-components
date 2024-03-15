@@ -54,6 +54,7 @@ jobs:
             json_parser;
             led_strip;
             libsodium;
+            network_provisioning;
             nghttp;
             onewire_bus;
             pcap;

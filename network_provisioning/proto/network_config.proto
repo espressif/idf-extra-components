@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+import "constants.proto";
+import "network_constants.proto";
+
+message CmdGetStatus {
+    NetworkType net_type = 1;
+}
+
+message RespGetStatus {
+    NetworkType net_type = 1;
+    Status status = 2;
+    oneof payload {
+        WifiStationState wifi_sta_state = 10;
+        ThreadNetworkState thread_state = 11;
+    }
+    oneof state {
+        WifiConnectFailedReason wifi_fail_reason = 20;
+        WifiConnectedState wifi_connected = 21;
+        ThreadAttachFailedReason thread_fail_reason = 22;
+        ThreadAttachState thread_attached = 23;
+    }
+}
+
+message WifiSetConfig {
+    bytes ssid = 1;
+    bytes passphrase = 2;
+    bytes bssid = 3;
+    int32 channel = 4;
+}
+
+message ThreadSetConfig {
+    bytes dataset = 1;
+}
+
+message CmdSetConfig {
+    NetworkType net_type = 1;
+    oneof payload {
+        WifiSetConfig wifi_config = 10;
+        ThreadSetConfig thread_config = 11;
+    }
+}
+
+message RespSetConfig {
+    NetworkType net_type = 1;
+    Status status = 2;
+}
+
+message CmdApplyConfig {
+    NetworkType net_type = 1;
+}
+
+message RespApplyConfig {
+    NetworkType net_type = 1;
+    Status status = 2;
+}
+
+enum NetworkConfigMsgType {
+    TypeCmdGetStatus = 0;
+    TypeRespGetStatus = 1;
+    TypeCmdSetConfig = 2;
+    TypeRespSetConfig = 3;
+    TypeCmdApplyConfig = 4;
+    TypeRespApplyConfig = 5;
+}
+
+message NetworkConfigPayload {
+    NetworkConfigMsgType msg = 1;
+    oneof payload {
+        CmdGetStatus cmd_get_status = 10;
+        RespGetStatus resp_get_status = 11;
+        CmdSetConfig cmd_set_config = 12;
+        RespSetConfig resp_set_config = 13;
+        CmdApplyConfig cmd_apply_config = 14;
+        RespApplyConfig resp_apply_config = 15;
+    }
+}

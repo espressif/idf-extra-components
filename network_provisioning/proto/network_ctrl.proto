@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+import "constants.proto";
+import "network_constants.proto";
+
+message CmdCtrlReset {
+    NetworkType net_type = 1;
+}
+
+message RespCtrlReset {
+    NetworkType net_type = 1;
+}
+
+message CmdCtrlReprov {
+    NetworkType net_type = 1;
+}
+
+message RespCtrlReprov{
+    NetworkType net_type = 1;
+}
+
+enum NetworkCtrlMsgType {
+    TypeCtrlReserved = 0;
+    TypeCmdCtrlReset = 1;
+    TypeRespCtrlReset = 2;
+    TypeCmdCtrlReprov = 3;
+    TypeRespCtrlReprov = 4;
+}
+
+message NetworkCtrlPayload {
+    NetworkCtrlMsgType msg = 1;
+    Status status = 2;
+    oneof payload {
+        CmdCtrlReset cmd_ctrl_reset = 11;
+        RespCtrlReset resp_ctrl_reset = 12;
+        CmdCtrlReprov cmd_ctrl_reprov = 13;
+        RespCtrlReprov resp_ctrl_reprov = 14;
+    }
+}
