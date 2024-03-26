@@ -46,7 +46,6 @@ body:
         - qrcode
         - sh2lib
         - test_app
-        - usb
         - Other
     validations:
       required: true

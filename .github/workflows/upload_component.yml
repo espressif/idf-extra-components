@@ -62,16 +62,6 @@ jobs:
             quirc;
             sh2lib;
             spi_nand_flash;
-            usb/esp_modem_usb_dte;
-            usb/esp_tinyusb;
-            usb/usb_host_cdc_acm;
-            usb/usb_host_ch34x_vcp;
-            usb/usb_host_cp210x_vcp;
-            usb/usb_host_ftdi_vcp;
-            usb/usb_host_hid;
-            usb/usb_host_msc;
-            usb/usb_host_uvc;
-            usb/usb_host_vcp;
             zlib;
             libpng;
           namespace: "espressif"
