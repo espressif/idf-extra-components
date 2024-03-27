@@ -116,13 +116,13 @@ enum {
 enum {
     TUSB_DESC_TOTAL_LEN = TUD_CONFIG_DESC_LEN +
                           CFG_TUD_CDC * TUD_CDC_DESC_LEN +
-                          CFG_TUD_MSC * TUD_MSC_DESC_LEN +
+                          CFG_TUD_MSC * TUD_MSC_DESC_LEN
 #if CONFIG_TINYUSB_NET_MODE_ECM
-                          CFG_TUD_ECM_RNDIS * TUD_CDC_ECM_DESC_LEN
+                          + CFG_TUD_ECM_RNDIS * TUD_CDC_ECM_DESC_LEN
 #elif CONFIG_TINYUSB_NET_MODE_RNDIS
-                          CFG_TUD_ECM_RNDIS * TUD_RNDIS_DESC_LEN
+                          + CFG_TUD_ECM_RNDIS * TUD_RNDIS_DESC_LEN
 #elif CONFIG_TINYUSB_NET_MODE_NCM
-                          CFG_TUD_NCM * TUD_CDC_NCM_DESC_LEN
+                          + CFG_TUD_NCM * TUD_CDC_NCM_DESC_LEN
 #endif
 };
 
