@@ -259,11 +259,14 @@ menu "TinyUSB Stack"
             help
                 Select network driver you want to use.
 
-            config TINYUSB_NET_MODE_ECM_RNDIS
-                bool "ECM/RNDIS"
-
             config TINYUSB_NET_MODE_NCM
                 bool "NCM"
+
+            config TINYUSB_NET_MODE_RNDIS
+                bool "RNDIS"
+
+            config TINYUSB_NET_MODE_ECM
+                bool "ECM"
 
             config TINYUSB_NET_MODE_NONE
                 bool "None"

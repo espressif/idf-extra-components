@@ -36,6 +36,10 @@ const static int TX_FINISHED_BIT = BIT0;
 static struct tinyusb_net_handle s_net_obj = { };
 static const char *TAG = "tusb_net";
 
+#if CONFIG_TINYUSB_NET_MODE_RNDIS || CONFIG_TINYUSB_NET_MODE_ECM
+uint8_t tud_network_mac_address[6] = {0}; // for RNDIS (net_device.h, rndis_reports.c)
+#endif
+
 static void do_send_sync(void *ctx)
 {
     (void) ctx;
@@ -130,12 +134,16 @@ esp_err_t tinyusb_net_init(tinyusb_usbdev_t usb_dev, const tinyusb_net_config_t 
     s_net_obj.tx_buff_free_cb = cfg->free_tx_buffer;
     s_net_obj.ctx = cfg->user_context;
 
+#if CONFIG_TINYUSB_NET_MODE_RNDIS
+    memcpy(tud_network_mac_address, cfg->mac_addr, MAC_ADDR_LEN);
+#elif CONFIG_TINYUSB_NET_MODE_ECM || CONFIG_TINYUSB_NET_MODE_NCM
     const uint8_t *mac = &cfg->mac_addr[0];
     snprintf(s_net_obj.mac_str, sizeof(s_net_obj.mac_str), "%02X%02X%02X%02X%02X%02X",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     uint8_t mac_id = tusb_get_mac_string_id();
     // Pass it to Descriptor control module
     tinyusb_set_str_descriptor(s_net_obj.mac_str, mac_id);
+#endif
 
     s_net_obj.initialized = true;
 
