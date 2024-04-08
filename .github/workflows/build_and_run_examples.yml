@@ -63,7 +63,7 @@ jobs:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
       - name: Run examples
-        run: pytest --target=${{ matrix.idf_target }} -m generic --build-dir=build_${{ matrix.idf_target }} --ignore=usb --ignore=test_app
+        run: pytest --target=${{ matrix.idf_target }} -m generic --build-dir=build_${{ matrix.idf_target }} --ignore=test_app
 
   run-ethernet-based-examples:
     name: Run examples on ethernet runners
@@ -92,4 +92,4 @@ jobs:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
       - name: Run examples
-        run: pytest --target=${{ matrix.idf_target }} -m ethernet --build-dir=build_${{ matrix.idf_target }} --ignore=usb --ignore=test_app
+        run: pytest --target=${{ matrix.idf_target }} -m ethernet --build-dir=build_${{ matrix.idf_target }} --ignore=test_app

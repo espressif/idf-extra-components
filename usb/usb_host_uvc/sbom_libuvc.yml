@@ -1,6 +1,0 @@
-name: libuvc
-version: 0.0.7
-supplier: 'Organization: libuvc <https://libuvc.github.io/libuvc/>'
-description: a cross-platform library for USB video devices.
-url: https://github.com/libuvc/libuvc
-
