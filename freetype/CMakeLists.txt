@@ -1,7 +1,7 @@
 idf_component_register()
 
+set(CMAKE_SYSTEM_IGNORE_PATH "/usr/include;/usr/lib/x86_64-linux-gnu")
 set(BUILD_SHARED_LIBS OFF)
-option(BUILD_TESTING OFF)
 
 function(install)
 endfunction()
