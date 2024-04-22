@@ -43,5 +43,4 @@ endif()
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS "${include_dirs}"
                     REQUIRES lwip mbedtls)
-target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
 
