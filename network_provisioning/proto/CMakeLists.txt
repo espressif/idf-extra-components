@@ -4,7 +4,7 @@ set(PROTO_COMPILER "protoc")
 set(PROTO_C_COMPILER "protoc-c")
 set(C_OUT_PATH "${CMAKE_CURRENT_LIST_DIR}/../proto-c")
 set(PY_OUT_PATH "${CMAKE_CURRENT_LIST_DIR}/../python")
-set(PROTOCOMM_INCL_PATH "${CMAKE_CURRENT_LIST_DIR}/../../protocomm/proto")
+set(PROTOCOMM_INCL_PATH "${IDF_PATH}/component/protocomm/proto")
 
 set(PROTO_SRCS "network_constants.proto"
                "network_config.proto"

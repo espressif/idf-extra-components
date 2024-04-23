@@ -74,12 +74,12 @@ Make sure to note down the Bluetooth LE device name (starting with `PROV_`) disp
 In a separate terminal run the `esp_prov.py` script under [directory](../../tool/esp_prov/) (make sure to replace `dataset_tlvs` with the dataset of the Thread network to which the device is supposed to connect to after provisioning). Assuming default example configuration, which uses the protocomm security version 2:
 
 ```
-python esp_prov.py --network_proto thread --transport ble --service_name PROV_F72E6B --sec_ver 2 --sec2_username threadprov --sec2_pwd abcd1234 --dataset_tlvs <dataset_tlvs>
+python esp_prov.py --transport ble --service_name PROV_F72E6B --sec_ver 2 --sec2_username threadprov --sec2_pwd abcd1234 --dataset_tlvs <dataset_tlvs>
 ```
 
 For security scheme 1 with PoP-based (proof-of-possession) authentication, the following command can be used:
 ```
-python esp_prov.py --network_proto thread --transport ble --service_name PROV_F72E6B --sec_ver 1 --pop abcd1234 --dataset_tlvs <dataset_tlvs>
+python esp_prov.py --transport ble --service_name PROV_F72E6B --sec_ver 1 --pop abcd1234 --dataset_tlvs <dataset_tlvs>
 ```
 
 Above command will perform the provisioning steps, and the monitor log should display something like this :
@@ -114,7 +114,7 @@ I (55355) app: Hello World!
 The config option `CONFIG_EXAMPLE_PROV_SEC2_DEV_MODE` should be enabled for the example and in `main/app_main.c`, the macro `EXAMPLE_PROV_SEC2_USERNAME` should be set to the same username used in the salt-verifier generation.
 
 ```log
-$ python esp_prov.py --network_proto thread --transport ble --sec_ver 2 --sec2_gen_cred --sec2_username threadprov --sec2_pwd abcd1234
+$ python esp_prov.py --transport ble --sec_ver 2 --sec2_gen_cred --sec2_username threadprov --sec2_pwd abcd1234
 ==== Salt-verifier for security scheme 2 (SRP6a) ====
 static const char sec2_salt[] = {
     0x1f, 0xff, 0x29, 0xf5, 0xc7, 0x7e, 0x07, 0x48, 0x02, 0xe9, 0x93, 0x3e, 0xa3, 0xa2, 0x26, 0x73
@@ -179,7 +179,7 @@ Provisioning manager also supports providing real-time Thread scan results (perf
 When using the scan based provisioning, we don't need to specify the `--dataset_tlvs` fields explicitly:
 
 ```
-python esp_prov.py --network_proto thread --transport ble --service_name PROV_F72E6B --pop abcd1234
+python esp_prov.py --transport ble --service_name PROV_F72E6B --pop abcd1234
 ```
 
 See below the sample output from `esp_prov` tool on running above command:
@@ -238,7 +238,7 @@ Enter Thread network key string :
 `esp_prov` supports interactive provisioning. You can trigger the script with a simplified command and input the necessary details
 (`Proof-of-possession` for security scheme 1 and `SRP6a username`, `SRP6a password` for security scheme 2) as the provisioning process advances.
 
-The command `python esp_prov.py --network_proto thread --transport ble --sec_ver 2` gives out the following sample output:
+The command `python esp_prov.py --transport ble --sec_ver 2` gives out the following sample output:
 
 ```
 Discovering...
