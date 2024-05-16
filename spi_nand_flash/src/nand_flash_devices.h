@@ -10,6 +10,7 @@
 #define SPI_NAND_FLASH_GIGADEVICE_MI  0xC8
 #define SPI_NAND_FLASH_ALLIANCE_MI    0x52
 #define SPI_NAND_FLASH_WINBOND_MI     0xEF
+#define SPI_NAND_FLASH_MICRON_MI      0x2C
 
 //Device ID (DI) for supported nand flash devices
 
@@ -39,3 +40,5 @@
 #define WINBOND_DI_AA21               0xAA21
 #define WINBOND_DI_BA21               0xBA21
 #define WINBOND_DI_BC21               0xBC21
+
+#define MICRON_DI_34                  0x34

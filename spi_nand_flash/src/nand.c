@@ -129,6 +129,31 @@ static esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
     return ESP_OK;
 }
 
+static esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
+{
+    uint8_t device_id;
+    spi_nand_transaction_t t = {
+        .command = CMD_READ_ID,
+        .dummy_bits = 16,
+        .miso_len = 1,
+        .miso_data = &device_id
+    };
+    spi_nand_execute_transaction(dev->config.device_handle, &t);
+    dev->read_page_delay_us = 25;
+    dev->erase_block_delay_us = 10000;
+    dev->program_page_delay_us = 600;
+    switch (device_id) {
+    case MICRON_DI_34:
+        dev->dhara_nand.num_blocks = 2048;
+        dev->dhara_nand.log2_ppb = 6;        // 64 pages per block
+        dev->dhara_nand.log2_page_size = 12; // 4096 bytes per page
+        break;
+    default:
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    return ESP_OK;
+}
+
 static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
 {
     uint8_t manufacturer_id;
@@ -148,6 +173,8 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         return spi_nand_winbond_init(dev);
     case SPI_NAND_FLASH_GIGADEVICE_MI: // GigaDevice
         return spi_nand_gigadevice_init(dev);
+    case SPI_NAND_FLASH_MICRON_MI: // Micron
+        return spi_nand_micron_init(dev);
     default:
         return ESP_ERR_INVALID_RESPONSE;
     }
