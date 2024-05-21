@@ -1,0 +1,10 @@
+menu "CRON Expression Parser"
+
+    config CRON_DISABLE_YEARS
+        bool "Disable support for parsing years"
+        default n
+        help
+            When this option is selected, year parsing support will be disabled, reducing memory footprint  for cron_expr by 29 bytes.
+            The library will still accept the year field. However, the field will not be validated and the cron event will be triggered every year.
+
+endmenu
