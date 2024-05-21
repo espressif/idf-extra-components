@@ -108,6 +108,29 @@ menu "CoAP Configuration"
         help
             Enable Q-Block (RFC9177) fast block transfers using NON (instead of CON) support for CoAP
 
+    config COAP_ASYNC_SUPPORT
+        bool "Enable asynchronous separate response support in CoAP"
+        default y
+        help
+            Enable support for asynchronous separate responses in CoAP
+
+    config COAP_THREAD_SAFE
+        bool "Enable thread-safe support within CoAP"
+        default n
+        help
+            Enable thread-safe support for CoAP.
+
+            If this option is disabled, CoAP is not multi-threaded safe
+
+    config COAP_THREAD_RECURSIVE_CHECK
+        bool "Enable thread-safe recursion checking support within CoAP"
+        depends on COAP_THREAD_SAFE
+        default n
+        help
+            Enable thread-safe recursion checking support for CoAP.
+
+            If this option is disabled, recursive locking occur in CoAP
+
     config COAP_WEBSOCKETS
         bool "Enable WebSockets support within CoAP"
         default n

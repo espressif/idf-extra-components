@@ -13,6 +13,7 @@ set(srcs
     "libcoap/src/coap_hashkey.c"
     "libcoap/src/coap_io.c"
     "libcoap/src/coap_layers.c"
+    "libcoap/src/coap_mbedtls.c"
     "libcoap/src/coap_mem.c"
     "libcoap/src/coap_net.c"
     "libcoap/src/coap_netif.c"
@@ -27,9 +28,9 @@ set(srcs
     "libcoap/src/coap_subscribe.c"
     "libcoap/src/coap_tcp.c"
     "libcoap/src/coap_time.c"
+    "libcoap/src/coap_threadsafe.c"
     "libcoap/src/coap_uri.c"
-    "libcoap/src/coap_ws.c"
-    "port/coap_mbedtls.c")
+    "libcoap/src/coap_ws.c")
 
 if(CONFIG_COAP_OSCORE_SUPPORT)
     list(APPEND srcs
