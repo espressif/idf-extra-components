@@ -57,3 +57,7 @@
 [submodule "dhara/dhara"]
 	path = dhara/dhara
 	url = https://github.com/dlbeer/dhara.git
+
+[submodule "supertinycron/supertinycron"]
+	path = supertinycron/supertinycron
+	url = https://github.com/exander77/supertinycron.git

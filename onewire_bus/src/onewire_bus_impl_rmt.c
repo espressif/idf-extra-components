@@ -106,7 +106,7 @@ Read 0 bit:
 #define ONEWIRE_SLOT_START_DURATION             2  // bit start pulse duration
 #define ONEWIRE_SLOT_BIT_DURATION               60 // duration for each bit to transmit
 // refer to https://www.maximintegrated.com/en/design/technical-documents/app-notes/3/3829.html for more information
-#define ONEWIRE_SLOT_RECOVERY_DURATION          2  // recovery time between each bit, should be longer in parasite power mode
+#define ONEWIRE_SLOT_RECOVERY_DURATION          5  // recovery time between each bit, should be longer in parasite power mode
 #define ONEWIRE_SLOT_BIT_SAMPLE_TIME            15 // how long after bit start pulse should the master sample from the bus
 
 typedef struct {
