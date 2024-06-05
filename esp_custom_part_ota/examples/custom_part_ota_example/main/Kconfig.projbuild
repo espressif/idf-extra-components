@@ -1,0 +1,32 @@
+menu "Example Configuration"
+
+    orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
+
+    config EXAMPLE_DATA_DOWNLOAD_URL
+        string "Data Download URL"
+        default "https://192.168.2.106:8070/data.bin"
+        help
+            URL of server which hosts the firmware image.
+
+    config EXAMPLE_DATA_DOWNLOAD_URL_FROM_STDIN
+        bool
+        default y if EXAMPLE_FIRMWARE_UPG_URL = "FROM_STDIN"
+
+    config EXAMPLE_SKIP_COMMON_NAME_CHECK
+        bool "Skip server certificate CN fieldcheck"
+        default n
+        help
+            This allows you to skip the validation of OTA server certificate CN field.
+
+    config EXAMPLE_OTA_RECV_TIMEOUT
+        int "OTA Receive Timeout"
+        default 5000
+        help
+            Maximum time for reception
+
+    config EXAMPLE_PARTITION_BACKUP
+        bool "Backup the Update Partition"
+        default y
+        help
+            Backup the data of the partition to be updated
+endmenu
