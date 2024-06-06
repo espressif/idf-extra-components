@@ -2,9 +2,8 @@
 set(TVG_LIB libthorvg)
 set(TVG_INC_DIR thorvg/src/bindings/capi)
 set(TVG_SUBDIR "${CMAKE_CURRENT_SOURCE_DIR}/thorvg")
-set(TVG_BUILD_DIR "${CMAKE_BINARY_DIR}/thorvg_build")
-set(TVG_CROSS_CFG "${CMAKE_BINARY_DIR}/thorvg_build/cross_file.txt")
-idf_build_get_property(python PYTHON)
+set(TVG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build")
+set(TVG_CROSS_CFG "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build/cross_file.txt")
 
 idf_component_register(SRCS dummy.c
                     INCLUDE_DIRS "${TVG_INC_DIR}")
@@ -86,16 +85,6 @@ cpu_family = '${CMAKE_SYSTEM}'
 cpu = 'esp'
 endian = 'little'
 ")
-
-execute_process(
-    COMMAND ${python} -m pip install -U meson
-    RESULT_VARIABLE pip_result
-    OUTPUT_VARIABLE pip_output
-)
-
-if(NOT pip_result EQUAL 0)
-    message(FATAL_ERROR "Failed to install or update meson using pip.")
-endif()
 
 ExternalProject_Add(${TVG_LIB}_target
     PREFIX ${TVG_BUILD_DIR}
