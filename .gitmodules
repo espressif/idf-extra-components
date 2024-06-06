@@ -61,3 +61,7 @@
 [submodule "supertinycron/supertinycron"]
 	path = supertinycron/supertinycron
 	url = https://github.com/exander77/supertinycron.git
+
+[submodule "thorvg/thorvg"]
+	path = thorvg/thorvg
+	url = https://github.com/thorvg/thorvg
