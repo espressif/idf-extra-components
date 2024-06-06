@@ -73,3 +73,8 @@ spi_nand_flash/test_app:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+
+thorvg/examples/thorvg-example:
+  enable:
+    - if: (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) and (IDF_TARGET in ["esp32p4"])
+      reason: Example depends on BSP, which is supported only for IDF >= 5.3 and limited targets

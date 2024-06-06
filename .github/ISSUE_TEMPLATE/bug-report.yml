@@ -46,6 +46,7 @@ body:
         - qrcode
         - sh2lib
         - test_app
+        - thorvg
         - Other
     validations:
       required: true
