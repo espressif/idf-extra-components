@@ -80,7 +80,7 @@ endif()
 
 file(APPEND ${TVG_CROSS_CFG} "
 [host_machine]
-system = 'freertos'
+system = 'android'
 cpu_family = '${CMAKE_SYSTEM}'
 cpu = 'esp'
 endian = 'little'
@@ -94,14 +94,15 @@ ExternalProject_Add(${TVG_LIB}_target
     --cross-file ${TVG_CROSS_CFG}
     -Dbindings=capi
     -Dextra=
-    -Ddefault_library=static
-    -Dthreads=false
+    -Ddefault_library=static # build static library
+    -Db_staticpic=false # no -fPIC
+    -Dthreads=true # allow multi-threading
     BUILD_COMMAND ninja -C ${TVG_BUILD_DIR}
     INSTALL_COMMAND ""
     BUILD_BYPRODUCTS ${TVG_BUILD_DIR}/src/${TVG_LIB}.a
 )
 
-add_prebuilt_library(${TVG_LIB} ${TVG_BUILD_DIR}/src/${TVG_LIB}.a PRIV_REQUIRES esp_rom)
+add_prebuilt_library(${TVG_LIB} ${TVG_BUILD_DIR}/src/${TVG_LIB}.a PRIV_REQUIRES pthread)
 add_dependencies(${TVG_LIB} ${TVG_LIB}_target)
 
 target_link_libraries(${COMPONENT_LIB} INTERFACE ${TVG_LIB})
