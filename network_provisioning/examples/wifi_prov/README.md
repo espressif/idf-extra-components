@@ -73,12 +73,12 @@ Make sure to note down the Bluetooth LE device name (starting with `PROV_`) disp
 In a separate terminal run the `esp_prov.py` script under [directory](../../tool/esp_prov) (make sure to replace `myssid` and `mypassword` with the credentials of the AP to which the device is supposed to connect to after provisioning). Assuming default example configuration, which uses the protocomm security version 2 with username and password authentication:
 
 ```
-python esp_prov.py --network_proto wifi --transport ble --service_name PROV_01B1E8 --sec_ver 2 --sec2_username wifiprov --sec2_pwd abcd1234 --ssid myssid --passphrase mypassword
+python esp_prov.py --transport ble --service_name PROV_01B1E8 --sec_ver 2 --sec2_username wifiprov --sec2_pwd abcd1234 --ssid myssid --passphrase mypassword
 ```
 
 For security scheme 1 with PoP-based (proof-of-possession) authentication, the following command can be used:
 ```
-python esp_prov.py --network_proto wifi --transport ble --service_name PROV_01B1E8 --sec_ver 1 --pop abcd1234 --ssid myssid --passphrase mypassword
+python esp_prov.py --transport ble --service_name PROV_01B1E8 --sec_ver 1 --pop abcd1234 --ssid myssid --passphrase mypassword
 ```
 
 Above command will perform the provisioning steps, and the monitor log should display something like this :
@@ -115,7 +115,7 @@ I (55355) app: Hello World!
 The config option `CONFIG_EXAMPLE_PROV_SEC2_DEV_MODE` should be enabled for the example and in `main/app_main.c`, the macro `EXAMPLE_PROV_SEC2_USERNAME` should be set to the same username used in the salt-verifier generation.
 
 ```log
-$ python esp_prov.py --network_proto wifi --transport softap --sec_ver 2 --sec2_gen_cred --sec2_username wifiprov --sec2_pwd abcd1234
+$ python esp_prov.py --transport softap --sec_ver 2 --sec2_gen_cred --sec2_username wifiprov --sec2_pwd abcd1234
 ==== Salt-verifier for security scheme 2 (SRP6a) ====
 static const char sec2_salt[] = {
     0x03, 0x6e, 0xe0, 0xc7, 0xbc, 0xb9, 0xed, 0xa8, 0x4c, 0x9e, 0xac, 0x97, 0xd9, 0x3d, 0xec, 0xf4
@@ -177,7 +177,7 @@ Provisioning manager also supports providing real-time Wi-Fi scan results (perfo
 When using the scan based provisioning, we don't need to specify the `--ssid` and `--passphrase` fields explicitly:
 
 ```
-python esp_prov.py --network_proto wifi --transport ble --service_name PROV_01B1E8 --pop abcd1234
+python esp_prov.py --transport ble --service_name PROV_01B1E8 --pop abcd1234
 ```
 
 See below the sample output from `esp_prov` tool on running above command:
@@ -223,7 +223,7 @@ Enter passphrase for MyHomeWiFiAP :
 `esp_prov` supports interactive provisioning. You can trigger the script with a simplified command and input the necessary details
 (`Proof-of-possession` for security scheme 1 and `SRP6a username`, `SRP6a password` for security scheme 2) as the provisioning process advances.
 
-The command `python esp_prov.py --network_proto wifi --transport ble --sec_ver 1` gives out the following sample output:
+The command `python esp_prov.py --transport ble --sec_ver 1` gives out the following sample output:
 
 ```
 Discovering...

@@ -31,7 +31,7 @@
 #include <openthread/thread.h>
 #endif // CONFIG_OPENTHREAD_ENABLED
 
-#define NETWORK_PROV_MGR_VERSION      "v1.2"
+#define NETWORK_PROV_MGR_VERSION      "netprov-v1.2"
 #define WIFI_PROV_STORAGE_BIT       BIT0
 #define WIFI_PROV_SETTING_BIT       BIT1
 #define MAX_SCAN_RESULTS           CONFIG_NETWORK_PROV_SCAN_MAX_ENTRIES
@@ -298,10 +298,14 @@ static cJSON *network_prov_get_info_json(void)
     }
 
 #if CONFIG_ESP_WIFI_ENABLED
+    /* Indicate capability for performing Wi-Fi provision */
+    cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("wifi_prov"));
     /* Indicate capability for performing Wi-Fi scan */
     cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("wifi_scan"));
 #endif
 #if CONFIG_OPENTHREAD_ENABLED
+    /* Indicate capability for performing Thread provision */
+    cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("thread_prov"));
     /* Indicate capability for performing Thread scan */
     cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("thread_scan"));
 #endif

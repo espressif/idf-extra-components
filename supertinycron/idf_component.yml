@@ -1,0 +1,5 @@
+version: "2.0.0~1"
+description: Cron expression parsing in ANSI C.
+url: https://github.com/espressif/idf-extra-components/tree/master/supertinycron
+dependencies:
+  idf: ">=4.1"

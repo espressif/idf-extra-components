@@ -1,0 +1,5 @@
+description: Cron expression parsing in ANSI C.
+dependencies:
+  espressif/supertinycron:
+    version: "*"
+    override_path: '../../../'

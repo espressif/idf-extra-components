@@ -112,7 +112,7 @@ static esp_err_t example_get_sec2_verifier(const char **verifier, uint16_t *veri
 const int THREAD_ATTACHED_EVENT = BIT0;
 static EventGroupHandle_t thread_event_group;
 
-#define PROV_QR_VERSION         "v2"
+#define PROV_QR_VERSION         "v1"
 #define PROV_TRANSPORT_BLE      "ble"
 #define QRCODE_BASE_URL         "https://espressif.github.io/esp-jumpstart/qrcode.html"
 
@@ -206,17 +206,16 @@ static void network_prov_print_qr(const char *name, const char *username, const 
     if (pop) {
 #if CONFIG_EXAMPLE_PROV_SECURITY_VERSION_1
         snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
-                 ",\"pop\":\"%s\",\"transport\":\"%s\",\"network\":\"thread\"}",
+                 ",\"pop\":\"%s\",\"transport\":\"%s\"}",
                  PROV_QR_VERSION, name, pop, transport);
 #elif CONFIG_EXAMPLE_PROV_SECURITY_VERSION_2
         snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
-                 ",\"username\":\"%s\",\"pop\":\"%s\",\"transport\":\"%s\"" \
-                 ",\"network\":\"thread\"}",
+                 ",\"username\":\"%s\",\"pop\":\"%s\",\"transport\":\"%s\"}",
                  PROV_QR_VERSION, name, username, pop, transport);
 #endif
     } else {
         snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
-                 ",\"transport\":\"%s\",\"network\":\"thread\"}",
+                 ",\"transport\":\"%s\"}",
                  PROV_QR_VERSION, name, transport);
     }
 #ifdef CONFIG_EXAMPLE_PROV_SHOW_QR

@@ -456,10 +456,6 @@ async def main():
                         help=desc_format(
                             'Mode of transport over which provisioning is to be performed.',
                             'This should be one of "softap", "ble", "console" (or "httpd" which is an alias of softap)'))
-    parser.add_argument('--network_proto', required=True, type=str,
-                        help=desc_format(
-                            'Protocol of network to which the device is to be provisioned.',
-                            'This should be one of "wifi", "thread"'))
 
     parser.add_argument('--service_name', dest='name', type=str,
                         help=desc_format(
@@ -595,7 +591,7 @@ async def main():
             raise RuntimeError('Error in establishing session')
         print('==== Session Established ====')
 
-        if args.network_proto == 'wifi':
+        if await has_capability(obj_transport, 'wifi_prov'):
             if args.reset:
                 print('==== Reseting WiFi====')
                 await reset_wifi(obj_transport, obj_security)
@@ -666,7 +662,7 @@ async def main():
 
             await wait_wifi_connected(obj_transport, obj_security)
 
-        elif args.network_proto == 'thread':
+        elif await has_capability(obj_transport, 'thread_prov'):
             if args.reset:
                 print('==== Reseting Thread====')
                 await reset_thread(obj_transport, obj_security)
@@ -728,6 +724,9 @@ async def main():
             print('==== Apply config sent successfully ====')
 
             await wait_thread_connected(obj_transport, obj_security)
+
+        else:
+            raise RuntimeError('The device should support Wi-Fi prov or Thread prov')
     finally:
         await obj_transport.disconnect()
 

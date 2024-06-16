@@ -104,7 +104,7 @@ static esp_err_t example_get_sec2_verifier(const char **verifier, uint16_t *veri
 const int WIFI_CONNECTED_EVENT = BIT0;
 static EventGroupHandle_t wifi_event_group;
 
-#define PROV_QR_VERSION         "v2"
+#define PROV_QR_VERSION         "v1"
 #define PROV_TRANSPORT_SOFTAP   "softap"
 #define PROV_TRANSPORT_BLE      "ble"
 #define QRCODE_BASE_URL         "https://espressif.github.io/esp-jumpstart/qrcode.html"
@@ -262,12 +262,11 @@ static void wifi_prov_print_qr(const char *name, const char *username, const cha
     if (pop) {
 #if CONFIG_EXAMPLE_PROV_SECURITY_VERSION_1
         snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
-                 ",\"pop\":\"%s\",\"transport\":\"%s\",\"network\":\"wifi\"}",
+                 ",\"pop\":\"%s\",\"transport\":\"%s\"}",
                  PROV_QR_VERSION, name, pop, transport);
 #elif CONFIG_EXAMPLE_PROV_SECURITY_VERSION_2
         snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
-                 ",\"username\":\"%s\",\"pop\":\"%s\",\"transport\":\"%s\"" \
-                 ",\"network\":\"wifi\"}",
+                 ",\"username\":\"%s\",\"pop\":\"%s\",\"transport\":\"%s\"}",
                  PROV_QR_VERSION, name, username, pop, transport);
 #endif
     } else {
