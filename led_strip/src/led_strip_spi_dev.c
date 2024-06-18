@@ -177,12 +177,14 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     };
 
     ESP_GOTO_ON_ERROR(spi_bus_add_device(spi_strip->spi_host, &spi_dev_cfg, &spi_strip->spi_device), err, TAG, "Failed to add spi device");
-
+    //ensure the reset time is enough
+    esp_rom_delay_us(10);
     int clock_resolution_khz = 0;
     spi_device_get_actual_freq(spi_strip->spi_device, &clock_resolution_khz);
     // TODO: ideally we should decide the SPI_BYTES_PER_COLOR_BYTE by the real clock resolution
     // But now, let's fixed the resolution, the downside is, we don't support a clock source whose frequency is not multiple of LED_STRIP_SPI_DEFAULT_RESOLUTION
-    ESP_GOTO_ON_FALSE(clock_resolution_khz == LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000, ESP_ERR_NOT_SUPPORTED, err,
+    // clock_resolution between 2.2MHz to 2.8MHz is supported
+    ESP_GOTO_ON_FALSE((clock_resolution_khz < LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 + 300) && (clock_resolution_khz > LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
                       TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
 
     spi_strip->bytes_per_pixel = bytes_per_pixel;
