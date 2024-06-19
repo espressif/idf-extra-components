@@ -264,34 +264,6 @@ const ProtobufCMessageDescriptor thread_attach_state__descriptor =
   (ProtobufCMessageInit) thread_attach_state__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCEnumValue network_type__enum_values_by_number[2] =
-{
-  { "WifiNetwork", "NETWORK_TYPE__WifiNetwork", 0 },
-  { "ThreadNetwork", "NETWORK_TYPE__ThreadNetwork", 1 },
-};
-static const ProtobufCIntRange network_type__value_ranges[] = {
-{0, 0},{0, 2}
-};
-static const ProtobufCEnumValueIndex network_type__enum_values_by_name[2] =
-{
-  { "ThreadNetwork", 1 },
-  { "WifiNetwork", 0 },
-};
-const ProtobufCEnumDescriptor network_type__descriptor =
-{
-  PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "NetworkType",
-  "NetworkType",
-  "NetworkType",
-  "",
-  2,
-  network_type__enum_values_by_number,
-  2,
-  network_type__enum_values_by_name,
-  1,
-  network_type__value_ranges,
-  NULL,NULL,NULL,NULL   /* reserved[1234] */
-};
 static const ProtobufCEnumValue wifi_station_state__enum_values_by_number[4] =
 {
   { "Connected", "WIFI_STATION_STATE__Connected", 0 },

@@ -16,11 +16,10 @@ def print_verbose(security_ctx, data):
 def ctrl_reset_request(network_type, security_ctx):
     # Form protobuf request packet for CtrlReset command
     cmd = proto.network_ctrl_pb2.NetworkCtrlPayload()
-    cmd.msg = proto.network_ctrl_pb2.TypeCmdCtrlReset
     if network_type == 'wifi':
-        cmd.cmd_ctrl_reset.net_type = 0
+        cmd.msg = proto.network_ctrl_pb2.TypeCmdCtrlWifiReset
     elif network_type == 'thread':
-        cmd.cmd_ctrl_reset.net_type = 1
+        cmd.msg = proto.network_ctrl_pb2.TypeCmdCtrlThreadReset
     else:
         raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
@@ -41,11 +40,10 @@ def ctrl_reset_response(security_ctx, response_data):
 def ctrl_reprov_request(network_type, security_ctx):
     # Form protobuf request packet for CtrlReprov command
     cmd = proto.network_ctrl_pb2.NetworkCtrlPayload()
-    cmd.msg = proto.network_ctrl_pb2.TypeCmdCtrlReprov
     if network_type == 'wifi':
-        cmd.cmd_ctrl_reprov.net_type = 0
+        cmd.msg = proto.network_ctrl_pb2.TypeCmdCtrlWifiReprov
     elif network_type == 'thread':
-        cmd.cmd_ctrl_reprov.net_type = 1
+        cmd.msg = proto.network_ctrl_pb2.TypeCmdCtrlThreadReprov
     else:
         raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())

@@ -1,3 +1,7 @@
+# 19-June-2024
+
+- Change the proto files to make the network provisioning component stay backward compatible with the wifi_provisioing
+
 # 23-April-2024
 
 - Add `wifi_prov` or `thread_prov` in provision capabilities in the network provisioning manager for the provisioner to distinguish Thread or Wi-Fi devices

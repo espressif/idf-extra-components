@@ -15,17 +15,16 @@ def print_verbose(security_ctx, data):
 def scan_start_request(network_type, security_ctx, blocking=True, passive=False, group_channels=5, period_ms=120):
     # Form protobuf request packet for ScanStart command
     cmd = proto.network_scan_pb2.NetworkScanPayload()
-    cmd.msg = proto.network_scan_pb2.TypeCmdScanStart
     if network_type == 'wifi':
-        cmd.cmd_scan_start.net_type = 0
-        cmd.cmd_scan_start.wifi_scan_start.blocking = blocking
-        cmd.cmd_scan_start.wifi_scan_start.passive = passive
-        cmd.cmd_scan_start.wifi_scan_start.group_channels = group_channels
-        cmd.cmd_scan_start.wifi_scan_start.period_ms = period_ms
+        cmd.msg = proto.network_scan_pb2.TypeCmdScanWifiStart
+        cmd.cmd_scan_wifi_start.blocking = blocking
+        cmd.cmd_scan_wifi_start.passive = passive
+        cmd.cmd_scan_wifi_start.group_channels = group_channels
+        cmd.cmd_scan_wifi_start.period_ms = period_ms
     elif network_type == 'thread':
-        cmd.cmd_scan_start.net_type = 1
-        cmd.cmd_scan_start.thread_scan_start.blocking = blocking
-        cmd.cmd_scan_start.thread_scan_start.channel_mask = 0
+        cmd.msg = proto.network_scan_pb2.TypeCmdScanThreadStart
+        cmd.cmd_scan_thread_start.blocking = blocking
+        cmd.cmd_scan_thread_start.channel_mask = 0
     else:
         raise RuntimeError
 
@@ -47,11 +46,10 @@ def scan_start_response(security_ctx, response_data):
 def scan_status_request(network_type, security_ctx):
     # Form protobuf request packet for ScanStatus command
     cmd = proto.network_scan_pb2.NetworkScanPayload()
-    cmd.msg = proto.network_scan_pb2.TypeCmdScanStatus
     if network_type == 'wifi':
-        cmd.cmd_scan_status.net_type = 0
+        cmd.msg = proto.network_scan_pb2.TypeCmdScanWifiStatus
     elif network_type == 'thread':
-        cmd.cmd_scan_status.net_type = 1
+        cmd.msg = proto.network_scan_pb2.TypeCmdScanThreadStatus
     else:
         raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
@@ -67,21 +65,27 @@ def scan_status_response(security_ctx, response_data):
     print_verbose(security_ctx, f'ScanStatus status: 0x{str(resp.status)}')
     if resp.status != 0:
         raise RuntimeError
-    return {'finished': resp.resp_scan_status.scan_finished, 'count': resp.resp_scan_status.result_count}
+    if resp.msg == proto.network_scan_pb2.TypeRespScanWifiStatus:
+        return {'finished': resp.resp_scan_wifi_status.scan_finished, 'count': resp.resp_scan_wifi_status.result_count}
+    elif resp.msg == proto.network_scan_pb2.TypeRespScanThreadStatus:
+        return {'finished': resp.resp_scan_thread_status.scan_finished, 'count': resp.resp_scan_thread_status.result_count}
+    else:
+        raise RuntimeError
 
 
 def scan_result_request(network_type, security_ctx, index, count):
     # Form protobuf request packet for ScanResult command
     cmd = proto.network_scan_pb2.NetworkScanPayload()
-    cmd.msg = proto.network_scan_pb2.TypeCmdScanResult
     if network_type == 'wifi':
-        cmd.cmd_scan_result.net_type = 0
+        cmd.msg = proto.network_scan_pb2.TypeCmdScanWifiResult
+        cmd.cmd_scan_wifi_result.start_index = index
+        cmd.cmd_scan_wifi_result.count = count
     elif network_type == 'thread':
-        cmd.cmd_scan_result.net_type = 1
+        cmd.msg = proto.network_scan_pb2.TypeCmdScanThreadResult
+        cmd.cmd_scan_thread_result.start_index = index
+        cmd.cmd_scan_thread_result.count = count
     else:
         raise RuntimeError
-    cmd.cmd_scan_result.start_index = index
-    cmd.cmd_scan_result.count = count
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
     print_verbose(security_ctx, f'Client -> Device (Encrypted CmdScanResult): 0x{enc_cmd.hex()}')
     return enc_cmd.decode('latin-1')
@@ -96,28 +100,30 @@ def scan_result_response(security_ctx, response_data):
     if resp.status != 0:
         raise RuntimeError
     results = []
-    if resp.resp_scan_result.net_type == 0:
+    if resp.msg == proto.network_scan_pb2.TypeRespScanWifiResult:
         authmode_str = ['Open', 'WEP', 'WPA_PSK', 'WPA2_PSK', 'WPA_WPA2_PSK',
                         'WPA2_ENTERPRISE', 'WPA3_PSK', 'WPA2_WPA3_PSK']
-        for entry in resp.resp_scan_result.entries:
-            results += [{'ssid': entry.wifi_result.ssid.decode('latin-1').rstrip('\x00'),
-                         'bssid': entry.wifi_result.bssid.hex(),
-                         'channel': entry.wifi_result.channel,
-                         'rssi': entry.wifi_result.rssi,
-                         'auth': authmode_str[entry.wifi_result.auth]}]
+        for entry in resp.resp_scan_wifi_result.entries:
+            results += [{'ssid': entry.ssid.decode('latin-1').rstrip('\x00'),
+                         'bssid': entry.bssid.hex(),
+                         'channel': entry.channel,
+                         'rssi': entry.rssi,
+                         'auth': authmode_str[entry.auth]}]
             print_verbose(security_ctx, f"ScanResult SSID    : {str(results[-1]['ssid'])}")
             print_verbose(security_ctx, f"ScanResult BSSID   : {str(results[-1]['bssid'])}")
             print_verbose(security_ctx, f"ScanResult Channel : {str(results[-1]['channel'])}")
             print_verbose(security_ctx, f"ScanResult RSSI    : {str(results[-1]['rssi'])}")
             print_verbose(security_ctx, f"ScanResult AUTH    : {str(results[-1]['auth'])}")
-    elif resp.resp_scan_result.net_type == 1:
-        for entry in resp.resp_scan_result.entries:
-            results += [{'pan_id': entry.thread_result.pan_id,
-                         'ext_pan_id': entry.thread_result.ext_pan_id.hex(),
-                         'network_name': entry.thread_result.network_name,
-                         'channel': entry.thread_result.channel,
-                         'rssi': entry.thread_result.rssi,
-                         'lqi': entry.thread_result.lqi,
-                         'ext_addr': entry.thread_result.ext_addr.hex()}]
+    elif resp.msg == proto.network_scan_pb2.TypeRespScanThreadResult:
+        for entry in resp.resp_scan_thread_result.entries:
+            results += [{'pan_id': entry.pan_id,
+                         'ext_pan_id': entry.ext_pan_id.hex(),
+                         'network_name': entry.network_name,
+                         'channel': entry.channel,
+                         'rssi': entry.rssi,
+                         'lqi': entry.lqi,
+                         'ext_addr': entry.ext_addr.hex()}]
+    else:
+        raise RuntimeError
 
     return results

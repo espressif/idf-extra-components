@@ -16,13 +16,14 @@ def print_verbose(security_ctx, data):
 def config_get_status_request(network_type, security_ctx):
     # Form protobuf request packet for GetStatus command
     cfg1 = proto.network_config_pb2.NetworkConfigPayload()
-    cfg1.msg = proto.network_config_pb2.TypeCmdGetStatus
-    cmd_get_status = proto.network_config_pb2.CmdGetStatus()
-    cfg1.cmd_get_status.MergeFrom(cmd_get_status)
     if network_type == 'wifi':
-        cfg1.cmd_get_status.net_type = 0
+        cfg1.msg = proto.network_config_pb2.TypeCmdGetWifiStatus
+        cmd_get_wifi_status = proto.network_config_pb2.CmdGetWifiStatus()
+        cfg1.cmd_get_wifi_status.MergeFrom(cmd_get_wifi_status)
     elif network_type == 'thread':
-        cfg1.cmd_get_status.net_type = 1
+        cfg1.msg = proto.network_config_pb2.TypeCmdGetThreadStatus
+        cmd_get_thread_status = proto.network_config_pb2.CmdGetThreadStatus()
+        cfg1.cmd_get_thread_status.MergeFrom(cmd_get_thread_status)
     else:
         raise RuntimeError
     encrypted_cfg = security_ctx.encrypt_data(cfg1.SerializeToString())
@@ -36,40 +37,41 @@ def config_get_status_response(security_ctx, response_data):
     cmd_resp1 = proto.network_config_pb2.NetworkConfigPayload()
     cmd_resp1.ParseFromString(decrypted_message)
     print_verbose(security_ctx, f'CmdGetStatus type: {str(cmd_resp1.msg)}')
-    print_verbose(security_ctx, f'CmdGetStatus status: {str(cmd_resp1.resp_get_status.status)}')
 
-    if cmd_resp1.resp_get_status.net_type == 0:
-        if cmd_resp1.resp_get_status.wifi_sta_state == 0:
+    if cmd_resp1.msg == proto.network_config_pb2.TypeRespGetWifiStatus:
+        print_verbose(security_ctx, f'CmdGetStatus status: {str(cmd_resp1.resp_get_wifi_status.status)}')
+        if cmd_resp1.resp_get_wifi_status.wifi_sta_state == 0:
             print('==== WiFi state: Connected ====')
             return 'connected'
-        elif cmd_resp1.resp_get_status.wifi_sta_state == 1:
+        elif cmd_resp1.resp_get_wifi_status.wifi_sta_state == 1:
             print('++++ WiFi state: Connecting... ++++')
             return 'connecting'
-        elif cmd_resp1.resp_get_status.wifi_sta_state == 2:
+        elif cmd_resp1.resp_get_wifi_status.wifi_sta_state == 2:
             print('---- WiFi state: Disconnected ----')
             return 'disconnected'
-        elif cmd_resp1.resp_get_status.wifi_sta_state == 3:
+        elif cmd_resp1.resp_get_wifi_status.wifi_sta_state == 3:
             print('---- WiFi state: Connection Failed ----')
-            if cmd_resp1.resp_get_status.wifi_fail_reason == 0:
+            if cmd_resp1.resp_get_wifi_status.wifi_fail_reason == 0:
                 print('---- Failure reason: Incorrect Password ----')
-            elif cmd_resp1.resp_get_status.wifi_fail_reason == 1:
+            elif cmd_resp1.resp_get_wifi_status.wifi_fail_reason == 1:
                 print('---- Failure reason: Incorrect SSID ----')
             return 'failed'
-    elif cmd_resp1.resp_get_status.net_type == 1:
-        if cmd_resp1.resp_get_status.thread_state == 0:
+    elif cmd_resp1.msg == proto.network_config_pb2.TypeRespGetThreadStatus:
+        print_verbose(security_ctx, f'CmdGetStatus status: {str(cmd_resp1.resp_get_thread_status.status)}')
+        if cmd_resp1.resp_get_thread_status.thread_state == 0:
             print('==== Thread state: Attached ====')
             return 'attached'
-        elif cmd_resp1.resp_get_status.thread_state == 1:
+        elif cmd_resp1.resp_get_thread_status.thread_state == 1:
             print('==== Thread state: Attaching ====')
             return 'attaching'
-        elif cmd_resp1.resp_get_status.thread_state == 2:
+        elif cmd_resp1.resp_get_thread_status.thread_state == 2:
             print('==== Thread state: Detached ====')
             return 'detached'
-        elif cmd_resp1.resp_get_status.thread_state == 3:
+        elif cmd_resp1.resp_get_thread_status.thread_state == 3:
             print('==== Thread state: Attaching Failed ====')
-            if cmd_resp1.resp_get_status.thread_fail_reason == 0:
+            if cmd_resp1.resp_get_thread_status.thread_fail_reason == 0:
                 print('---- Failure reason: Invalid Dataset ----')
-            elif cmd_resp1.resp_get_status.thread_fail_reason == 1:
+            elif cmd_resp1.resp_get_thread_status.thread_fail_reason == 1:
                 print('---- Failure reason: Network Not Found ----')
             return 'failed'
 
@@ -79,14 +81,13 @@ def config_get_status_response(security_ctx, response_data):
 def config_set_config_request(network_type, security_ctx, ssid_or_dataset_tlvs, passphrase=''):
     # Form protobuf request packet for SetConfig command
     cmd = proto.network_config_pb2.NetworkConfigPayload()
-    cmd.msg = proto.network_config_pb2.TypeCmdSetConfig
     if network_type == 'wifi':
-        cmd.cmd_set_config.net_type = 0
-        cmd.cmd_set_config.wifi_config.ssid = str_to_bytes(ssid_or_dataset_tlvs)
-        cmd.cmd_set_config.wifi_config.passphrase = str_to_bytes(passphrase)
+        cmd.msg = proto.network_config_pb2.TypeCmdSetWifiConfig
+        cmd.cmd_set_wifi_config.ssid = str_to_bytes(ssid_or_dataset_tlvs)
+        cmd.cmd_set_wifi_config.passphrase = str_to_bytes(passphrase)
     elif network_type == 'thread':
-        cmd.cmd_set_config.net_type = 1
-        cmd.cmd_set_config.thread_config.dataset = hex_str_to_bytes(ssid_or_dataset_tlvs)
+        cmd.msg = proto.network_config_pb2.TypeCmdSetThreadConfig
+        cmd.cmd_set_thread_config.dataset = hex_str_to_bytes(ssid_or_dataset_tlvs)
     else:
         raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
@@ -99,18 +100,21 @@ def config_set_config_response(security_ctx, response_data):
     decrypt = security_ctx.decrypt_data(str_to_bytes(response_data))
     cmd_resp4 = proto.network_config_pb2.NetworkConfigPayload()
     cmd_resp4.ParseFromString(decrypt)
-    print_verbose(security_ctx, f'SetConfig status: 0x{str(cmd_resp4.resp_set_config.status)}')
-    return cmd_resp4.resp_set_config.status
+    if cmd_resp4.msg == proto.network_config_pb2.TypeRespSetWifiConfig:
+        print_verbose(security_ctx, f'SetConfig status: 0x{str(cmd_resp4.resp_set_wifi_config.status)}')
+        return cmd_resp4.resp_set_wifi_config.status
+    elif cmd_resp4.msg == proto.network_config_pb2.TypeRespSetThreadConfig:
+        print_verbose(security_ctx, f'SetConfig status: 0x{str(cmd_resp4.resp_set_thread_config.status)}')
+        return cmd_resp4.resp_set_thread_config.status
 
 
 def config_apply_config_request(network_type, security_ctx):
     # Form protobuf request packet for ApplyConfig command
     cmd = proto.network_config_pb2.NetworkConfigPayload()
-    cmd.msg = proto.network_config_pb2.TypeCmdApplyConfig
     if network_type == 'wifi':
-        cmd.cmd_apply_config.net_type = 0
+        cmd.msg = proto.network_config_pb2.TypeCmdApplyWifiConfig
     elif network_type == 'thread':
-        cmd.cmd_apply_config.net_type = 1
+        cmd.msg = proto.network_config_pb2.TypeCmdApplyThreadConfig
     else:
         raise RuntimeError
     enc_cmd = security_ctx.encrypt_data(cmd.SerializeToString())
@@ -123,5 +127,9 @@ def config_apply_config_response(security_ctx, response_data):
     decrypt = security_ctx.decrypt_data(str_to_bytes(response_data))
     cmd_resp5 = proto.network_config_pb2.NetworkConfigPayload()
     cmd_resp5.ParseFromString(decrypt)
-    print_verbose(security_ctx, f'ApplyConfig status: 0x{str(cmd_resp5.resp_apply_config.status)}')
-    return cmd_resp5.resp_apply_config.status
+    if cmd_resp5.msg == proto.network_config_pb2.TypeRespApplyWifiConfig:
+        print_verbose(security_ctx, f'ApplyConfig status: 0x{str(cmd_resp5.resp_apply_wifi_config.status)}')
+        return cmd_resp5.resp_apply_wifi_config.status
+    elif cmd_resp5.msg == proto.network_config_pb2.TypeRespApplyThreadConfig:
+        print_verbose(security_ctx, f'ApplyConfig status: 0x{str(cmd_resp5.resp_apply_thread_config.status)}')
+        return cmd_resp5.resp_apply_thread_config.status
