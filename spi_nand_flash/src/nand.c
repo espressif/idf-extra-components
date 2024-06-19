@@ -136,13 +136,13 @@ static esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
         .command = CMD_READ_ID,
         .dummy_bits = 16,
         .miso_len = 1,
-        .miso_data = &device_id};
+        .miso_data = &device_id
+    };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
     dev->read_page_delay_us = 25;
     dev->erase_block_delay_us = 10000;
     dev->program_page_delay_us = 600;
-    switch (device_id)
-    {
+    switch (device_id) {
     case MICRON_DI_34:
         dev->dhara_nand.num_blocks = 2048;
         dev->dhara_nand.log2_ppb = 6;        // 64 pages per block
