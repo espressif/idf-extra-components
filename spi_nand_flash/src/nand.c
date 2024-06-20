@@ -139,9 +139,9 @@ static esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
         .miso_data = &device_id
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
-    dev->read_page_delay_us = 25;
-    dev->erase_block_delay_us = 10000;
-    dev->program_page_delay_us = 600;
+    dev->read_page_delay_us = 115;
+    dev->erase_block_delay_us = 2000;
+    dev->program_page_delay_us = 240;
     switch (device_id) {
     case MICRON_DI_34:
         dev->dhara_nand.num_blocks = 2048;
