@@ -15,9 +15,15 @@ extern "C" {
  * @brief LED strip pixel format
  */
 typedef enum {
-    LED_PIXEL_FORMAT_GRB,    /*!< Pixel format: GRB */
-    LED_PIXEL_FORMAT_GRBW,   /*!< Pixel format: GRBW */
-    LED_PIXEL_FORMAT_INVALID /*!< Invalid pixel format */
+    LED_PIXEL_FORMAT_GRB,           /*!< Pixel format: GRB */
+    LED_PIXEL_FORMAT_GBR,           /*!< Pixel format: GBR */
+    LED_PIXEL_FORMAT_RGB,           /*!< Pixel format: RGB */
+    LED_PIXEL_FORMAT_RBG,           /*!< Pixel format: RBG */
+    LED_PIXEL_FORMAT_BGR,           /*!< Pixel format: BGR */
+    LED_PIXEL_FORMAT_BRG,           /*!< Pixel format: BRG */
+    LED_PIXEL_FORMAT_3COLORS_MAX,   /*!< Pixel format max of 3 colors */
+    LED_PIXEL_FORMAT_GRBW,          /*!< Pixel format: GRBW */
+    LED_PIXEL_FORMAT_INVALID        /*!< Invalid pixel format */
 } led_pixel_format_t;
 
 /**
