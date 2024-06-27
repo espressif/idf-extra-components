@@ -28,6 +28,7 @@ typedef struct {
     led_strip_t base;
     rmt_channel_handle_t rmt_chan;
     rmt_encoder_handle_t strip_encoder;
+    led_pixel_format_t led_pixel_format;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
     uint8_t pixel_buf[];
@@ -38,10 +39,45 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
     uint32_t start = index * rmt_strip->bytes_per_pixel;
-    // In thr order of GRB, as LED strip like WS2812 sends out pixels in this order
-    rmt_strip->pixel_buf[start + 0] = green & 0xFF;
-    rmt_strip->pixel_buf[start + 1] = red & 0xFF;
-    rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
+    // Support all kinds of pixel order
+    uint8_t r = 0, b = 0, g = 0;
+    switch (rmt_strip->led_pixel_format) {
+    case LED_PIXEL_FORMAT_GRB:
+        r = 1;
+        g = 0;
+        b = 2;
+        break;
+    case LED_PIXEL_FORMAT_GBR:
+        r = 2;
+        g = 0;
+        b = 1;
+        break;
+    case LED_PIXEL_FORMAT_RGB:
+        r = 0;
+        g = 1;
+        b = 2;
+        break;
+    case LED_PIXEL_FORMAT_RBG:
+        r = 0;
+        g = 2;
+        b = 1;
+        break;
+    case LED_PIXEL_FORMAT_BGR:
+        r = 2;
+        g = 1;
+        b = 0;
+        break;
+    case LED_PIXEL_FORMAT_BRG:
+        r = 1;
+        g = 2;
+        b = 0;
+        break;
+    default:
+        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "invalid pixel format");
+    }
+    rmt_strip->pixel_buf[start + g] = green & 0xFF;
+    rmt_strip->pixel_buf[start + r] = red & 0xFF;
+    rmt_strip->pixel_buf[start + b] = blue & 0xFF;
     if (rmt_strip->bytes_per_pixel > 3) {
         rmt_strip->pixel_buf[start + 3] = 0;
     }
@@ -101,10 +137,10 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     ESP_GOTO_ON_FALSE(led_config && rmt_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
     ESP_GOTO_ON_FALSE(led_config->led_pixel_format < LED_PIXEL_FORMAT_INVALID, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel_format");
     uint8_t bytes_per_pixel = 3;
-    if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
-        bytes_per_pixel = 4;
-    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB) {
+    if (led_config->led_pixel_format < LED_PIXEL_FORMAT_3COLORS_MAX) {
         bytes_per_pixel = 3;
+    } else if (led_config->led_pixel_format > LED_PIXEL_FORMAT_3COLORS_MAX) {
+        bytes_per_pixel = 4;
     } else {
         assert(false);
     }
@@ -139,7 +175,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
 
-
+    rmt_strip->led_pixel_format = led_config->led_pixel_format;
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
     rmt_strip->strip_len = led_config->max_leds;
     rmt_strip->base.set_pixel = led_strip_rmt_set_pixel;
