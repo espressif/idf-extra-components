@@ -12,26 +12,33 @@ _sym_db = _symbol_database.Default()
 
 
 import constants_pb2 as constants__pb2
-import network_constants_pb2 as network__constants__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12network_ctrl.proto\x1a\x0f\x63onstants.proto\x1a\x17network_constants.proto\".\n\x0c\x43mdCtrlReset\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\"/\n\rRespCtrlReset\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\"/\n\rCmdCtrlReprov\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\"0\n\x0eRespCtrlReprov\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\"\x86\x02\n\x12NetworkCtrlPayload\x12 \n\x03msg\x18\x01 \x01(\x0e\x32\x13.NetworkCtrlMsgType\x12\x17\n\x06status\x18\x02 \x01(\x0e\x32\x07.Status\x12\'\n\x0e\x63md_ctrl_reset\x18\x0b \x01(\x0b\x32\r.CmdCtrlResetH\x00\x12)\n\x0fresp_ctrl_reset\x18\x0c \x01(\x0b\x32\x0e.RespCtrlResetH\x00\x12)\n\x0f\x63md_ctrl_reprov\x18\r \x01(\x0b\x32\x0e.CmdCtrlReprovH\x00\x12+\n\x10resp_ctrl_reprov\x18\x0e \x01(\x0b\x32\x0f.RespCtrlReprovH\x00\x42\t\n\x07payload*\x86\x01\n\x12NetworkCtrlMsgType\x12\x14\n\x10TypeCtrlReserved\x10\x00\x12\x14\n\x10TypeCmdCtrlReset\x10\x01\x12\x15\n\x11TypeRespCtrlReset\x10\x02\x12\x15\n\x11TypeCmdCtrlReprov\x10\x03\x12\x16\n\x12TypeRespCtrlReprov\x10\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12network_ctrl.proto\x1a\x0f\x63onstants.proto\"\x12\n\x10\x43mdCtrlWifiReset\"\x13\n\x11RespCtrlWifiReset\"\x13\n\x11\x43mdCtrlWifiReprov\"\x14\n\x12RespCtrlWifiReprov\"\x14\n\x12\x43mdCtrlThreadReset\"\x15\n\x13RespCtrlThreadReset\"\x15\n\x13\x43mdCtrlThreadReprov\"\x16\n\x14RespCtrlThreadReprov\"\x8a\x04\n\x12NetworkCtrlPayload\x12 \n\x03msg\x18\x01 \x01(\x0e\x32\x13.NetworkCtrlMsgType\x12\x17\n\x06status\x18\x02 \x01(\x0e\x32\x07.Status\x12\x30\n\x13\x63md_ctrl_wifi_reset\x18\x0b \x01(\x0b\x32\x11.CmdCtrlWifiResetH\x00\x12\x32\n\x14resp_ctrl_wifi_reset\x18\x0c \x01(\x0b\x32\x12.RespCtrlWifiResetH\x00\x12\x32\n\x14\x63md_ctrl_wifi_reprov\x18\r \x01(\x0b\x32\x12.CmdCtrlWifiReprovH\x00\x12\x34\n\x15resp_ctrl_wifi_reprov\x18\x0e \x01(\x0b\x32\x13.RespCtrlWifiReprovH\x00\x12\x34\n\x15\x63md_ctrl_thread_reset\x18\x0f \x01(\x0b\x32\x13.CmdCtrlThreadResetH\x00\x12\x36\n\x16resp_ctrl_thread_reset\x18\x10 \x01(\x0b\x32\x14.RespCtrlThreadResetH\x00\x12\x36\n\x16\x63md_ctrl_thread_reprov\x18\x11 \x01(\x0b\x32\x14.CmdCtrlThreadReprovH\x00\x12\x38\n\x17resp_ctrl_thread_reprov\x18\x12 \x01(\x0b\x32\x15.RespCtrlThreadReprovH\x00\x42\t\n\x07payload*\x8a\x02\n\x12NetworkCtrlMsgType\x12\x14\n\x10TypeCtrlReserved\x10\x00\x12\x18\n\x14TypeCmdCtrlWifiReset\x10\x01\x12\x19\n\x15TypeRespCtrlWifiReset\x10\x02\x12\x19\n\x15TypeCmdCtrlWifiReprov\x10\x03\x12\x1a\n\x16TypeRespCtrlWifiReprov\x10\x04\x12\x1a\n\x16TypeCmdCtrlThreadReset\x10\x05\x12\x1b\n\x17TypeRespCtrlThreadReset\x10\x06\x12\x1b\n\x17TypeCmdCtrlThreadReprov\x10\x07\x12\x1c\n\x18TypeRespCtrlThreadReprov\x10\x08\x62\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'network_ctrl_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _NETWORKCTRLMSGTYPE._serialized_start=526
-  _NETWORKCTRLMSGTYPE._serialized_end=660
-  _CMDCTRLRESET._serialized_start=64
-  _CMDCTRLRESET._serialized_end=110
-  _RESPCTRLRESET._serialized_start=112
-  _RESPCTRLRESET._serialized_end=159
-  _CMDCTRLREPROV._serialized_start=161
-  _CMDCTRLREPROV._serialized_end=208
-  _RESPCTRLREPROV._serialized_start=210
-  _RESPCTRLREPROV._serialized_end=258
-  _NETWORKCTRLPAYLOAD._serialized_start=261
-  _NETWORKCTRLPAYLOAD._serialized_end=523
+  _NETWORKCTRLMSGTYPE._serialized_start=741
+  _NETWORKCTRLMSGTYPE._serialized_end=1007
+  _CMDCTRLWIFIRESET._serialized_start=39
+  _CMDCTRLWIFIRESET._serialized_end=57
+  _RESPCTRLWIFIRESET._serialized_start=59
+  _RESPCTRLWIFIRESET._serialized_end=78
+  _CMDCTRLWIFIREPROV._serialized_start=80
+  _CMDCTRLWIFIREPROV._serialized_end=99
+  _RESPCTRLWIFIREPROV._serialized_start=101
+  _RESPCTRLWIFIREPROV._serialized_end=121
+  _CMDCTRLTHREADRESET._serialized_start=123
+  _CMDCTRLTHREADRESET._serialized_end=143
+  _RESPCTRLTHREADRESET._serialized_start=145
+  _RESPCTRLTHREADRESET._serialized_end=166
+  _CMDCTRLTHREADREPROV._serialized_start=168
+  _CMDCTRLTHREADREPROV._serialized_end=189
+  _RESPCTRLTHREADREPROV._serialized_start=191
+  _RESPCTRLTHREADREPROV._serialized_end=213
+  _NETWORKCTRLPAYLOAD._serialized_start=216
+  _NETWORKCTRLPAYLOAD._serialized_end=738
 # @@protoc_insertion_point(module_scope)

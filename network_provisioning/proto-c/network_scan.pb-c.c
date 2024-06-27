@@ -7,364 +7,499 @@
 #endif
 
 #include "network_scan.pb-c.h"
-void   wifi_scan_start__init
-                     (WifiScanStart         *message)
+void   cmd_scan_wifi_start__init
+                     (CmdScanWifiStart         *message)
 {
-  static const WifiScanStart init_value = WIFI_SCAN_START__INIT;
+  static const CmdScanWifiStart init_value = CMD_SCAN_WIFI_START__INIT;
   *message = init_value;
 }
-size_t wifi_scan_start__get_packed_size
-                     (const WifiScanStart *message)
+size_t cmd_scan_wifi_start__get_packed_size
+                     (const CmdScanWifiStart *message)
 {
-  assert(message->base.descriptor == &wifi_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_start__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t wifi_scan_start__pack
-                     (const WifiScanStart *message,
+size_t cmd_scan_wifi_start__pack
+                     (const CmdScanWifiStart *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &wifi_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_start__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t wifi_scan_start__pack_to_buffer
-                     (const WifiScanStart *message,
+size_t cmd_scan_wifi_start__pack_to_buffer
+                     (const CmdScanWifiStart *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &wifi_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_start__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-WifiScanStart *
-       wifi_scan_start__unpack
+CmdScanWifiStart *
+       cmd_scan_wifi_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (WifiScanStart *)
-     protobuf_c_message_unpack (&wifi_scan_start__descriptor,
+  return (CmdScanWifiStart *)
+     protobuf_c_message_unpack (&cmd_scan_wifi_start__descriptor,
                                 allocator, len, data);
 }
-void   wifi_scan_start__free_unpacked
-                     (WifiScanStart *message,
+void   cmd_scan_wifi_start__free_unpacked
+                     (CmdScanWifiStart *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &wifi_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_start__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   thread_scan_start__init
-                     (ThreadScanStart         *message)
+void   cmd_scan_thread_start__init
+                     (CmdScanThreadStart         *message)
 {
-  static const ThreadScanStart init_value = THREAD_SCAN_START__INIT;
+  static const CmdScanThreadStart init_value = CMD_SCAN_THREAD_START__INIT;
   *message = init_value;
 }
-size_t thread_scan_start__get_packed_size
-                     (const ThreadScanStart *message)
+size_t cmd_scan_thread_start__get_packed_size
+                     (const CmdScanThreadStart *message)
 {
-  assert(message->base.descriptor == &thread_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_start__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t thread_scan_start__pack
-                     (const ThreadScanStart *message,
+size_t cmd_scan_thread_start__pack
+                     (const CmdScanThreadStart *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &thread_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_start__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t thread_scan_start__pack_to_buffer
-                     (const ThreadScanStart *message,
+size_t cmd_scan_thread_start__pack_to_buffer
+                     (const CmdScanThreadStart *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &thread_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_start__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-ThreadScanStart *
-       thread_scan_start__unpack
+CmdScanThreadStart *
+       cmd_scan_thread_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (ThreadScanStart *)
-     protobuf_c_message_unpack (&thread_scan_start__descriptor,
+  return (CmdScanThreadStart *)
+     protobuf_c_message_unpack (&cmd_scan_thread_start__descriptor,
                                 allocator, len, data);
 }
-void   thread_scan_start__free_unpacked
-                     (ThreadScanStart *message,
+void   cmd_scan_thread_start__free_unpacked
+                     (CmdScanThreadStart *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &thread_scan_start__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_start__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   cmd_scan_start__init
-                     (CmdScanStart         *message)
+void   resp_scan_wifi_start__init
+                     (RespScanWifiStart         *message)
 {
-  static const CmdScanStart init_value = CMD_SCAN_START__INIT;
+  static const RespScanWifiStart init_value = RESP_SCAN_WIFI_START__INIT;
   *message = init_value;
 }
-size_t cmd_scan_start__get_packed_size
-                     (const CmdScanStart *message)
+size_t resp_scan_wifi_start__get_packed_size
+                     (const RespScanWifiStart *message)
 {
-  assert(message->base.descriptor == &cmd_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_start__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t cmd_scan_start__pack
-                     (const CmdScanStart *message,
+size_t resp_scan_wifi_start__pack
+                     (const RespScanWifiStart *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &cmd_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_start__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t cmd_scan_start__pack_to_buffer
-                     (const CmdScanStart *message,
+size_t resp_scan_wifi_start__pack_to_buffer
+                     (const RespScanWifiStart *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &cmd_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_start__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-CmdScanStart *
-       cmd_scan_start__unpack
+RespScanWifiStart *
+       resp_scan_wifi_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (CmdScanStart *)
-     protobuf_c_message_unpack (&cmd_scan_start__descriptor,
+  return (RespScanWifiStart *)
+     protobuf_c_message_unpack (&resp_scan_wifi_start__descriptor,
                                 allocator, len, data);
 }
-void   cmd_scan_start__free_unpacked
-                     (CmdScanStart *message,
+void   resp_scan_wifi_start__free_unpacked
+                     (RespScanWifiStart *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &cmd_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_start__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   resp_scan_start__init
-                     (RespScanStart         *message)
+void   resp_scan_thread_start__init
+                     (RespScanThreadStart         *message)
 {
-  static const RespScanStart init_value = RESP_SCAN_START__INIT;
+  static const RespScanThreadStart init_value = RESP_SCAN_THREAD_START__INIT;
   *message = init_value;
 }
-size_t resp_scan_start__get_packed_size
-                     (const RespScanStart *message)
+size_t resp_scan_thread_start__get_packed_size
+                     (const RespScanThreadStart *message)
 {
-  assert(message->base.descriptor == &resp_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_start__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t resp_scan_start__pack
-                     (const RespScanStart *message,
+size_t resp_scan_thread_start__pack
+                     (const RespScanThreadStart *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &resp_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_start__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t resp_scan_start__pack_to_buffer
-                     (const RespScanStart *message,
+size_t resp_scan_thread_start__pack_to_buffer
+                     (const RespScanThreadStart *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &resp_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_start__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-RespScanStart *
-       resp_scan_start__unpack
+RespScanThreadStart *
+       resp_scan_thread_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (RespScanStart *)
-     protobuf_c_message_unpack (&resp_scan_start__descriptor,
+  return (RespScanThreadStart *)
+     protobuf_c_message_unpack (&resp_scan_thread_start__descriptor,
                                 allocator, len, data);
 }
-void   resp_scan_start__free_unpacked
-                     (RespScanStart *message,
+void   resp_scan_thread_start__free_unpacked
+                     (RespScanThreadStart *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &resp_scan_start__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_start__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   cmd_scan_status__init
-                     (CmdScanStatus         *message)
+void   cmd_scan_wifi_status__init
+                     (CmdScanWifiStatus         *message)
 {
-  static const CmdScanStatus init_value = CMD_SCAN_STATUS__INIT;
+  static const CmdScanWifiStatus init_value = CMD_SCAN_WIFI_STATUS__INIT;
   *message = init_value;
 }
-size_t cmd_scan_status__get_packed_size
-                     (const CmdScanStatus *message)
+size_t cmd_scan_wifi_status__get_packed_size
+                     (const CmdScanWifiStatus *message)
 {
-  assert(message->base.descriptor == &cmd_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_status__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t cmd_scan_status__pack
-                     (const CmdScanStatus *message,
+size_t cmd_scan_wifi_status__pack
+                     (const CmdScanWifiStatus *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &cmd_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_status__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t cmd_scan_status__pack_to_buffer
-                     (const CmdScanStatus *message,
+size_t cmd_scan_wifi_status__pack_to_buffer
+                     (const CmdScanWifiStatus *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &cmd_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_status__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-CmdScanStatus *
-       cmd_scan_status__unpack
+CmdScanWifiStatus *
+       cmd_scan_wifi_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (CmdScanStatus *)
-     protobuf_c_message_unpack (&cmd_scan_status__descriptor,
+  return (CmdScanWifiStatus *)
+     protobuf_c_message_unpack (&cmd_scan_wifi_status__descriptor,
                                 allocator, len, data);
 }
-void   cmd_scan_status__free_unpacked
-                     (CmdScanStatus *message,
+void   cmd_scan_wifi_status__free_unpacked
+                     (CmdScanWifiStatus *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &cmd_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_wifi_status__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   resp_scan_status__init
-                     (RespScanStatus         *message)
+void   cmd_scan_thread_status__init
+                     (CmdScanThreadStatus         *message)
 {
-  static const RespScanStatus init_value = RESP_SCAN_STATUS__INIT;
+  static const CmdScanThreadStatus init_value = CMD_SCAN_THREAD_STATUS__INIT;
   *message = init_value;
 }
-size_t resp_scan_status__get_packed_size
-                     (const RespScanStatus *message)
+size_t cmd_scan_thread_status__get_packed_size
+                     (const CmdScanThreadStatus *message)
 {
-  assert(message->base.descriptor == &resp_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_status__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t resp_scan_status__pack
-                     (const RespScanStatus *message,
+size_t cmd_scan_thread_status__pack
+                     (const CmdScanThreadStatus *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &resp_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_status__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t resp_scan_status__pack_to_buffer
-                     (const RespScanStatus *message,
+size_t cmd_scan_thread_status__pack_to_buffer
+                     (const CmdScanThreadStatus *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &resp_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_status__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-RespScanStatus *
-       resp_scan_status__unpack
+CmdScanThreadStatus *
+       cmd_scan_thread_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (RespScanStatus *)
-     protobuf_c_message_unpack (&resp_scan_status__descriptor,
+  return (CmdScanThreadStatus *)
+     protobuf_c_message_unpack (&cmd_scan_thread_status__descriptor,
                                 allocator, len, data);
 }
-void   resp_scan_status__free_unpacked
-                     (RespScanStatus *message,
+void   cmd_scan_thread_status__free_unpacked
+                     (CmdScanThreadStatus *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &resp_scan_status__descriptor);
+  assert(message->base.descriptor == &cmd_scan_thread_status__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   cmd_scan_result__init
-                     (CmdScanResult         *message)
+void   resp_scan_wifi_status__init
+                     (RespScanWifiStatus         *message)
 {
-  static const CmdScanResult init_value = CMD_SCAN_RESULT__INIT;
+  static const RespScanWifiStatus init_value = RESP_SCAN_WIFI_STATUS__INIT;
   *message = init_value;
 }
-size_t cmd_scan_result__get_packed_size
-                     (const CmdScanResult *message)
+size_t resp_scan_wifi_status__get_packed_size
+                     (const RespScanWifiStatus *message)
 {
-  assert(message->base.descriptor == &cmd_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_status__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t cmd_scan_result__pack
-                     (const CmdScanResult *message,
+size_t resp_scan_wifi_status__pack
+                     (const RespScanWifiStatus *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &cmd_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_status__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t cmd_scan_result__pack_to_buffer
-                     (const CmdScanResult *message,
+size_t resp_scan_wifi_status__pack_to_buffer
+                     (const RespScanWifiStatus *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &cmd_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_status__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-CmdScanResult *
-       cmd_scan_result__unpack
+RespScanWifiStatus *
+       resp_scan_wifi_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (CmdScanResult *)
-     protobuf_c_message_unpack (&cmd_scan_result__descriptor,
+  return (RespScanWifiStatus *)
+     protobuf_c_message_unpack (&resp_scan_wifi_status__descriptor,
                                 allocator, len, data);
 }
-void   cmd_scan_result__free_unpacked
-                     (CmdScanResult *message,
+void   resp_scan_wifi_status__free_unpacked
+                     (RespScanWifiStatus *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &cmd_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_status__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   wifi_scan_result__init
-                     (WifiScanResult         *message)
+void   resp_scan_thread_status__init
+                     (RespScanThreadStatus         *message)
 {
-  static const WifiScanResult init_value = WIFI_SCAN_RESULT__INIT;
+  static const RespScanThreadStatus init_value = RESP_SCAN_THREAD_STATUS__INIT;
   *message = init_value;
 }
-size_t wifi_scan_result__get_packed_size
-                     (const WifiScanResult *message)
+size_t resp_scan_thread_status__get_packed_size
+                     (const RespScanThreadStatus *message)
 {
-  assert(message->base.descriptor == &wifi_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_status__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t wifi_scan_result__pack
-                     (const WifiScanResult *message,
+size_t resp_scan_thread_status__pack
+                     (const RespScanThreadStatus *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &wifi_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_status__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t wifi_scan_result__pack_to_buffer
-                     (const WifiScanResult *message,
+size_t resp_scan_thread_status__pack_to_buffer
+                     (const RespScanThreadStatus *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &wifi_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_status__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-WifiScanResult *
-       wifi_scan_result__unpack
+RespScanThreadStatus *
+       resp_scan_thread_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (WifiScanResult *)
-     protobuf_c_message_unpack (&wifi_scan_result__descriptor,
+  return (RespScanThreadStatus *)
+     protobuf_c_message_unpack (&resp_scan_thread_status__descriptor,
                                 allocator, len, data);
 }
-void   wifi_scan_result__free_unpacked
-                     (WifiScanResult *message,
+void   resp_scan_thread_status__free_unpacked
+                     (RespScanThreadStatus *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &wifi_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_status__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   cmd_scan_wifi_result__init
+                     (CmdScanWifiResult         *message)
+{
+  static const CmdScanWifiResult init_value = CMD_SCAN_WIFI_RESULT__INIT;
+  *message = init_value;
+}
+size_t cmd_scan_wifi_result__get_packed_size
+                     (const CmdScanWifiResult *message)
+{
+  assert(message->base.descriptor == &cmd_scan_wifi_result__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t cmd_scan_wifi_result__pack
+                     (const CmdScanWifiResult *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &cmd_scan_wifi_result__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t cmd_scan_wifi_result__pack_to_buffer
+                     (const CmdScanWifiResult *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &cmd_scan_wifi_result__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+CmdScanWifiResult *
+       cmd_scan_wifi_result__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (CmdScanWifiResult *)
+     protobuf_c_message_unpack (&cmd_scan_wifi_result__descriptor,
+                                allocator, len, data);
+}
+void   cmd_scan_wifi_result__free_unpacked
+                     (CmdScanWifiResult *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &cmd_scan_wifi_result__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   cmd_scan_thread_result__init
+                     (CmdScanThreadResult         *message)
+{
+  static const CmdScanThreadResult init_value = CMD_SCAN_THREAD_RESULT__INIT;
+  *message = init_value;
+}
+size_t cmd_scan_thread_result__get_packed_size
+                     (const CmdScanThreadResult *message)
+{
+  assert(message->base.descriptor == &cmd_scan_thread_result__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t cmd_scan_thread_result__pack
+                     (const CmdScanThreadResult *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &cmd_scan_thread_result__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t cmd_scan_thread_result__pack_to_buffer
+                     (const CmdScanThreadResult *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &cmd_scan_thread_result__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+CmdScanThreadResult *
+       cmd_scan_thread_result__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (CmdScanThreadResult *)
+     protobuf_c_message_unpack (&cmd_scan_thread_result__descriptor,
+                                allocator, len, data);
+}
+void   cmd_scan_thread_result__free_unpacked
+                     (CmdScanThreadResult *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &cmd_scan_thread_result__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   wi_fi_scan_result__init
+                     (WiFiScanResult         *message)
+{
+  static const WiFiScanResult init_value = WI_FI_SCAN_RESULT__INIT;
+  *message = init_value;
+}
+size_t wi_fi_scan_result__get_packed_size
+                     (const WiFiScanResult *message)
+{
+  assert(message->base.descriptor == &wi_fi_scan_result__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t wi_fi_scan_result__pack
+                     (const WiFiScanResult *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &wi_fi_scan_result__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t wi_fi_scan_result__pack_to_buffer
+                     (const WiFiScanResult *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &wi_fi_scan_result__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+WiFiScanResult *
+       wi_fi_scan_result__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (WiFiScanResult *)
+     protobuf_c_message_unpack (&wi_fi_scan_result__descriptor,
+                                allocator, len, data);
+}
+void   wi_fi_scan_result__free_unpacked
+                     (WiFiScanResult *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &wi_fi_scan_result__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   thread_scan_result__init
@@ -412,94 +547,94 @@ void   thread_scan_result__free_unpacked
   assert(message->base.descriptor == &thread_scan_result__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   scan_result__init
-                     (ScanResult         *message)
+void   resp_scan_wifi_result__init
+                     (RespScanWifiResult         *message)
 {
-  static const ScanResult init_value = SCAN_RESULT__INIT;
+  static const RespScanWifiResult init_value = RESP_SCAN_WIFI_RESULT__INIT;
   *message = init_value;
 }
-size_t scan_result__get_packed_size
-                     (const ScanResult *message)
+size_t resp_scan_wifi_result__get_packed_size
+                     (const RespScanWifiResult *message)
 {
-  assert(message->base.descriptor == &scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_result__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t scan_result__pack
-                     (const ScanResult *message,
+size_t resp_scan_wifi_result__pack
+                     (const RespScanWifiResult *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_result__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t scan_result__pack_to_buffer
-                     (const ScanResult *message,
+size_t resp_scan_wifi_result__pack_to_buffer
+                     (const RespScanWifiResult *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_result__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-ScanResult *
-       scan_result__unpack
+RespScanWifiResult *
+       resp_scan_wifi_result__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (ScanResult *)
-     protobuf_c_message_unpack (&scan_result__descriptor,
+  return (RespScanWifiResult *)
+     protobuf_c_message_unpack (&resp_scan_wifi_result__descriptor,
                                 allocator, len, data);
 }
-void   scan_result__free_unpacked
-                     (ScanResult *message,
+void   resp_scan_wifi_result__free_unpacked
+                     (RespScanWifiResult *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_wifi_result__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   resp_scan_result__init
-                     (RespScanResult         *message)
+void   resp_scan_thread_result__init
+                     (RespScanThreadResult         *message)
 {
-  static const RespScanResult init_value = RESP_SCAN_RESULT__INIT;
+  static const RespScanThreadResult init_value = RESP_SCAN_THREAD_RESULT__INIT;
   *message = init_value;
 }
-size_t resp_scan_result__get_packed_size
-                     (const RespScanResult *message)
+size_t resp_scan_thread_result__get_packed_size
+                     (const RespScanThreadResult *message)
 {
-  assert(message->base.descriptor == &resp_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_result__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t resp_scan_result__pack
-                     (const RespScanResult *message,
+size_t resp_scan_thread_result__pack
+                     (const RespScanThreadResult *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &resp_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_result__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t resp_scan_result__pack_to_buffer
-                     (const RespScanResult *message,
+size_t resp_scan_thread_result__pack_to_buffer
+                     (const RespScanThreadResult *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &resp_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_result__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-RespScanResult *
-       resp_scan_result__unpack
+RespScanThreadResult *
+       resp_scan_thread_result__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (RespScanResult *)
-     protobuf_c_message_unpack (&resp_scan_result__descriptor,
+  return (RespScanThreadResult *)
+     protobuf_c_message_unpack (&resp_scan_thread_result__descriptor,
                                 allocator, len, data);
 }
-void   resp_scan_result__free_unpacked
-                     (RespScanResult *message,
+void   resp_scan_thread_result__free_unpacked
+                     (RespScanThreadResult *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &resp_scan_result__descriptor);
+  assert(message->base.descriptor == &resp_scan_thread_result__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   network_scan_payload__init
@@ -547,7 +682,7 @@ void   network_scan_payload__free_unpacked
   assert(message->base.descriptor == &network_scan_payload__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor wifi_scan_start__field_descriptors[4] =
+static const ProtobufCFieldDescriptor cmd_scan_wifi_start__field_descriptors[4] =
 {
   {
     "blocking",
@@ -555,7 +690,7 @@ static const ProtobufCFieldDescriptor wifi_scan_start__field_descriptors[4] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BOOL,
     0,   /* quantifier_offset */
-    offsetof(WifiScanStart, blocking),
+    offsetof(CmdScanWifiStart, blocking),
     NULL,
     NULL,
     0,             /* flags */
@@ -567,7 +702,7 @@ static const ProtobufCFieldDescriptor wifi_scan_start__field_descriptors[4] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BOOL,
     0,   /* quantifier_offset */
-    offsetof(WifiScanStart, passive),
+    offsetof(CmdScanWifiStart, passive),
     NULL,
     NULL,
     0,             /* flags */
@@ -579,7 +714,7 @@ static const ProtobufCFieldDescriptor wifi_scan_start__field_descriptors[4] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(WifiScanStart, group_channels),
+    offsetof(CmdScanWifiStart, group_channels),
     NULL,
     NULL,
     0,             /* flags */
@@ -591,40 +726,40 @@ static const ProtobufCFieldDescriptor wifi_scan_start__field_descriptors[4] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(WifiScanStart, period_ms),
+    offsetof(CmdScanWifiStart, period_ms),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned wifi_scan_start__field_indices_by_name[] = {
+static const unsigned cmd_scan_wifi_start__field_indices_by_name[] = {
   0,   /* field[0] = blocking */
   2,   /* field[2] = group_channels */
   1,   /* field[1] = passive */
   3,   /* field[3] = period_ms */
 };
-static const ProtobufCIntRange wifi_scan_start__number_ranges[1 + 1] =
+static const ProtobufCIntRange cmd_scan_wifi_start__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 4 }
 };
-const ProtobufCMessageDescriptor wifi_scan_start__descriptor =
+const ProtobufCMessageDescriptor cmd_scan_wifi_start__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "WifiScanStart",
-  "WifiScanStart",
-  "WifiScanStart",
+  "CmdScanWifiStart",
+  "CmdScanWifiStart",
+  "CmdScanWifiStart",
   "",
-  sizeof(WifiScanStart),
+  sizeof(CmdScanWifiStart),
   4,
-  wifi_scan_start__field_descriptors,
-  wifi_scan_start__field_indices_by_name,
-  1,  wifi_scan_start__number_ranges,
-  (ProtobufCMessageInit) wifi_scan_start__init,
+  cmd_scan_wifi_start__field_descriptors,
+  cmd_scan_wifi_start__field_indices_by_name,
+  1,  cmd_scan_wifi_start__number_ranges,
+  (ProtobufCMessageInit) cmd_scan_wifi_start__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor thread_scan_start__field_descriptors[2] =
+static const ProtobufCFieldDescriptor cmd_scan_thread_start__field_descriptors[2] =
 {
   {
     "blocking",
@@ -632,7 +767,7 @@ static const ProtobufCFieldDescriptor thread_scan_start__field_descriptors[2] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BOOL,
     0,   /* quantifier_offset */
-    offsetof(ThreadScanStart, blocking),
+    offsetof(CmdScanThreadStart, blocking),
     NULL,
     NULL,
     0,             /* flags */
@@ -644,199 +779,118 @@ static const ProtobufCFieldDescriptor thread_scan_start__field_descriptors[2] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(ThreadScanStart, channel_mask),
+    offsetof(CmdScanThreadStart, channel_mask),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned thread_scan_start__field_indices_by_name[] = {
+static const unsigned cmd_scan_thread_start__field_indices_by_name[] = {
   0,   /* field[0] = blocking */
   1,   /* field[1] = channel_mask */
 };
-static const ProtobufCIntRange thread_scan_start__number_ranges[1 + 1] =
+static const ProtobufCIntRange cmd_scan_thread_start__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor thread_scan_start__descriptor =
+const ProtobufCMessageDescriptor cmd_scan_thread_start__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "ThreadScanStart",
-  "ThreadScanStart",
-  "ThreadScanStart",
+  "CmdScanThreadStart",
+  "CmdScanThreadStart",
+  "CmdScanThreadStart",
   "",
-  sizeof(ThreadScanStart),
+  sizeof(CmdScanThreadStart),
   2,
-  thread_scan_start__field_descriptors,
-  thread_scan_start__field_indices_by_name,
-  1,  thread_scan_start__number_ranges,
-  (ProtobufCMessageInit) thread_scan_start__init,
+  cmd_scan_thread_start__field_descriptors,
+  cmd_scan_thread_start__field_indices_by_name,
+  1,  cmd_scan_thread_start__number_ranges,
+  (ProtobufCMessageInit) cmd_scan_thread_start__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor cmd_scan_start__field_descriptors[3] =
-{
-  {
-    "net_type",
-    1,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_ENUM,
-    0,   /* quantifier_offset */
-    offsetof(CmdScanStart, net_type),
-    &network_type__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "wifi_scan_start",
-    10,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(CmdScanStart, payload_case),
-    offsetof(CmdScanStart, wifi_scan_start),
-    &wifi_scan_start__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "thread_scan_start",
-    11,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(CmdScanStart, payload_case),
-    offsetof(CmdScanStart, thread_scan_start),
-    &thread_scan_start__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned cmd_scan_start__field_indices_by_name[] = {
-  0,   /* field[0] = net_type */
-  2,   /* field[2] = thread_scan_start */
-  1,   /* field[1] = wifi_scan_start */
-};
-static const ProtobufCIntRange cmd_scan_start__number_ranges[2 + 1] =
-{
-  { 1, 0 },
-  { 10, 1 },
-  { 0, 3 }
-};
-const ProtobufCMessageDescriptor cmd_scan_start__descriptor =
+#define resp_scan_wifi_start__field_descriptors NULL
+#define resp_scan_wifi_start__field_indices_by_name NULL
+#define resp_scan_wifi_start__number_ranges NULL
+const ProtobufCMessageDescriptor resp_scan_wifi_start__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "CmdScanStart",
-  "CmdScanStart",
-  "CmdScanStart",
+  "RespScanWifiStart",
+  "RespScanWifiStart",
+  "RespScanWifiStart",
   "",
-  sizeof(CmdScanStart),
-  3,
-  cmd_scan_start__field_descriptors,
-  cmd_scan_start__field_indices_by_name,
-  2,  cmd_scan_start__number_ranges,
-  (ProtobufCMessageInit) cmd_scan_start__init,
+  sizeof(RespScanWifiStart),
+  0,
+  resp_scan_wifi_start__field_descriptors,
+  resp_scan_wifi_start__field_indices_by_name,
+  0,  resp_scan_wifi_start__number_ranges,
+  (ProtobufCMessageInit) resp_scan_wifi_start__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor resp_scan_start__field_descriptors[1] =
-{
-  {
-    "net_type",
-    1,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_ENUM,
-    0,   /* quantifier_offset */
-    offsetof(RespScanStart, net_type),
-    &network_type__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned resp_scan_start__field_indices_by_name[] = {
-  0,   /* field[0] = net_type */
-};
-static const ProtobufCIntRange resp_scan_start__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor resp_scan_start__descriptor =
+#define resp_scan_thread_start__field_descriptors NULL
+#define resp_scan_thread_start__field_indices_by_name NULL
+#define resp_scan_thread_start__number_ranges NULL
+const ProtobufCMessageDescriptor resp_scan_thread_start__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "RespScanStart",
-  "RespScanStart",
-  "RespScanStart",
+  "RespScanThreadStart",
+  "RespScanThreadStart",
+  "RespScanThreadStart",
   "",
-  sizeof(RespScanStart),
-  1,
-  resp_scan_start__field_descriptors,
-  resp_scan_start__field_indices_by_name,
-  1,  resp_scan_start__number_ranges,
-  (ProtobufCMessageInit) resp_scan_start__init,
+  sizeof(RespScanThreadStart),
+  0,
+  resp_scan_thread_start__field_descriptors,
+  resp_scan_thread_start__field_indices_by_name,
+  0,  resp_scan_thread_start__number_ranges,
+  (ProtobufCMessageInit) resp_scan_thread_start__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor cmd_scan_status__field_descriptors[1] =
-{
-  {
-    "net_type",
-    1,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_ENUM,
-    0,   /* quantifier_offset */
-    offsetof(CmdScanStatus, net_type),
-    &network_type__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned cmd_scan_status__field_indices_by_name[] = {
-  0,   /* field[0] = net_type */
-};
-static const ProtobufCIntRange cmd_scan_status__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor cmd_scan_status__descriptor =
+#define cmd_scan_wifi_status__field_descriptors NULL
+#define cmd_scan_wifi_status__field_indices_by_name NULL
+#define cmd_scan_wifi_status__number_ranges NULL
+const ProtobufCMessageDescriptor cmd_scan_wifi_status__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "CmdScanStatus",
-  "CmdScanStatus",
-  "CmdScanStatus",
+  "CmdScanWifiStatus",
+  "CmdScanWifiStatus",
+  "CmdScanWifiStatus",
   "",
-  sizeof(CmdScanStatus),
-  1,
-  cmd_scan_status__field_descriptors,
-  cmd_scan_status__field_indices_by_name,
-  1,  cmd_scan_status__number_ranges,
-  (ProtobufCMessageInit) cmd_scan_status__init,
+  sizeof(CmdScanWifiStatus),
+  0,
+  cmd_scan_wifi_status__field_descriptors,
+  cmd_scan_wifi_status__field_indices_by_name,
+  0,  cmd_scan_wifi_status__number_ranges,
+  (ProtobufCMessageInit) cmd_scan_wifi_status__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor resp_scan_status__field_descriptors[3] =
+#define cmd_scan_thread_status__field_descriptors NULL
+#define cmd_scan_thread_status__field_indices_by_name NULL
+#define cmd_scan_thread_status__number_ranges NULL
+const ProtobufCMessageDescriptor cmd_scan_thread_status__descriptor =
 {
-  {
-    "net_type",
-    1,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_ENUM,
-    0,   /* quantifier_offset */
-    offsetof(RespScanStatus, net_type),
-    &network_type__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "CmdScanThreadStatus",
+  "CmdScanThreadStatus",
+  "CmdScanThreadStatus",
+  "",
+  sizeof(CmdScanThreadStatus),
+  0,
+  cmd_scan_thread_status__field_descriptors,
+  cmd_scan_thread_status__field_indices_by_name,
+  0,  cmd_scan_thread_status__number_ranges,
+  (ProtobufCMessageInit) cmd_scan_thread_status__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor resp_scan_wifi_status__field_descriptors[2] =
+{
   {
     "scan_finished",
-    2,
+    1,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BOOL,
     0,   /* quantifier_offset */
-    offsetof(RespScanStatus, scan_finished),
+    offsetof(RespScanWifiStatus, scan_finished),
     NULL,
     NULL,
     0,             /* flags */
@@ -844,63 +898,101 @@ static const ProtobufCFieldDescriptor resp_scan_status__field_descriptors[3] =
   },
   {
     "result_count",
-    3,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_UINT32,
-    0,   /* quantifier_offset */
-    offsetof(RespScanStatus, result_count),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned resp_scan_status__field_indices_by_name[] = {
-  0,   /* field[0] = net_type */
-  2,   /* field[2] = result_count */
-  1,   /* field[1] = scan_finished */
-};
-static const ProtobufCIntRange resp_scan_status__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 3 }
-};
-const ProtobufCMessageDescriptor resp_scan_status__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "RespScanStatus",
-  "RespScanStatus",
-  "RespScanStatus",
-  "",
-  sizeof(RespScanStatus),
-  3,
-  resp_scan_status__field_descriptors,
-  resp_scan_status__field_indices_by_name,
-  1,  resp_scan_status__number_ranges,
-  (ProtobufCMessageInit) resp_scan_status__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor cmd_scan_result__field_descriptors[3] =
-{
-  {
-    "net_type",
-    1,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_ENUM,
-    0,   /* quantifier_offset */
-    offsetof(CmdScanResult, net_type),
-    &network_type__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "start_index",
     2,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(CmdScanResult, start_index),
+    offsetof(RespScanWifiStatus, result_count),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned resp_scan_wifi_status__field_indices_by_name[] = {
+  1,   /* field[1] = result_count */
+  0,   /* field[0] = scan_finished */
+};
+static const ProtobufCIntRange resp_scan_wifi_status__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor resp_scan_wifi_status__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "RespScanWifiStatus",
+  "RespScanWifiStatus",
+  "RespScanWifiStatus",
+  "",
+  sizeof(RespScanWifiStatus),
+  2,
+  resp_scan_wifi_status__field_descriptors,
+  resp_scan_wifi_status__field_indices_by_name,
+  1,  resp_scan_wifi_status__number_ranges,
+  (ProtobufCMessageInit) resp_scan_wifi_status__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor resp_scan_thread_status__field_descriptors[2] =
+{
+  {
+    "scan_finished",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_BOOL,
+    0,   /* quantifier_offset */
+    offsetof(RespScanThreadStatus, scan_finished),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "result_count",
+    2,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(RespScanThreadStatus, result_count),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned resp_scan_thread_status__field_indices_by_name[] = {
+  1,   /* field[1] = result_count */
+  0,   /* field[0] = scan_finished */
+};
+static const ProtobufCIntRange resp_scan_thread_status__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor resp_scan_thread_status__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "RespScanThreadStatus",
+  "RespScanThreadStatus",
+  "RespScanThreadStatus",
+  "",
+  sizeof(RespScanThreadStatus),
+  2,
+  resp_scan_thread_status__field_descriptors,
+  resp_scan_thread_status__field_indices_by_name,
+  1,  resp_scan_thread_status__number_ranges,
+  (ProtobufCMessageInit) resp_scan_thread_status__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor cmd_scan_wifi_result__field_descriptors[2] =
+{
+  {
+    "start_index",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(CmdScanWifiResult, start_index),
     NULL,
     NULL,
     0,             /* flags */
@@ -908,43 +1000,93 @@ static const ProtobufCFieldDescriptor cmd_scan_result__field_descriptors[3] =
   },
   {
     "count",
-    3,
+    2,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(CmdScanResult, count),
+    offsetof(CmdScanWifiResult, count),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned cmd_scan_result__field_indices_by_name[] = {
-  2,   /* field[2] = count */
-  0,   /* field[0] = net_type */
-  1,   /* field[1] = start_index */
+static const unsigned cmd_scan_wifi_result__field_indices_by_name[] = {
+  1,   /* field[1] = count */
+  0,   /* field[0] = start_index */
 };
-static const ProtobufCIntRange cmd_scan_result__number_ranges[1 + 1] =
+static const ProtobufCIntRange cmd_scan_wifi_result__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 0, 2 }
 };
-const ProtobufCMessageDescriptor cmd_scan_result__descriptor =
+const ProtobufCMessageDescriptor cmd_scan_wifi_result__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "CmdScanResult",
-  "CmdScanResult",
-  "CmdScanResult",
+  "CmdScanWifiResult",
+  "CmdScanWifiResult",
+  "CmdScanWifiResult",
   "",
-  sizeof(CmdScanResult),
-  3,
-  cmd_scan_result__field_descriptors,
-  cmd_scan_result__field_indices_by_name,
-  1,  cmd_scan_result__number_ranges,
-  (ProtobufCMessageInit) cmd_scan_result__init,
+  sizeof(CmdScanWifiResult),
+  2,
+  cmd_scan_wifi_result__field_descriptors,
+  cmd_scan_wifi_result__field_indices_by_name,
+  1,  cmd_scan_wifi_result__number_ranges,
+  (ProtobufCMessageInit) cmd_scan_wifi_result__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor wifi_scan_result__field_descriptors[5] =
+static const ProtobufCFieldDescriptor cmd_scan_thread_result__field_descriptors[2] =
+{
+  {
+    "start_index",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(CmdScanThreadResult, start_index),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "count",
+    2,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(CmdScanThreadResult, count),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned cmd_scan_thread_result__field_indices_by_name[] = {
+  1,   /* field[1] = count */
+  0,   /* field[0] = start_index */
+};
+static const ProtobufCIntRange cmd_scan_thread_result__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor cmd_scan_thread_result__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "CmdScanThreadResult",
+  "CmdScanThreadResult",
+  "CmdScanThreadResult",
+  "",
+  sizeof(CmdScanThreadResult),
+  2,
+  cmd_scan_thread_result__field_descriptors,
+  cmd_scan_thread_result__field_indices_by_name,
+  1,  cmd_scan_thread_result__number_ranges,
+  (ProtobufCMessageInit) cmd_scan_thread_result__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor wi_fi_scan_result__field_descriptors[5] =
 {
   {
     "ssid",
@@ -952,7 +1094,7 @@ static const ProtobufCFieldDescriptor wifi_scan_result__field_descriptors[5] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
-    offsetof(WifiScanResult, ssid),
+    offsetof(WiFiScanResult, ssid),
     NULL,
     NULL,
     0,             /* flags */
@@ -964,7 +1106,7 @@ static const ProtobufCFieldDescriptor wifi_scan_result__field_descriptors[5] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(WifiScanResult, channel),
+    offsetof(WiFiScanResult, channel),
     NULL,
     NULL,
     0,             /* flags */
@@ -976,7 +1118,7 @@ static const ProtobufCFieldDescriptor wifi_scan_result__field_descriptors[5] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_INT32,
     0,   /* quantifier_offset */
-    offsetof(WifiScanResult, rssi),
+    offsetof(WiFiScanResult, rssi),
     NULL,
     NULL,
     0,             /* flags */
@@ -988,7 +1130,7 @@ static const ProtobufCFieldDescriptor wifi_scan_result__field_descriptors[5] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
-    offsetof(WifiScanResult, bssid),
+    offsetof(WiFiScanResult, bssid),
     NULL,
     NULL,
     0,             /* flags */
@@ -1000,38 +1142,38 @@ static const ProtobufCFieldDescriptor wifi_scan_result__field_descriptors[5] =
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(WifiScanResult, auth),
+    offsetof(WiFiScanResult, auth),
     &wifi_auth_mode__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned wifi_scan_result__field_indices_by_name[] = {
+static const unsigned wi_fi_scan_result__field_indices_by_name[] = {
   4,   /* field[4] = auth */
   3,   /* field[3] = bssid */
   1,   /* field[1] = channel */
   2,   /* field[2] = rssi */
   0,   /* field[0] = ssid */
 };
-static const ProtobufCIntRange wifi_scan_result__number_ranges[1 + 1] =
+static const ProtobufCIntRange wi_fi_scan_result__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 5 }
 };
-const ProtobufCMessageDescriptor wifi_scan_result__descriptor =
+const ProtobufCMessageDescriptor wi_fi_scan_result__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "WifiScanResult",
-  "WifiScanResult",
-  "WifiScanResult",
+  "WiFiScanResult",
+  "WiFiScanResult",
+  "WiFiScanResult",
   "",
-  sizeof(WifiScanResult),
+  sizeof(WiFiScanResult),
   5,
-  wifi_scan_result__field_descriptors,
-  wifi_scan_result__field_indices_by_name,
-  1,  wifi_scan_result__number_ranges,
-  (ProtobufCMessageInit) wifi_scan_result__init,
+  wi_fi_scan_result__field_descriptors,
+  wi_fi_scan_result__field_indices_by_name,
+  1,  wi_fi_scan_result__number_ranges,
+  (ProtobufCMessageInit) wi_fi_scan_result__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor thread_scan_result__field_descriptors[7] =
@@ -1150,109 +1292,83 @@ const ProtobufCMessageDescriptor thread_scan_result__descriptor =
   (ProtobufCMessageInit) thread_scan_result__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor scan_result__field_descriptors[2] =
+static const ProtobufCFieldDescriptor resp_scan_wifi_result__field_descriptors[1] =
 {
-  {
-    "wifi_result",
-    10,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(ScanResult, result_case),
-    offsetof(ScanResult, wifi_result),
-    &wifi_scan_result__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "thread_result",
-    11,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(ScanResult, result_case),
-    offsetof(ScanResult, thread_result),
-    &thread_scan_result__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned scan_result__field_indices_by_name[] = {
-  1,   /* field[1] = thread_result */
-  0,   /* field[0] = wifi_result */
-};
-static const ProtobufCIntRange scan_result__number_ranges[1 + 1] =
-{
-  { 10, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor scan_result__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "ScanResult",
-  "ScanResult",
-  "ScanResult",
-  "",
-  sizeof(ScanResult),
-  2,
-  scan_result__field_descriptors,
-  scan_result__field_indices_by_name,
-  1,  scan_result__number_ranges,
-  (ProtobufCMessageInit) scan_result__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor resp_scan_result__field_descriptors[2] =
-{
-  {
-    "net_type",
-    1,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_ENUM,
-    0,   /* quantifier_offset */
-    offsetof(RespScanResult, net_type),
-    &network_type__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
   {
     "entries",
-    2,
+    1,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(RespScanResult, n_entries),
-    offsetof(RespScanResult, entries),
-    &scan_result__descriptor,
+    offsetof(RespScanWifiResult, n_entries),
+    offsetof(RespScanWifiResult, entries),
+    &wi_fi_scan_result__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned resp_scan_result__field_indices_by_name[] = {
-  1,   /* field[1] = entries */
-  0,   /* field[0] = net_type */
+static const unsigned resp_scan_wifi_result__field_indices_by_name[] = {
+  0,   /* field[0] = entries */
 };
-static const ProtobufCIntRange resp_scan_result__number_ranges[1 + 1] =
+static const ProtobufCIntRange resp_scan_wifi_result__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 2 }
+  { 0, 1 }
 };
-const ProtobufCMessageDescriptor resp_scan_result__descriptor =
+const ProtobufCMessageDescriptor resp_scan_wifi_result__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "RespScanResult",
-  "RespScanResult",
-  "RespScanResult",
+  "RespScanWifiResult",
+  "RespScanWifiResult",
+  "RespScanWifiResult",
   "",
-  sizeof(RespScanResult),
-  2,
-  resp_scan_result__field_descriptors,
-  resp_scan_result__field_indices_by_name,
-  1,  resp_scan_result__number_ranges,
-  (ProtobufCMessageInit) resp_scan_result__init,
+  sizeof(RespScanWifiResult),
+  1,
+  resp_scan_wifi_result__field_descriptors,
+  resp_scan_wifi_result__field_indices_by_name,
+  1,  resp_scan_wifi_result__number_ranges,
+  (ProtobufCMessageInit) resp_scan_wifi_result__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor network_scan_payload__field_descriptors[8] =
+static const ProtobufCFieldDescriptor resp_scan_thread_result__field_descriptors[1] =
+{
+  {
+    "entries",
+    1,
+    PROTOBUF_C_LABEL_REPEATED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(RespScanThreadResult, n_entries),
+    offsetof(RespScanThreadResult, entries),
+    &thread_scan_result__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned resp_scan_thread_result__field_indices_by_name[] = {
+  0,   /* field[0] = entries */
+};
+static const ProtobufCIntRange resp_scan_thread_result__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
+const ProtobufCMessageDescriptor resp_scan_thread_result__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "RespScanThreadResult",
+  "RespScanThreadResult",
+  "RespScanThreadResult",
+  "",
+  sizeof(RespScanThreadResult),
+  1,
+  resp_scan_thread_result__field_descriptors,
+  resp_scan_thread_result__field_indices_by_name,
+  1,  resp_scan_thread_result__number_ranges,
+  (ProtobufCMessageInit) resp_scan_thread_result__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor network_scan_payload__field_descriptors[14] =
 {
   {
     "msg",
@@ -1279,93 +1395,171 @@ static const ProtobufCFieldDescriptor network_scan_payload__field_descriptors[8]
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "cmd_scan_start",
+    "cmd_scan_wifi_start",
     10,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(NetworkScanPayload, payload_case),
-    offsetof(NetworkScanPayload, cmd_scan_start),
-    &cmd_scan_start__descriptor,
+    offsetof(NetworkScanPayload, cmd_scan_wifi_start),
+    &cmd_scan_wifi_start__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "resp_scan_start",
+    "resp_scan_wifi_start",
     11,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(NetworkScanPayload, payload_case),
-    offsetof(NetworkScanPayload, resp_scan_start),
-    &resp_scan_start__descriptor,
+    offsetof(NetworkScanPayload, resp_scan_wifi_start),
+    &resp_scan_wifi_start__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "cmd_scan_status",
+    "cmd_scan_wifi_status",
     12,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(NetworkScanPayload, payload_case),
-    offsetof(NetworkScanPayload, cmd_scan_status),
-    &cmd_scan_status__descriptor,
+    offsetof(NetworkScanPayload, cmd_scan_wifi_status),
+    &cmd_scan_wifi_status__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "resp_scan_status",
+    "resp_scan_wifi_status",
     13,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(NetworkScanPayload, payload_case),
-    offsetof(NetworkScanPayload, resp_scan_status),
-    &resp_scan_status__descriptor,
+    offsetof(NetworkScanPayload, resp_scan_wifi_status),
+    &resp_scan_wifi_status__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "cmd_scan_result",
+    "cmd_scan_wifi_result",
     14,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(NetworkScanPayload, payload_case),
-    offsetof(NetworkScanPayload, cmd_scan_result),
-    &cmd_scan_result__descriptor,
+    offsetof(NetworkScanPayload, cmd_scan_wifi_result),
+    &cmd_scan_wifi_result__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "resp_scan_result",
+    "resp_scan_wifi_result",
     15,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(NetworkScanPayload, payload_case),
-    offsetof(NetworkScanPayload, resp_scan_result),
-    &resp_scan_result__descriptor,
+    offsetof(NetworkScanPayload, resp_scan_wifi_result),
+    &resp_scan_wifi_result__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "cmd_scan_thread_start",
+    16,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(NetworkScanPayload, payload_case),
+    offsetof(NetworkScanPayload, cmd_scan_thread_start),
+    &cmd_scan_thread_start__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "resp_scan_thread_start",
+    17,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(NetworkScanPayload, payload_case),
+    offsetof(NetworkScanPayload, resp_scan_thread_start),
+    &resp_scan_thread_start__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "cmd_scan_thread_status",
+    18,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(NetworkScanPayload, payload_case),
+    offsetof(NetworkScanPayload, cmd_scan_thread_status),
+    &cmd_scan_thread_status__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "resp_scan_thread_status",
+    19,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(NetworkScanPayload, payload_case),
+    offsetof(NetworkScanPayload, resp_scan_thread_status),
+    &resp_scan_thread_status__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "cmd_scan_thread_result",
+    20,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(NetworkScanPayload, payload_case),
+    offsetof(NetworkScanPayload, cmd_scan_thread_result),
+    &cmd_scan_thread_result__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "resp_scan_thread_result",
+    21,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(NetworkScanPayload, payload_case),
+    offsetof(NetworkScanPayload, resp_scan_thread_result),
+    &resp_scan_thread_result__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
 static const unsigned network_scan_payload__field_indices_by_name[] = {
-  6,   /* field[6] = cmd_scan_result */
-  2,   /* field[2] = cmd_scan_start */
-  4,   /* field[4] = cmd_scan_status */
+  12,   /* field[12] = cmd_scan_thread_result */
+  8,   /* field[8] = cmd_scan_thread_start */
+  10,   /* field[10] = cmd_scan_thread_status */
+  6,   /* field[6] = cmd_scan_wifi_result */
+  2,   /* field[2] = cmd_scan_wifi_start */
+  4,   /* field[4] = cmd_scan_wifi_status */
   0,   /* field[0] = msg */
-  7,   /* field[7] = resp_scan_result */
-  3,   /* field[3] = resp_scan_start */
-  5,   /* field[5] = resp_scan_status */
+  13,   /* field[13] = resp_scan_thread_result */
+  9,   /* field[9] = resp_scan_thread_start */
+  11,   /* field[11] = resp_scan_thread_status */
+  7,   /* field[7] = resp_scan_wifi_result */
+  3,   /* field[3] = resp_scan_wifi_start */
+  5,   /* field[5] = resp_scan_wifi_status */
   1,   /* field[1] = status */
 };
 static const ProtobufCIntRange network_scan_payload__number_ranges[2 + 1] =
 {
   { 1, 0 },
   { 10, 2 },
-  { 0, 8 }
+  { 0, 14 }
 };
 const ProtobufCMessageDescriptor network_scan_payload__descriptor =
 {
@@ -1375,33 +1569,45 @@ const ProtobufCMessageDescriptor network_scan_payload__descriptor =
   "NetworkScanPayload",
   "",
   sizeof(NetworkScanPayload),
-  8,
+  14,
   network_scan_payload__field_descriptors,
   network_scan_payload__field_indices_by_name,
   2,  network_scan_payload__number_ranges,
   (ProtobufCMessageInit) network_scan_payload__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCEnumValue network_scan_msg_type__enum_values_by_number[6] =
+static const ProtobufCEnumValue network_scan_msg_type__enum_values_by_number[12] =
 {
-  { "TypeCmdScanStart", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanStart", 0 },
-  { "TypeRespScanStart", "NETWORK_SCAN_MSG_TYPE__TypeRespScanStart", 1 },
-  { "TypeCmdScanStatus", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanStatus", 2 },
-  { "TypeRespScanStatus", "NETWORK_SCAN_MSG_TYPE__TypeRespScanStatus", 3 },
-  { "TypeCmdScanResult", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanResult", 4 },
-  { "TypeRespScanResult", "NETWORK_SCAN_MSG_TYPE__TypeRespScanResult", 5 },
+  { "TypeCmdScanWifiStart", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanWifiStart", 0 },
+  { "TypeRespScanWifiStart", "NETWORK_SCAN_MSG_TYPE__TypeRespScanWifiStart", 1 },
+  { "TypeCmdScanWifiStatus", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanWifiStatus", 2 },
+  { "TypeRespScanWifiStatus", "NETWORK_SCAN_MSG_TYPE__TypeRespScanWifiStatus", 3 },
+  { "TypeCmdScanWifiResult", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanWifiResult", 4 },
+  { "TypeRespScanWifiResult", "NETWORK_SCAN_MSG_TYPE__TypeRespScanWifiResult", 5 },
+  { "TypeCmdScanThreadStart", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanThreadStart", 6 },
+  { "TypeRespScanThreadStart", "NETWORK_SCAN_MSG_TYPE__TypeRespScanThreadStart", 7 },
+  { "TypeCmdScanThreadStatus", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanThreadStatus", 8 },
+  { "TypeRespScanThreadStatus", "NETWORK_SCAN_MSG_TYPE__TypeRespScanThreadStatus", 9 },
+  { "TypeCmdScanThreadResult", "NETWORK_SCAN_MSG_TYPE__TypeCmdScanThreadResult", 10 },
+  { "TypeRespScanThreadResult", "NETWORK_SCAN_MSG_TYPE__TypeRespScanThreadResult", 11 },
 };
 static const ProtobufCIntRange network_scan_msg_type__value_ranges[] = {
-{0, 0},{0, 6}
+{0, 0},{0, 12}
 };
-static const ProtobufCEnumValueIndex network_scan_msg_type__enum_values_by_name[6] =
+static const ProtobufCEnumValueIndex network_scan_msg_type__enum_values_by_name[12] =
 {
-  { "TypeCmdScanResult", 4 },
-  { "TypeCmdScanStart", 0 },
-  { "TypeCmdScanStatus", 2 },
-  { "TypeRespScanResult", 5 },
-  { "TypeRespScanStart", 1 },
-  { "TypeRespScanStatus", 3 },
+  { "TypeCmdScanThreadResult", 10 },
+  { "TypeCmdScanThreadStart", 6 },
+  { "TypeCmdScanThreadStatus", 8 },
+  { "TypeCmdScanWifiResult", 4 },
+  { "TypeCmdScanWifiStart", 0 },
+  { "TypeCmdScanWifiStatus", 2 },
+  { "TypeRespScanThreadResult", 11 },
+  { "TypeRespScanThreadStart", 7 },
+  { "TypeRespScanThreadStatus", 9 },
+  { "TypeRespScanWifiResult", 5 },
+  { "TypeRespScanWifiStart", 1 },
+  { "TypeRespScanWifiStatus", 3 },
 };
 const ProtobufCEnumDescriptor network_scan_msg_type__descriptor =
 {
@@ -1410,9 +1616,9 @@ const ProtobufCEnumDescriptor network_scan_msg_type__descriptor =
   "NetworkScanMsgType",
   "NetworkScanMsgType",
   "",
-  6,
+  12,
   network_scan_msg_type__enum_values_by_number,
-  6,
+  12,
   network_scan_msg_type__enum_values_by_name,
   1,
   network_scan_msg_type__value_ranges,

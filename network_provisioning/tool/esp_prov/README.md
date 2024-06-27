@@ -19,7 +19,7 @@ Usage of `esp-prov` assumes that the provisioning app has specific protocomm end
 ## Usage
 
 ```
-python esp_prov.py --transport < mode of provisioning : softap \ ble \ console > --network_proto < network protocol of provisioning : wifi \ thread > [ Optional parameters... ]
+python esp_prov.py --transport < mode of provisioning : softap \ ble \ console > [ Optional parameters... ]
 ```
 ### Parameters
 
@@ -41,11 +41,6 @@ python esp_prov.py --transport < mode of provisioning : softap \ ble \ console >
         * The client->device commands are printed to STDOUT and device->client messages are accepted via STDIN.
         * This is to be used when the device is accepting provisioning commands on UART console.
       * `httpd` - the script works the same as for `softap`. This could be used on any other network interface than WiFi soft AP, e.g. Ethernet or USB.
-
-* `--network_proto <network_protocol>`
-    - Two options are available:
-      * `wifi` - for Wi-Fi Provisioning
-      * `thread` - for Thread Provisioning
 
 * `--service_name <name>` (Optional)
     - When transport mode is `ble`, this specifies the Bluetooth LE device name to which connection is to be established for provisioned. If not provided, Bluetooth LE scanning is initiated and a list of nearby devices, as seen by the host, is displayed, of which the target device can be chosen.

@@ -21,11 +21,6 @@ typedef struct ThreadAttachState ThreadAttachState;
 
 /* --- enums --- */
 
-typedef enum _NetworkType {
-  NETWORK_TYPE__WifiNetwork = 0,
-  NETWORK_TYPE__ThreadNetwork = 1
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_TYPE)
-} NetworkType;
 typedef enum _WifiStationState {
   WIFI_STATION_STATE__Connected = 0,
   WIFI_STATION_STATE__Connecting = 1,
@@ -143,7 +138,6 @@ typedef void (*ThreadAttachState_Closure)
 
 /* --- descriptors --- */
 
-extern const ProtobufCEnumDescriptor    network_type__descriptor;
 extern const ProtobufCEnumDescriptor    wifi_station_state__descriptor;
 extern const ProtobufCEnumDescriptor    wifi_connect_failed_reason__descriptor;
 extern const ProtobufCEnumDescriptor    wifi_auth_mode__descriptor;
