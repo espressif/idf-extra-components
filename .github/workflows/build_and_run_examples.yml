@@ -50,6 +50,8 @@ jobs:
         idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"]
         idf_target: ["esp32"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     container:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
@@ -79,6 +81,8 @@ jobs:
         idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "latest"]
         idf_target: ["esp32"]
     runs-on: [self-hosted, ESP32-ETHERNET-KIT]
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     container:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
