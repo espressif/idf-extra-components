@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-20.04
     container: espressif/idf:${{ matrix.idf_ver }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Build Examples
@@ -56,8 +56,8 @@ jobs:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: example_binaries_${{ matrix.idf_ver }}
       - name: Install Python packages
@@ -87,8 +87,11 @@ jobs:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - run: |
+          apt-get update
+          apt-get install -y libstdc++6
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: example_binaries_${{ matrix.idf_ver }}
       - name: Install Python packages

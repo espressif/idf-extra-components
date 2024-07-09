@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-20.04
     container: espressif/idf:${{ matrix.idf_ver }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Build Test Application
@@ -78,8 +78,11 @@ jobs:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v2
+      - run: |
+          apt-get update
+          apt-get install -y libstdc++6
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
           path: test_app/build
@@ -90,7 +93,7 @@ jobs:
       - name: Run Test App on target
         working-directory: test_app
         run: pytest --junit-xml=./test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}.xml --target=${{ matrix.idf_target }}
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
@@ -103,7 +106,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Download Test results
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: test_results
       - name: Publish Test Results
