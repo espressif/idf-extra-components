@@ -31,11 +31,19 @@ static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
 
 static network_ctrl_cmd_t cmd_table[] = {
     {
-        .cmd_id = NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlReset,
+        .cmd_id = NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlWifiReset,
         .command_handler = cmd_ctrl_reset_handler
     },
     {
-        .cmd_id = NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlReprov,
+        .cmd_id = NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlThreadReset,
+        .command_handler = cmd_ctrl_reset_handler
+    },
+    {
+        .cmd_id = NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlWifiReprov,
+        .command_handler = cmd_ctrl_reprov_handler
+    },
+    {
+        .cmd_id = NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlThreadReprov,
         .command_handler = cmd_ctrl_reprov_handler
     },
 };
@@ -48,15 +56,13 @@ static esp_err_t cmd_ctrl_reset_handler(NetworkCtrlPayload *req,
         ESP_LOGE(TAG, "Command invoked without handlers");
         return ESP_ERR_INVALID_STATE;
     }
-
-    RespCtrlReset *resp_payload = (RespCtrlReset *) malloc(sizeof(RespCtrlReset));
-    if (!resp_payload) {
-        ESP_LOGE(TAG, "Error allocating memory");
-        return ESP_ERR_NO_MEM;
-    }
-
-    resp_ctrl_reset__init(resp_payload);
-    if (req->cmd_ctrl_reset->net_type == NETWORK_TYPE__WifiNetwork) {
+    if (req->msg == NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlWifiReset) {
+        RespCtrlWifiReset *resp_payload = (RespCtrlWifiReset *) malloc(sizeof(RespCtrlWifiReset));
+        if (!resp_payload) {
+            ESP_LOGE(TAG, "Error allocating memory");
+            return ESP_ERR_NO_MEM;
+        }
+        resp_ctrl_wifi_reset__init(resp_payload);
 #if CONFIG_ESP_WIFI_ENABLED
         if (h->wifi_ctrl_reset) {
             resp->status = (h->wifi_ctrl_reset() == ESP_OK ? STATUS__Success : STATUS__InternalError);
@@ -66,7 +72,15 @@ static esp_err_t cmd_ctrl_reset_handler(NetworkCtrlPayload *req,
 #else
         resp->status = STATUS__InvalidArgument;
 #endif
-    } else if (req->cmd_ctrl_reset->net_type == NETWORK_TYPE__ThreadNetwork) {
+        resp->payload_case = NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_WIFI_RESET;
+        resp->resp_ctrl_wifi_reset = resp_payload;
+    } else if (req->msg == NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlThreadReset) {
+        RespCtrlThreadReset *resp_payload = (RespCtrlThreadReset *) malloc(sizeof(RespCtrlThreadReset));
+        if (!resp_payload) {
+            ESP_LOGE(TAG, "Error allocating memory");
+            return ESP_ERR_NO_MEM;
+        }
+        resp_ctrl_thread_reset__init(resp_payload);
 #if CONFIG_OPENTHREAD_ENABLED
         if (h->thread_ctrl_reset) {
             resp->status = (h->thread_ctrl_reset() == ESP_OK ? STATUS__Success : STATUS__InternalError);
@@ -76,10 +90,9 @@ static esp_err_t cmd_ctrl_reset_handler(NetworkCtrlPayload *req,
 #else
         resp->status = STATUS__InvalidArgument;
 #endif
+        resp->payload_case = NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_THREAD_RESET;
+        resp->resp_ctrl_thread_reset = resp_payload;
     }
-    resp->payload_case = NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_RESET;
-    resp_payload->net_type = req->cmd_ctrl_reset->net_type;
-    resp->resp_ctrl_reset = resp_payload;
     return ESP_OK;
 }
 
@@ -91,15 +104,13 @@ static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
         ESP_LOGE(TAG, "Command invoked without handlers");
         return ESP_ERR_INVALID_STATE;
     }
-
-    RespCtrlReprov *resp_payload = (RespCtrlReprov *) malloc(sizeof(RespCtrlReprov));
-    if (!resp_payload) {
-        ESP_LOGE(TAG, "Error allocating memory");
-        return ESP_ERR_NO_MEM;
-    }
-
-    resp_ctrl_reprov__init(resp_payload);
-    if (req->cmd_ctrl_reprov->net_type == NETWORK_TYPE__WifiNetwork) {
+    if (req->msg == NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlWifiReprov) {
+        RespCtrlWifiReprov *resp_payload = (RespCtrlWifiReprov *) malloc(sizeof(RespCtrlWifiReprov));
+        if (!resp_payload) {
+            ESP_LOGE(TAG, "Error allocating memory");
+            return ESP_ERR_NO_MEM;
+        }
+        resp_ctrl_wifi_reprov__init(resp_payload);
 #if CONFIG_ESP_WIFI_ENABLED
         if (h->wifi_ctrl_reprov) {
             resp->status = (h->wifi_ctrl_reprov() == ESP_OK ? STATUS__Success : STATUS__InternalError);
@@ -109,7 +120,15 @@ static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
 #else
         resp->status = STATUS__InvalidArgument;
 #endif
-    } else if (req->cmd_ctrl_reprov->net_type == NETWORK_TYPE__ThreadNetwork) {
+        resp->payload_case = NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_WIFI_REPROV;
+        resp->resp_ctrl_wifi_reprov = resp_payload;
+    } else if (req->msg == NETWORK_CTRL_MSG_TYPE__TypeCmdCtrlThreadReprov) {
+        RespCtrlThreadReprov *resp_payload = (RespCtrlThreadReprov *) malloc(sizeof(RespCtrlThreadReprov));
+        if (!resp_payload) {
+            ESP_LOGE(TAG, "Error allocating memory");
+            return ESP_ERR_NO_MEM;
+        }
+        resp_ctrl_thread_reprov__init(resp_payload);
 #if CONFIG_OPENTHREAD_ENABLED
         if (h->thread_ctrl_reprov) {
             resp->status = (h->thread_ctrl_reprov() == ESP_OK ? STATUS__Success : STATUS__InternalError);
@@ -119,11 +138,9 @@ static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
 #else
         resp->status = STATUS__InvalidArgument;
 #endif
+        resp->payload_case = NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_THREAD_REPROV;
+        resp->resp_ctrl_thread_reprov = resp_payload;
     }
-
-    resp->payload_case = NETWORK_CTRL_PAYLOAD__PAYLOAD_RESP_CTRL_REPROV;
-    resp_payload->net_type = req->cmd_ctrl_reprov->net_type;
-    resp->resp_ctrl_reprov = resp_payload;
     return ESP_OK;
 }
 
@@ -141,12 +158,20 @@ static int lookup_cmd_handler(int cmd_id)
 static void network_ctrl_cmd_cleanup(NetworkCtrlPayload *resp, void *priv_data)
 {
     switch (resp->msg) {
-    case NETWORK_CTRL_MSG_TYPE__TypeRespCtrlReset: {
-        free(resp->resp_ctrl_reset);
+    case NETWORK_CTRL_MSG_TYPE__TypeRespCtrlWifiReset: {
+        free(resp->resp_ctrl_wifi_reset);
     }
     break;
-    case NETWORK_CTRL_MSG_TYPE__TypeRespCtrlReprov: {
-        free(resp->resp_ctrl_reprov);
+    case NETWORK_CTRL_MSG_TYPE__TypeRespCtrlWifiReprov: {
+        free(resp->resp_ctrl_wifi_reprov);
+    }
+    break;
+    case NETWORK_CTRL_MSG_TYPE__TypeRespCtrlThreadReset: {
+        free(resp->resp_ctrl_thread_reset);
+    }
+    break;
+    case NETWORK_CTRL_MSG_TYPE__TypeRespCtrlThreadReprov: {
+        free(resp->resp_ctrl_thread_reprov);
     }
     break;
     default:

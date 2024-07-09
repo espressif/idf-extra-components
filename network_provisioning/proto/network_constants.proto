@@ -1,10 +1,5 @@
 syntax = "proto3";
 
-enum NetworkType {
-    WifiNetwork = 0;
-    ThreadNetwork = 1;
-}
-
 enum WifiStationState {
     Connected = 0;
     Connecting = 1;

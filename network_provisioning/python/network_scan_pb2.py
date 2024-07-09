@@ -15,37 +15,43 @@ import constants_pb2 as constants__pb2
 import network_constants_pb2 as network__constants__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12network_scan.proto\x1a\x0f\x63onstants.proto\x1a\x17network_constants.proto\"]\n\rWifiScanStart\x12\x10\n\x08\x62locking\x18\x01 \x01(\x08\x12\x0f\n\x07passive\x18\x02 \x01(\x08\x12\x16\n\x0egroup_channels\x18\x03 \x01(\r\x12\x11\n\tperiod_ms\x18\x04 \x01(\r\"9\n\x0fThreadScanStart\x12\x10\n\x08\x62locking\x18\x01 \x01(\x08\x12\x14\n\x0c\x63hannel_mask\x18\x02 \x01(\r\"\x93\x01\n\x0c\x43mdScanStart\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\x12)\n\x0fwifi_scan_start\x18\n \x01(\x0b\x32\x0e.WifiScanStartH\x00\x12-\n\x11thread_scan_start\x18\x0b \x01(\x0b\x32\x10.ThreadScanStartH\x00\x42\t\n\x07payload\"/\n\rRespScanStart\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\"/\n\rCmdScanStatus\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\"]\n\x0eRespScanStatus\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\x12\x15\n\rscan_finished\x18\x02 \x01(\x08\x12\x14\n\x0cresult_count\x18\x03 \x01(\r\"S\n\rCmdScanResult\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\x12\x13\n\x0bstart_index\x18\x02 \x01(\r\x12\r\n\x05\x63ount\x18\x03 \x01(\r\"i\n\x0eWifiScanResult\x12\x0c\n\x04ssid\x18\x01 \x01(\x0c\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\r\x12\x0c\n\x04rssi\x18\x03 \x01(\x05\x12\r\n\x05\x62ssid\x18\x04 \x01(\x0c\x12\x1b\n\x04\x61uth\x18\x05 \x01(\x0e\x32\r.WifiAuthMode\"\x8a\x01\n\x10ThreadScanResult\x12\x0e\n\x06pan_id\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\r\x12\x0c\n\x04rssi\x18\x03 \x01(\x05\x12\x0b\n\x03lqi\x18\x04 \x01(\r\x12\x10\n\x08\x65xt_addr\x18\x05 \x01(\x0c\x12\x14\n\x0cnetwork_name\x18\x06 \x01(\t\x12\x12\n\next_pan_id\x18\x07 \x01(\x0c\"j\n\nScanResult\x12&\n\x0bwifi_result\x18\n \x01(\x0b\x32\x0f.WifiScanResultH\x00\x12*\n\rthread_result\x18\x0b \x01(\x0b\x32\x11.ThreadScanResultH\x00\x42\x08\n\x06result\"N\n\x0eRespScanResult\x12\x1e\n\x08net_type\x18\x01 \x01(\x0e\x32\x0c.NetworkType\x12\x1c\n\x07\x65ntries\x18\x02 \x03(\x0b\x32\x0b.ScanResult\"\xde\x02\n\x12NetworkScanPayload\x12 \n\x03msg\x18\x01 \x01(\x0e\x32\x13.NetworkScanMsgType\x12\x17\n\x06status\x18\x02 \x01(\x0e\x32\x07.Status\x12\'\n\x0e\x63md_scan_start\x18\n \x01(\x0b\x32\r.CmdScanStartH\x00\x12)\n\x0fresp_scan_start\x18\x0b \x01(\x0b\x32\x0e.RespScanStartH\x00\x12)\n\x0f\x63md_scan_status\x18\x0c \x01(\x0b\x32\x0e.CmdScanStatusH\x00\x12+\n\x10resp_scan_status\x18\r \x01(\x0b\x32\x0f.RespScanStatusH\x00\x12)\n\x0f\x63md_scan_result\x18\x0e \x01(\x0b\x32\x0e.CmdScanResultH\x00\x12+\n\x10resp_scan_result\x18\x0f \x01(\x0b\x32\x0f.RespScanResultH\x00\x42\t\n\x07payload*\x9f\x01\n\x12NetworkScanMsgType\x12\x14\n\x10TypeCmdScanStart\x10\x00\x12\x15\n\x11TypeRespScanStart\x10\x01\x12\x15\n\x11TypeCmdScanStatus\x10\x02\x12\x16\n\x12TypeRespScanStatus\x10\x03\x12\x15\n\x11TypeCmdScanResult\x10\x04\x12\x16\n\x12TypeRespScanResult\x10\x05\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12network_scan.proto\x1a\x0f\x63onstants.proto\x1a\x17network_constants.proto\"`\n\x10\x43mdScanWifiStart\x12\x10\n\x08\x62locking\x18\x01 \x01(\x08\x12\x0f\n\x07passive\x18\x02 \x01(\x08\x12\x16\n\x0egroup_channels\x18\x03 \x01(\r\x12\x11\n\tperiod_ms\x18\x04 \x01(\r\"<\n\x12\x43mdScanThreadStart\x12\x10\n\x08\x62locking\x18\x01 \x01(\x08\x12\x14\n\x0c\x63hannel_mask\x18\x02 \x01(\r\"\x13\n\x11RespScanWifiStart\"\x15\n\x13RespScanThreadStart\"\x13\n\x11\x43mdScanWifiStatus\"\x15\n\x13\x43mdScanThreadStatus\"A\n\x12RespScanWifiStatus\x12\x15\n\rscan_finished\x18\x01 \x01(\x08\x12\x14\n\x0cresult_count\x18\x02 \x01(\r\"C\n\x14RespScanThreadStatus\x12\x15\n\rscan_finished\x18\x01 \x01(\x08\x12\x14\n\x0cresult_count\x18\x02 \x01(\r\"7\n\x11\x43mdScanWifiResult\x12\x13\n\x0bstart_index\x18\x01 \x01(\r\x12\r\n\x05\x63ount\x18\x02 \x01(\r\"9\n\x13\x43mdScanThreadResult\x12\x13\n\x0bstart_index\x18\x01 \x01(\r\x12\r\n\x05\x63ount\x18\x02 \x01(\r\"i\n\x0eWiFiScanResult\x12\x0c\n\x04ssid\x18\x01 \x01(\x0c\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\r\x12\x0c\n\x04rssi\x18\x03 \x01(\x05\x12\r\n\x05\x62ssid\x18\x04 \x01(\x0c\x12\x1b\n\x04\x61uth\x18\x05 \x01(\x0e\x32\r.WifiAuthMode\"\x8a\x01\n\x10ThreadScanResult\x12\x0e\n\x06pan_id\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\r\x12\x0c\n\x04rssi\x18\x03 \x01(\x05\x12\x0b\n\x03lqi\x18\x04 \x01(\r\x12\x10\n\x08\x65xt_addr\x18\x05 \x01(\x0c\x12\x14\n\x0cnetwork_name\x18\x06 \x01(\t\x12\x12\n\next_pan_id\x18\x07 \x01(\x0c\"6\n\x12RespScanWifiResult\x12 \n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x0f.WiFiScanResult\":\n\x14RespScanThreadResult\x12\"\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x11.ThreadScanResult\"\xe6\x05\n\x12NetworkScanPayload\x12 \n\x03msg\x18\x01 \x01(\x0e\x32\x13.NetworkScanMsgType\x12\x17\n\x06status\x18\x02 \x01(\x0e\x32\x07.Status\x12\x30\n\x13\x63md_scan_wifi_start\x18\n \x01(\x0b\x32\x11.CmdScanWifiStartH\x00\x12\x32\n\x14resp_scan_wifi_start\x18\x0b \x01(\x0b\x32\x12.RespScanWifiStartH\x00\x12\x32\n\x14\x63md_scan_wifi_status\x18\x0c \x01(\x0b\x32\x12.CmdScanWifiStatusH\x00\x12\x34\n\x15resp_scan_wifi_status\x18\r \x01(\x0b\x32\x13.RespScanWifiStatusH\x00\x12\x32\n\x14\x63md_scan_wifi_result\x18\x0e \x01(\x0b\x32\x12.CmdScanWifiResultH\x00\x12\x34\n\x15resp_scan_wifi_result\x18\x0f \x01(\x0b\x32\x13.RespScanWifiResultH\x00\x12\x34\n\x15\x63md_scan_thread_start\x18\x10 \x01(\x0b\x32\x13.CmdScanThreadStartH\x00\x12\x36\n\x16resp_scan_thread_start\x18\x11 \x01(\x0b\x32\x14.RespScanThreadStartH\x00\x12\x36\n\x16\x63md_scan_thread_status\x18\x12 \x01(\x0b\x32\x14.CmdScanThreadStatusH\x00\x12\x38\n\x17resp_scan_thread_status\x18\x13 \x01(\x0b\x32\x15.RespScanThreadStatusH\x00\x12\x36\n\x16\x63md_scan_thread_result\x18\x14 \x01(\x0b\x32\x14.CmdScanThreadResultH\x00\x12\x38\n\x17resp_scan_thread_result\x18\x15 \x01(\x0b\x32\x15.RespScanThreadResultH\x00\x42\t\n\x07payload*\xe6\x02\n\x12NetworkScanMsgType\x12\x18\n\x14TypeCmdScanWifiStart\x10\x00\x12\x19\n\x15TypeRespScanWifiStart\x10\x01\x12\x19\n\x15TypeCmdScanWifiStatus\x10\x02\x12\x1a\n\x16TypeRespScanWifiStatus\x10\x03\x12\x19\n\x15TypeCmdScanWifiResult\x10\x04\x12\x1a\n\x16TypeRespScanWifiResult\x10\x05\x12\x1a\n\x16TypeCmdScanThreadStart\x10\x06\x12\x1b\n\x17TypeRespScanThreadStart\x10\x07\x12\x1b\n\x17TypeCmdScanThreadStatus\x10\x08\x12\x1c\n\x18TypeRespScanThreadStatus\x10\t\x12\x1b\n\x17TypeCmdScanThreadResult\x10\n\x12\x1c\n\x18TypeRespScanThreadResult\x10\x0b\x62\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'network_scan_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _NETWORKSCANMSGTYPE._serialized_start=1436
-  _NETWORKSCANMSGTYPE._serialized_end=1595
-  _WIFISCANSTART._serialized_start=64
-  _WIFISCANSTART._serialized_end=157
-  _THREADSCANSTART._serialized_start=159
-  _THREADSCANSTART._serialized_end=216
-  _CMDSCANSTART._serialized_start=219
-  _CMDSCANSTART._serialized_end=366
-  _RESPSCANSTART._serialized_start=368
-  _RESPSCANSTART._serialized_end=415
-  _CMDSCANSTATUS._serialized_start=417
-  _CMDSCANSTATUS._serialized_end=464
-  _RESPSCANSTATUS._serialized_start=466
-  _RESPSCANSTATUS._serialized_end=559
-  _CMDSCANRESULT._serialized_start=561
-  _CMDSCANRESULT._serialized_end=644
-  _WIFISCANRESULT._serialized_start=646
-  _WIFISCANRESULT._serialized_end=751
-  _THREADSCANRESULT._serialized_start=754
-  _THREADSCANRESULT._serialized_end=892
-  _SCANRESULT._serialized_start=894
-  _SCANRESULT._serialized_end=1000
-  _RESPSCANRESULT._serialized_start=1002
-  _RESPSCANRESULT._serialized_end=1080
-  _NETWORKSCANPAYLOAD._serialized_start=1083
-  _NETWORKSCANPAYLOAD._serialized_end=1433
+  _NETWORKSCANMSGTYPE._serialized_start=1674
+  _NETWORKSCANMSGTYPE._serialized_end=2032
+  _CMDSCANWIFISTART._serialized_start=64
+  _CMDSCANWIFISTART._serialized_end=160
+  _CMDSCANTHREADSTART._serialized_start=162
+  _CMDSCANTHREADSTART._serialized_end=222
+  _RESPSCANWIFISTART._serialized_start=224
+  _RESPSCANWIFISTART._serialized_end=243
+  _RESPSCANTHREADSTART._serialized_start=245
+  _RESPSCANTHREADSTART._serialized_end=266
+  _CMDSCANWIFISTATUS._serialized_start=268
+  _CMDSCANWIFISTATUS._serialized_end=287
+  _CMDSCANTHREADSTATUS._serialized_start=289
+  _CMDSCANTHREADSTATUS._serialized_end=310
+  _RESPSCANWIFISTATUS._serialized_start=312
+  _RESPSCANWIFISTATUS._serialized_end=377
+  _RESPSCANTHREADSTATUS._serialized_start=379
+  _RESPSCANTHREADSTATUS._serialized_end=446
+  _CMDSCANWIFIRESULT._serialized_start=448
+  _CMDSCANWIFIRESULT._serialized_end=503
+  _CMDSCANTHREADRESULT._serialized_start=505
+  _CMDSCANTHREADRESULT._serialized_end=562
+  _WIFISCANRESULT._serialized_start=564
+  _WIFISCANRESULT._serialized_end=669
+  _THREADSCANRESULT._serialized_start=672
+  _THREADSCANRESULT._serialized_end=810
+  _RESPSCANWIFIRESULT._serialized_start=812
+  _RESPSCANWIFIRESULT._serialized_end=866
+  _RESPSCANTHREADRESULT._serialized_start=868
+  _RESPSCANTHREADRESULT._serialized_end=926
+  _NETWORKSCANPAYLOAD._serialized_start=929
+  _NETWORKSCANPAYLOAD._serialized_end=1671
 # @@protoc_insertion_point(module_scope)

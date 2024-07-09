@@ -17,35 +17,44 @@ PROTOBUF_C__BEGIN_DECLS
 #include "constants.pb-c.h"
 #include "network_constants.pb-c.h"
 
-typedef struct WifiScanStart WifiScanStart;
-typedef struct ThreadScanStart ThreadScanStart;
-typedef struct CmdScanStart CmdScanStart;
-typedef struct RespScanStart RespScanStart;
-typedef struct CmdScanStatus CmdScanStatus;
-typedef struct RespScanStatus RespScanStatus;
-typedef struct CmdScanResult CmdScanResult;
-typedef struct WifiScanResult WifiScanResult;
+typedef struct CmdScanWifiStart CmdScanWifiStart;
+typedef struct CmdScanThreadStart CmdScanThreadStart;
+typedef struct RespScanWifiStart RespScanWifiStart;
+typedef struct RespScanThreadStart RespScanThreadStart;
+typedef struct CmdScanWifiStatus CmdScanWifiStatus;
+typedef struct CmdScanThreadStatus CmdScanThreadStatus;
+typedef struct RespScanWifiStatus RespScanWifiStatus;
+typedef struct RespScanThreadStatus RespScanThreadStatus;
+typedef struct CmdScanWifiResult CmdScanWifiResult;
+typedef struct CmdScanThreadResult CmdScanThreadResult;
+typedef struct WiFiScanResult WiFiScanResult;
 typedef struct ThreadScanResult ThreadScanResult;
-typedef struct ScanResult ScanResult;
-typedef struct RespScanResult RespScanResult;
+typedef struct RespScanWifiResult RespScanWifiResult;
+typedef struct RespScanThreadResult RespScanThreadResult;
 typedef struct NetworkScanPayload NetworkScanPayload;
 
 
 /* --- enums --- */
 
 typedef enum _NetworkScanMsgType {
-  NETWORK_SCAN_MSG_TYPE__TypeCmdScanStart = 0,
-  NETWORK_SCAN_MSG_TYPE__TypeRespScanStart = 1,
-  NETWORK_SCAN_MSG_TYPE__TypeCmdScanStatus = 2,
-  NETWORK_SCAN_MSG_TYPE__TypeRespScanStatus = 3,
-  NETWORK_SCAN_MSG_TYPE__TypeCmdScanResult = 4,
-  NETWORK_SCAN_MSG_TYPE__TypeRespScanResult = 5
+  NETWORK_SCAN_MSG_TYPE__TypeCmdScanWifiStart = 0,
+  NETWORK_SCAN_MSG_TYPE__TypeRespScanWifiStart = 1,
+  NETWORK_SCAN_MSG_TYPE__TypeCmdScanWifiStatus = 2,
+  NETWORK_SCAN_MSG_TYPE__TypeRespScanWifiStatus = 3,
+  NETWORK_SCAN_MSG_TYPE__TypeCmdScanWifiResult = 4,
+  NETWORK_SCAN_MSG_TYPE__TypeRespScanWifiResult = 5,
+  NETWORK_SCAN_MSG_TYPE__TypeCmdScanThreadStart = 6,
+  NETWORK_SCAN_MSG_TYPE__TypeRespScanThreadStart = 7,
+  NETWORK_SCAN_MSG_TYPE__TypeCmdScanThreadStatus = 8,
+  NETWORK_SCAN_MSG_TYPE__TypeRespScanThreadStatus = 9,
+  NETWORK_SCAN_MSG_TYPE__TypeCmdScanThreadResult = 10,
+  NETWORK_SCAN_MSG_TYPE__TypeRespScanThreadResult = 11
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_SCAN_MSG_TYPE)
 } NetworkScanMsgType;
 
 /* --- messages --- */
 
-struct  WifiScanStart
+struct  CmdScanWifiStart
 {
   ProtobufCMessage base;
   protobuf_c_boolean blocking;
@@ -53,89 +62,103 @@ struct  WifiScanStart
   uint32_t group_channels;
   uint32_t period_ms;
 };
-#define WIFI_SCAN_START__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&wifi_scan_start__descriptor) \
+#define CMD_SCAN_WIFI_START__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_wifi_start__descriptor) \
     , 0, 0, 0, 0 }
 
 
-struct  ThreadScanStart
+struct  CmdScanThreadStart
 {
   ProtobufCMessage base;
   protobuf_c_boolean blocking;
   uint32_t channel_mask;
 };
-#define THREAD_SCAN_START__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&thread_scan_start__descriptor) \
+#define CMD_SCAN_THREAD_START__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_thread_start__descriptor) \
     , 0, 0 }
 
 
-typedef enum {
-  CMD_SCAN_START__PAYLOAD__NOT_SET = 0,
-  CMD_SCAN_START__PAYLOAD_WIFI_SCAN_START = 10,
-  CMD_SCAN_START__PAYLOAD_THREAD_SCAN_START = 11
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(CMD_SCAN_START__PAYLOAD__CASE)
-} CmdScanStart__PayloadCase;
-
-struct  CmdScanStart
+struct  RespScanWifiStart
 {
   ProtobufCMessage base;
-  NetworkType net_type;
-  CmdScanStart__PayloadCase payload_case;
-  union {
-    WifiScanStart *wifi_scan_start;
-    ThreadScanStart *thread_scan_start;
-  };
 };
-#define CMD_SCAN_START__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_start__descriptor) \
-    , NETWORK_TYPE__WifiNetwork, CMD_SCAN_START__PAYLOAD__NOT_SET, {0} }
+#define RESP_SCAN_WIFI_START__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&resp_scan_wifi_start__descriptor) \
+     }
 
 
-struct  RespScanStart
+struct  RespScanThreadStart
 {
   ProtobufCMessage base;
-  NetworkType net_type;
 };
-#define RESP_SCAN_START__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&resp_scan_start__descriptor) \
-    , NETWORK_TYPE__WifiNetwork }
+#define RESP_SCAN_THREAD_START__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&resp_scan_thread_start__descriptor) \
+     }
 
 
-struct  CmdScanStatus
+struct  CmdScanWifiStatus
 {
   ProtobufCMessage base;
-  NetworkType net_type;
 };
-#define CMD_SCAN_STATUS__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_status__descriptor) \
-    , NETWORK_TYPE__WifiNetwork }
+#define CMD_SCAN_WIFI_STATUS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_wifi_status__descriptor) \
+     }
 
 
-struct  RespScanStatus
+struct  CmdScanThreadStatus
 {
   ProtobufCMessage base;
-  NetworkType net_type;
+};
+#define CMD_SCAN_THREAD_STATUS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_thread_status__descriptor) \
+     }
+
+
+struct  RespScanWifiStatus
+{
+  ProtobufCMessage base;
   protobuf_c_boolean scan_finished;
   uint32_t result_count;
 };
-#define RESP_SCAN_STATUS__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&resp_scan_status__descriptor) \
-    , NETWORK_TYPE__WifiNetwork, 0, 0 }
+#define RESP_SCAN_WIFI_STATUS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&resp_scan_wifi_status__descriptor) \
+    , 0, 0 }
 
 
-struct  CmdScanResult
+struct  RespScanThreadStatus
 {
   ProtobufCMessage base;
-  NetworkType net_type;
+  protobuf_c_boolean scan_finished;
+  uint32_t result_count;
+};
+#define RESP_SCAN_THREAD_STATUS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&resp_scan_thread_status__descriptor) \
+    , 0, 0 }
+
+
+struct  CmdScanWifiResult
+{
+  ProtobufCMessage base;
   uint32_t start_index;
   uint32_t count;
 };
-#define CMD_SCAN_RESULT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_result__descriptor) \
-    , NETWORK_TYPE__WifiNetwork, 0, 0 }
+#define CMD_SCAN_WIFI_RESULT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_wifi_result__descriptor) \
+    , 0, 0 }
 
 
-struct  WifiScanResult
+struct  CmdScanThreadResult
+{
+  ProtobufCMessage base;
+  uint32_t start_index;
+  uint32_t count;
+};
+#define CMD_SCAN_THREAD_RESULT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&cmd_scan_thread_result__descriptor) \
+    , 0, 0 }
+
+
+struct  WiFiScanResult
 {
   ProtobufCMessage base;
   ProtobufCBinaryData ssid;
@@ -144,8 +167,8 @@ struct  WifiScanResult
   ProtobufCBinaryData bssid;
   WifiAuthMode auth;
 };
-#define WIFI_SCAN_RESULT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&wifi_scan_result__descriptor) \
+#define WI_FI_SCAN_RESULT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&wi_fi_scan_result__descriptor) \
     , {0,NULL}, 0, 0, {0,NULL}, WIFI_AUTH_MODE__Open }
 
 
@@ -165,47 +188,42 @@ struct  ThreadScanResult
     , 0, 0, 0, 0, {0,NULL}, (char *)protobuf_c_empty_string, {0,NULL} }
 
 
-typedef enum {
-  SCAN_RESULT__RESULT__NOT_SET = 0,
-  SCAN_RESULT__RESULT_WIFI_RESULT = 10,
-  SCAN_RESULT__RESULT_THREAD_RESULT = 11
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(SCAN_RESULT__RESULT__CASE)
-} ScanResult__ResultCase;
-
-struct  ScanResult
+struct  RespScanWifiResult
 {
   ProtobufCMessage base;
-  ScanResult__ResultCase result_case;
-  union {
-    WifiScanResult *wifi_result;
-    ThreadScanResult *thread_result;
-  };
-};
-#define SCAN_RESULT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&scan_result__descriptor) \
-    , SCAN_RESULT__RESULT__NOT_SET, {0} }
-
-
-struct  RespScanResult
-{
-  ProtobufCMessage base;
-  NetworkType net_type;
   size_t n_entries;
-  ScanResult **entries;
+  WiFiScanResult **entries;
 };
-#define RESP_SCAN_RESULT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&resp_scan_result__descriptor) \
-    , NETWORK_TYPE__WifiNetwork, 0,NULL }
+#define RESP_SCAN_WIFI_RESULT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&resp_scan_wifi_result__descriptor) \
+    , 0,NULL }
+
+
+struct  RespScanThreadResult
+{
+  ProtobufCMessage base;
+  size_t n_entries;
+  ThreadScanResult **entries;
+};
+#define RESP_SCAN_THREAD_RESULT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&resp_scan_thread_result__descriptor) \
+    , 0,NULL }
 
 
 typedef enum {
   NETWORK_SCAN_PAYLOAD__PAYLOAD__NOT_SET = 0,
-  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_START = 10,
-  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_START = 11,
-  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_STATUS = 12,
-  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_STATUS = 13,
-  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_RESULT = 14,
-  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_RESULT = 15
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_WIFI_START = 10,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_WIFI_START = 11,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_WIFI_STATUS = 12,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_WIFI_STATUS = 13,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_WIFI_RESULT = 14,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_WIFI_RESULT = 15,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_THREAD_START = 16,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_THREAD_START = 17,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_THREAD_STATUS = 18,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_THREAD_STATUS = 19,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_THREAD_RESULT = 20,
+  NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_THREAD_RESULT = 21
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NETWORK_SCAN_PAYLOAD__PAYLOAD__CASE)
 } NetworkScanPayload__PayloadCase;
 
@@ -216,170 +234,233 @@ struct  NetworkScanPayload
   Status status;
   NetworkScanPayload__PayloadCase payload_case;
   union {
-    CmdScanStart *cmd_scan_start;
-    RespScanStart *resp_scan_start;
-    CmdScanStatus *cmd_scan_status;
-    RespScanStatus *resp_scan_status;
-    CmdScanResult *cmd_scan_result;
-    RespScanResult *resp_scan_result;
+    CmdScanWifiStart *cmd_scan_wifi_start;
+    RespScanWifiStart *resp_scan_wifi_start;
+    CmdScanWifiStatus *cmd_scan_wifi_status;
+    RespScanWifiStatus *resp_scan_wifi_status;
+    CmdScanWifiResult *cmd_scan_wifi_result;
+    RespScanWifiResult *resp_scan_wifi_result;
+    CmdScanThreadStart *cmd_scan_thread_start;
+    RespScanThreadStart *resp_scan_thread_start;
+    CmdScanThreadStatus *cmd_scan_thread_status;
+    RespScanThreadStatus *resp_scan_thread_status;
+    CmdScanThreadResult *cmd_scan_thread_result;
+    RespScanThreadResult *resp_scan_thread_result;
   };
 };
 #define NETWORK_SCAN_PAYLOAD__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&network_scan_payload__descriptor) \
-    , NETWORK_SCAN_MSG_TYPE__TypeCmdScanStart, STATUS__Success, NETWORK_SCAN_PAYLOAD__PAYLOAD__NOT_SET, {0} }
+    , NETWORK_SCAN_MSG_TYPE__TypeCmdScanWifiStart, STATUS__Success, NETWORK_SCAN_PAYLOAD__PAYLOAD__NOT_SET, {0} }
 
 
-/* WifiScanStart methods */
-void   wifi_scan_start__init
-                     (WifiScanStart         *message);
-size_t wifi_scan_start__get_packed_size
-                     (const WifiScanStart   *message);
-size_t wifi_scan_start__pack
-                     (const WifiScanStart   *message,
+/* CmdScanWifiStart methods */
+void   cmd_scan_wifi_start__init
+                     (CmdScanWifiStart         *message);
+size_t cmd_scan_wifi_start__get_packed_size
+                     (const CmdScanWifiStart   *message);
+size_t cmd_scan_wifi_start__pack
+                     (const CmdScanWifiStart   *message,
                       uint8_t             *out);
-size_t wifi_scan_start__pack_to_buffer
-                     (const WifiScanStart   *message,
+size_t cmd_scan_wifi_start__pack_to_buffer
+                     (const CmdScanWifiStart   *message,
                       ProtobufCBuffer     *buffer);
-WifiScanStart *
-       wifi_scan_start__unpack
+CmdScanWifiStart *
+       cmd_scan_wifi_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   wifi_scan_start__free_unpacked
-                     (WifiScanStart *message,
+void   cmd_scan_wifi_start__free_unpacked
+                     (CmdScanWifiStart *message,
                       ProtobufCAllocator *allocator);
-/* ThreadScanStart methods */
-void   thread_scan_start__init
-                     (ThreadScanStart         *message);
-size_t thread_scan_start__get_packed_size
-                     (const ThreadScanStart   *message);
-size_t thread_scan_start__pack
-                     (const ThreadScanStart   *message,
+/* CmdScanThreadStart methods */
+void   cmd_scan_thread_start__init
+                     (CmdScanThreadStart         *message);
+size_t cmd_scan_thread_start__get_packed_size
+                     (const CmdScanThreadStart   *message);
+size_t cmd_scan_thread_start__pack
+                     (const CmdScanThreadStart   *message,
                       uint8_t             *out);
-size_t thread_scan_start__pack_to_buffer
-                     (const ThreadScanStart   *message,
+size_t cmd_scan_thread_start__pack_to_buffer
+                     (const CmdScanThreadStart   *message,
                       ProtobufCBuffer     *buffer);
-ThreadScanStart *
-       thread_scan_start__unpack
+CmdScanThreadStart *
+       cmd_scan_thread_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   thread_scan_start__free_unpacked
-                     (ThreadScanStart *message,
+void   cmd_scan_thread_start__free_unpacked
+                     (CmdScanThreadStart *message,
                       ProtobufCAllocator *allocator);
-/* CmdScanStart methods */
-void   cmd_scan_start__init
-                     (CmdScanStart         *message);
-size_t cmd_scan_start__get_packed_size
-                     (const CmdScanStart   *message);
-size_t cmd_scan_start__pack
-                     (const CmdScanStart   *message,
+/* RespScanWifiStart methods */
+void   resp_scan_wifi_start__init
+                     (RespScanWifiStart         *message);
+size_t resp_scan_wifi_start__get_packed_size
+                     (const RespScanWifiStart   *message);
+size_t resp_scan_wifi_start__pack
+                     (const RespScanWifiStart   *message,
                       uint8_t             *out);
-size_t cmd_scan_start__pack_to_buffer
-                     (const CmdScanStart   *message,
+size_t resp_scan_wifi_start__pack_to_buffer
+                     (const RespScanWifiStart   *message,
                       ProtobufCBuffer     *buffer);
-CmdScanStart *
-       cmd_scan_start__unpack
+RespScanWifiStart *
+       resp_scan_wifi_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   cmd_scan_start__free_unpacked
-                     (CmdScanStart *message,
+void   resp_scan_wifi_start__free_unpacked
+                     (RespScanWifiStart *message,
                       ProtobufCAllocator *allocator);
-/* RespScanStart methods */
-void   resp_scan_start__init
-                     (RespScanStart         *message);
-size_t resp_scan_start__get_packed_size
-                     (const RespScanStart   *message);
-size_t resp_scan_start__pack
-                     (const RespScanStart   *message,
+/* RespScanThreadStart methods */
+void   resp_scan_thread_start__init
+                     (RespScanThreadStart         *message);
+size_t resp_scan_thread_start__get_packed_size
+                     (const RespScanThreadStart   *message);
+size_t resp_scan_thread_start__pack
+                     (const RespScanThreadStart   *message,
                       uint8_t             *out);
-size_t resp_scan_start__pack_to_buffer
-                     (const RespScanStart   *message,
+size_t resp_scan_thread_start__pack_to_buffer
+                     (const RespScanThreadStart   *message,
                       ProtobufCBuffer     *buffer);
-RespScanStart *
-       resp_scan_start__unpack
+RespScanThreadStart *
+       resp_scan_thread_start__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   resp_scan_start__free_unpacked
-                     (RespScanStart *message,
+void   resp_scan_thread_start__free_unpacked
+                     (RespScanThreadStart *message,
                       ProtobufCAllocator *allocator);
-/* CmdScanStatus methods */
-void   cmd_scan_status__init
-                     (CmdScanStatus         *message);
-size_t cmd_scan_status__get_packed_size
-                     (const CmdScanStatus   *message);
-size_t cmd_scan_status__pack
-                     (const CmdScanStatus   *message,
+/* CmdScanWifiStatus methods */
+void   cmd_scan_wifi_status__init
+                     (CmdScanWifiStatus         *message);
+size_t cmd_scan_wifi_status__get_packed_size
+                     (const CmdScanWifiStatus   *message);
+size_t cmd_scan_wifi_status__pack
+                     (const CmdScanWifiStatus   *message,
                       uint8_t             *out);
-size_t cmd_scan_status__pack_to_buffer
-                     (const CmdScanStatus   *message,
+size_t cmd_scan_wifi_status__pack_to_buffer
+                     (const CmdScanWifiStatus   *message,
                       ProtobufCBuffer     *buffer);
-CmdScanStatus *
-       cmd_scan_status__unpack
+CmdScanWifiStatus *
+       cmd_scan_wifi_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   cmd_scan_status__free_unpacked
-                     (CmdScanStatus *message,
+void   cmd_scan_wifi_status__free_unpacked
+                     (CmdScanWifiStatus *message,
                       ProtobufCAllocator *allocator);
-/* RespScanStatus methods */
-void   resp_scan_status__init
-                     (RespScanStatus         *message);
-size_t resp_scan_status__get_packed_size
-                     (const RespScanStatus   *message);
-size_t resp_scan_status__pack
-                     (const RespScanStatus   *message,
+/* CmdScanThreadStatus methods */
+void   cmd_scan_thread_status__init
+                     (CmdScanThreadStatus         *message);
+size_t cmd_scan_thread_status__get_packed_size
+                     (const CmdScanThreadStatus   *message);
+size_t cmd_scan_thread_status__pack
+                     (const CmdScanThreadStatus   *message,
                       uint8_t             *out);
-size_t resp_scan_status__pack_to_buffer
-                     (const RespScanStatus   *message,
+size_t cmd_scan_thread_status__pack_to_buffer
+                     (const CmdScanThreadStatus   *message,
                       ProtobufCBuffer     *buffer);
-RespScanStatus *
-       resp_scan_status__unpack
+CmdScanThreadStatus *
+       cmd_scan_thread_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   resp_scan_status__free_unpacked
-                     (RespScanStatus *message,
+void   cmd_scan_thread_status__free_unpacked
+                     (CmdScanThreadStatus *message,
                       ProtobufCAllocator *allocator);
-/* CmdScanResult methods */
-void   cmd_scan_result__init
-                     (CmdScanResult         *message);
-size_t cmd_scan_result__get_packed_size
-                     (const CmdScanResult   *message);
-size_t cmd_scan_result__pack
-                     (const CmdScanResult   *message,
+/* RespScanWifiStatus methods */
+void   resp_scan_wifi_status__init
+                     (RespScanWifiStatus         *message);
+size_t resp_scan_wifi_status__get_packed_size
+                     (const RespScanWifiStatus   *message);
+size_t resp_scan_wifi_status__pack
+                     (const RespScanWifiStatus   *message,
                       uint8_t             *out);
-size_t cmd_scan_result__pack_to_buffer
-                     (const CmdScanResult   *message,
+size_t resp_scan_wifi_status__pack_to_buffer
+                     (const RespScanWifiStatus   *message,
                       ProtobufCBuffer     *buffer);
-CmdScanResult *
-       cmd_scan_result__unpack
+RespScanWifiStatus *
+       resp_scan_wifi_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   cmd_scan_result__free_unpacked
-                     (CmdScanResult *message,
+void   resp_scan_wifi_status__free_unpacked
+                     (RespScanWifiStatus *message,
                       ProtobufCAllocator *allocator);
-/* WifiScanResult methods */
-void   wifi_scan_result__init
-                     (WifiScanResult         *message);
-size_t wifi_scan_result__get_packed_size
-                     (const WifiScanResult   *message);
-size_t wifi_scan_result__pack
-                     (const WifiScanResult   *message,
+/* RespScanThreadStatus methods */
+void   resp_scan_thread_status__init
+                     (RespScanThreadStatus         *message);
+size_t resp_scan_thread_status__get_packed_size
+                     (const RespScanThreadStatus   *message);
+size_t resp_scan_thread_status__pack
+                     (const RespScanThreadStatus   *message,
                       uint8_t             *out);
-size_t wifi_scan_result__pack_to_buffer
-                     (const WifiScanResult   *message,
+size_t resp_scan_thread_status__pack_to_buffer
+                     (const RespScanThreadStatus   *message,
                       ProtobufCBuffer     *buffer);
-WifiScanResult *
-       wifi_scan_result__unpack
+RespScanThreadStatus *
+       resp_scan_thread_status__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   wifi_scan_result__free_unpacked
-                     (WifiScanResult *message,
+void   resp_scan_thread_status__free_unpacked
+                     (RespScanThreadStatus *message,
+                      ProtobufCAllocator *allocator);
+/* CmdScanWifiResult methods */
+void   cmd_scan_wifi_result__init
+                     (CmdScanWifiResult         *message);
+size_t cmd_scan_wifi_result__get_packed_size
+                     (const CmdScanWifiResult   *message);
+size_t cmd_scan_wifi_result__pack
+                     (const CmdScanWifiResult   *message,
+                      uint8_t             *out);
+size_t cmd_scan_wifi_result__pack_to_buffer
+                     (const CmdScanWifiResult   *message,
+                      ProtobufCBuffer     *buffer);
+CmdScanWifiResult *
+       cmd_scan_wifi_result__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   cmd_scan_wifi_result__free_unpacked
+                     (CmdScanWifiResult *message,
+                      ProtobufCAllocator *allocator);
+/* CmdScanThreadResult methods */
+void   cmd_scan_thread_result__init
+                     (CmdScanThreadResult         *message);
+size_t cmd_scan_thread_result__get_packed_size
+                     (const CmdScanThreadResult   *message);
+size_t cmd_scan_thread_result__pack
+                     (const CmdScanThreadResult   *message,
+                      uint8_t             *out);
+size_t cmd_scan_thread_result__pack_to_buffer
+                     (const CmdScanThreadResult   *message,
+                      ProtobufCBuffer     *buffer);
+CmdScanThreadResult *
+       cmd_scan_thread_result__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   cmd_scan_thread_result__free_unpacked
+                     (CmdScanThreadResult *message,
+                      ProtobufCAllocator *allocator);
+/* WiFiScanResult methods */
+void   wi_fi_scan_result__init
+                     (WiFiScanResult         *message);
+size_t wi_fi_scan_result__get_packed_size
+                     (const WiFiScanResult   *message);
+size_t wi_fi_scan_result__pack
+                     (const WiFiScanResult   *message,
+                      uint8_t             *out);
+size_t wi_fi_scan_result__pack_to_buffer
+                     (const WiFiScanResult   *message,
+                      ProtobufCBuffer     *buffer);
+WiFiScanResult *
+       wi_fi_scan_result__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   wi_fi_scan_result__free_unpacked
+                     (WiFiScanResult *message,
                       ProtobufCAllocator *allocator);
 /* ThreadScanResult methods */
 void   thread_scan_result__init
@@ -400,43 +481,43 @@ ThreadScanResult *
 void   thread_scan_result__free_unpacked
                      (ThreadScanResult *message,
                       ProtobufCAllocator *allocator);
-/* ScanResult methods */
-void   scan_result__init
-                     (ScanResult         *message);
-size_t scan_result__get_packed_size
-                     (const ScanResult   *message);
-size_t scan_result__pack
-                     (const ScanResult   *message,
+/* RespScanWifiResult methods */
+void   resp_scan_wifi_result__init
+                     (RespScanWifiResult         *message);
+size_t resp_scan_wifi_result__get_packed_size
+                     (const RespScanWifiResult   *message);
+size_t resp_scan_wifi_result__pack
+                     (const RespScanWifiResult   *message,
                       uint8_t             *out);
-size_t scan_result__pack_to_buffer
-                     (const ScanResult   *message,
+size_t resp_scan_wifi_result__pack_to_buffer
+                     (const RespScanWifiResult   *message,
                       ProtobufCBuffer     *buffer);
-ScanResult *
-       scan_result__unpack
+RespScanWifiResult *
+       resp_scan_wifi_result__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   scan_result__free_unpacked
-                     (ScanResult *message,
+void   resp_scan_wifi_result__free_unpacked
+                     (RespScanWifiResult *message,
                       ProtobufCAllocator *allocator);
-/* RespScanResult methods */
-void   resp_scan_result__init
-                     (RespScanResult         *message);
-size_t resp_scan_result__get_packed_size
-                     (const RespScanResult   *message);
-size_t resp_scan_result__pack
-                     (const RespScanResult   *message,
+/* RespScanThreadResult methods */
+void   resp_scan_thread_result__init
+                     (RespScanThreadResult         *message);
+size_t resp_scan_thread_result__get_packed_size
+                     (const RespScanThreadResult   *message);
+size_t resp_scan_thread_result__pack
+                     (const RespScanThreadResult   *message,
                       uint8_t             *out);
-size_t resp_scan_result__pack_to_buffer
-                     (const RespScanResult   *message,
+size_t resp_scan_thread_result__pack_to_buffer
+                     (const RespScanThreadResult   *message,
                       ProtobufCBuffer     *buffer);
-RespScanResult *
-       resp_scan_result__unpack
+RespScanThreadResult *
+       resp_scan_thread_result__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   resp_scan_result__free_unpacked
-                     (RespScanResult *message,
+void   resp_scan_thread_result__free_unpacked
+                     (RespScanThreadResult *message,
                       ProtobufCAllocator *allocator);
 /* NetworkScanPayload methods */
 void   network_scan_payload__init
@@ -459,38 +540,47 @@ void   network_scan_payload__free_unpacked
                       ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
-typedef void (*WifiScanStart_Closure)
-                 (const WifiScanStart *message,
+typedef void (*CmdScanWifiStart_Closure)
+                 (const CmdScanWifiStart *message,
                   void *closure_data);
-typedef void (*ThreadScanStart_Closure)
-                 (const ThreadScanStart *message,
+typedef void (*CmdScanThreadStart_Closure)
+                 (const CmdScanThreadStart *message,
                   void *closure_data);
-typedef void (*CmdScanStart_Closure)
-                 (const CmdScanStart *message,
+typedef void (*RespScanWifiStart_Closure)
+                 (const RespScanWifiStart *message,
                   void *closure_data);
-typedef void (*RespScanStart_Closure)
-                 (const RespScanStart *message,
+typedef void (*RespScanThreadStart_Closure)
+                 (const RespScanThreadStart *message,
                   void *closure_data);
-typedef void (*CmdScanStatus_Closure)
-                 (const CmdScanStatus *message,
+typedef void (*CmdScanWifiStatus_Closure)
+                 (const CmdScanWifiStatus *message,
                   void *closure_data);
-typedef void (*RespScanStatus_Closure)
-                 (const RespScanStatus *message,
+typedef void (*CmdScanThreadStatus_Closure)
+                 (const CmdScanThreadStatus *message,
                   void *closure_data);
-typedef void (*CmdScanResult_Closure)
-                 (const CmdScanResult *message,
+typedef void (*RespScanWifiStatus_Closure)
+                 (const RespScanWifiStatus *message,
                   void *closure_data);
-typedef void (*WifiScanResult_Closure)
-                 (const WifiScanResult *message,
+typedef void (*RespScanThreadStatus_Closure)
+                 (const RespScanThreadStatus *message,
+                  void *closure_data);
+typedef void (*CmdScanWifiResult_Closure)
+                 (const CmdScanWifiResult *message,
+                  void *closure_data);
+typedef void (*CmdScanThreadResult_Closure)
+                 (const CmdScanThreadResult *message,
+                  void *closure_data);
+typedef void (*WiFiScanResult_Closure)
+                 (const WiFiScanResult *message,
                   void *closure_data);
 typedef void (*ThreadScanResult_Closure)
                  (const ThreadScanResult *message,
                   void *closure_data);
-typedef void (*ScanResult_Closure)
-                 (const ScanResult *message,
+typedef void (*RespScanWifiResult_Closure)
+                 (const RespScanWifiResult *message,
                   void *closure_data);
-typedef void (*RespScanResult_Closure)
-                 (const RespScanResult *message,
+typedef void (*RespScanThreadResult_Closure)
+                 (const RespScanThreadResult *message,
                   void *closure_data);
 typedef void (*NetworkScanPayload_Closure)
                  (const NetworkScanPayload *message,
@@ -502,17 +592,20 @@ typedef void (*NetworkScanPayload_Closure)
 /* --- descriptors --- */
 
 extern const ProtobufCEnumDescriptor    network_scan_msg_type__descriptor;
-extern const ProtobufCMessageDescriptor wifi_scan_start__descriptor;
-extern const ProtobufCMessageDescriptor thread_scan_start__descriptor;
-extern const ProtobufCMessageDescriptor cmd_scan_start__descriptor;
-extern const ProtobufCMessageDescriptor resp_scan_start__descriptor;
-extern const ProtobufCMessageDescriptor cmd_scan_status__descriptor;
-extern const ProtobufCMessageDescriptor resp_scan_status__descriptor;
-extern const ProtobufCMessageDescriptor cmd_scan_result__descriptor;
-extern const ProtobufCMessageDescriptor wifi_scan_result__descriptor;
+extern const ProtobufCMessageDescriptor cmd_scan_wifi_start__descriptor;
+extern const ProtobufCMessageDescriptor cmd_scan_thread_start__descriptor;
+extern const ProtobufCMessageDescriptor resp_scan_wifi_start__descriptor;
+extern const ProtobufCMessageDescriptor resp_scan_thread_start__descriptor;
+extern const ProtobufCMessageDescriptor cmd_scan_wifi_status__descriptor;
+extern const ProtobufCMessageDescriptor cmd_scan_thread_status__descriptor;
+extern const ProtobufCMessageDescriptor resp_scan_wifi_status__descriptor;
+extern const ProtobufCMessageDescriptor resp_scan_thread_status__descriptor;
+extern const ProtobufCMessageDescriptor cmd_scan_wifi_result__descriptor;
+extern const ProtobufCMessageDescriptor cmd_scan_thread_result__descriptor;
+extern const ProtobufCMessageDescriptor wi_fi_scan_result__descriptor;
 extern const ProtobufCMessageDescriptor thread_scan_result__descriptor;
-extern const ProtobufCMessageDescriptor scan_result__descriptor;
-extern const ProtobufCMessageDescriptor resp_scan_result__descriptor;
+extern const ProtobufCMessageDescriptor resp_scan_wifi_result__descriptor;
+extern const ProtobufCMessageDescriptor resp_scan_thread_result__descriptor;
 extern const ProtobufCMessageDescriptor network_scan_payload__descriptor;
 
 PROTOBUF_C__END_DECLS

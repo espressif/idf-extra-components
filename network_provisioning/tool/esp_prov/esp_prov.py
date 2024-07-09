@@ -591,7 +591,73 @@ async def main():
             raise RuntimeError('Error in establishing session')
         print('==== Session Established ====')
 
-        if await has_capability(obj_transport, 'wifi_prov'):
+        if await has_capability(obj_transport, 'thread_prov'):
+            if args.reset:
+                print('==== Reseting Thread====')
+                await reset_thread(obj_transport, obj_security)
+                sys.exit()
+
+            if args.reprov:
+                print('==== Reprovisioning Thread====')
+                await reprov_thread(obj_transport, obj_security)
+                sys.exit()
+
+            if args.dataset_tlvs is None:
+                if not await has_capability(obj_transport, 'thread_scan'):
+                    prompt_str = 'Enter Thread dataset tlvs string : '
+                    args.dataset_tlvs = input(prompt_str)
+                else:
+                    while True:
+                        print('\n==== Scanning Thread Networks ====')
+                        start_time = time.time()
+                        Networks = await scan_thread_networks(args.mode.lower(), obj_transport, obj_security)
+                        end_time = time.time()
+                        print('\n++++ Scan finished in ' + str(end_time - start_time) + ' sec')
+                        if Networks is None:
+                            raise RuntimeError('Error in scanning Thread Networks')
+
+                        if len(Networks) == 0:
+                            print('No Thread Networks found!')
+                            sys.exit()
+
+                        print('==== Thread Scan results ====')
+                        print('{0: >4} {1: <8} {2: <18} {3: <18} {4: <18} {5: <4} {6: <4} {7: <16}'.format(
+                            'S.N.', 'PAN ID', 'EXT PAN ID', 'NAME', 'EXT ADDR', 'CHN', 'RSSI', 'LQI'))
+                        for i in range(len(Networks)):
+                            print('[{0: >2}] {1: <8} {2: <18} {3: <18} {4: <18} {5: <4} {6: <4} {7: <16}'.format(
+                                i + 1, Networks[i]['pan_id'], Networks[i]['ext_pan_id'], Networks[i]['network_name'],
+                                Networks[i]['ext_addr'], Networks[i]['channel'], Networks[i]['rssi'], Networks[i]['lqi']))
+
+                        while True:
+                            try:
+                                select = int(input('Select Network by number (0 to rescan) : '))
+                                if select < 0 or select > len(Networks):
+                                    raise ValueError
+                                break
+                            except ValueError:
+                                print('Invalid input! Retry')
+
+                        if select != 0:
+                            network_key = getpass('Enter Thread network key string : ')
+                            args.dataset_tlvs = get_thread_dataset_tlvs(Networks[select], network_key)
+                            break
+
+            print('\n==== Sending Thread Dataset to Target ====')
+            if not await send_thread_config(obj_transport, obj_security, args.dataset_tlvs):
+                raise RuntimeError('Error in send Thread config')
+            print('==== Thread Dataset sent successfully ====')
+
+            print('\n==== Applying Thread Config to Target ====')
+            if not await apply_thread_config(obj_transport, obj_security):
+                raise RuntimeError('Error in apply Thread config')
+            print('==== Apply config sent successfully ====')
+
+            await wait_thread_connected(obj_transport, obj_security)
+        else:
+            if not await has_capability(obj_transport, 'wifi_prov'):
+                print('Use wifi_provisioning for device without "wifi_prov" capabilities')
+                print('The device might be using previous wifi_provisioning in ESP-IDF')
+
             if args.reset:
                 print('==== Reseting WiFi====')
                 await reset_wifi(obj_transport, obj_security)
@@ -662,71 +728,6 @@ async def main():
 
             await wait_wifi_connected(obj_transport, obj_security)
 
-        elif await has_capability(obj_transport, 'thread_prov'):
-            if args.reset:
-                print('==== Reseting Thread====')
-                await reset_thread(obj_transport, obj_security)
-                sys.exit()
-
-            if args.reprov:
-                print('==== Reprovisioning Thread====')
-                await reprov_thread(obj_transport, obj_security)
-                sys.exit()
-
-            if args.dataset_tlvs is None:
-                if not await has_capability(obj_transport, 'thread_scan'):
-                    prompt_str = 'Enter Thread dataset tlvs string : '
-                    args.dataset_tlvs = input(prompt_str)
-                else:
-                    while True:
-                        print('\n==== Scanning Thread Networks ====')
-                        start_time = time.time()
-                        Networks = await scan_thread_networks(args.mode.lower(), obj_transport, obj_security)
-                        end_time = time.time()
-                        print('\n++++ Scan finished in ' + str(end_time - start_time) + ' sec')
-                        if Networks is None:
-                            raise RuntimeError('Error in scanning Thread Networks')
-
-                        if len(Networks) == 0:
-                            print('No Thread Networks found!')
-                            sys.exit()
-
-                        print('==== Thread Scan results ====')
-                        print('{0: >4} {1: <8} {2: <18} {3: <18} {4: <18} {5: <4} {6: <4} {7: <16}'.format(
-                            'S.N.', 'PAN ID', 'EXT PAN ID', 'NAME', 'EXT ADDR', 'CHN', 'RSSI', 'LQI'))
-                        for i in range(len(Networks)):
-                            print('[{0: >2}] {1: <8} {2: <18} {3: <18} {4: <18} {5: <4} {6: <4} {7: <16}'.format(
-                                i + 1, Networks[i]['pan_id'], Networks[i]['ext_pan_id'], Networks[i]['network_name'],
-                                Networks[i]['ext_addr'], Networks[i]['channel'], Networks[i]['rssi'], Networks[i]['lqi']))
-
-                        while True:
-                            try:
-                                select = int(input('Select Network by number (0 to rescan) : '))
-                                if select < 0 or select > len(Networks):
-                                    raise ValueError
-                                break
-                            except ValueError:
-                                print('Invalid input! Retry')
-
-                        if select != 0:
-                            network_key = getpass('Enter Thread network key string : ')
-                            args.dataset_tlvs = get_thread_dataset_tlvs(Networks[select], network_key)
-                            break
-
-            print('\n==== Sending Thread Dataset to Target ====')
-            if not await send_thread_config(obj_transport, obj_security, args.dataset_tlvs):
-                raise RuntimeError('Error in send Thread config')
-            print('==== Thread Dataset sent successfully ====')
-
-            print('\n==== Applying Thread Config to Target ====')
-            if not await apply_thread_config(obj_transport, obj_security):
-                raise RuntimeError('Error in apply Thread config')
-            print('==== Apply config sent successfully ====')
-
-            await wait_thread_connected(obj_transport, obj_security)
-
-        else:
-            raise RuntimeError('The device should support Wi-Fi prov or Thread prov')
     finally:
         await obj_transport.disconnect()
 
