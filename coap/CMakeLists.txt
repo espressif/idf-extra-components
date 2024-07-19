@@ -1,4 +1,4 @@
-set(include_dirs port/include port/include libcoap/include)
+set(include_dirs port/include libcoap/include)
 
 set(srcs
     "libcoap/src/coap_address.c"
@@ -22,6 +22,7 @@ set(srcs
     "libcoap/src/coap_oscore.c"
     "libcoap/src/coap_pdu.c"
     "libcoap/src/coap_prng.c"
+    "libcoap/src/coap_proxy.c"
     "libcoap/src/coap_resource.c"
     "libcoap/src/coap_session.c"
     "libcoap/src/coap_str.c"
