@@ -24,7 +24,7 @@ esp_err_t esp_vfs_fat_nand_mount(const char *base_path, spi_nand_flash_device_t 
     esp_err_t ret = ESP_OK;
     void *workbuf = NULL;
     FATFS *fs = NULL;
-    uint16_t sector_size;
+    uint32_t sector_size;
     const size_t workbuf_size = 4096;
 
     // connect driver to FATFS
