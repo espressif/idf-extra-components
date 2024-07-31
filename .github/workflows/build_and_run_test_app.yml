@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"]
+        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         idf_target: ["esp32", "esp32c3", "esp32s3"] # @todo ESP32S2 has less RAM and the test_app will not fit
     runs-on: ubuntu-20.04
     container: espressif/idf:${{ matrix.idf_ver }}
@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"]
+        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         idf_target: ["esp32", "esp32c3", "esp32s3"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
     env:

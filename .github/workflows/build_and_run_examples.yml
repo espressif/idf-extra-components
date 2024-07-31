@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"]
+        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         parallel_index: [1,2,3,4,5] # This must from 1 to 'parallel_count' defined in .idf_build_apps.toml
     runs-on: ubuntu-20.04
     container: espressif/idf:${{ matrix.idf_ver }}
@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"]
+        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         idf_target: ["esp32"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
     env:
@@ -78,7 +78,7 @@ jobs:
         # Hence, not considering IDF v4.x releases here. If we find a clean way
         # to let pytest know about IDF release dependency then we may reintroduce
         # the IDF v4.x in the list.
-        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "latest"]
+        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         idf_target: ["esp32"]
     runs-on: [self-hosted, ESP32-ETHERNET-KIT]
     env:
