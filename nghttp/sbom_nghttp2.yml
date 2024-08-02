@@ -5,3 +5,6 @@ supplier: 'Organization: nghttp2 <https://nghttp2.org/'
 description: nghttp2 - HTTP/2 C Library and tools
 url: https://github.com/nghttp2/nghttp2
 hash: d13a5758373931064636c1641db6277db45552dc
+cve-exclude-list:
+  - cve: CVE-2024-28182
+    reason: Resolved in version v1.61.0
