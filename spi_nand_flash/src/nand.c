@@ -274,7 +274,7 @@ end:
     return ret;
 }
 
-esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, uint16_t sector_id)
+esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, dhara_sector_t sector_id)
 {
     dhara_error_t err;
     esp_err_t ret = ESP_OK;
@@ -294,7 +294,7 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
     return ret;
 }
 
-esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint16_t sector_id)
+esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, dhara_sector_t sector_id)
 {
     dhara_error_t err;
     esp_err_t ret = ESP_OK;
@@ -324,13 +324,13 @@ esp_err_t spi_nand_flash_sync(spi_nand_flash_device_t *handle)
     return ret;
 }
 
-esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, uint16_t *number_of_sectors)
+esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, dhara_sector_t *number_of_sectors)
 {
     *number_of_sectors = dhara_map_capacity(&handle->dhara_map);
     return ESP_OK;
 }
 
-esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint16_t *sector_size)
+esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint32_t *sector_size)
 {
     *sector_size = handle->page_size;
     return ESP_OK;
