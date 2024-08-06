@@ -1,6 +1,6 @@
 include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
-set(srcs "src/led_strip_api.c")
+set(srcs "src/led_strip_api.c" "src/led_strip_common.c")
 
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.0")
     if(CONFIG_SOC_RMT_SUPPORTED)

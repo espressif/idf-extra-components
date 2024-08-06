@@ -11,6 +11,7 @@
 #include "driver/rmt.h"
 #include "led_strip.h"
 #include "led_strip_interface.h"
+#include "esp_private/led_strip_common.h"
 
 static const char *TAG = "led_strip_rmt";
 
@@ -43,6 +44,7 @@ typedef struct {
     rmt_channel_t rmt_channel;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
+    uint8_t led_pixel_offset[4];
     uint8_t buffer[0];
 } led_strip_rmt_obj;
 
@@ -83,10 +85,10 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of the maximum number of leds");
     uint32_t start = index * rmt_strip->bytes_per_pixel;
-    // In thr order of GRB
-    rmt_strip->buffer[start + 0] = green & 0xFF;
-    rmt_strip->buffer[start + 1] = red & 0xFF;
-    rmt_strip->buffer[start + 2] = blue & 0xFF;
+    // Support all kinds of pixel order
+    rmt_strip->buffer[start + rmt_strip->led_pixel_offset[0]] = red & 0xFF;
+    rmt_strip->buffer[start + rmt_strip->led_pixel_offset[1]] = green & 0xFF;
+    rmt_strip->buffer[start + rmt_strip->led_pixel_offset[2]] = blue & 0xFF;
     if (rmt_strip->bytes_per_pixel > 3) {
         rmt_strip->buffer[start + 3] = 0;
     }
@@ -125,16 +127,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     ESP_RETURN_ON_FALSE(led_config && dev_config && ret_strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     ESP_RETURN_ON_FALSE(led_config->led_pixel_format < LED_PIXEL_FORMAT_INVALID, ESP_ERR_INVALID_ARG, TAG, "invalid led_pixel_format");
     ESP_RETURN_ON_FALSE(dev_config->flags.with_dma == 0, ESP_ERR_NOT_SUPPORTED, TAG, "DMA is not supported");
-
-    uint8_t bytes_per_pixel = 3;
-    if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
-        bytes_per_pixel = 4;
-    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB) {
-        bytes_per_pixel = 3;
-    } else {
-        assert(false);
-    }
-
+    uint8_t bytes_per_pixel = led_config->led_pixel_format <= LED_PIXEL_FORMAT_3COLORS_MAX ? 3 : 4;
     // allocate memory for led_strip object
     rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
     ESP_RETURN_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, TAG, "request memory for les_strip failed");
@@ -174,6 +167,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
 
     // adapter to translates the LES strip date frame into RMT symbols
     rmt_translator_init((rmt_channel_t)dev_config->rmt_channel, ws2812_rmt_adapter);
+    ESP_GOTO_ON_ERROR(led_strip_config_pixel_order(rmt_strip->led_pixel_offset, led_config->led_pixel_format), err, TAG, "config pixel order failed");
 
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
     rmt_strip->rmt_channel = (rmt_channel_t)dev_config->rmt_channel;
