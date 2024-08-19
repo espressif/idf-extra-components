@@ -1,3 +1,7 @@
+## 2.5.6
+
+- Add pixel order configuration callback function to support user-defined pixel order.
+  
 ## 2.5.5
 
 - Simplified the led_strip component dependency, the time of full build with ESP-IDF v5.3 can now be shorter.
