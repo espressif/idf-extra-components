@@ -102,6 +102,26 @@ static void custom_part_ota_example_task(void *pvParameter)
     esp_custom_part_ota_cfg_t ota_config = {
         .update_partition = update_partition,
     };
+
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == NULL) {
+        ESP_LOGE(TAG, "Failed to initialise HTTP connection");
+        task_fatal_error();
+    }
+    err = esp_http_client_open(client, 0);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+        esp_http_client_cleanup(client);
+        task_fatal_error();
+    }
+    int64_t content_length = esp_http_client_fetch_headers(client);
+    if (content_length > ota_config.update_partition->size) {
+        ESP_LOGE(TAG, "Failed due to firmware size is greater than update partition");
+        esp_http_client_cleanup(client);
+        task_fatal_error();
+    }
+
     esp_custom_part_ota_handle_t ota_handle = esp_custom_part_ota_begin(ota_config);
     if (!ota_handle) {
         ESP_LOGE(TAG, "Failed to begin OTA update process");
@@ -116,18 +136,7 @@ static void custom_part_ota_example_task(void *pvParameter)
     }
 #endif // CONFIG_EXAMPLE_PARTITION_BACKUP
 
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    if (client == NULL) {
-        ESP_LOGE(TAG, "Failed to initialise HTTP connection");
-        task_fatal_error();
-    }
-    err = esp_http_client_open(client, 0);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
-        esp_http_client_cleanup(client);
-        task_fatal_error();
-    }
-    esp_http_client_fetch_headers(client);
+
     int data_written = 0;
     while (1) {
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
