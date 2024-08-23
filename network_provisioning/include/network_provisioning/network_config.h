@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 /**
  * @brief   WiFi STA status for conveying back to the provisioning master
  */
@@ -74,9 +74,9 @@ typedef struct {
     char    bssid[6];       /*!< BSSID of the AP */
     uint8_t channel;        /*!< Channel of the AP */
 } network_prov_config_set_wifi_data_t;
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 /**
  * @brief   Thread status for conveying back to the provisioning master
  */
@@ -129,7 +129,7 @@ typedef struct {
     uint8_t dataset[254];
     uint8_t length;
 } network_prov_config_set_thread_data_t;
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 /**
  * @brief   Type of context data passed to each get/set/apply handler
@@ -148,7 +148,7 @@ typedef struct network_prov_ctx network_prov_ctx_t;
  * (refer to `network_prov_config_data_handler()`) when calling `protocomm_add_endpoint()`.
  */
 typedef struct network_prov_config_handlers {
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
      * Handler function called when connection status
      * of the slave (in WiFi station mode) is requested
@@ -172,9 +172,9 @@ typedef struct network_prov_config_handlers {
      * invoked again by the master.
      */
     esp_err_t (*wifi_apply_config_handler)(network_prov_ctx_t **ctx);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     esp_err_t (*thread_get_status_handler)(network_prov_config_get_thread_data_t *resp_data,
                                            network_prov_ctx_t **ctx);
 
@@ -182,7 +182,7 @@ typedef struct network_prov_config_handlers {
                                            network_prov_ctx_t **ctx);
 
     esp_err_t (*thread_apply_config_handler)(network_prov_ctx_t **ctx);
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     /**
      * Context pointer to be passed to above handler functions upon invocation

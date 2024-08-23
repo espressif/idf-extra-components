@@ -285,7 +285,7 @@ const network_prov_scheme_t network_prov_scheme_ble = {
     .delete_config       = delete_config,
     .set_config_service  = set_config_service,
     .set_config_endpoint = set_config_endpoint,
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     .wifi_mode           = WIFI_MODE_STA
 #endif
 };

@@ -75,7 +75,7 @@ static esp_err_t cmd_get_status_handler(NetworkConfigPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_get_wifi_status__init(resp_payload);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         network_prov_config_get_wifi_data_t resp_data;
         if (h->wifi_get_status_handler) {
             if (h->wifi_get_status_handler(&resp_data, &h->ctx) == ESP_OK) {
@@ -141,9 +141,9 @@ static esp_err_t cmd_get_status_handler(NetworkConfigPayload *req,
         } else {
             resp_payload->status = STATUS__InternalError;
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         resp_payload->status = STATUS__InvalidArgument;
-#endif
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         resp->payload_case = NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_GET_WIFI_STATUS;
         resp->resp_get_wifi_status = resp_payload;
     } else if (req->msg == NETWORK_CONFIG_MSG_TYPE__TypeCmdGetThreadStatus) {
@@ -153,7 +153,7 @@ static esp_err_t cmd_get_status_handler(NetworkConfigPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_get_thread_status__init(resp_payload);
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         network_prov_config_get_thread_data_t resp_data;
         if (h->thread_get_status_handler) {
             if (h->thread_get_status_handler(&resp_data, &h->ctx) == ESP_OK) {
@@ -207,9 +207,9 @@ static esp_err_t cmd_get_status_handler(NetworkConfigPayload *req,
         } else {
             resp_payload->status = STATUS__InternalError;
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp_payload->status = STATUS__InvalidArgument;
-#endif
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp->payload_case = NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_GET_THREAD_STATUS;
         resp->resp_get_thread_status = resp_payload;
     }
@@ -233,7 +233,7 @@ static esp_err_t cmd_set_config_handler(NetworkConfigPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_set_wifi_config__init(resp_payload);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         network_prov_config_set_wifi_data_t req_data;
         memset(&req_data, 0, sizeof(req_data));
 
@@ -267,9 +267,9 @@ static esp_err_t cmd_set_config_handler(NetworkConfigPayload *req,
                 resp_payload->status = STATUS__InternalError;
             }
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         resp_payload->status = STATUS__InvalidArgument;
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         resp->payload_case = NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_SET_WIFI_CONFIG;
         resp->resp_set_wifi_config = resp_payload;
     } else if (req->msg == NETWORK_CONFIG_MSG_TYPE__TypeCmdSetThreadConfig) {
@@ -279,7 +279,7 @@ static esp_err_t cmd_set_config_handler(NetworkConfigPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_set_thread_config__init(resp_payload);
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         network_prov_config_set_thread_data_t req_data;
         memset(&req_data, 0, sizeof(req_data));
         resp_payload->status = STATUS__InvalidArgument;
@@ -294,9 +294,9 @@ static esp_err_t cmd_set_config_handler(NetworkConfigPayload *req,
         } else {
             resp_payload->status = STATUS__InternalError;
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp_payload->status = STATUS__InvalidArgument;
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp->payload_case = NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_SET_THREAD_CONFIG;
         resp->resp_set_thread_config = resp_payload;
     }
@@ -319,15 +319,15 @@ static esp_err_t cmd_apply_config_handler(NetworkConfigPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_apply_wifi_config__init(resp_payload);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (h->wifi_apply_config_handler && h->wifi_apply_config_handler(&h->ctx) == ESP_OK) {
             resp_payload->status = STATUS__Success;
         } else {
             resp_payload->status = STATUS__InternalError;
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         resp_payload->status = STATUS__InvalidArgument;
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         resp->payload_case = NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_APPLY_WIFI_CONFIG;
         resp->resp_apply_wifi_config = resp_payload;
     } else if (req->msg == NETWORK_CONFIG_MSG_TYPE__TypeCmdApplyThreadConfig) {
@@ -337,15 +337,15 @@ static esp_err_t cmd_apply_config_handler(NetworkConfigPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_apply_thread_config__init(resp_payload);
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (h->thread_apply_config_handler && h->thread_apply_config_handler(&h->ctx) == ESP_OK) {
             resp_payload->status = STATUS__Success;
         } else {
             resp_payload->status = STATUS__InternalError;
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp_payload->status = STATUS__InvalidArgument;
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp->payload_case = NETWORK_CONFIG_PAYLOAD__PAYLOAD_RESP_APPLY_THREAD_CONFIG;
         resp->resp_apply_thread_config = resp_payload;
     }
@@ -370,7 +370,7 @@ static void network_prov_config_command_cleanup(NetworkConfigPayload *resp, void
 
     switch (resp->msg) {
     case NETWORK_CONFIG_MSG_TYPE__TypeRespGetWifiStatus: {
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         switch (resp->resp_get_wifi_status->wifi_sta_state) {
         case WIFI_STATION_STATE__Connecting:
             break;
@@ -393,12 +393,12 @@ static void network_prov_config_command_cleanup(NetworkConfigPayload *resp, void
         default:
             break;
         }
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         free(resp->resp_get_wifi_status);
     }
     break;
     case NETWORK_CONFIG_MSG_TYPE__TypeRespGetThreadStatus: {
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         switch (resp->resp_get_thread_status->thread_state) {
         case THREAD_NETWORK_STATE__Attaching:
             break;
@@ -415,7 +415,7 @@ static void network_prov_config_command_cleanup(NetworkConfigPayload *resp, void
         default:
             break;
         }
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         free(resp->resp_get_thread_status);
     }
     break;

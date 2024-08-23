@@ -9,10 +9,10 @@
 #include <protocomm.h>
 
 #include "esp_event.h"
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 #include "esp_wifi_types.h"
 #endif
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 #include "openthread/dataset.h"
 #endif
 #include "network_provisioning/network_config.h"
@@ -40,23 +40,23 @@ typedef enum {
      * Indicates that provisioning has started
      */
     NETWORK_PROV_START,
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
      * Emitted when Wi-Fi AP credentials are received via `protocomm`
      * endpoint `network_config`. The event data in this case is a pointer
      * to the corresponding `wifi_sta_config_t` structure
      */
     NETWORK_PROV_WIFI_CRED_RECV,
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /**
      * Emitted when Thread Dataset is received via `protocomm` endpoint
      * `network_config`, The event data in this case is a pointer to the
      * corresponding `otOperationalDatasetTlvs` structure
      */
     NETWORK_PROV_THREAD_DATASET_RECV,
-#endif // CONFIG_OPENTHREAD_ENABLED
-#if CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
      * Emitted when device fails to connect to the AP of which the
      * credentials were received earlier on event `NETWORK_PROV_WIFI_CRED_RECV`.
@@ -64,8 +64,8 @@ typedef enum {
      * reason code with type `network_prov_wifi_sta_fail_reason_t`
      */
     NETWORK_PROV_WIFI_CRED_FAIL,
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /**
      * Emitted when device fails to connect to the Thread network of which
      * dataset was received earlier on event `NETWORK_PROv_THREAD_DATASET_RECV`.
@@ -73,22 +73,22 @@ typedef enum {
      * reason code with type `network_prov_thread_fail_reason_t`
      */
     NETWORK_PROV_THREAD_DATASET_FAIL,
-#endif // CONFIG_OPENTHREAD_ENABLED
-#if CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
      * Emitted when device successfully connects to the AP of which the
      * credentials were received earlier on event `NETWORK_PROV_WIFI_CRED_RECV`
      */
     NETWORK_PROV_WIFI_CRED_SUCCESS,
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /**
      * Emitted when device successfully connects to the Thread etwork of
      * which the dataset was received earlier on event
      * `NETWORK_PROV_THREAD_DATASET_RECV`
      */
     NETWORK_PROV_THREAD_DATASET_SUCCESS,
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     /**
      * Signals that provisioning service has stopped
@@ -175,7 +175,7 @@ typedef struct network_prov_scheme {
      */
     esp_err_t (*set_config_endpoint) (void *config, const char *endpoint_name, uint16_t uuid);
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
      * Sets mode of operation of Wi-Fi during provisioning
      * This is set to :
@@ -183,7 +183,7 @@ typedef struct network_prov_scheme {
      * - WIFI_MODE_STA for BLE transport
      */
     wifi_mode_t wifi_mode;
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 } network_prov_scheme_t;
 
 /**
@@ -292,7 +292,7 @@ esp_err_t network_prov_mgr_init(network_prov_mgr_config_t config);
  */
 void network_prov_mgr_deinit(void);
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 /**
  * @brief   Checks if device is provisioned
  *
@@ -317,9 +317,9 @@ void network_prov_mgr_deinit(void);
  *  - ESP_ERR_INVALID_ARG   : Null argument supplied
  */
 esp_err_t network_prov_mgr_is_wifi_provisioned(bool *provisioned);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 /**
  * @brief   Checks if device is provisioned
  *
@@ -337,7 +337,7 @@ esp_err_t network_prov_mgr_is_wifi_provisioned(bool *provisioned);
  *  - ESP_ERR_INVALID_ARG   : Null argument supplied
  */
 esp_err_t network_prov_mgr_is_thread_provisioned(bool *provisioned);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 /**
  * @brief   Checks whether the provisioning state machine is idle
@@ -569,7 +569,7 @@ esp_err_t network_prov_mgr_endpoint_register(const char *ep_name,
  */
 void network_prov_mgr_endpoint_unregister(const char *ep_name);
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 /**
  * @brief   Get state of Wi-Fi Station during provisioning
  *
@@ -660,9 +660,9 @@ esp_err_t network_prov_mgr_reset_wifi_sm_state_on_failure(void);
  *  - ESP_ERR_INVALID_STATE : Manager not initialized
  */
 esp_err_t network_prov_mgr_reset_wifi_sm_state_for_reprovision(void);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 /**
  * @brief   Reset Thread provisioning config
  *
@@ -752,7 +752,7 @@ esp_err_t network_prov_mgr_reset_thread_sm_state_on_failure(void);
  */
 esp_err_t network_prov_mgr_reset_thread_sm_state_for_reprovision(void);
 
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 
 #ifdef __cplusplus

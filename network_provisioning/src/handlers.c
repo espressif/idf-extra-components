@@ -9,10 +9,10 @@
 #include <esp_err.h>
 #include <esp_log.h>
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 #include <esp_wifi.h>
 #endif
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 #include <esp_openthread.h>
 #endif
 #include <esp_netif.h>
@@ -27,10 +27,10 @@ static const char *TAG = "network_prov_handlers";
 
 /* Provide definition of network_prov_ctx_t */
 struct network_prov_ctx {
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     wifi_config_t wifi_cfg;
 #endif
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     otOperationalDatasetTlvs thread_dataset;
 #endif
 };
@@ -41,7 +41,7 @@ static void free_network_prov_ctx(network_prov_ctx_t **ctx)
     *ctx = NULL;
 }
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 static wifi_config_t *get_wifi_config(network_prov_ctx_t **ctx)
 {
     return (*ctx ? & (*ctx)->wifi_cfg : NULL);
@@ -150,9 +150,9 @@ static esp_err_t wifi_apply_config_handler(network_prov_ctx_t **ctx)
     free_network_prov_ctx(ctx);
     return ret;
 }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 static otOperationalDatasetTlvs *get_thread_dataset(network_prov_ctx_t **ctx)
 {
     return (*ctx ? & (*ctx)->thread_dataset : NULL);
@@ -239,7 +239,7 @@ static esp_err_t thread_apply_config_handler(network_prov_ctx_t **ctx)
     free_network_prov_ctx(ctx);
     return ret;
 }
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 
 esp_err_t get_network_prov_handlers(network_prov_config_handlers_t *ptr)
@@ -247,22 +247,22 @@ esp_err_t get_network_prov_handlers(network_prov_config_handlers_t *ptr)
     if (!ptr) {
         return ESP_ERR_INVALID_ARG;
     }
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     ptr->wifi_get_status_handler   = wifi_get_status_handler;
     ptr->wifi_set_config_handler   = wifi_set_config_handler;
     ptr->wifi_apply_config_handler = wifi_apply_config_handler;
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     ptr->thread_get_status_handler = thread_get_status_handler;
     ptr->thread_set_config_handler = thread_set_config_handler;
     ptr->thread_apply_config_handler = thread_apply_config_handler;
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     ptr->ctx = NULL;
     return ESP_OK;
 }
 
 /*************************************************************************/
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 static esp_err_t wifi_scan_start(bool blocking, bool passive,
                                  uint8_t group_channels, uint32_t period_ms,
                                  network_prov_scan_ctx_t **ctx)
@@ -299,9 +299,9 @@ static esp_err_t wifi_scan_result(uint16_t result_index,
     result->auth = record->authmode;
     return ESP_OK;
 }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 static esp_err_t thread_scan_start(bool blocking, uint32_t channel_mask, network_prov_scan_ctx_t **ctx)
 {
     return network_prov_mgr_thread_scan_start(blocking, channel_mask);
@@ -342,30 +342,30 @@ static esp_err_t thread_scan_result(uint16_t result_index,
     return ESP_OK;
 }
 
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 esp_err_t get_network_scan_handlers(network_prov_scan_handlers_t *ptr)
 {
     if (!ptr) {
         return ESP_ERR_INVALID_ARG;
     }
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     ptr->wifi_scan_start  = wifi_scan_start;
     ptr->wifi_scan_status = wifi_scan_status;
     ptr->wifi_scan_result = wifi_scan_result;
-#endif
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     ptr->thread_scan_start = thread_scan_start;
     ptr->thread_scan_status = thread_scan_status;
     ptr->thread_scan_result = thread_scan_result;
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     ptr->ctx = NULL;
     return ESP_OK;
 }
 
 /*************************************************************************/
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 static esp_err_t wifi_ctrl_reset(void)
 {
     return network_prov_mgr_reset_wifi_sm_state_on_failure();
@@ -375,9 +375,9 @@ static esp_err_t wifi_ctrl_reprov(void)
 {
     return network_prov_mgr_reset_wifi_sm_state_for_reprovision();
 }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 static esp_err_t thread_ctrl_reset(void)
 {
     return network_prov_mgr_reset_thread_sm_state_on_failure();
@@ -387,18 +387,18 @@ static esp_err_t thread_ctrl_reprov(void)
 {
     return network_prov_mgr_reset_thread_sm_state_for_reprovision();
 }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 esp_err_t get_network_ctrl_handlers(network_ctrl_handlers_t *ptr)
 {
     if (!ptr) {
         return ESP_ERR_INVALID_ARG;
     }
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     ptr->wifi_ctrl_reset  = wifi_ctrl_reset;
     ptr->wifi_ctrl_reprov  = wifi_ctrl_reprov;
 #endif
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     ptr->thread_ctrl_reset = thread_ctrl_reset;
     ptr->thread_ctrl_reprov = thread_ctrl_reprov;
 #endif

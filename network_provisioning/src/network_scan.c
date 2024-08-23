@@ -76,7 +76,7 @@ static esp_err_t cmd_scan_start_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_wifi_start__init(resp_payload);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (h->wifi_scan_start) {
             resp->status = (h->wifi_scan_start(req->cmd_scan_wifi_start->blocking,
                                                req->cmd_scan_wifi_start->passive,
@@ -98,7 +98,7 @@ static esp_err_t cmd_scan_start_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_thread_start__init(resp_payload);
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (h->thread_scan_start) {
             resp->status = (h->thread_scan_start(req->cmd_scan_thread_start->blocking,
                                                  req->cmd_scan_thread_start->channel_mask,
@@ -133,7 +133,7 @@ static esp_err_t cmd_scan_status_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_wifi_status__init(resp_payload);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (h->wifi_scan_status) {
             resp->status = (h->wifi_scan_status(&scan_finished, &result_count, &h->ctx) == ESP_OK ?
                             STATUS__Success : STATUS__InternalError);
@@ -154,7 +154,7 @@ static esp_err_t cmd_scan_status_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_thread_status__init(resp_payload);
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (h->thread_scan_status) {
             resp->status = (h->thread_scan_status(&scan_finished, &result_count, &h->ctx) == ESP_OK ?
                             STATUS__Success : STATUS__InternalError);
@@ -191,7 +191,7 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
         resp->status = STATUS__Success;
         resp->payload_case = NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_WIFI_RESULT;
         resp->resp_scan_wifi_result = resp_payload;
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         network_prov_scan_wifi_result_t scan_result = {{0}, {0}, 0, 0, 0};
         WiFiScanResult **results = NULL;
 
@@ -248,9 +248,9 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             }
             memcpy(results[i]->bssid.data, scan_result.bssid, results[i]->bssid.len);
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         resp->status = STATUS__InvalidArgument;
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     } else if (req->msg == NETWORK_SCAN_MSG_TYPE__TypeCmdScanThreadResult) {
         RespScanThreadResult *resp_payload = (RespScanThreadResult *) malloc(sizeof(RespScanThreadResult));
         if (!resp_payload) {
@@ -261,7 +261,7 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
         resp->status = STATUS__Success;
         resp->payload_case = NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_THREAD_RESULT;
         resp->resp_scan_thread_result = resp_payload;
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         network_prov_scan_thread_result_t scan_result;
         memset(&scan_result, 0, sizeof(scan_result));
         ThreadScanResult **results = NULL;
@@ -326,10 +326,9 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             }
             memcpy(results[i]->network_name, scan_result.network_name, sizeof(scan_result.network_name));
         }
-#else
+#else // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp->status = STATUS__InvalidArgument;
-#endif // CONFIG_ESP_WIFI_ENABLED
-
+#endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     }
     return ESP_OK;
 }
@@ -370,7 +369,7 @@ static void network_prov_scan_cmd_cleanup(NetworkScanPayload *resp, void *priv_d
         if (!resp->resp_scan_wifi_result) {
             return;
         }
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (resp->resp_scan_wifi_result->entries) {
             for (uint16_t i = 0; i < resp->resp_scan_wifi_result->n_entries; i++) {
                 if (!resp->resp_scan_wifi_result->entries[i]) {
@@ -381,7 +380,7 @@ static void network_prov_scan_cmd_cleanup(NetworkScanPayload *resp, void *priv_d
             }
             free(resp->resp_scan_wifi_result->entries);
         }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         free(resp->resp_scan_wifi_result);
     }
     break;
@@ -389,7 +388,7 @@ static void network_prov_scan_cmd_cleanup(NetworkScanPayload *resp, void *priv_d
         if (!resp->resp_scan_thread_result) {
             return;
         }
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (resp->resp_scan_thread_result->entries) {
             for (uint16_t i = 0; i < resp->resp_scan_thread_result->n_entries; i++) {
                 if (!resp->resp_scan_thread_result->entries[i]) {
@@ -402,7 +401,7 @@ static void network_prov_scan_cmd_cleanup(NetworkScanPayload *resp, void *priv_d
             }
             free(resp->resp_scan_thread_result->entries);
         }
-#endif //CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         free(resp->resp_scan_thread_result);
     }
     break;

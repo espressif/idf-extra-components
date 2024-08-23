@@ -25,11 +25,11 @@
 
 #include "network_provisioning_priv.h"
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 #include <esp_openthread_lock.h>
 #include <esp_openthread.h>
 #include <openthread/thread.h>
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 #define NETWORK_PROV_MGR_VERSION      "netprov-v1.2"
 #define WIFI_PROV_STORAGE_BIT       BIT0
@@ -48,12 +48,12 @@ typedef enum {
     NETWORK_PROV_STATE_IDLE,
     NETWORK_PROV_STATE_STARTING,
     NETWORK_PROV_STATE_STARTED,
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     NETWORK_PROV_STATE_CRED_RECV,
-#endif
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     NETWORK_PROV_STATE_DATASET_RECV,
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     NETWORK_PROV_STATE_FAIL,
     NETWORK_PROV_STATE_SUCCESS,
     NETWORK_PROV_STATE_STOPPING
@@ -140,7 +140,7 @@ struct network_prov_mgr_ctx {
     uint32_t cleanup_delay;
     /* Scan status */
     bool scanning;
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /* Handle for delayed wifi connection timer */
     esp_timer_handle_t wifi_connect_timer;
 
@@ -157,9 +157,9 @@ struct network_prov_mgr_ctx {
     wifi_ap_record_t *ap_list[14];
     wifi_ap_record_t *ap_list_sorted[MAX_SCAN_RESULTS];
     wifi_scan_config_t scan_cfg;
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /* Handle for Thread attaching timeout timer */
     esp_timer_handle_t thread_timeout_timer;
 
@@ -172,7 +172,7 @@ struct network_prov_mgr_ctx {
     /* Thread scan parameters and state variables */
     uint16_t scan_result_count;
     otActiveScanResult *scan_result[MAX_SCAN_RESULTS];
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 };
 
 /* Mutex to lock/unlock access to provisioning singleton
@@ -297,13 +297,13 @@ static cJSON *network_prov_get_info_json(void)
         cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("no_pop"));
     }
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /* Indicate capability for performing Wi-Fi provision */
     cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("wifi_prov"));
     /* Indicate capability for performing Wi-Fi scan */
     cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("wifi_scan"));
 #endif
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /* Indicate capability for performing Thread provision */
     cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("thread_prov"));
     /* Indicate capability for performing Thread scan */
@@ -460,7 +460,7 @@ static esp_err_t network_prov_mgr_start_service(const char *service_name, const 
     }
 
     /* Register global event handler */
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     ret = esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                      network_prov_mgr_event_handler_internal, NULL);
     if (ret != ESP_OK) {
@@ -486,19 +486,13 @@ static esp_err_t network_prov_mgr_start_service(const char *service_name, const 
         protocomm_delete(prov_ctx->pc);
         return ret;
     }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     ret = esp_event_handler_register(OPENTHREAD_EVENT, ESP_EVENT_ANY_ID,
                                      network_prov_mgr_event_handler_internal, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register OpenThread event handler");
-#if CONFIG_ESP_WIFI_ENABLED
-        esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                     network_prov_mgr_event_handler_internal);
-        esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                                     network_prov_mgr_event_handler_internal);
-#endif // CONFIG_ESP_WIFI_ENABLED
         free(prov_ctx->network_scan_handlers);
         free(prov_ctx->network_ctrl_handlers);
         free(prov_ctx->network_prov_handlers);
@@ -506,23 +500,23 @@ static esp_err_t network_prov_mgr_start_service(const char *service_name, const 
         protocomm_delete(prov_ctx->pc);
         return ret;
     }
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     ret = esp_event_handler_register(NETWORK_PROV_MGR_PVT_EVENT, NETWORK_PROV_MGR_STOP,
                                      network_prov_mgr_event_handler_internal, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register provisioning event handler");
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                      network_prov_mgr_event_handler_internal);
         esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                      network_prov_mgr_event_handler_internal);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         esp_event_handler_unregister(OPENTHREAD_EVENT, ESP_EVENT_ANY_ID,
                                      network_prov_mgr_event_handler_internal);
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         free(prov_ctx->network_scan_handlers);
         free(prov_ctx->network_ctrl_handlers);
         free(prov_ctx->network_prov_handlers);
@@ -654,7 +648,7 @@ static void prov_stop_and_notify(bool is_async)
 
     free(prov_ctx->network_ctrl_handlers);
     prov_ctx->network_ctrl_handlers = NULL;
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /* Switch device to Wi-Fi STA mode irrespective of
      * whether provisioning was completed or not */
     esp_wifi_set_mode(WIFI_MODE_STA);
@@ -733,20 +727,20 @@ static bool network_prov_mgr_stop_service(bool blocking)
         esp_timer_delete(prov_ctx->autostop_timer);
         prov_ctx->autostop_timer = NULL;
     }
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     if (prov_ctx->wifi_connect_timer) {
         esp_timer_stop(prov_ctx->wifi_connect_timer);
         esp_timer_delete(prov_ctx->wifi_connect_timer);
         prov_ctx->wifi_connect_timer = NULL;
     }
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     if (prov_ctx->thread_timeout_timer) {
         esp_timer_stop(prov_ctx->thread_timeout_timer);
         esp_timer_delete(prov_ctx->thread_timeout_timer);
         prov_ctx->thread_timeout_timer = NULL;
     }
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     ESP_LOGD(TAG, "Stopping provisioning");
     prov_ctx->prov_state = NETWORK_PROV_STATE_STOPPING;
@@ -762,7 +756,7 @@ static bool network_prov_mgr_stop_service(bool blocking)
         prov_ctx->protocomm_sec_params = NULL;
     }
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /* Delete all scan results */
     for (uint16_t channel = 0; channel < 14; channel++) {
         free(prov_ctx->ap_list[channel]);
@@ -778,9 +772,9 @@ static bool network_prov_mgr_stop_service(bool blocking)
                                  network_prov_mgr_event_handler_internal);
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                  network_prov_mgr_event_handler_internal);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /* Delete all scan results */
     prov_ctx->scanning = false;
     for (uint8_t i = 0; i < MAX_SCAN_RESULTS; ++i) {
@@ -794,7 +788,7 @@ static bool network_prov_mgr_stop_service(bool blocking)
     /* Remove event handler */
     esp_event_handler_unregister(OPENTHREAD_EVENT, ESP_EVENT_ANY_ID,
                                  network_prov_mgr_event_handler_internal);
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     if (blocking) {
         /* Run the cleanup without launching a separate task. Also the
@@ -875,7 +869,7 @@ esp_err_t network_prov_mgr_done(void)
     return ESP_OK;
 }
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 static esp_err_t update_wifi_scan_results(void)
 {
     if (!prov_ctx->scanning) {
@@ -1288,9 +1282,9 @@ esp_err_t network_prov_mgr_configure_wifi_sta(wifi_config_t *wifi_cfg)
 
     return ESP_OK;
 }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 static char hex_byte_to_char(uint8_t byte)
 {
     byte = byte & 0x0f;
@@ -1695,7 +1689,7 @@ esp_err_t network_prov_mgr_configure_thread_dataset(otOperationalDatasetTlvs *da
 
     return ESP_OK;
 }
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 static void network_prov_mgr_event_handler_internal(
     void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
@@ -1714,7 +1708,7 @@ static void network_prov_mgr_event_handler_internal(
         RELEASE_LOCK(prov_ctx_lock);
         return;
     }
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /* If scan completed then update scan result */
     if (prov_ctx->prov_state == NETWORK_PROV_STATE_STARTED &&
             event_base == WIFI_EVENT &&
@@ -1789,8 +1783,8 @@ static void network_prov_mgr_event_handler_internal(
             execute_event_cb(NETWORK_PROV_WIFI_CRED_FAIL, (void *)&reason, sizeof(reason));
         }
     }
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /* Only handle events when dataset is received and
      * Thread is yet to complete trying the connection */
     if (prov_ctx->prov_state < NETWORK_PROV_STATE_DATASET_RECV) {
@@ -1814,7 +1808,7 @@ static void network_prov_mgr_event_handler_internal(
         execute_event_cb(NETWORK_PROV_THREAD_DATASET_SUCCESS, NULL, 0);
     }
 
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     if (event_base == NETWORK_PROV_MGR_PVT_EVENT && event_id == NETWORK_PROV_MGR_STOP) {
         prov_stop_and_notify(true);
@@ -2060,7 +2054,7 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
      * or network_prov_mgr_stop_provisioning() or network_prov_mgr_deinit() from another
      * thread doesn't interfere with this process */
     prov_ctx->prov_state = NETWORK_PROV_STATE_STARTING;
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     uint8_t restore_wifi_flag = 0;
     /* Start Wi-Fi in Station Mode.
      * This is necessary for scanning to work */
@@ -2106,7 +2100,7 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
         ESP_LOGE(TAG, "Failed to disconnect");
         goto err;
     }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
 #ifdef CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_0
     /* Initialize app data */
@@ -2142,7 +2136,7 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
 #endif
     prov_ctx->security = security;
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     esp_timer_create_args_t wifi_connect_timer_conf = {
         .callback = wifi_connect_timer_cb,
         .arg = NULL,
@@ -2154,8 +2148,8 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
         ESP_LOGE(TAG, "Failed to create Wi-Fi connect timer");
         goto err;
     }
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     esp_timer_create_args_t thread_timeout_timer_conf = {
         .callback = thread_timeout_timer_cb,
         .arg = NULL,
@@ -2167,7 +2161,7 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
         ESP_LOGE(TAG, "Failed to create Thread attaching timeout timer");
         goto err;
     }
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     /* If auto stop on completion is enabled (default) create the stopping timer */
     if (!prov_ctx->mgr_info.capabilities.no_auto_stop) {
@@ -2181,12 +2175,12 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
         ret = esp_timer_create(&autostop_timer_conf, &prov_ctx->autostop_timer);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to create auto-stop timer");
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
             esp_timer_delete(prov_ctx->wifi_connect_timer);
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
             esp_timer_delete(prov_ctx->thread_timeout_timer);
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
             goto err;
         }
     }
@@ -2200,12 +2194,12 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
     ret = esp_timer_create(&cleanup_delay_timer, &prov_ctx->cleanup_delay_timer);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create cleanup delay timer");
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         esp_timer_delete(prov_ctx->wifi_connect_timer);
-#endif // CONFIG_ESP_WIFI_ENABLED
-#if CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         esp_timer_delete(prov_ctx->thread_timeout_timer);
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         esp_timer_delete(prov_ctx->autostop_timer);
         goto err;
     }
@@ -2221,10 +2215,10 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
     ret = network_prov_mgr_start_service(service_name, service_key);
     if (ret != ESP_OK) {
         esp_timer_delete(prov_ctx->autostop_timer);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         esp_timer_delete(prov_ctx->wifi_connect_timer);
 #endif
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         esp_timer_delete(prov_ctx->thread_timeout_timer);
 #endif
         esp_timer_delete(prov_ctx->cleanup_delay_timer);
@@ -2239,14 +2233,14 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
 
 err:
     prov_ctx->prov_state = NETWORK_PROV_STATE_IDLE;
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     if (restore_wifi_flag & WIFI_PROV_SETTING_BIT) {
         /* Restore current WiFi settings, since provisioning start has failed */
         esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg_old);
     }
 #endif
 exit:
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     if (restore_wifi_flag & WIFI_PROV_STORAGE_BIT) {
         /* Restore WiFi storage back to FLASH */
         esp_wifi_set_storage(WIFI_STORAGE_FLASH);
@@ -2276,7 +2270,7 @@ void network_prov_mgr_stop_provisioning(void)
     RELEASE_LOCK(prov_ctx_lock);
 }
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 esp_err_t network_prov_mgr_reset_wifi_provisioning(void)
 {
     esp_err_t ret = esp_wifi_restore();
@@ -2368,9 +2362,9 @@ exit:
     RELEASE_LOCK(prov_ctx_lock);
     return ret;
 }
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 esp_err_t network_prov_mgr_reset_thread_provisioning(void)
 {
     otInstance *instance = esp_openthread_get_instance();
@@ -2468,4 +2462,4 @@ exit:
     RELEASE_LOCK(prov_ctx_lock);
     return ret;
 }
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
