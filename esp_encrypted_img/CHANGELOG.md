@@ -1,3 +1,7 @@
+## 2.2.1
+
+- Build system: fix the dependency for generating pre encrypted image
+
 ## 2.2.0
 
 ### Enhancements:

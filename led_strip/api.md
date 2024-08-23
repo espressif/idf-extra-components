@@ -14,12 +14,12 @@
 
 | Type | Name |
 | ---: | :--- |
-|  esp\_err\_t | [**led\_strip\_clear**](#function-led_strip_clear) ([**led\_strip\_handle\_t**](#struct-led_strip_t) strip) <br>_Clear LED strip (turn off all LEDs)_ |
-|  esp\_err\_t | [**led\_strip\_del**](#function-led_strip_del) ([**led\_strip\_handle\_t**](#struct-led_strip_t) strip) <br>_Free LED strip resources._ |
-|  esp\_err\_t | [**led\_strip\_refresh**](#function-led_strip_refresh) ([**led\_strip\_handle\_t**](#struct-led_strip_t) strip) <br>_Refresh memory colors to LEDs._ |
-|  esp\_err\_t | [**led\_strip\_set\_pixel**](#function-led_strip_set_pixel) ([**led\_strip\_handle\_t**](#struct-led_strip_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue) <br>_Set RGB for a specific pixel._ |
-|  esp\_err\_t | [**led\_strip\_set\_pixel\_hsv**](#function-led_strip_set_pixel_hsv) ([**led\_strip\_handle\_t**](#struct-led_strip_t) strip, uint32\_t index, uint16\_t hue, uint8\_t saturation, uint8\_t value) <br>_Set HSV for a specific pixel._ |
-|  esp\_err\_t | [**led\_strip\_set\_pixel\_rgbw**](#function-led_strip_set_pixel_rgbw) ([**led\_strip\_handle\_t**](#struct-led_strip_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue, uint32\_t white) <br>_Set RGBW for a specific pixel._ |
+|  esp\_err\_t | [**led\_strip\_clear**](#function-led_strip_clear) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip) <br>_Clear LED strip (turn off all LEDs)_ |
+|  esp\_err\_t | [**led\_strip\_del**](#function-led_strip_del) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip) <br>_Free LED strip resources._ |
+|  esp\_err\_t | [**led\_strip\_refresh**](#function-led_strip_refresh) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip) <br>_Refresh memory colors to LEDs._ |
+|  esp\_err\_t | [**led\_strip\_set\_pixel**](#function-led_strip_set_pixel) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue) <br>_Set RGB for a specific pixel._ |
+|  esp\_err\_t | [**led\_strip\_set\_pixel\_hsv**](#function-led_strip_set_pixel_hsv) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint16\_t hue, uint8\_t saturation, uint8\_t value) <br>_Set HSV for a specific pixel._ |
+|  esp\_err\_t | [**led\_strip\_set\_pixel\_rgbw**](#function-led_strip_set_pixel_rgbw) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue, uint32\_t white) <br>_Set RGBW for a specific pixel._ |
 
 ## Functions Documentation
 
@@ -131,8 +131,8 @@ esp_err_t led_strip_set_pixel_hsv (
 - `strip` LED strip
 - `index` index of pixel to set
 - `hue` hue part of color (0 - 360)
-- `saturation` saturation part of color (0 - 255)
-- `value` value part of color (0 - 255)
+- `saturation` saturation part of color (0 - 255, rescaled from 0 - 1. e.g. saturation = 0.5, rescaled to 127)
+- `value` value part of color (0 - 255, rescaled from 0 - 1. e.g. value = 0.5, rescaled to 127)
 
 **Returns:**
 
@@ -190,7 +190,7 @@ Also see `led_strip_set_pixel` if you only want to specify the RGB part of the c
 
 | Type | Name |
 | ---: | :--- |
-|  esp\_err\_t | [**led\_strip\_new\_rmt\_device**](#function-led_strip_new_rmt_device) (const [**led\_strip\_config\_t**](#struct-led_strip_config_t) \*led\_config, const [**led\_strip\_rmt\_config\_t**](#struct-led_strip_rmt_config_t) \*rmt\_config, [**led\_strip\_handle\_t**](#struct-led_strip_t) \*ret\_strip) <br>_Create LED strip based on RMT TX channel._ |
+|  esp\_err\_t | [**led\_strip\_new\_rmt\_device**](#function-led_strip_new_rmt_device) (const [**led\_strip\_config\_t**](#struct-led_strip_config_t) \*led\_config, const [**led\_strip\_rmt\_config\_t**](#struct-led_strip_rmt_config_t) \*rmt\_config, [**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) \*ret\_strip) <br>_Create LED strip based on RMT TX channel._ |
 
 ## Structures and Types Documentation
 
@@ -202,7 +202,7 @@ Variables:
 
 - rmt\_clock\_source\_t clk_src  <br>RMT clock source
 
-- struct [**led\_strip\_rmt\_config\_t**](#struct-led_strip_rmt_config_t) flags  <br>Extra driver flags
+- struct led\_strip\_rmt\_config\_t::@0 flags  <br>Extra driver flags
 
 - size\_t mem_block_symbols  <br>How many RMT symbols can one RMT channel hold at one time. Set to 0 will fallback to use the default size.
 
@@ -249,7 +249,7 @@ esp_err_t led_strip_new_rmt_device (
 
 | Type | Name |
 | ---: | :--- |
-|  esp\_err\_t | [**led\_strip\_new\_spi\_device**](#function-led_strip_new_spi_device) (const [**led\_strip\_config\_t**](#struct-led_strip_config_t) \*led\_config, const [**led\_strip\_spi\_config\_t**](#struct-led_strip_spi_config_t) \*spi\_config, [**led\_strip\_handle\_t**](#struct-led_strip_t) \*ret\_strip) <br>_Create LED strip based on SPI MOSI channel._ |
+|  esp\_err\_t | [**led\_strip\_new\_spi\_device**](#function-led_strip_new_spi_device) (const [**led\_strip\_config\_t**](#struct-led_strip_config_t) \*led\_config, const [**led\_strip\_spi\_config\_t**](#struct-led_strip_spi_config_t) \*spi\_config, [**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) \*ret\_strip) <br>_Create LED strip based on SPI MOSI channel._ |
 
 ## Structures and Types Documentation
 
@@ -261,7 +261,7 @@ Variables:
 
 - spi\_clock\_source\_t clk_src  <br>SPI clock source
 
-- struct [**led\_strip\_spi\_config\_t**](#struct-led_strip_spi_config_t) flags  <br>Extra driver flags
+- struct led\_strip\_spi\_config\_t::@1 flags  <br>Extra driver flags
 
 - spi\_host\_device\_t spi_bus  <br>SPI bus ID. Which buses are available depends on the specific chip
 
@@ -346,13 +346,13 @@ _LED Strip Configuration._
 
 Variables:
 
-- struct [**led\_strip\_config\_t**](#struct-led_strip_config_t) flags  <br>Extra driver flags
+- struct led\_strip\_config\_t::@2 flags  <br>Extra driver flags
 
 - uint32\_t invert_out  <br>Invert output signal
 
-- led\_model\_t led_model  <br>LED model
+- [**led\_model\_t**](#enum-led_model_t) led_model  <br>LED model
 
-- led\_pixel\_format\_t led_pixel_format  <br>LED pixel format
+- [**led\_pixel\_format\_t**](#enum-led_pixel_format_t) led_pixel_format  <br>LED pixel format
 
 - uint32\_t max_leds  <br>Maximum LEDs in a single strip
 

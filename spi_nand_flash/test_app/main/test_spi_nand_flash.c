@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
+#include <inttypes.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
@@ -129,7 +130,7 @@ static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_
 {
     uint8_t *temp_buf = NULL;
     uint8_t *pattern_buf = NULL;
-    uint16_t sector_size, sector_num;
+    uint32_t sector_size, sector_num;
 
     TEST_ESP_OK(spi_nand_flash_get_capacity(flash, &sector_num));
     TEST_ESP_OK(spi_nand_flash_get_sector_size(flash, &sector_size));
@@ -153,14 +154,14 @@ static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_
 
 TEST_CASE("write nand flash sectors", "[spi_nand_flash]")
 {
-    uint16_t sector_num, sector_size;
+    uint32_t sector_num, sector_size;
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
     setup_nand_flash(&nand_flash_device_handle, &spi);
 
     TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
     TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
-    printf("Number of sectors: %d, Sector size: %d\n", sector_num, sector_size);
+    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
 
     do_single_write_test(nand_flash_device_handle, 1, 16);
     do_single_write_test(nand_flash_device_handle, 16, 32);

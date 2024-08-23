@@ -1,3 +1,19 @@
+## 2.5.5
+
+- Simplified the led_strip component dependency, the time of full build with ESP-IDF v5.3 can now be shorter.
+
+## 2.5.4
+
+- Inserted extra delay when initialize the SPI LED device, to ensure all LEDs are in the reset state correctly
+
+## 2.5.3
+
+- Extend reset time (280us) to support WS2812B-V5
+
+## 2.5.2
+
+- Added API reference doc (api.md)
+
 ## 2.5.0
 
 - Enabled support for IDF4.4 and above

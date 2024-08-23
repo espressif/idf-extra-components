@@ -33,7 +33,7 @@ DRESULT ff_nand_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
     ESP_LOGV(TAG, "ff_nand_read - pdrv=%i, sector=%i, count=%i", (unsigned int) pdrv, (unsigned int) sector,
              (unsigned int) count);
     esp_err_t ret;
-    uint16_t sector_size;
+    uint32_t sector_size;
     spi_nand_flash_device_t *dev = ff_nand_handles[pdrv];
     assert(dev);
 
@@ -56,7 +56,7 @@ DRESULT ff_nand_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
     ESP_LOGV(TAG, "ff_nand_write - pdrv=%i, sector=%i, count=%i", (unsigned int) pdrv, (unsigned int) sector,
              (unsigned int) count);
     esp_err_t ret;
-    uint16_t sector_size;
+    uint32_t sector_size;
     spi_nand_flash_device_t *dev = ff_nand_handles[pdrv];
     assert(dev);
 
@@ -85,7 +85,7 @@ DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         ESP_GOTO_ON_ERROR(spi_nand_flash_sync(dev), fail, TAG, "sync failed");
         break;
     case GET_SECTOR_COUNT: {
-        uint16_t num_sectors;
+        uint32_t num_sectors;
         ESP_GOTO_ON_ERROR(spi_nand_flash_get_capacity(dev, &num_sectors),
                           fail, TAG, "get_capacity failed");
         *((DWORD *)buff) = num_sectors;
@@ -93,9 +93,15 @@ DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         break;
     }
     case GET_SECTOR_SIZE: {
-        uint16_t capacity;
+        uint32_t capacity;
         ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &capacity),
                           fail, TAG, "get_sector_size failed");
+
+        if (capacity > 0xFFFF) {
+            ESP_LOGE(TAG, "sector size too large");
+            return RES_PARERR;
+        }
+
         *((WORD *)buff) = capacity;
         ESP_LOGV(TAG, "sector size=%d", *((WORD *)buff));
         break;

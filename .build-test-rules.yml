@@ -78,3 +78,9 @@ esp_custom_part_ota:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: Component is supported from ESP-IDF v5.0 onwards
+
+thorvg/examples/thorvg-example:
+  enable:
+    - if: (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) and (IDF_TARGET in ["esp32p4"])
+      reason: Example depends on BSP, which is supported only for IDF >= 5.3 and limited targets
+

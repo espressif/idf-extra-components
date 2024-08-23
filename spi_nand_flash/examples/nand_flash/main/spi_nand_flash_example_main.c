@@ -121,6 +121,7 @@ static spi_nand_flash_device_t *example_init_nand_flash(void)
         .sclk_io_num = PIN_CLK,
         .quadhd_io_num = PIN_HD,
         .quadwp_io_num = PIN_WP,
+        .max_transfer_sz = 4096 * 2,
     };
 
     // Initialize the SPI bus

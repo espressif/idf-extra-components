@@ -47,7 +47,7 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
  * @param sector_id The id of the sector to read.
  * @return ESP_OK on success, or a flash error code if the read failed.
  */
-esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, uint16_t sector_id);
+esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, dhara_sector_t sector_id);
 
 /** @brief Write a sector to the nand flash.
  *
@@ -56,7 +56,7 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
  * @param sector_id The id of the sector to write.
  * @return ESP_OK on success, or a flash error code if the write failed.
  */
-esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint16_t sector_id);
+esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, dhara_sector_t sector_id);
 
 /** @brief Synchronizes any cache to the device.
  *
@@ -73,7 +73,7 @@ esp_err_t spi_nand_flash_sync(spi_nand_flash_device_t *handle);
  * @param[out] number_of_sectors A pointer of where to put the return value
  * @return ESP_OK on success, or a flash error code if the operation failed.
  */
-esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, uint16_t *number_of_sectors);
+esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, dhara_sector_t *number_of_sectors);
 
 /** @brief Retrieve the size of each sector.
  *
@@ -81,7 +81,7 @@ esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, uint16_t 
  * @param[out] number_of_sectors A pointer of where to put the return value
  * @return ESP_OK on success, or a flash error code if the operation failed.
  */
-esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint16_t *sector_size);
+esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint32_t *sector_size);
 
 /** @brief Erases the entire chip, invalidating any data on the chip.
  *
