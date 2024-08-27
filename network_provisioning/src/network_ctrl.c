@@ -63,7 +63,7 @@ static esp_err_t cmd_ctrl_reset_handler(NetworkCtrlPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_ctrl_wifi_reset__init(resp_payload);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (h->wifi_ctrl_reset) {
             resp->status = (h->wifi_ctrl_reset() == ESP_OK ? STATUS__Success : STATUS__InternalError);
         } else {
@@ -81,7 +81,7 @@ static esp_err_t cmd_ctrl_reset_handler(NetworkCtrlPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_ctrl_thread_reset__init(resp_payload);
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (h->thread_ctrl_reset) {
             resp->status = (h->thread_ctrl_reset() == ESP_OK ? STATUS__Success : STATUS__InternalError);
         } else {
@@ -111,7 +111,7 @@ static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_ctrl_wifi_reprov__init(resp_payload);
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (h->wifi_ctrl_reprov) {
             resp->status = (h->wifi_ctrl_reprov() == ESP_OK ? STATUS__Success : STATUS__InternalError);
         } else {
@@ -129,7 +129,7 @@ static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_ctrl_thread_reprov__init(resp_payload);
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (h->thread_ctrl_reprov) {
             resp->status = (h->thread_ctrl_reprov() == ESP_OK ? STATUS__Success : STATUS__InternalError);
         } else {

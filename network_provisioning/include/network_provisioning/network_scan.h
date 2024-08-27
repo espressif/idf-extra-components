@@ -11,17 +11,17 @@
 extern "C" {
 #endif
 #include <sdkconfig.h>
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 #include <esp_wifi.h>
 
 #define WIFI_SSID_LEN  sizeof(((wifi_ap_record_t *)0)->ssid)
 #define WIFI_BSSID_LEN sizeof(((wifi_ap_record_t *)0)->bssid)
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 #include <openthread/dataset.h>
 #include <openthread/platform/radio.h>
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 /**
  * @brief   Type of context data passed to each get/set/apply handler
@@ -32,7 +32,7 @@ extern "C" {
  */
 typedef struct network_prov_scan_ctx network_prov_scan_ctx_t;
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 /**
  * @brief   Structure of entries in the scan results list
  */
@@ -62,9 +62,9 @@ typedef struct {
      */
     uint8_t auth;
 } network_prov_scan_wifi_result_t;
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 typedef struct {
     uint16_t pan_id;
     uint8_t ext_pan_id[OT_EXT_ADDRESS_SIZE];
@@ -74,7 +74,7 @@ typedef struct {
     int8_t rssi;
     uint8_t lqi;
 } network_prov_scan_thread_result_t;
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 /**
  * @brief   Internal handlers for receiving and responding to protocomm
@@ -84,7 +84,7 @@ typedef struct {
  * (refer to `network_prov_scan_handler()`) when calling `protocomm_add_endpoint()`.
  */
 typedef struct network_prov_scan_handlers {
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
      * Handler function called when scan start command is received
      * with various scan parameters :
@@ -157,9 +157,9 @@ typedef struct network_prov_scan_handlers {
     esp_err_t (*wifi_scan_result)(uint16_t result_index,
                                   network_prov_scan_wifi_result_t *result,
                                   network_prov_scan_ctx_t **ctx);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     esp_err_t (*thread_scan_start)(bool blocking, uint32_t channel_mask, network_prov_scan_ctx_t **ctx);
 
     esp_err_t (*thread_scan_status)(bool *scan_finished,
@@ -169,7 +169,7 @@ typedef struct network_prov_scan_handlers {
     esp_err_t (*thread_scan_result)(uint16_t result_index,
                                     network_prov_scan_thread_result_t *result,
                                     network_prov_scan_ctx_t **ctx);
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     /**
      * Context pointer to be passed to above handler functions upon invocation

@@ -14,9 +14,9 @@
 #include "network_provisioning/network_scan.h"
 #include "network_ctrl.h"
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 #include "openthread/link.h"
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 /**
  * @brief   Notify manager that provisioning is done
@@ -32,7 +32,7 @@
  */
 esp_err_t network_prov_mgr_done(void);
 
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 /**
  * @brief   Start Wi-Fi AP Scan
  *
@@ -76,9 +76,9 @@ uint16_t network_prov_mgr_wifi_scan_result_count(void);
  *  - result : Pointer to Access Point record
  */
 const wifi_ap_record_t *network_prov_mgr_wifi_scan_result(uint16_t index);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 /**
  * @brief   Start Thread network Scan
  *
@@ -117,7 +117,7 @@ uint16_t network_prov_mgr_thread_scan_result_count(void);
  */
 const otActiveScanResult *network_prov_mgr_thread_scan_result(uint16_t index);
 
-#endif
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
 /**
  * @brief   Get protocomm handlers for network_config provisioning endpoint

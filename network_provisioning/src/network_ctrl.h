@@ -21,7 +21,7 @@ extern "C" {
  * (refer to `network_ctrl_handler()`) when calling `protocomm_add_endpoint()`.
  */
 typedef struct network_ctrl_handlers {
-#if CONFIG_ESP_WIFI_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
      * Handler functions called when ctrl reset command is received
      */
@@ -31,12 +31,12 @@ typedef struct network_ctrl_handlers {
      * Handler functions called when ctrl reprov command is received
      */
     esp_err_t (*wifi_ctrl_reprov)(void);
-#endif // CONFIG_ESP_WIFI_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
-#if CONFIG_OPENTHREAD_ENABLED
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     esp_err_t (*thread_ctrl_reset)(void);
     esp_err_t (*thread_ctrl_reprov)(void);
-#endif // CONFIG_OPENTHREAD_ENABLED
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 } network_ctrl_handlers_t;
 
 /**
