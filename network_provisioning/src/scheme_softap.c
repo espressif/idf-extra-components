@@ -182,7 +182,7 @@ const network_prov_scheme_t network_prov_scheme_softap = {
     .delete_config       = delete_config,
     .set_config_service  = set_config_service,
     .set_config_endpoint = set_config_endpoint,
-#ifdef NETWORK_PROV_NETWORK_TYPE_WIFI
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     .wifi_mode           = WIFI_MODE_APSTA
 #endif
 };
