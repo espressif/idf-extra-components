@@ -13,7 +13,7 @@ if(CONFIG_ESP_WIFI_ENABLED AND CONFIG_ESP_WIFI_SOFTAP_SUPPORT)
     list(APPEND srcs "src/scheme_softap.c")
 endif()
 
-if(CONFIG_SOC_BT_SUPPORTED AND CONFIG_BT_ENABLED)
+if(CONFIG_BT_ENABLED)
     if(CONFIG_BT_BLUEDROID_ENABLED OR CONFIG_BT_NIMBLE_ENABLED)
         list(APPEND srcs
             "src/scheme_ble.c")
