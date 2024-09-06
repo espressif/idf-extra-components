@@ -163,4 +163,16 @@ menu "CoAP Configuration"
             If both this option and COAP_CLIENT_SUPPORT are disabled, then both
             are automatically enabled for backwards compatability.
 
+    config COAP_PROXY_SUPPORT
+        bool "Enable Proxy functionality within CoAP"
+        depends on COAP_CLIENT_SUPPORT && COAP_SERVER_SUPPORT
+        default n
+        help
+            Enable Proxy functionality (ability to receive requests, pass
+            them to an upstream server and send back responses to client)
+            for CoAP.
+
+            If this option is disabled, redundant CoAP proxy only code is
+            removed.
+
 endmenu
