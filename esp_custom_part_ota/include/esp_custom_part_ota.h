@@ -54,7 +54,7 @@ esp_err_t esp_custom_part_ota_write(esp_custom_part_ota_handle_t handle, const v
 
 
 /**
- * @brief   Finish OTA update
+ * @brief   Finish OTA update. NOTE - Please note that this does not erase the actual data on the flash. For that you may need to explicitly erase the backup partition.
  *
  * @param ctx   esp_custom_part_ota_handle_t
  *
@@ -66,7 +66,7 @@ esp_err_t esp_custom_part_ota_end(esp_custom_part_ota_handle_t handle);
 
 
 /**
- * @brief   Abort the OTA update process and free the handle
+ * @brief   Abort the OTA update process and free the handle. NOTE - Before aborting the OTA, you need to call esp_custom_part_ota_partition_restore to restore the backup if available.
  *
  * @param ctx   esp_custom_part_ota_handle_t
  *

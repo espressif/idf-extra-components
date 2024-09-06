@@ -148,6 +148,11 @@ static void custom_part_ota_example_task(void *pvParameter)
             err = esp_custom_part_ota_write(ota_handle, (const void *)ota_write_data, data_read);
             if (err != ESP_OK) {
                 http_cleanup(client);
+                esp_err_t ret = esp_custom_part_ota_partition_restore(ota_handle);
+                if (ret != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to restore the ota partition data");
+                    task_fatal_error();
+                }
                 esp_custom_part_ota_abort(ota_handle);
                 task_fatal_error();
             }

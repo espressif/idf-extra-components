@@ -27,6 +27,29 @@ typedef struct {
     bool need_erase;
 } esp_custom_part_ota_t;
 
+static esp_err_t set_nvs_backup_length(uint32_t backup_length)
+{
+    nvs_handle_t backup_info_handle = 0;
+    esp_err_t ret = 0;
+    ret = nvs_open(BACKUP_STORAGE_NAMESPACE, NVS_READWRITE, &backup_info_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ret = nvs_set_u32(backup_info_handle, BACKUP_STORAGE_DATA_LEN, backup_length);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ret = nvs_commit(backup_info_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    nvs_close(backup_info_handle);
+    return ret;
+}
+
 esp_custom_part_ota_handle_t esp_custom_part_ota_begin(esp_custom_part_ota_cfg_t config)
 {
     if (!config.update_partition) {
@@ -99,6 +122,13 @@ esp_err_t esp_custom_part_ota_end(esp_custom_part_ota_handle_t handle)
     if (ctx->wrote_size == 0) {
         return ESP_ERR_INVALID_ARG;
     }
+
+    if (ctx->backup_partition) {
+        esp_err_t ret = set_nvs_backup_length(0);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+    }
     free(ctx);
     return ESP_OK;
 }
@@ -160,24 +190,10 @@ end:
     free(data);
     if (ret == ESP_OK) {
         // Store backup data information in the default NVS partition.
-        nvs_handle_t backup_info_handle = 0;
-        ret = nvs_open(BACKUP_STORAGE_NAMESPACE, NVS_READWRITE, &backup_info_handle);
+        ret = set_nvs_backup_length(ctx->backup_len);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
-            return ret;
+            ESP_LOGW(TAG, "Failed to set nvs backup length to zero");
         }
-        ret = nvs_set_u32(backup_info_handle, BACKUP_STORAGE_DATA_LEN, ctx->backup_len);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
-            return ret;
-        }
-        ret = nvs_commit(backup_info_handle);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
-            return ret;
-        }
-        nvs_close(backup_info_handle);
-
         ret = esp_partition_erase_range(ctx->update_partition, 0, ctx->update_partition->size);
         if (ret == ESP_OK) {
             ctx->need_erase = 0;
@@ -249,23 +265,7 @@ esp_err_t esp_custom_part_ota_partition_restore(esp_custom_part_ota_handle_t han
     }
 end:
     if (ret == ESP_OK) {
-        nvs_handle_t backup_info_handle = 0;
-        ret = nvs_open(BACKUP_STORAGE_NAMESPACE, NVS_READWRITE, &backup_info_handle);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
-            return ret;
-        }
-        ret = nvs_set_u32(backup_info_handle, BACKUP_STORAGE_DATA_LEN, 0);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
-            return ret;
-        }
-        ret = nvs_commit(backup_info_handle);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to store backup information: %s", esp_err_to_name(ret));
-            return ret;
-        }
-        nvs_close(backup_info_handle);
+        ret = set_nvs_backup_length(0);
     }
     return ret;
 }
