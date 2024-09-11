@@ -5,4 +5,6 @@ supplier: 'Organization: libexpat_project'
 description: Fast streaming XML parser written in C99
 url: https://github.com/libexpat/libexpat/
 hash: 88b3ed553d8ad335559254863a33360d55b9f1d6
-
+cve-exclude-list:
+  - cve: CVE-2024-28757
+    reason: Resolved in version 2.6.2
