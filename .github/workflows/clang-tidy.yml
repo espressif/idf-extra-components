@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-20.04
     container: espressif/idf:latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Install esp-clang
@@ -41,7 +41,7 @@ jobs:
           export PATH=$PWD:$PATH
           ./clang-tidy-sarif -o results.sarif.raw warnings.txt
           python3 $GITHUB_WORKSPACE/.github/filter_sarif.py -o results.sarif --include-prefix ${GITHUB_WORKSPACE}/ results.sarif.raw
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           path: |
             warnings.txt

@@ -31,7 +31,7 @@ jobs:
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           idf.py build
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
           path: |
@@ -40,27 +40,6 @@ jobs:
             test_app/build/idf_extra_test_app.bin
             test_app/build/idf_extra_test_app.elf
             test_app/build/flasher_args.json
-
-  # Keeping this here for future reference. QEMU tests are not passing now
-  #run-qemu:
-  #  name: Run Test App in QEMU
-  #  needs: build
-  #  strategy:
-  #    matrix:
-  #      idf_ver: ["release-v4.4", "latest"] #FIXME: QEMU is crashing with v4.3 build
-  #  runs-on: ubuntu-20.04
-  #  container: ageon/pytest_env
-  #  steps:
-  #    - uses: actions/checkout@v2
-  #      with:
-  #        fetch-depth: 0
-  #    - uses: actions/download-artifact@v2
-  #      with:
-  #        name: test_app_bin_esp32_${{ matrix.idf_ver }}
-  #        path: test_app/build
-  #    - name: Run Test App in QEMU
-  #      working-directory: test_app
-  #      run: pytest -s --junit-xml=./test_app_results.xml --embedded-services qemu
 
   run-target:
     name: Run Test App on target
@@ -78,8 +57,8 @@ jobs:
       image: python:3.7-buster
       options: --privileged # Privileged mode has access to serial ports
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v2
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
           path: test_app/build
@@ -90,7 +69,7 @@ jobs:
       - name: Run Test App on target
         working-directory: test_app
         run: pytest --junit-xml=./test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}.xml --target=${{ matrix.idf_target }}
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test_app_results_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
@@ -103,7 +82,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Download Test results
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: test_results
       - name: Publish Test Results
