@@ -51,10 +51,8 @@ jobs:
         idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         idf_target: ["esp32", "esp32c3", "esp32s3"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     container:
-      image: python:3.7-buster
+      image: python:3.11-bookworm
       options: --privileged # Privileged mode has access to serial ports
     steps:
       - uses: actions/checkout@v4
