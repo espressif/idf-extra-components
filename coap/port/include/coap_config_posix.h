@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <net/if.h>
+#include "lwip/init.h"
 
 #define HAVE_SYS_SOCKET_H
 #define HAVE_MALLOC
@@ -40,10 +41,13 @@ struct in6_pktinfo {
     struct in6_addr ipi6_addr;        /* src/dst IPv6 address */
     unsigned int ipi6_ifindex;        /* send/recv interface index */
 };
+
+#if LWIP_VERSION < 0x02020000
 #define IN6_IS_ADDR_V4MAPPED(a) \
         ((((__const uint32_t *) (a))[0] == 0)                                 \
          && (((__const uint32_t *) (a))[1] == 0)                              \
          && (((__const uint32_t *) (a))[2] == htonl (0xffff)))
+#endif // LWIP_VERSION < 0x02020000
 
 /* As not defined, just need to define is as something innocuous */
 #define IPV6_PKTINFO IPV6_CHECKSUM

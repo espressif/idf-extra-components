@@ -203,7 +203,7 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
         config->gc_factor = 45;
     }
 
-    *handle = calloc(sizeof(spi_nand_flash_device_t), 1);
+    *handle = calloc(1, sizeof(spi_nand_flash_device_t));
     if (*handle == NULL) {
         return ESP_ERR_NO_MEM;
     }

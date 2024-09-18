@@ -1,0 +1,17 @@
+[binaries]
+cpp = '${CMAKE_CXX_COMPILER}'
+ar = '${CMAKE_CXX_COMPILER_AR}'
+as = '${CMAKE_ASM_COMPILER}'
+ranlib = '${CMAKE_CXX_COMPILER_RANLIB}'
+ld = '${CMAKE_LINKER}'
+strip = '${CMAKE_STRIP}'
+
+[built-in options]
+cpp_args = ['-D_GNU_SOURCE','-D__linux__',${MESON_CXX_FLAGS}]
+cpp_link_args = [${MESON_LINKER_FLAGS}]
+
+[host_machine]
+system = 'esp-idf'
+cpu_family = '${cpu_family}'
+cpu = 'esp'
+endian = 'little'

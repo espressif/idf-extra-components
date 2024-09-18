@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-20.04
     container: espressif/idf:${{ matrix.idf_ver }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'true'
       - name: Build Examples
@@ -30,9 +30,9 @@ jobs:
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           idf-build-apps find --config sdkconfig.ci
           idf-build-apps build --ignore-warning-file .ignore_build_warnings.txt --config sdkconfig.ci --parallel-index ${{ matrix.parallel_index }}
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: example_binaries_${{ matrix.idf_ver }}
+          name: example_binaries_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}
           path: |
             */examples/*/build_esp*/bootloader/bootloader.bin
             */examples/*/build_esp*/partition_table/partition-table.bin
@@ -50,16 +50,15 @@ jobs:
         idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         idf_target: ["esp32"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}"]
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     container:
-      image: python:3.7-buster
+      image: python:3.11-bookworm
       options: --privileged # Privileged mode has access to serial ports
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: example_binaries_${{ matrix.idf_ver }}
+          pattern: example_binaries_${{ matrix.idf_ver }}_*
+          merge-multiple: true
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
@@ -81,16 +80,15 @@ jobs:
         idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "latest"]
         idf_target: ["esp32"]
     runs-on: [self-hosted, ESP32-ETHERNET-KIT]
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     container:
-      image: python:3.7-buster
+      image: python:3.11-bookworm
       options: --privileged # Privileged mode has access to serial ports
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: example_binaries_${{ matrix.idf_ver }}
+          pattern: example_binaries_${{ matrix.idf_ver }}_*
+          merge-multiple: true
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
