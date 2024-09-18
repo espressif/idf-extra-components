@@ -5,6 +5,7 @@ exclude = [
     "test_app",
 ]
 manifest_file = [
+    "bdc_motor/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true
