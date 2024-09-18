@@ -23,12 +23,15 @@ body:
         - bdc_motor
         - catch2
         - cbor
+        - ccomp_timer
         - coap
         - coremark
+        - dhara
         - eigen
+        - esp_delta_ota
         - esp_encrypted_img
-        - esp_lcd_qemu_rgb
         - esp_jpeg
+        - esp_lcd_qemu_rgb
         - esp_serial_slave_link
         - expat
         - fmt
@@ -38,15 +41,20 @@ body:
         - json_generator
         - json_parser
         - led_strip
+        - libpng
         - libsodium
+        - network_provisioning
         - nghttp
         - onewire_bus
         - pcap
         - pid_ctrl
         - qrcode
+        - quirc
         - sh2lib
-        - test_app
+        - spi_nand_flash
+        - supertinycron
         - thorvg
+        - zlib
         - Other
     validations:
       required: true
