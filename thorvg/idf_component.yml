@@ -10,3 +10,10 @@ sbom:
   manifests:
     - path: sbom_thorvg.yml
       dest: thorvg
+files:
+  exclude:
+    - "thorvg/docs/**/*"
+    - "thorvg/examples/**/*"
+    - "thorvg/res/**/*"
+    - "thorvg/test/**/*"
+    - "thorvg/web/**/*"
