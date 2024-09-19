@@ -1,0 +1,4 @@
+dependencies:
+  espressif/esp_serial_slave_link:
+    version: "*"
+    override_path: "../.."
