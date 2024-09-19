@@ -28,4 +28,5 @@ check_warnings = true
 
 # build related options
 build_dir = "build_@t_@w"
-parallel_count = 5
+config = "sdkconfig.ci"
+ignore_warning_file = ".ignore_build_warnings.txt"

@@ -1,0 +1,147 @@
+name: Build and Run Apps
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Once per day at midnight
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  build:
+    name: Build Apps
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: 
+          - "release-v5.0"
+          - "release-v5.1"
+          - "release-v5.2"
+          - "release-v5.3"
+          - "latest"
+        parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
+    runs-on: ubuntu-22.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Install dependencies
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          pip install --upgrade idf-component-manager 'idf-build-apps>=2.4,<2.5'
+      - name: Fix git repo permissions
+        # Needed by the next git diff step.
+        # See https://github.com/actions/runner/issues/2033
+        if: github.event_name == 'pull_request'
+        run: |
+          build_dir=$PWD
+          cd /
+          git config --global --add safe.directory $build_dir
+          cd -
+      - name: Find files and component changed in PR
+        if: github.event_name == 'pull_request'
+        # For PRs only:
+        # - find the files changed in the PR
+        # - based on the files list, determine which components have changed
+        # - output both lists as a file of idf-build-apps arguments
+        run: |
+          git fetch --recurse-submodules=no origin ${{ github.base_ref }}:base_ref
+          git fetch --recurse-submodules=no origin pull/${{ github.event.pull_request.number }}/head:pr_ref
+          git diff --name-only -r base_ref pr_ref > changed_files.txt
+          python3 .github/get_idf_build_apps_args.py -v changed_files.txt idf_build_apps_args.txt
+      - name: Find apps
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          idf-build-apps find
+      - name: Build apps
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          touch idf_build_apps_args.txt
+          idf-build-apps build --parallel-index ${{ matrix.parallel_index }} --parallel-count 5 --collect-app-info build_info_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json $(cat idf_build_apps_args.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app_binaries_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}
+          path: |
+            */examples/*/build_esp*/bootloader/bootloader.bin
+            */examples/*/build_esp*/partition_table/partition-table.bin
+            */examples/*/build_esp*/*.bin
+            */examples/*/build_esp*/flasher_args.json
+            */examples/*/build_esp*/config/sdkconfig.json
+            */test_apps/**/build_esp*/bootloader/bootloader.bin
+            */test_apps/**/build_esp*/partition_table/partition-table.bin
+            */test_apps/**/build_esp*/*.bin
+            */test_apps/**/build_esp*/flasher_args.json
+            */test_apps/**/build_esp*/config/sdkconfig.json
+            build_info*.json
+
+  run-target:
+    name: Run apps on target
+    if: ${{ github.repository_owner == 'espressif' }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver:
+          - "release-v5.0"
+          - "release-v5.1"
+          - "release-v5.2"
+          - "release-v5.3"
+          - "latest"
+        runner:
+          - runs-on: "esp32"
+            marker: "generic"
+            target: "esp32"
+          - runs-on: "ESP32-ETHERNET-KIT"
+            marker: "ethernet"
+            target: "esp32"
+    env:
+      TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
+      TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
+    runs-on: [self-hosted, linux, docker, "${{ matrix.runner.runs-on }}"]
+    container:
+      image: python:3.11-bookworm
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: app_binaries_${{ matrix.idf_ver }}_*
+          merge-multiple: true
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+      - name: Run apps
+        run: |
+          python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
+          cat pytest-args.txt
+          pytest $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=test_app --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }}
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.TEST_RESULT_NAME }}
+          path: ${{ env.TEST_RESULT_FILE }}
+
+  publish-results:
+    name: Publish Test results
+    needs:
+      - run-target
+    if: ${{ always() && github.repository_owner == 'espressif' }} # Run even if the previous step failed
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download Test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test_results_*
+          path: test_results
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: test_results/**/*.xml

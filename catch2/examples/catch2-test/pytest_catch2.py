@@ -5,7 +5,6 @@ import pytest
 from pytest_embedded import Dut
 
 
-@pytest.mark.supported_targets
 @pytest.mark.generic
 def test_catch2_example(dut: Dut) -> None:
     dut.expect_exact('All tests passed')
