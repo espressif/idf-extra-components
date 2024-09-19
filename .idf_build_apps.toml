@@ -18,6 +18,7 @@ manifest_file = [
     "libsodium/.build-test-rules.yml",
     "onewire_bus/.build-test-rules.yml",
     "pcap/.build-test-rules.yml",
+    "pid_ctrl/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true
