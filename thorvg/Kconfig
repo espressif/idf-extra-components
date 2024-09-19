@@ -7,7 +7,7 @@ menu "ThorVG Support Options"
             Enable ThorVG log.
 
     config THORVG_THREAD_ENABLED
-        bool "Enable ThorVG thread"
+        bool "Enable ThorVG threading support"
         default n
         help
             Enable ThorVG thread.
