@@ -6,6 +6,7 @@ exclude = [
 ]
 manifest_file = [
     "bdc_motor/.build-test-rules.yml",
+    "ccomp_timer/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true
