@@ -17,38 +17,26 @@ menu "ThorVG Support Options"
         config THORVG_LOTTIE_LOADER_SUPPORT
             bool "Enable Lottie loader support"
             default y
-            help
-                Enable Lottie loader support.
 
         config THORVG_TVG_LOADER_SUPPORT
             bool "Enable tvg loader support"
             default y
-            help
-                Enable TVG loader support.
 
         config THORVG_SVG_LOADER_SUPPORT
             bool "Enable svg loader support"
             default y
-            help
-                Enable SVG loader support.
 
         config THORVG_PNG_LOADER_SUPPORT
             bool "Enable png loader support"
             default n
-            help
-                Enable PNG loader support.
 
         config THORVG_JPEG_LOADER_SUPPORT
             bool "Enable jpeg loader support"
             default n
-            help
-                Enable JPEG loader support.
 
         config THORVG_WEBP_LOADER_SUPPORT
             bool "Enable webp loader support"
             default n
-            help
-                Enable WEBP loader support.
 
     endmenu
 
