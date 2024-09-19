@@ -1,0 +1,4 @@
+dependencies:
+  espressif/pcap:
+    version: "*"
+    override_path: "../.."
