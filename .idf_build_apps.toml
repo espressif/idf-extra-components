@@ -14,6 +14,7 @@ manifest_file = [
     "jsmn/.build-test-rules.yml",
     "json_generator/.build-test-rules.yml",
     "json_parser/.build-test-rules.yml",
+    "libpng/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true
