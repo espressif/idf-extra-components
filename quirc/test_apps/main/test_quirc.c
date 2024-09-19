@@ -70,20 +70,22 @@ TEST_CASE("quirc can load a QR code", "[quirc]")
     // decode the QR code in the image
     // quirc uses a lot of stack space (around 10kB on ESP32 for this particular QR code),
     // so do this in a separate task
-    quirc_decode_task_args_t args = {
-        .q = q,
-        .done = xSemaphoreCreateBinary(),
-    };
-    TEST_ASSERT(xTaskCreate(quirc_decode_task, "quirc_decode_task", 12000, &args, 5, NULL));
-    TEST_ASSERT(xSemaphoreTake(args.done, pdMS_TO_TICKS(10000)));
-    vSemaphoreDelete(args.done);
+    quirc_decode_task_args_t *args = calloc(1, sizeof(*args));
+    TEST_ASSERT_NOT_NULL(args);
+    args->q = q;
+    args->done = xSemaphoreCreateBinary();
+    TEST_ASSERT(xTaskCreate(quirc_decode_task, "quirc_decode_task", 12000, args, 5, NULL));
+    TEST_ASSERT(xSemaphoreTake(args->done, pdMS_TO_TICKS(10000)));
+    vSemaphoreDelete(args->done);
 
     // check the QR code data
-    TEST_ASSERT_EQUAL_INT(1, args.data.version);
-    TEST_ASSERT_EQUAL_INT(1, args.data.ecc_level);
-    TEST_ASSERT_EQUAL_INT(4, args.data.data_type);
-    TEST_ASSERT_EQUAL_INT(13, args.data.payload_len);
-    TEST_ASSERT_EQUAL_STRING("test of quirc", args.data.payload);
+    TEST_ASSERT_EQUAL_INT(1, args->data.version);
+    TEST_ASSERT_EQUAL_INT(1, args->data.ecc_level);
+    TEST_ASSERT_EQUAL_INT(4, args->data.data_type);
+    TEST_ASSERT_EQUAL_INT(13, args->data.payload_len);
+    TEST_ASSERT_EQUAL_STRING("test of quirc", args->data.payload);
 
+    free(args);
     quirc_destroy(q);
+    vTaskDelay(2);  // allow the task to clean up
 }
