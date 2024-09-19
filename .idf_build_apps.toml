@@ -12,6 +12,7 @@ manifest_file = [
     "esp_serial_slave_link/.build-test-rules.yml",
     "expat/.build-test-rules.yml",
     "jsmn/.build-test-rules.yml",
+    "json_generator/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true
