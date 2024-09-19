@@ -8,7 +8,7 @@ menu "ThorVG Support Options"
 
     config THORVG_THREAD_ENABLED
         bool "Enable ThorVG threading support"
-        default n
+        default y
         help
             Enable ThorVG threading support. This option can be disabled if ThorVG is only used from one FreeRTOS task.
 
