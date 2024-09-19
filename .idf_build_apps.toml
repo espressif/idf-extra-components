@@ -13,6 +13,7 @@ manifest_file = [
     "expat/.build-test-rules.yml",
     "jsmn/.build-test-rules.yml",
     "json_generator/.build-test-rules.yml",
+    "json_parser/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true

@@ -1,0 +1,4 @@
+dependencies:
+  espressif/json_parser:
+    version: "*"
+    override_path: "../.."
