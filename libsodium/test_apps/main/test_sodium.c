@@ -1,70 +1,42 @@
 /*
- * SPDX-FileCopyrightText: 2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stdio.h>
 #include "unity.h"
 #include "sodium/crypto_hash_sha256.h"
 #include "sodium/crypto_hash_sha512.h"
 
-/* Note: a lot of these libsodium test programs assert() things, but they're not complete unit tests - most expect
-   output to be compared to the matching .exp file.
 
-   We don't do this automatically yet, maybe once we have more options for
-   internal filesystem storage.
-*/
+#define LIBSODIUM_TEST(name_) \
+    extern int name_ ## _xmain(void);   \
+    extern const uint8_t name_ ## _exp_start[] asm("_binary_" #name_ "_exp_start"); \
+    extern const uint8_t name_ ## _exp_end[]   asm("_binary_" #name_ "_exp_end"); \
+    TEST_CASE("" #name_ " test vectors", "[libsodium]") { \
+        printf("Running " #name_ "\n"); \
+        FILE* old_stdout = stdout; \
+        char* test_output; \
+        size_t test_output_size; \
+        FILE* test_output_stream = open_memstream(&test_output, &test_output_size); \
+        stdout = test_output_stream; \
+        TEST_ASSERT_EQUAL(0, name_ ## _xmain()); \
+        fclose(test_output_stream); \
+        stdout = old_stdout; \
+        const char *expected = (const char*) &name_ ## _exp_start[0]; \
+        TEST_ASSERT_EQUAL_STRING(expected, test_output); \
+        free(test_output); \
+    }
 
-extern int aead_chacha20poly1305_xmain(void);
 
-TEST_CASE("aead_chacha20poly1305 test vectors", "[libsodium]")
-{
-    printf("Running aead_chacha20poly1305\n");
-    TEST_ASSERT_EQUAL(0, aead_chacha20poly1305_xmain());
-}
+LIBSODIUM_TEST(aead_chacha20poly1305)
+LIBSODIUM_TEST(chacha20)
+LIBSODIUM_TEST(box)
+LIBSODIUM_TEST(box2)
+LIBSODIUM_TEST(ed25519_convert)
+LIBSODIUM_TEST(hash)
+LIBSODIUM_TEST(sign)
 
-extern int chacha20_xmain(void);
-
-TEST_CASE("chacha20 test vectors", "[libsodium]")
-{
-    printf("Running chacha20\n");
-    TEST_ASSERT_EQUAL(0, chacha20_xmain());
-}
-
-extern int box_xmain(void);
-extern int box2_xmain(void);
-
-TEST_CASE("box tests", "[libsodium]")
-{
-    printf("Running box\n");
-    TEST_ASSERT_EQUAL(0, box_xmain());
-
-    printf("Running box2\n");
-    TEST_ASSERT_EQUAL(0, box2_xmain());
-}
-
-extern int ed25519_convert_xmain(void);
-
-TEST_CASE("ed25519_convert tests", "[libsodium][timeout=60]")
-{
-    printf("Running ed25519_convert\n");
-    TEST_ASSERT_EQUAL(0, ed25519_convert_xmain() );
-}
-
-extern int sign_xmain(void);
-
-TEST_CASE("sign tests", "[libsodium]")
-{
-    printf("Running sign\n");
-    TEST_ASSERT_EQUAL(0, sign_xmain() );
-}
-
-extern int hash_xmain(void);
-
-TEST_CASE("hash tests", "[libsodium]")
-{
-    printf("Running hash\n");
-    TEST_ASSERT_EQUAL(0, hash_xmain() );
-}
 
 TEST_CASE("sha256 sanity check", "[libsodium]")
 {
