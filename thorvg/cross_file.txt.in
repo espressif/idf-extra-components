@@ -7,7 +7,7 @@ ld = '${CMAKE_LINKER}'
 strip = '${CMAKE_STRIP}'
 
 [built-in options]
-cpp_args = ['-D_GNU_SOURCE','-D__linux__',${MESON_CXX_FLAGS}]
+cpp_args = ['-D_GNU_SOURCE','-D__linux__','-Wno-format','-fno-if-conversion',${MESON_CXX_FLAGS}]
 cpp_link_args = [${MESON_LINKER_FLAGS}]
 
 [host_machine]

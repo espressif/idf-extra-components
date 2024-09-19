@@ -1,0 +1,43 @@
+menu "ThorVG Support Options"
+
+    config THORVG_LOG_ENABLED
+        bool "Enable ThorVG log"
+        default n
+        help
+            Enable ThorVG log.
+
+    config THORVG_THREAD_ENABLED
+        bool "Enable ThorVG threading support"
+        default y
+        help
+            Enable ThorVG threading support. This option can be disabled if ThorVG is only used from one FreeRTOS task.
+
+    menu "Loaders Support"
+
+        config THORVG_LOTTIE_LOADER_SUPPORT
+            bool "Enable Lottie loader support"
+            default y
+
+        config THORVG_TVG_LOADER_SUPPORT
+            bool "Enable tvg loader support"
+            default y
+
+        config THORVG_SVG_LOADER_SUPPORT
+            bool "Enable svg loader support"
+            default y
+
+        config THORVG_PNG_LOADER_SUPPORT
+            bool "Enable png loader support"
+            default n
+
+        config THORVG_JPEG_LOADER_SUPPORT
+            bool "Enable jpeg loader support"
+            default n
+
+        config THORVG_WEBP_LOADER_SUPPORT
+            bool "Enable webp loader support"
+            default n
+
+    endmenu
+
+endmenu

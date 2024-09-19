@@ -4,7 +4,46 @@ set(TVG_INC_DIR thorvg/src/bindings/capi)
 set(TVG_SUBDIR "${CMAKE_CURRENT_SOURCE_DIR}/thorvg")
 set(TVG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build")
 set(TVG_CROSS_CFG "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build/cross_file.txt")
-set(TVG_THREADS "true")
+
+set(TVG_LOADERS_OPTION "")
+
+if(CONFIG_THORVG_LOTTIE_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "lottie")
+endif()
+
+if(CONFIG_THORVG_SVG_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "svg")
+endif()
+
+if(CONFIG_THORVG_TVG_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "tvg")
+endif()
+
+if(CONFIG_THORVG_PNG_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "png")
+endif()
+
+if(CONFIG_THORVG_JPEG_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "jpg")
+endif()
+
+if(CONFIG_THORVG_WEBP_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "webp")
+endif()
+
+list(JOIN TVG_LOADERS_OPTION "," TVG_LOADERS_OPTION)
+
+if(CONFIG_THORVG_LOG_ENABLED)
+    set(TVG_LOG "true")
+else()
+    set(TVG_LOG "false")
+endif()
+
+if(CONFIG_THORVG_THREAD_ENABLED)
+    set(TVG_THREADS "true")
+else()
+    set(TVG_THREADS "false")
+endif()
 
 idf_component_register(
     SRCS dummy.c
@@ -61,6 +100,8 @@ ExternalProject_Add(${TVG_LIB}_target
     -Ddefault_library=static # build static library
     -Db_staticpic=false # no -fPIC
     -Dthreads=${TVG_THREADS}
+    -Dlog=${TVG_LOG} # allow log output
+    -Dloaders=${TVG_LOADERS_OPTION}   # Pass the loaders option to Meson
     BUILD_COMMAND ninja -C ${TVG_BUILD_DIR}
     INSTALL_COMMAND ""
     BUILD_BYPRODUCTS ${TVG_BUILD_DIR}/src/${TVG_LIB}.a
