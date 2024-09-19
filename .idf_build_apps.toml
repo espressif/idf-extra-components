@@ -11,6 +11,7 @@ manifest_file = [
     "esp_encrypted_img/.build-test-rules.yml",
     "esp_serial_slave_link/.build-test-rules.yml",
     "expat/.build-test-rules.yml",
+    "jsmn/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true
