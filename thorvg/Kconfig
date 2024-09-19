@@ -10,7 +10,7 @@ menu "ThorVG Support Options"
         bool "Enable ThorVG threading support"
         default n
         help
-            Enable ThorVG thread.
+            Enable ThorVG threading support. This option can be disabled if ThorVG is only used from one FreeRTOS task.
 
     menu "Loaders Support"
 
