@@ -7,9 +7,13 @@ set(srcs coremark/core_list_join.c
          port/core_portme.c
 )
 
+if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+    configure_file(linker.lf.in ${CMAKE_CURRENT_BINARY_DIR}/linker.lf)
+endif()
+
 idf_component_register(SRCS ${srcs}
                        PRIV_INCLUDE_DIRS port coremark
-                       LDFRAGMENTS linker.lf
+                       LDFRAGMENTS ${CMAKE_CURRENT_BINARY_DIR}/linker.lf
                        PRIV_REQUIRES esp_timer)
 
 # compile coremark component with -O3 flag (will override the optimization level which is set globally)
