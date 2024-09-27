@@ -7,30 +7,22 @@
 #include "unity.h"
 #include "unity_test_utils.h"
 #include "esp_heap_caps.h"
-
-// Some resources are lazy allocated, the threadhold is left for that case
-#define TEST_MEMORY_LEAK_THRESHOLD (-100)
-
-static size_t before_free_8bit;
-static size_t before_free_32bit;
+#include "esp_newlib.h"
+#include "unity_test_utils_memory.h"
 
 void setUp(void)
 {
-    before_free_8bit = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    before_free_32bit = heap_caps_get_free_size(MALLOC_CAP_32BIT);
+    unity_utils_record_free_mem();
 }
 
 void tearDown(void)
 {
-    size_t after_free_8bit = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    size_t after_free_32bit = heap_caps_get_free_size(MALLOC_CAP_32BIT);
-    unity_utils_check_leak(before_free_8bit, after_free_8bit, "8BIT", TEST_MEMORY_LEAK_THRESHOLD);
-    unity_utils_check_leak(before_free_32bit, after_free_32bit, "32BIT", TEST_MEMORY_LEAK_THRESHOLD);
+    esp_reent_cleanup();    //clean up some of the newlib's lazy allocations
+    unity_utils_evaluate_leaks_direct(0);
 }
 
 void app_main(void)
 {
-    UNITY_BEGIN();
+    printf("Running spi_nand_flash component tests\n");
     unity_run_menu();
-    UNITY_END();
 }
