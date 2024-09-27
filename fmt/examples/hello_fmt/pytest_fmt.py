@@ -5,7 +5,6 @@ import pytest
 from pytest_embedded import Dut
 
 
-@pytest.mark.supported_targets
 @pytest.mark.generic
 def test_fmt_example(dut: Dut) -> None:
     dut.expect_exact('Hello, fmt!')

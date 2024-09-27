@@ -1,0 +1,4 @@
+dependencies:
+  espressif/bdc_motor:
+    version: "*"
+    override_path: "../../"

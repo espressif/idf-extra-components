@@ -5,7 +5,6 @@ import pytest
 from pytest_embedded import Dut
 
 
-@pytest.mark.esp32
 @pytest.mark.ethernet
 def test_coap_example(dut: Dut) -> None:
     dut.expect('Loaded app from partition at offset', timeout=30)

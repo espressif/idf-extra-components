@@ -1,0 +1,4 @@
+dependencies:
+  espressif/ccomp_timer:
+    version: "*"
+    override_path: ../../

@@ -5,7 +5,6 @@ import pytest
 from pytest_embedded import Dut
 
 
-@pytest.mark.supported_targets
 @pytest.mark.generic
 def test_catch2_console_example(dut: Dut) -> None:
     dut.expect_exact('Type \'help\' to get the list of commands.')

@@ -8,7 +8,6 @@ import pytest
 from pytest_embedded import Dut
 
 
-@pytest.mark.supported_targets
 @pytest.mark.generic
 def test_freetype_example(dut: Dut) -> None:
     dut.expect_exact('FreeType library initialized')

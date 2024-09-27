@@ -1,0 +1,4 @@
+dependencies:
+  espressif/json_generator:
+    version: "*"
+    override_path: "../.."

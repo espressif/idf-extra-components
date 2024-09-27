@@ -1,0 +1,4 @@
+dependencies:
+  espressif/pid_ctrl:
+    version: "*"
+    override_path: "../.."

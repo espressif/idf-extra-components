@@ -5,3 +5,14 @@ repos:
     -   id: astyle_py
         args: ['--style=otbs', '--attach-namespaces', '--attach-classes', '--indent=spaces=4', '--convert-tabs', '--align-pointer=name', '--align-reference=name', '--keep-one-line-statements', '--pad-header', '--pad-oper']
         exclude: 'network_provisioning/proto-c'
+-   repo: local
+    hooks:
+    -   id: consistency_check
+        name: Repo consistency checks
+        language: python
+        entry: python .github/consistency_check.py
+        pass_filenames: false
+        additional_dependencies:
+            - "toml; python_version < '3.11'"
+            - pyyaml
+

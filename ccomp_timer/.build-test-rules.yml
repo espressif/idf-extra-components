@@ -1,0 +1,4 @@
+ccomp_timer/test_apps:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32s2", "esp32c3"]
+      reason: "Testing on these targets is sufficient (xtensa, risc-v, single/dual core)."
