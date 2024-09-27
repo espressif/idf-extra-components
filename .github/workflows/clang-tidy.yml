@@ -2,6 +2,7 @@ name: Run clang-tidy
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize]
   push:
     branches:
       - master
@@ -9,7 +10,7 @@ on:
 jobs:
   build:
     name: Run clang-tidy
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     container: espressif/idf:latest
     steps:
       - uses: actions/checkout@v4
@@ -31,11 +32,12 @@ jobs:
         env:
           IDF_TOOLCHAIN: clang
           IDF_TARGET: esp32
-        working-directory: test_app
+        working-directory: .github/clang-tidy/test_app
         run: |
           . ${IDF_PATH}/export.sh
-          idf.py clang-check --include-paths $GITHUB_WORKSPACE --exclude-paths $PWD --run-clang-tidy-py run-clang-tidy
-          cp warnings.txt ../
+          idf.py reconfigure
+          idf.py clang-check @build/clang_check_args --run-clang-tidy-py run-clang-tidy
+          cp warnings.txt ${GITHUB_WORKSPACE}/warnings.txt
       - name: Convert clang-tidy results into SARIF output
         run: |
           export PATH=$PWD:$PATH
@@ -48,7 +50,7 @@ jobs:
             results.sarif
             results.sarif.raw
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
           category: clang-tidy

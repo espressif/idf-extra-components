@@ -8,3 +8,4 @@ dependencies.lock
 .vscode/
 doxygen/
 .cache
+warnings.txt
