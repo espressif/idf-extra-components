@@ -9,3 +9,4 @@ dependencies:
   dhara:
     version: "0.1.*"
     override_path: "../dhara"
+    require: public
