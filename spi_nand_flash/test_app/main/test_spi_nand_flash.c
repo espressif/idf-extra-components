@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
@@ -9,18 +9,18 @@
 #include <string.h>
 #include <sys/param.h>
 #include <inttypes.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <freertos/semphr.h>
-
-#include "unity.h"
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
-#include "test_utils.h"
-#include "sdkconfig.h"
-#include "esp_vfs_fat_nand.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "driver/spi_master.h"
+#include "spi_nand_flash.h"
+#include "unity.h"
 #include "soc/spi_pins.h"
+#include "sdkconfig.h"
 
 
 // Pin mapping
@@ -144,12 +144,27 @@ static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_
 
     fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
 
-    for (int i = start_sec; i < sec_count; i++) {
+    int64_t read_time = 0;
+    int64_t write_time = 0;
+
+    for (int i = start_sec; i < (start_sec + sec_count); i++) {
+        int64_t start = esp_timer_get_time();
         TEST_ESP_OK(spi_nand_flash_write_sector(flash, pattern_buf, i));
+        write_time += esp_timer_get_time() - start;
+
         memset((void *)temp_buf, 0x00, sector_size);
+
+        start = esp_timer_get_time();
         TEST_ESP_OK(spi_nand_flash_read_sector(flash, temp_buf, i));
+        read_time += esp_timer_get_time() - start;
+
         check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
     }
+    free(pattern_buf);
+    free(temp_buf);
+
+    printf("Wrote %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", sector_size * sec_count, write_time, (float)sector_size * sec_count / write_time * 1000);
+    printf("Read %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", sector_size * sec_count, read_time, (float)sector_size * sec_count / read_time * 1000);
 }
 
 TEST_CASE("write nand flash sectors", "[spi_nand_flash]")
