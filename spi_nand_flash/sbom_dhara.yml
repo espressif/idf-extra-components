@@ -1,7 +1,0 @@
-name: dhara
-version: 1b166e41b74b4a62ee6001ba5fab7a8805e80ea2 
-cpe: cpe:2.3:a:dhara:dhara:{}:*:*:*:*:*:*:*
-supplier: 'Organization: dhara'
-description: NAND Flash translation layer for small MCUs
-url: https://github.com/dlbeer/dhara
-hash: 1b166e41b74b4a62ee6001ba5fab7a8805e80ea2
