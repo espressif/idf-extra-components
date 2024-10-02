@@ -1,4 +1,4 @@
-version: "0.3.1"
+version: "0.4.0"
 description: Driver for accessing SPI NAND Flash
 url: https://github.com/espressif/idf-extra-components/tree/master/spi_nand_flash
 issues: https://github.com/espressif/idf-extra-components/issues
@@ -9,3 +9,4 @@ dependencies:
   dhara:
     version: "0.1.*"
     override_path: "../dhara"
+    require: public

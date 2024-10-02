@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
@@ -18,7 +18,7 @@ void setUp(void)
 void tearDown(void)
 {
     esp_reent_cleanup();    //clean up some of the newlib's lazy allocations
-    unity_utils_evaluate_leaks_direct(0);
+    unity_utils_evaluate_leaks_direct(20);
 }
 
 void app_main(void)

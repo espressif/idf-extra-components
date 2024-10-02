@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "esp_vfs.h"
 #include "esp_system.h"
 #include "soc/spi_pins.h"
 #include "esp_vfs_fat_nand.h"
