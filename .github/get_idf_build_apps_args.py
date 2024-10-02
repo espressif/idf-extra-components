@@ -12,10 +12,11 @@ def main():
 
     modified_files = args.modified_files_list.read().splitlines()
     idf_build_apps_args = []
-    idf_build_apps_args += [
-        '--modified-files',
-        ';'.join(modified_files)
-        ]
+    if modified_files:
+        idf_build_apps_args += [
+            '--modified-files',
+            '"' + ';'.join(modified_files) + '"'
+            ]
     
     if args.verbose:
         print('Modified files:')
@@ -32,17 +33,23 @@ def main():
             continue
         modified_components.add(toplevel)
     
-    idf_build_apps_args += [
-        '--modified-components',
-        ';'.join(modified_components)
-        ]
-    
-    args.idf_build_apps_args.write(' '.join(idf_build_apps_args))
+    if modified_components:
+        idf_build_apps_args += [
+            '--modified-components',
+            '"' + ';'.join(modified_components) + '"'
+            ]
+    else:
+        idf_build_apps_args += [
+            '--modified-components',
+            'dummy_component'
+            ]
 
     if args.verbose:
         print('Modified components:')
         for component in sorted(modified_components):
             print(f'  - {component}')
+
+    args.idf_build_apps_args.write(' '.join(idf_build_apps_args))
 
 
 if __name__ == '__main__':

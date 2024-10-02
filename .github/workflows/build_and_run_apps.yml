@@ -5,10 +5,69 @@ on:
     - cron: '0 0 * * *' # Once per day at midnight
   pull_request:
     types: [opened, reopened, synchronize]
+  push:
+    branches:
+      - master
 
 jobs:
+  prepare:
+    name: Prepare pipeline
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      test_all_apps: ${{ steps.get_labels.outputs.test_all_apps }}
+      build_only: ${{ steps.get_labels.outputs.build_only }}
+      idf_build_apps_args: ${{ steps.find_changes.outputs.idf_build_apps_args }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Fix git repo permissions
+        # Needed by the next git diff step.
+        # See https://github.com/actions/runner/issues/2033
+        if: github.event_name == 'pull_request'
+        run: |
+          build_dir=$PWD
+          cd /
+          git config --global --add safe.directory $build_dir
+          cd -
+      - name: Install dependencies
+        run: pip install 'idf-build-apps>=2.4,<2.5'
+      - name: Get labels
+        id: get_labels
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Check for labels
+        # "PR: test all apps"
+        # "PR: build only"
+        run: |
+          gh api --jq '.labels.[].name' /repos/{owner}/{repo}/pulls/${{ github.event.number }} > labels.txt
+          test_all_apps=$(grep -c 'PR: test all apps' labels.txt || true)
+          build_only=$(grep -c 'PR: build only' labels.txt || true)
+          echo "test_all_apps=$test_all_apps" >> $GITHUB_OUTPUT
+          echo "build_only=$build_only" >> $GITHUB_OUTPUT
+          echo "test_all_apps=$test_all_apps"
+          echo "build_only=$build_only"
+          
+      - name: Find changed files and components
+        id: find_changes
+        if: github.event_name == 'pull_request' && steps.get_labels.outputs.test_all_apps == '0'
+        # - based on the files list, determine which components have changed
+        # - output both lists as a file of idf-build-apps arguments
+        run: |
+          git fetch --recurse-submodules=no origin ${{ github.base_ref }}:base_ref
+          git fetch --recurse-submodules=no origin pull/${{ github.event.pull_request.number }}/head:pr_ref
+          git diff --name-only -r base_ref pr_ref > changed_files.txt
+          python3 .github/get_idf_build_apps_args.py -v changed_files.txt idf_build_apps_args.txt
+          echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)" >> $GITHUB_OUTPUT
+          echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)"
+
   build:
     name: Build Apps
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -30,31 +89,6 @@ jobs:
         run: |
           . ${IDF_PATH}/export.sh
           pip install --upgrade idf-component-manager 'idf-build-apps>=2.4,<2.5'
-      - name: Fix git repo permissions
-        # Needed by the next git diff step.
-        # See https://github.com/actions/runner/issues/2033
-        if: github.event_name == 'pull_request'
-        run: |
-          build_dir=$PWD
-          cd /
-          git config --global --add safe.directory $build_dir
-          cd -
-      - name: Find files and component changed in PR
-        if: github.event_name == 'pull_request'
-        # For PRs only:
-        # - find the files changed in the PR
-        # - based on the files list, determine which components have changed
-        # - output both lists as a file of idf-build-apps arguments
-        run: |
-          git fetch --recurse-submodules=no origin ${{ github.base_ref }}:base_ref
-          git fetch --recurse-submodules=no origin pull/${{ github.event.pull_request.number }}/head:pr_ref
-          git diff --name-only -r base_ref pr_ref > changed_files.txt
-          python3 .github/get_idf_build_apps_args.py -v changed_files.txt idf_build_apps_args.txt
-      - name: Find apps
-        shell: bash
-        run: |
-          . ${IDF_PATH}/export.sh
-          idf-build-apps find
       - name: Build apps
         shell: bash
         run: |
@@ -62,9 +96,9 @@ jobs:
           export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
-          touch idf_build_apps_args.txt
-          idf-build-apps build --parallel-index ${{ matrix.parallel_index }} --parallel-count 5 --collect-app-info build_info_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json $(cat idf_build_apps_args.txt)
+          idf-build-apps build --parallel-index ${{ matrix.parallel_index }} --parallel-count 5 --collect-app-info build_info_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
       - uses: actions/upload-artifact@v4
+        if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
         with:
           name: app_binaries_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}
           path: |
@@ -82,7 +116,7 @@ jobs:
 
   run-target:
     name: Run apps on target
-    if: ${{ github.repository_owner == 'espressif' }}
+    if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
     needs: build
     strategy:
       fail-fast: false
@@ -116,12 +150,12 @@ jobs:
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf
+        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
       - name: Run apps
         run: |
           python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
           cat pytest-args.txt
-          pytest $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=test_app --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }}
+          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=test_app --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }}
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
@@ -133,7 +167,7 @@ jobs:
     name: Publish Test results
     needs:
       - run-target
-    if: ${{ always() && github.repository_owner == 'espressif' }} # Run even if the previous step failed
+    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0'
     runs-on: ubuntu-22.04
     steps:
       - name: Download Test results
