@@ -18,7 +18,6 @@
 
 #include "sdkconfig.h"
 
-
 #if CONFIG_IDF_TARGET_ESP32
 #define CACHE_WAYS              2
 #define CACHE_LINE_SIZE         32

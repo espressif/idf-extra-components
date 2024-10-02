@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: CC0-1.0
  */
 
-
 #include <stdlib.h>
 #include "esp_log.h"
 #include "esp_err.h"
@@ -25,7 +24,6 @@ static void render_text(void);
 static FT_Library  s_library;
 static FT_Face s_face;
 static uint8_t s_bitmap[BITMAP_HEIGHT][BITMAP_WIDTH];
-
 
 void app_main(void)
 {

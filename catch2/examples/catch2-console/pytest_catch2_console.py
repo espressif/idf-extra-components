@@ -13,5 +13,3 @@ def test_catch2_console_example(dut: Dut) -> None:
     dut.write('test\n')
     dut.expect_exact('All tests passed')
     dut.expect_exact('1 assertion in 1 test case')
-
-

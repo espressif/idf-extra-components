@@ -110,7 +110,6 @@ static void set_perfmon_interrupt(bool enable)
     eri_write(ERI_PERFMON_PMCTRL0 + I_STALL_COUNTER_ID * sizeof(int32_t), i_pmctrl);
 }
 
-
 esp_err_t ccomp_timer_impl_init(void)
 {
     // Keep track of how many times each counter has overflowed.

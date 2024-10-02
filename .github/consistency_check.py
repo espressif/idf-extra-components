@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 # This script performs various consistency checks on the repository.
 import argparse
 import logging
@@ -43,7 +45,7 @@ def check_build_manifests_added_to_config(args):
 
     missing = build_manifests_from_repo - build_manifests_from_config
     if missing:
-        LOG.error(f"Missing build manifests in .idf_build_apps.toml: {missing}") 
+        LOG.error(f"Missing build manifests in .idf_build_apps.toml: {missing}")
         add_failure()
 
 
@@ -99,13 +101,13 @@ def load_toml(filepath) -> dict:
             return toml.load(str(filepath))
         except Exception as e:
             raise ValueError(f"Failed to load {filepath}: {e}")
-        
+
 
 def load_yaml(filepath) -> dict:
     with open(filepath, "r") as f:
         return yaml.safe_load(f)
 
-   
+
 def get_component_dirs(args):
     """
     Returns a list of component paths in this repository.

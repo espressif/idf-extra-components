@@ -20,17 +20,17 @@ flowchart TD
         build-all{Build all apps<br> label set?}
         build-all --> |yes| changed-components
         changed-components --> idf-build-apps-args
-        build-all --> |no| idf-build-apps-args        
+        build-all --> |no| idf-build-apps-args
         changed-components[Get changed components]
         idf-build-apps-args[Prepare idf-build-apps arguments]
     end
     subgraph "Build apps"
         idf-build-apps-args --> idf-build-apps-build
-        idf-build-apps-build[idf-build-apps build] --> 
+        idf-build-apps-build[idf-build-apps build] -->
         build-only
         build-only{Build only<br>label set?}
         build-only --> |no| upload-artifacts
-        
+
         upload-artifacts[Upload artifacts]
 
     end

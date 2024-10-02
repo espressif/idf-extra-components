@@ -237,19 +237,19 @@ static esp_err_t argb888_to_rgb565_ppa(ppa_client_handle_t ppa_handle, const uin
 
         .out.buffer = out,
         .out.buffer_size = LOTTIE_SIZE_HOR * LOTTIE_SIZE_VER * sizeof(uint16_t),
-        .out.pic_w = LOTTIE_SIZE_HOR,
-        .out.pic_h = LOTTIE_SIZE_VER,
-        .out.block_offset_x = 0,
-        .out.block_offset_y = 0,
-        .out.srm_cm = PPA_SRM_COLOR_MODE_RGB565,
+            .out.pic_w = LOTTIE_SIZE_HOR,
+            .out.pic_h = LOTTIE_SIZE_VER,
+            .out.block_offset_x = 0,
+            .out.block_offset_y = 0,
+            .out.srm_cm = PPA_SRM_COLOR_MODE_RGB565,
 
-        .rotation_angle = PPA_SRM_ROTATION_ANGLE_0,
-        .scale_x = 1.0,
-        .scale_y = 1.0,
+            .rotation_angle = PPA_SRM_ROTATION_ANGLE_0,
+            .scale_x = 1.0,
+            .scale_y = 1.0,
 
-        .rgb_swap = 0,
-        .byte_swap = 0,
-        .mode = PPA_TRANS_MODE_BLOCKING,
+            .rgb_swap = 0,
+            .byte_swap = 0,
+            .mode = PPA_TRANS_MODE_BLOCKING,
     };
 
     ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_handle, &oper_config));

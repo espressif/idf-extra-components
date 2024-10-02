@@ -1,17 +1,7 @@
 /*
- *    Copyright 2020 Piyush Shah <shahpiyushv@gmail.com>
+ * SPDX-FileCopyrightText: 2020 Piyush Shah <shahpiyushv@gmail.com>
  *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stdio.h>
@@ -69,7 +59,6 @@ static int json_gen_add_to_str(json_gen_str_t *jstr, const char *str)
     return 0;
 }
 
-
 void json_gen_str_start(json_gen_str_t *jstr, char *buf, int buf_size,
                         json_gen_flush_cb_t flush_cb, void *priv)
 {
@@ -101,14 +90,12 @@ static inline void json_gen_handle_comma(json_gen_str_t *jstr)
     }
 }
 
-
 static int json_gen_handle_name(json_gen_str_t *jstr, const char *name)
 {
     json_gen_add_to_str(jstr, "\"");
     json_gen_add_to_str(jstr, name);
     return json_gen_add_to_str(jstr, "\":");
 }
-
 
 int json_gen_start_object(json_gen_str_t *jstr)
 {
@@ -122,7 +109,6 @@ int json_gen_end_object(json_gen_str_t *jstr)
     jstr->comma_req = true;
     return json_gen_add_to_str(jstr, "}");
 }
-
 
 int json_gen_start_array(json_gen_str_t *jstr)
 {
@@ -222,7 +208,6 @@ int json_gen_arr_set_int(json_gen_str_t *jstr, int val)
     json_gen_handle_comma(jstr);
     return json_gen_set_int(jstr, val);
 }
-
 
 static int json_gen_set_float(json_gen_str_t *jstr, float val)
 {

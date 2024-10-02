@@ -525,7 +525,6 @@ static esp_err_t network_prov_mgr_start_service(const char *service_name, const 
         return ret;
     }
 
-
     ESP_LOGI(TAG, "Provisioning started with service name : %s ",
              service_name ? service_name : "<NULL>");
     return ESP_OK;
@@ -1346,7 +1345,6 @@ static void thread_timeout_timer_cb(void *arg)
     return;
 }
 
-
 static esp_err_t set_thread_enable(bool val)
 {
     esp_openthread_lock_acquire(portMAX_DELAY);
@@ -1620,7 +1618,6 @@ esp_err_t network_prov_mgr_is_thread_provisioned(bool *provisioned)
     return ESP_OK;
 }
 
-
 esp_err_t network_prov_mgr_configure_thread_dataset(otOperationalDatasetTlvs *dataset_tlvs)
 {
     esp_err_t err = ESP_OK;
@@ -1816,7 +1813,6 @@ static void network_prov_mgr_event_handler_internal(
 
     RELEASE_LOCK(prov_ctx_lock);
 }
-
 
 esp_err_t network_prov_mgr_init(network_prov_mgr_config_t config)
 {
@@ -2203,7 +2199,6 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
         esp_timer_delete(prov_ctx->autostop_timer);
         goto err;
     }
-
 
     /* System APIs for BLE / Wi-Fi / Thread will be called inside network_prov_mgr_start_service(),
      * which may trigger system level events. Hence, releasing the context lock will

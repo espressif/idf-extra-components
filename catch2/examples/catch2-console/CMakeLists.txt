@@ -4,4 +4,3 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 set(COMPONENTS main)
 
 project(catch2-console)
-
