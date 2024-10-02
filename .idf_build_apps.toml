@@ -2,7 +2,7 @@ target = "all"
 paths = "."
 recursive = true
 exclude = [
-    "test_app",
+    ".github",
 ]
 manifest_file = [
     "bdc_motor/.build-test-rules.yml",
