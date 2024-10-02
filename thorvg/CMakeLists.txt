@@ -86,9 +86,9 @@ endif()
 configure_file(${CMAKE_CURRENT_LIST_DIR}/cross_file.txt.in ${TVG_CROSS_CFG}.tmp)
 # ...and then expand generator expressions
 file(GENERATE OUTPUT ${TVG_CROSS_CFG} INPUT ${TVG_CROSS_CFG}.tmp)
-                    
+
 include(ExternalProject)
-                    
+
 ExternalProject_Add(${TVG_LIB}_target
     PREFIX ${TVG_BUILD_DIR}
     SOURCE_DIR ${TVG_SUBDIR}

@@ -15,7 +15,7 @@ Some microcontrollers have TJpg decoder in ROM, it is used, if there is. [^1] Us
 - Output pixel format (default RGB888): RGB888/RGB565
 - Switches output descaling feature (default enabled)
 - Use table conversion for saturation arithmetic (default enabled)
-- Three optimization levels (default basic): 8/16-bit MCUs, 32-bit MCUs, Table conversion for huffman decoding 
+- Three optimization levels (default basic): 8/16-bit MCUs, 32-bit MCUs, Table conversion for huffman decoding
 
 **Runtime configuration:**
 - Pixel Format: RGB888, RGB565
@@ -24,7 +24,7 @@ Some microcontrollers have TJpg decoder in ROM, it is used, if there is. [^1] Us
 
 ## TJpgDec in ROM
 
-Some microcontrollers have TJpg decoder in ROM. It is used as default, but it can be disabled in menuconfig. Then there will be used code saved in this component. 
+Some microcontrollers have TJpg decoder in ROM. It is used as default, but it can be disabled in menuconfig. Then there will be used code saved in this component.
 
 ### List of MCUs, which have TJpgDec in ROM
 - ESP32
@@ -61,21 +61,21 @@ In this table are examples of speed decoding JPEG image with this configuration:
 
 | ROM used | JD_SZBUF | JD_FORMAT | JD_USE_SCALE | JD_TBLCLIP | JD_FASTDECODE | RAM buffer | Flash size | Approx. time |
 | :------: | :------: | :-------: | :----------: | :--------: | :-----------: | :--------: | :--------: | :----------: |
-|   YES    |    512   |   RGB888  |      1       |      1     |       0       |    3.1 kB  |    0 kB    |     52 ms    |    
-|   NO     |    512   |   RGB888  |      1       |      1     |       0       |    3.1 kB  |    5 kB    |     50 ms    |    
-|   NO     |    512   |   RGB888  |      1       |      0     |       0       |    3.1 kB  |    4 kB    |     68 ms    |     
-|   NO     |    512   |   RGB888  |      1       |      1     |       1       |    3.1 kB  |    5 kB    |     50 ms    |      
-|   NO     |    512   |   RGB888  |      1       |      0     |       1       |    3.1 kB  |    4 kB    |     62 ms    |   
-|   NO     |    512   |   RGB888  |      1       |      1     |       2       |   65.5 kB  |   5.5 kB   |     46 ms    |  
-|   NO     |    512   |   RGB888  |      1       |      0     |       2       |   65.5 kB  |   4.5 kB   |     59 ms    |  
-|   NO     |    512   |   RGB565  |      1       |      1     |       0       |    5 kB    |    5 kB    |     60 ms    |     
-|   NO     |    512   |   RGB565  |      1       |      1     |       1       |    5 kB    |    5 kB    |     59 ms    |     
-|   NO     |    512   |   RGB565  |      1       |      1     |       2       |   65.5 kB  |   5.5 kB   |     56 ms    |     
+|   YES    |    512   |   RGB888  |      1       |      1     |       0       |    3.1 kB  |    0 kB    |     52 ms    |
+|   NO     |    512   |   RGB888  |      1       |      1     |       0       |    3.1 kB  |    5 kB    |     50 ms    |
+|   NO     |    512   |   RGB888  |      1       |      0     |       0       |    3.1 kB  |    4 kB    |     68 ms    |
+|   NO     |    512   |   RGB888  |      1       |      1     |       1       |    3.1 kB  |    5 kB    |     50 ms    |
+|   NO     |    512   |   RGB888  |      1       |      0     |       1       |    3.1 kB  |    4 kB    |     62 ms    |
+|   NO     |    512   |   RGB888  |      1       |      1     |       2       |   65.5 kB  |   5.5 kB   |     46 ms    |
+|   NO     |    512   |   RGB888  |      1       |      0     |       2       |   65.5 kB  |   4.5 kB   |     59 ms    |
+|   NO     |    512   |   RGB565  |      1       |      1     |       0       |    5 kB    |    5 kB    |     60 ms    |
+|   NO     |    512   |   RGB565  |      1       |      1     |       1       |    5 kB    |    5 kB    |     59 ms    |
+|   NO     |    512   |   RGB565  |      1       |      1     |       2       |   65.5 kB  |   5.5 kB   |     56 ms    |
 
 ## Add to project
 
 Packages from this repository are uploaded to [Espressif's component service](https://components.espressif.com/).
-You can add them to your project via `idf.py add-dependancy`, e.g. 
+You can add them to your project via `idf.py add-dependancy`, e.g.
 ```
     idf.py add-dependency esp_jpeg==1.0.0
 ```

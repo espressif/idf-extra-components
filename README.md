@@ -4,7 +4,7 @@
 
 # Espressif IDF Extra Components
 
-This repository aims to store [ESP-IDF](https://github.com/espressif/esp-idf) extra components 
+This repository aims to store [ESP-IDF](https://github.com/espressif/esp-idf) extra components
 which have been seperated and uploaded into [IDF Component Manager](https://components.espressif.com/).
 
 ## Important note

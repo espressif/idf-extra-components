@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 /* HTTP2 GET Example using nghttp2
 
    Contacts http2.github.io and executes the GET request. A thin API
@@ -39,7 +44,6 @@
 #define HTTP2_SERVER_URI  "https://http2.github.io"
 /* A GET request that keeps streaming current time every second */
 #define HTTP2_STREAMING_GET_PATH  "/index.html"
-
 
 int handle_get_response(struct sh2lib_handle *handle, const char *data, size_t len, int flags)
 {

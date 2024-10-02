@@ -10,7 +10,6 @@
 #include "sdkconfig.h"
 #include "unity.h"
 
-
 #include "../include/jpeg_decoder.h"
 #include "test_logo_jpg.h"
 #include "test_logo_rgb888.h"
@@ -72,7 +71,6 @@ TEST_CASE("Test JPEG decompression library", "[esp_jpeg]")
         }
         printf("%c%c", ' ', '\n');
     }
-
 
     free(decoded);
 }

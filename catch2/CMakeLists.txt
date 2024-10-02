@@ -19,7 +19,7 @@ if(NOT target STREQUAL "linux")
 endif()
 
 # If console component is present in the build, include the console
-# command feature. 
+# command feature.
 idf_build_get_property(build_components BUILD_COMPONENTS)
 if("console" IN_LIST build_components)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE WITH_CONSOLE)

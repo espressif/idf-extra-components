@@ -372,4 +372,3 @@ Component Config --> Network Provisioning Manager --> Force Link Encryption duri
 
 ```
 Recompiling the application with above changes should suffice to enable this functionality.
-

@@ -170,7 +170,6 @@ err:
     return ret;
 }
 
-
 void app_main(void)
 {
     CborEncoder root_encoder;

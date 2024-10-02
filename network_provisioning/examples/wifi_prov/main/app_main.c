@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 /* Wi-Fi Provisioning Manager Example
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)

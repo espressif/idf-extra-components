@@ -19,7 +19,7 @@ Philosophy
 Most JSON parsers offer you a bunch of functions to load JSON data, parse it
 and extract any value by its name. jsmn proves that checking the correctness of
 every JSON packet or allocating temporary objects to store parsed JSON fields
-often is an overkill. 
+often is an overkill.
 
 JSON format itself is extremely simple, so why should we complicate it?
 
@@ -123,7 +123,7 @@ Token types are described by `jsmntype_t`:
 numbers, booleans and null, because one can easily tell the type using the
 first character:
 
-* <code>'t', 'f'</code> - boolean 
+* <code>'t', 'f'</code> - boolean
 * <code>'n'</code> - null
 * <code>'-', '0'..'9'</code> - number
 
@@ -137,7 +137,7 @@ Token is an object of `jsmntok_t` type:
 	} jsmntok_t;
 
 **Note:** string tokens point to the first character after
-the opening quote and the previous symbol before final quote. This was made 
+the opening quote and the previous symbol before final quote. This was made
 to simplify string extraction from JSON data.
 
 All job is done by `jsmn_parser` object. You can initialize a new parser using:

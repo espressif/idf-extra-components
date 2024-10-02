@@ -72,7 +72,6 @@ static esp_err_t wifi_get_status_handler(network_prov_config_get_wifi_data_t *re
         esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_info);
         esp_ip4addr_ntoa(&ip_info.ip, resp_data->conn_info.ip_addr, sizeof(resp_data->conn_info.ip_addr));
 
-
         /* AP information to which STA is connected */
         wifi_ap_record_t ap_info;
         esp_wifi_sta_get_ap_info(&ap_info);
@@ -240,7 +239,6 @@ static esp_err_t thread_apply_config_handler(network_prov_ctx_t **ctx)
     return ret;
 }
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
-
 
 esp_err_t get_network_prov_handlers(network_prov_config_handlers_t *ptr)
 {

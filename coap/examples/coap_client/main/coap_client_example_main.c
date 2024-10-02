@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
 /* CoAP client Example
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
@@ -32,7 +37,6 @@
 #include "protocol_examples_common.h"
 
 #include "coap3/coap.h"
-
 
 #ifndef CONFIG_COAP_CLIENT_SUPPORT
 #error COAP_CLIENT_SUPPORT needs to be enabled

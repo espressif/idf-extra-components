@@ -22,7 +22,6 @@
 #include "soc/spi_pins.h"
 #include "sdkconfig.h"
 
-
 // Pin mapping
 // ESP32 (VSPI)
 #ifdef CONFIG_IDF_TARGET_ESP32

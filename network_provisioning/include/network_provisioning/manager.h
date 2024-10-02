@@ -754,7 +754,6 @@ esp_err_t network_prov_mgr_reset_thread_sm_state_for_reprovision(void);
 
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
-
 #ifdef __cplusplus
 }
 #endif

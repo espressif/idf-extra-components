@@ -139,7 +139,6 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
 
-
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
     rmt_strip->strip_len = led_config->max_leds;
     rmt_strip->base.set_pixel = led_strip_rmt_set_pixel;

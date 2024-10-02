@@ -1,7 +1,7 @@
 # ESP Delta OTA
 
 ## Getting Started
-Compressed Delta OTA Updates aims at enabling Over-the-Air firmware update with compressed delta binaries. 
+Compressed Delta OTA Updates aims at enabling Over-the-Air firmware update with compressed delta binaries.
 
 ### Compressed Delta Image for OTA
 ![Image Format](https://raw.githubusercontent.com/espressif/idf-extra-components/master/esp_delta_ota/image_format.png)
@@ -20,7 +20,7 @@ Compressed Delta OTA Updates aims at enabling Over-the-Air firmware update with 
 
 * **detools v0.49.0 and above**
 
-  Binary delta encoding in Python 3.6+. You can install detools using the following command: 
+  Binary delta encoding in Python 3.6+. You can install detools using the following command:
   ```
   pip install -r examples/https_delta_ota/tools/requirements.txt
   ```

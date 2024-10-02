@@ -333,7 +333,6 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
     return ESP_OK;
 }
 
-
 static int lookup_cmd_handler(int cmd_id)
 {
     for (size_t i = 0; i < sizeof(cmd_table) / sizeof(network_prov_scan_cmd_t); i++) {

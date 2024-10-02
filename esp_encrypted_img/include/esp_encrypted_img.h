@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -76,7 +76,6 @@ typedef struct {
     size_t data_out_len;    /*!< Output data length */
 } pre_enc_decrypt_arg_t;
 
-
 /**
 * @brief  This function returns esp_decrypt_handle_t handle.
 *
@@ -87,7 +86,6 @@ typedef struct {
 *    - esp_decrypt_handle_t handle
 */
 esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cfg);
-
 
 /**
 * @brief  This function performs decryption on input data.
@@ -108,7 +106,6 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 *    - ESP_OK                           Success
 */
 esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decrypt_arg_t *args);
-
 
 /**
 * @brief  Clean-up decryption process.
@@ -155,8 +152,8 @@ esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx);
 /**
 * @brief  Get the size of pre encrypted binary image header (`struct pre_enc_bin_header`). The initial header in
 *         the image contains magic, credentials (symmetric key) and few other parameters. This API could be useful
-*         for scenarios where the entire decrypted image length must be computed by the application including the 
-*         image header.  
+*         for scenarios where the entire decrypted image length must be computed by the application including the
+*         image header.
 *
 * @return
 *    - Header size of pre encrypted image

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import os
@@ -17,7 +19,7 @@ def main():
             '--modified-files',
             '"' + ';'.join(modified_files) + '"'
             ]
-    
+
     if args.verbose:
         print('Modified files:')
         for file in sorted(modified_files):
@@ -32,7 +34,7 @@ def main():
         if not os.path.isdir(toplevel):
             continue
         modified_components.add(toplevel)
-    
+
     if modified_components:
         idf_build_apps_args += [
             '--modified-components',

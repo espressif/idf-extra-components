@@ -77,6 +77,3 @@ CoreMark is a trademark of EEMBC and EEMBC is a registered trademark of the Embe
 CoreMark source code is Copyright (c) 2009 EEMBC. The source code is distributed under Apache 2.0 license with additional restrictions with regards to the use of the benchmark. See [LICENSE.md](LICENSE.md) for more details.
 
 Any additional code in this component ("port layer") is Copyright (c) 2022-2023 Espressif Systems (Shanghai) Co. Ltd. and is licensed under Apache 2.0 license.
-
-
-

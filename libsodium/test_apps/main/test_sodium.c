@@ -8,7 +8,6 @@
 #include "sodium/crypto_hash_sha256.h"
 #include "sodium/crypto_hash_sha512.h"
 
-
 #define LIBSODIUM_TEST(name_) \
     extern int name_ ## _xmain(void);   \
     extern const uint8_t name_ ## _exp_start[] asm("_binary_" #name_ "_exp_start"); \
@@ -28,7 +27,6 @@
         free(test_output); \
     }
 
-
 LIBSODIUM_TEST(aead_chacha20poly1305)
 LIBSODIUM_TEST(chacha20)
 LIBSODIUM_TEST(box)
@@ -36,7 +34,6 @@ LIBSODIUM_TEST(box2)
 LIBSODIUM_TEST(ed25519_convert)
 LIBSODIUM_TEST(hash)
 LIBSODIUM_TEST(sign)
-
 
 TEST_CASE("sha256 sanity check", "[libsodium]")
 {
