@@ -162,7 +162,7 @@ static jpeg_decode_out_t jpeg_decode_out_cb(JDEC *dec, void *bitmap, JRECT *rect
                     (JD_FORMAT == 1 && cfg->out_format == JPEG_IMAGE_FORMAT_RGB565) ) {
                 /* Output image format is same as set in TJPGD */
                 for (int b = 0; b < ESP_JPEG_COLOR_BYTES; b++) {
-                    if (JD_FORMAT == 1 && cfg->flags.swap_color_bytes) {
+                    if (cfg->flags.swap_color_bytes) {
                         dst[(y * line * out_color_bytes) + x * out_color_bytes + b] = in[out_color_bytes - b - 1];
                     } else {
                         dst[(y * line * out_color_bytes) + x * out_color_bytes + b] = in[b];
