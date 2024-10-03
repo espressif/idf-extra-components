@@ -11,11 +11,19 @@
 #include "esp_err.h"
 
 // GPIO assignment
-#define LED_STRIP_BLINK_GPIO  2
+#define LED_STRIP_BLINK_GPIO  8
 // Numbers of the LED in the strip
-#define LED_STRIP_LED_NUMBERS 24
+#define LED_STRIP_LED_NUMBERS 1
 
 static const char *TAG = "example";
+
+
+void config_order(uint8_t *order)
+{
+    order[LED_PIXEL_INDEX_RED] = 1;
+    order[LED_PIXEL_INDEX_GREEN] = 0;
+    order[LED_PIXEL_INDEX_BLUE] = 2;
+}
 
 led_strip_handle_t configure_led(void)
 {
@@ -26,6 +34,7 @@ led_strip_handle_t configure_led(void)
         .led_pixel_format = LED_PIXEL_FORMAT_GRB, // Pixel format of your LED strip
         .led_model = LED_MODEL_WS2812,            // LED strip model
         .flags.invert_out = false,                // whether to invert the output signal
+        .config_pixel_order = config_order,
     };
 
     // LED strip backend configuration: SPI
@@ -52,7 +61,7 @@ void app_main(void)
         if (led_on_off) {
             /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
             for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++) {
-                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 5, 5, 5));
+                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 0, 0, 20));
             }
             /* Refresh the strip to send data */
             ESP_ERROR_CHECK(led_strip_refresh(led_strip));

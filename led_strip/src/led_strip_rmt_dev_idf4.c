@@ -43,6 +43,7 @@ typedef struct {
     rmt_channel_t rmt_channel;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
+    uint8_t led_pixel_offset[LED_PIXEL_INDEX_MAX];
     uint8_t buffer[0];
 } led_strip_rmt_obj;
 
@@ -83,12 +84,14 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of the maximum number of leds");
     uint32_t start = index * rmt_strip->bytes_per_pixel;
-    // In thr order of GRB
-    rmt_strip->buffer[start + 0] = green & 0xFF;
-    rmt_strip->buffer[start + 1] = red & 0xFF;
-    rmt_strip->buffer[start + 2] = blue & 0xFF;
+    uint8_t *pixel_buf = rmt_strip->buffer;
+    uint8_t *offset = rmt_strip->led_pixel_offset;
+    // Support all kinds of pixel order
+    pixel_buf[start + offset[LED_PIXEL_INDEX_RED]] = red & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_GREEN]] = green & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_BLUE]] = blue & 0xFF;
     if (rmt_strip->bytes_per_pixel > 3) {
-        rmt_strip->buffer[start + 3] = 0;
+        rmt_strip->buffer[start + offset[LED_PIXEL_INDEX_WHITE]] = 0;
     }
     return ESP_OK;
 }
@@ -174,6 +177,15 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
 
     // adapter to translates the LES strip date frame into RMT symbols
     rmt_translator_init((rmt_channel_t)dev_config->rmt_channel, ws2812_rmt_adapter);
+
+    if (led_config->config_pixel_order) {
+        led_config->config_pixel_order(rmt_strip->led_pixel_offset);
+    } else {
+        rmt_strip->led_pixel_offset[LED_PIXEL_INDEX_RED] = 1;
+        rmt_strip->led_pixel_offset[LED_PIXEL_INDEX_GREEN] = 0;
+        rmt_strip->led_pixel_offset[LED_PIXEL_INDEX_BLUE] = 2;
+        rmt_strip->led_pixel_offset[LED_PIXEL_INDEX_WHITE] = 3;
+    }
 
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
     rmt_strip->rmt_channel = (rmt_channel_t)dev_config->rmt_channel;

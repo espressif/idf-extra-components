@@ -30,7 +30,7 @@ _Clear LED strip (turn off all LEDs)_
 ```c
 esp_err_t led_strip_clear (
     led_strip_handle_t strip
-)
+) 
 ```
 
 **Parameters:**
@@ -49,7 +49,7 @@ _Free LED strip resources._
 ```c
 esp_err_t led_strip_del (
     led_strip_handle_t strip
-)
+) 
 ```
 
 **Parameters:**
@@ -68,7 +68,7 @@ _Refresh memory colors to LEDs._
 ```c
 esp_err_t led_strip_refresh (
     led_strip_handle_t strip
-)
+) 
 ```
 
 **Parameters:**
@@ -95,7 +95,7 @@ esp_err_t led_strip_set_pixel (
     uint32_t red,
     uint32_t green,
     uint32_t blue
-)
+) 
 ```
 
 **Parameters:**
@@ -123,7 +123,7 @@ esp_err_t led_strip_set_pixel_hsv (
     uint16_t hue,
     uint8_t saturation,
     uint8_t value
-)
+) 
 ```
 
 **Parameters:**
@@ -152,7 +152,7 @@ esp_err_t led_strip_set_pixel_rgbw (
     uint32_t green,
     uint32_t blue,
     uint32_t white
-)
+) 
 ```
 
 **Note:**
@@ -221,7 +221,7 @@ esp_err_t led_strip_new_rmt_device (
     const led_strip_config_t *led_config,
     const led_strip_rmt_config_t *rmt_config,
     led_strip_handle_t *ret_strip
-)
+) 
 ```
 
 **Parameters:**
@@ -278,7 +278,7 @@ esp_err_t led_strip_new_spi_device (
     const led_strip_config_t *led_config,
     const led_strip_spi_config_t *spi_config,
     led_strip_handle_t *ret_strip
-)
+) 
 ```
 
 **Note:**
@@ -307,6 +307,7 @@ Although only the MOSI line is used for generating the signal, the whole SPI bus
 | ---: | :--- |
 | enum  | [**led\_model\_t**](#enum-led_model_t)  <br>_LED strip model._ |
 | enum  | [**led\_pixel\_format\_t**](#enum-led_pixel_format_t)  <br>_LED strip pixel format._ |
+| enum  | [**led\_pixel\_order\_index\_t**](#enum-led_pixel_order_index_t)  <br>_LED strip pixel order index._ |
 | struct | [**led\_strip\_config\_t**](#struct-led_strip_config_t) <br>_LED Strip Configuration._ |
 | typedef struct [**led\_strip\_t**](#struct-led_strip_t) \* | [**led\_strip\_handle\_t**](#typedef-led_strip_handle_t)  <br>_LED strip handle._ |
 
@@ -340,11 +341,27 @@ enum led_pixel_format_t {
 };
 ```
 
+### enum `led_pixel_order_index_t`
+
+_LED strip pixel order index._
+
+```c
+enum led_pixel_order_index_t {
+    LED_PIXEL_INDEX_RED,
+    LED_PIXEL_INDEX_GREEN,
+    LED_PIXEL_INDEX_BLUE,
+    LED_PIXEL_INDEX_WHITE,
+    LED_PIXEL_INDEX_MAX
+};
+```
+
 ### struct `led_strip_config_t`
 
 _LED Strip Configuration._
 
 Variables:
+
+- void(\* config_pixel_order  <br>User callback function of configuring pixel order
 
 - struct led\_strip\_config\_t::@2 flags  <br>Extra driver flags
 
