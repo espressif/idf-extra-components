@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# ESP Delta OTA Ptach Generator Tool. This tool helps in generating the compressed patch file
+# ESP Delta OTA Patch Generator Tool. This tool helps in generating the compressed patch file
 # using BSDiff and Heatshrink algorithms
 #
 # SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
@@ -10,6 +10,10 @@ import argparse
 import os
 import subprocess
 import re
+import tempfile
+import hashlib
+import sys
+import zlib
 
 try:
     import detools
@@ -19,40 +23,120 @@ except:
 # Magic Byte is created using command: echo -n "esp_delta_ota" | sha256sum
 esp_delta_ota_magic = 0xfccdde10
 
-MAGIC_SIZE = 4
-DIGEST_SIZE = 32
-RESERVED_HEADER = 64 - (MAGIC_SIZE + DIGEST_SIZE)
+MAGIC_SIZE = 4 # This is size of magic byte
+DIGEST_SIZE = 32 # This is SHA256 of the base binary    
+HEADER_VERSION_SIZE = 1 # This is size of header version
+CRC_SIZE = 4 # This is CRC32 of patch file which shall be applied on the base binary
+HEADER_SIZE = 64
+RESERVED_HEADER = HEADER_SIZE - (MAGIC_SIZE + DIGEST_SIZE + HEADER_VERSION_SIZE + CRC_SIZE) # This is reserved header size
+
+HEADER_VERSION = 0 # Define the HEADER_VERSION as 0
+
+def calculate_sha256(file_path: str) -> str:
+    """Calculate the SHA-256 hash of a file."""
+    sha256_hash = hashlib.sha256()
+    
+    with open(file_path, "rb") as f:
+        # Read the file in chunks to avoid memory issues for large files
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    
+    # Return the hex representation of the hash
+    return sha256_hash.hexdigest()
 
 def create_patch(chip: str, base_binary: str, new_binary: str, patch_file_name: str) -> None:
     cmd = "esptool.py --chip " + chip + " image_info " + base_binary
     proc = subprocess.Popen([cmd], stdout=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
-    x = re.search(b"Validation Hash: ([A-Za-z0-9]+) \(valid\)", out)
+    x = re.search(b"Validation Hash: ([A-Za-z0-9]+) \\(valid\\)", out)
 
     os.system("detools create_patch -c heatshrink " + base_binary + " " + new_binary + " " + patch_file_name)
     patch_file_without_header = "patch_file_temp.bin"
     os.system("mv " + patch_file_name + " " + patch_file_without_header)
 
+    with open(patch_file_without_header, "rb") as temp_patch:
+        patch_content = temp_patch.read()
+        crc32 = zlib.crc32(patch_content)
+
     with open(patch_file_name, "wb") as patch_file:
         patch_file.write(esp_delta_ota_magic.to_bytes(MAGIC_SIZE, 'little'))
         patch_file.write(bytes.fromhex(x[1].decode()))
+        patch_file.write(HEADER_VERSION.to_bytes(HEADER_VERSION_SIZE, 'little'))
+        patch_file.write(crc32.to_bytes(CRC_SIZE, 'little'))
         patch_file.write(bytearray(RESERVED_HEADER))
-        with open(patch_file_without_header, "rb") as temp_patch:
-            patch_file.write(temp_patch.read())
+        patch_file.write(patch_content)
 
     os.remove(patch_file_without_header)
 
+# This api applies the patch file over base_binary file and generates the binary.new file. Then it compares 
+# the hash of new_binary and binary.new, if they are same then verfications get successfull otherwise fails.
+def verify_patch(base_binary: str, patch_to_verify: str, new_binary: str) -> None:
+
+    with open(patch_to_verify, "rb") as original_file:
+        # Read CRC32 from header
+        original_file.seek(MAGIC_SIZE + DIGEST_SIZE + HEADER_VERSION_SIZE)
+        header_crc32 = int.from_bytes(original_file.read(CRC_SIZE), 'little')
+        
+        # Calculate CRC32 of patch content
+        original_file.seek(HEADER_SIZE)  # Move the file pointer 64 bytes ahead
+        patch_content = original_file.read()  # Read the rest of the file
+        calculated_crc32 = zlib.crc32(patch_content)
+        
+        # Check if CRC32 matches
+        if header_crc32 != calculated_crc32:
+            print("CRC32 mismatch. Patch file may be corrupted.")
+            return
+
+    with tempfile.NamedTemporaryFile() as temp_file:
+        temp_file.write(patch_content)
+        temp_file.flush()
+
+        cmd = "detools apply_patch " + base_binary + " " + temp_file.name + " binary.new"
+
+        try:
+            proc = subprocess.Popen([cmd], stdout=subprocess.PIPE, shell = True)
+        except:
+            print("Failed to execute the command `detools apply_patch`")
+            return
+            
+        (out, err) = proc.communicate()
+        x = re.search(b"Successfully created" ,out) 
+        if x :
+            sha_of_new_created_binary = calculate_sha256("binary.new")
+            sha_of_new_binary = calculate_sha256(new_binary)
+            
+            if(sha_of_new_created_binary == sha_of_new_binary):
+                print("Patch file verified successfully")
+            else:
+                print("Failed to verify the patch")
+        else:
+            print("Failed to verify the patch")
+        os.remove("binary.new")
+
 def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: python file_name.py create_patch/verify_patch [arguments]")
+        sys.exit(1)
+
+    command = sys.argv[1]
     parser = argparse.ArgumentParser('Delta OTA Patch Generator Tool')
-    parser.add_argument('--chip', help="Target", default="esp32")
-    parser.add_argument('--base_binary', help="Path of Base Binary for creating the patch")
-    parser.add_argument('--new_binary', help="Path of New Binary for which patch has to be created")
-    parser.add_argument('--patch_file_name', help="Patch file path", default="patch.bin")
 
-    args = parser.parse_args()
-
-    create_patch(args.chip, args.base_binary, args.new_binary, args.patch_file_name)
-
+    if command == 'create_patch':
+        parser.add_argument('--chip', help="Target", default="esp32")
+        parser.add_argument('--base_binary', help="Path of Base Binary for creating the patch", required=True)
+        parser.add_argument('--new_binary', help="Path of New Binary for which patch has to be created", required=True)
+        parser.add_argument('--patch_file_name', help="Patch file path", default="patch.bin")
+        args = parser.parse_args(sys.argv[2:])
+        create_patch(args.chip, args.base_binary, args.new_binary, args.patch_file_name)
+    elif command == 'verify_patch':
+        parser.add_argument('--base_binary', help="Path of Base Binary for verifying the patch", required=True)
+        parser.add_argument('--patch_file_name', help="Patch file path", required=True)
+        parser.add_argument('--new_binary', help="Path of New Binary for verifying the patch", required=True)
+        args = parser.parse_args(sys.argv[2:])
+        verify_patch(args.base_binary, args.patch_file_name, args.new_binary)
+    else:
+        print("Invalid command. Use 'create_patch' or 'verify_patch'.")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
