@@ -68,8 +68,15 @@ int dhara_nand_is_bad(const struct dhara_nand *n, dhara_block_t b)
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, first_block_page, NULL), fail, TAG, "");
 
+    uint16_t column_addr = dev->page_size;
+
+    if (dev->flags & NAND_FLAG_HAS_READ_PLANE_SELECT) {
+        uint32_t plane = b % dev->num_planes;
+        column_addr += plane << dev->dhara_nand.log2_page_size;
+    }
+
     // Read the first 2 bytes on the OOB of the first page in the block. This should be 0xFFFF for a good block
-    ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, (uint8_t *) &bad_block_indicator, dev->page_size, 2),
+    ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, (uint8_t *) &bad_block_indicator, column_addr, 2),
                       fail, TAG, "");
 
     ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", b, first_block_page, bad_block_indicator);
@@ -94,8 +101,14 @@ void dhara_nand_mark_bad(const struct dhara_nand *n, dhara_block_t b)
                       fail, TAG, "");
 
     ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
+
+    uint32_t column_addr = dev->page_size;
+    if (dev->flags & NAND_FLAG_HAS_READ_PLANE_SELECT) {
+        uint32_t plane = b % dev->num_planes;
+        column_addr += plane << dev->dhara_nand.log2_page_size;
+    }
     ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, (const uint8_t *) &bad_block_indicator,
-                                            dev->page_size, 2),
+                                            column_addr, 2),
                       fail, TAG, "");
     ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, first_block_page, NULL), fail, TAG, "");
     return;
@@ -138,13 +151,20 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
     esp_err_t ret;
     uint8_t status;
     uint16_t used_marker = 0;
+    uint32_t column_addr = 0;
+
+    if (dev->flags & NAND_FLAG_HAS_PROG_PLANE_SELECT) {
+        uint32_t block = p >> dev->dhara_nand.log2_ppb;
+        uint32_t plane = block % dev->num_planes;
+        column_addr += plane << dev->dhara_nand.log2_page_size;
+    }
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, NULL), fail, TAG, "");
     ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, data, 0, dev->page_size),
+    ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, data, column_addr, dev->page_size),
                       fail, TAG, "");
     ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, (uint8_t *)&used_marker,
-                                            dev->page_size + 2, 2),
+                                            column_addr + dev->page_size + 2, 2),
                       fail, TAG, "");
     ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, p, &status), fail, TAG, "");
 
@@ -167,8 +187,16 @@ int dhara_nand_is_free(const struct dhara_nand *n, dhara_page_t p)
     uint16_t used_marker;
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, NULL), fail, TAG, "");
+
+    uint16_t column_addr = dev->page_size + 2;
+    if (dev->flags & NAND_FLAG_HAS_READ_PLANE_SELECT) {
+        uint32_t block = p >> dev->dhara_nand.log2_ppb;
+        uint32_t plane = block % dev->num_planes;
+        column_addr += plane << dev->dhara_nand.log2_page_size;
+    }
+
     ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, (uint8_t *)&used_marker,
-                                    dev->page_size + 2, 2),
+                                    column_addr, 2),
                       fail, TAG, "");
 
     ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%04x,", p, used_marker);
@@ -200,7 +228,14 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
         return -1;
     }
 
-    ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, data, offset, length), fail, TAG, "");
+    uint16_t column_addr = offset;
+    if (dev->flags & NAND_FLAG_HAS_READ_PLANE_SELECT) {
+        uint32_t block = p >> dev->dhara_nand.log2_ppb;
+        uint32_t plane = block % dev->num_planes;
+        column_addr += plane << dev->dhara_nand.log2_page_size;
+    }
+
+    ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, data, column_addr, length), fail, TAG, "");
 
     return 0;
 fail:
@@ -222,8 +257,44 @@ int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t d
         dhara_set_error(err, DHARA_E_ECC);
         return -1;
     }
-
     ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
+
+    bool need_copy_via_ram = false;
+    if (dev->num_planes > 1 && (dev->flags & (NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT))) {
+        uint32_t src_block = src >> dev->dhara_nand.log2_ppb;
+        uint32_t dst_block = dst >> dev->dhara_nand.log2_ppb;
+        need_copy_via_ram = src_block % dev->num_planes != dst_block % dev->num_planes;
+    }
+
+    if (need_copy_via_ram) {
+        uint8_t *copy_buf = malloc(dev->page_size + 2);
+        ESP_GOTO_ON_FALSE(copy_buf, ESP_ERR_NO_MEM, fail, TAG, "Failed to allocate copy buffer");
+
+        uint32_t src_column_addr = 0;
+        if (dev->flags & NAND_FLAG_HAS_READ_PLANE_SELECT) {
+            uint32_t src_block = src >> dev->dhara_nand.log2_ppb;
+            uint32_t plane = src_block % dev->num_planes;
+            src_column_addr += plane << dev->dhara_nand.log2_page_size;
+        }
+
+        uint32_t dst_column_addr = 0;
+        if (dev->flags & NAND_FLAG_HAS_PROG_PLANE_SELECT) {
+            uint32_t dst_block = dst >> dev->dhara_nand.log2_ppb;
+            uint32_t plane = dst_block % dev->num_planes;
+            dst_column_addr += plane << dev->dhara_nand.log2_page_size;
+        }
+
+        ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, copy_buf, src_column_addr, dev->page_size), fail, TAG, "");
+
+        ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, copy_buf, dst_column_addr, dev->page_size),
+                          fail, TAG, "");
+        uint16_t used_marker = 0;
+        ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, (uint8_t *)&used_marker,
+                                                dst_column_addr + dev->page_size + 2, 2),
+                          fail, TAG, "");
+        free(copy_buf);
+    }
+
     ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, dst, &status), fail, TAG, "");
 
     if ((status & STAT_PROGRAM_FAILED) != 0) {
