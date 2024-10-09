@@ -19,11 +19,17 @@ extern "C" {
 
 #define INVALID_PAGE 0xFFFF
 
+#define NAND_FLAG_HAS_QE                      BIT(0)
+#define NAND_FLAG_HAS_PROG_PLANE_SELECT       BIT(1)
+#define NAND_FLAG_HAS_READ_PLANE_SELECT       BIT(2)
+
 struct spi_nand_flash_device_t {
     spi_nand_flash_config_t config;
     uint32_t block_size;
     uint32_t page_size;
     uint32_t num_blocks;
+    uint32_t num_planes;
+    uint32_t flags;
     struct dhara_map dhara_map;
     struct dhara_nand dhara_nand;
     uint8_t *work_buffer;
