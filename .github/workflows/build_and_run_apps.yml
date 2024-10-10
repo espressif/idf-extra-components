@@ -150,7 +150,7 @@ jobs:
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
+        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code rangehttpserver
       - name: Run apps
         run: |
           python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
