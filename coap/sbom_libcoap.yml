@@ -10,3 +10,5 @@ cve-exclude-list:
     reason: Resolved in version 4.3.5-rc1
   - cve: CVE-2023-51847
     reason: Resolved in version 4.3.5-rc1
+  - cve: CVE-2024-46304
+    reason: Resolved in version 4.3.5-rc3
