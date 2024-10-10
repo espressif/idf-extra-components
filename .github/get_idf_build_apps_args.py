@@ -24,7 +24,7 @@ def main():
             print(f'  - {file}')
 
     modified_components = set()
-    excluded_dirs = ['.github', 'test_app']
+    excluded_dirs = ['.github']
     for file in modified_files:
         toplevel = file.split('/')[0]
         if toplevel in excluded_dirs:
