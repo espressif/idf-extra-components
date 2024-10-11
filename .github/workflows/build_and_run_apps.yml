@@ -107,11 +107,11 @@ jobs:
             */examples/*/build_esp*/*.bin
             */examples/*/build_esp*/flasher_args.json
             */examples/*/build_esp*/config/sdkconfig.json
-            */test_apps/**/build_esp*/bootloader/bootloader.bin
-            */test_apps/**/build_esp*/partition_table/partition-table.bin
-            */test_apps/**/build_esp*/*.bin
-            */test_apps/**/build_esp*/flasher_args.json
-            */test_apps/**/build_esp*/config/sdkconfig.json
+            */test_app*/**/build_esp*/bootloader/bootloader.bin
+            */test_app*/**/build_esp*/partition_table/partition-table.bin
+            */test_app*/**/build_esp*/*.bin
+            */test_app*/**/build_esp*/flasher_args.json
+            */test_app*/**/build_esp*/config/sdkconfig.json
             build_info*.json
 
   run-target:
@@ -134,6 +134,9 @@ jobs:
           - runs-on: "ESP32-ETHERNET-KIT"
             marker: "ethernet"
             target: "esp32"
+          - runs-on: "spi_nand_flash"
+            marker: "spi_nand_flash"
+            target: "esp32"
     env:
       TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
       TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
@@ -155,7 +158,7 @@ jobs:
         run: |
           python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
           cat pytest-args.txt
-          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=test_app --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }}
+          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }}
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
