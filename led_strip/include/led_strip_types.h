@@ -27,6 +27,7 @@ typedef enum {
 typedef enum {
     LED_MODEL_WS2812, /*!< LED strip model: WS2812 */
     LED_MODEL_SK6812, /*!< LED strip model: SK6812 */
+    LED_MODEL_WS2811, /*!< LED strip model: WS2811 */
     LED_MODEL_INVALID /*!< Invalid LED strip model */
 } led_model_t;
 
