@@ -30,6 +30,7 @@ typedef struct {
     rmt_encoder_handle_t strip_encoder;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
+    led_pixel_format_t led_pixel_format;
     uint8_t pixel_buf[];
 } led_strip_rmt_obj;
 
@@ -38,10 +39,17 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
     uint32_t start = index * rmt_strip->bytes_per_pixel;
-    // In thr order of GRB, as LED strip like WS2812 sends out pixels in this order
-    rmt_strip->pixel_buf[start + 0] = green & 0xFF;
-    rmt_strip->pixel_buf[start + 1] = red & 0xFF;
-    rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
+    if (rmt_strip->led_pixel_format==LED_PIXEL_FORMAT_GRB) {
+        // GRB (e.g., WS2812)
+        rmt_strip->pixel_buf[start + 0] = green & 0xFF;
+        rmt_strip->pixel_buf[start + 1] = red & 0xFF;
+        rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
+    } else {
+        // RGB (e.g., WS2811)
+        rmt_strip->pixel_buf[start + 0] = red & 0xFF;
+        rmt_strip->pixel_buf[start + 1] = green & 0xFF;
+        rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
+    }
     if (rmt_strip->bytes_per_pixel > 3) {
         rmt_strip->pixel_buf[start + 3] = 0;
     }
@@ -103,7 +111,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     uint8_t bytes_per_pixel = 3;
     if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
         bytes_per_pixel = 4;
-    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB) {
+    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB || led_config->led_pixel_format == LED_PIXEL_FORMAT_RGB) {
         bytes_per_pixel = 3;
     } else {
         assert(false);
@@ -141,6 +149,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
 
 
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
+    rmt_strip->led_pixel_format = led_config->led_pixel_format;
     rmt_strip->strip_len = led_config->max_leds;
     rmt_strip->base.set_pixel = led_strip_rmt_set_pixel;
     rmt_strip->base.set_pixel_rgbw = led_strip_rmt_set_pixel_rgbw;
