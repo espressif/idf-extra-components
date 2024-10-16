@@ -42,3 +42,5 @@
 #define WINBOND_DI_BC21               0xBC21
 
 #define MICRON_DI_34                  0x34
+#define MICRON_DI_14                  0x14
+#define MICRON_DI_15                  0x15
