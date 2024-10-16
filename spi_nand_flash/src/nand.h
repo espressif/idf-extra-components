@@ -27,6 +27,7 @@ struct spi_nand_flash_device_t {
     struct dhara_map dhara_map;
     struct dhara_nand dhara_nand;
     uint8_t *work_buffer;
+    uint8_t *read_buffer;
     uint32_t read_page_delay_us;
     uint32_t erase_block_delay_us;
     uint32_t program_page_delay_us;

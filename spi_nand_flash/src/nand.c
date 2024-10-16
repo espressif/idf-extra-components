@@ -26,7 +26,8 @@ static esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
         .command = CMD_READ_ID,
         .dummy_bits = 16,
         .miso_len = 2,
-        .miso_data = device_id_buf
+        .miso_data = device_id_buf,
+        .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
     uint16_t device_id = (device_id_buf[0] << 8) + device_id_buf[1];
@@ -58,7 +59,8 @@ static esp_err_t spi_nand_alliance_init(spi_nand_flash_device_t *dev)
         .address_bytes = 1,
         .dummy_bits = 8,
         .miso_len = 1,
-        .miso_data = &device_id
+        .miso_data = &device_id,
+        .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
     dev->erase_block_delay_us = 3000;
@@ -97,7 +99,8 @@ static esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         .command = CMD_READ_ID,
         .dummy_bits = 16,
         .miso_len = 1,
-        .miso_data = &device_id
+        .miso_data = &device_id,
+        .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
     dev->read_page_delay_us = 25;
@@ -136,7 +139,8 @@ static esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
         .command = CMD_READ_ID,
         .dummy_bits = 16,
         .miso_len = 1,
-        .miso_data = &device_id
+        .miso_data = &device_id,
+        .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
     dev->read_page_delay_us = 115;
@@ -162,9 +166,11 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         .address = 0, // This normally selects the manufacturer id. Some chips ignores it, but still expects 8 dummy bits here
         .address_bytes = 1,
         .miso_len = 1,
-        .miso_data = &manufacturer_id
+        .miso_data = &manufacturer_id,
+        .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
+    printf("manufacturer_id: %x\n", manufacturer_id);
 
     switch (manufacturer_id) {
     case SPI_NAND_FLASH_ALLIANCE_MI: // Alliance
@@ -221,9 +227,12 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
     (*handle)->page_size = 1 << (*handle)->dhara_nand.log2_page_size;
     (*handle)->block_size = (1 << (*handle)->dhara_nand.log2_ppb) * (*handle)->page_size;
     (*handle)->num_blocks = (*handle)->dhara_nand.num_blocks;
-    (*handle)->work_buffer = malloc((*handle)->page_size);
 
+    (*handle)->work_buffer = heap_caps_malloc((*handle)->page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_GOTO_ON_FALSE((*handle)->work_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+
+    (*handle)->read_buffer = heap_caps_malloc((*handle)->page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    ESP_GOTO_ON_FALSE((*handle)->read_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
 
     (*handle)->mutex = xSemaphoreCreateMutex();
     if (!(*handle)->mutex) {
@@ -241,6 +250,9 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
 fail:
     if ((*handle)->work_buffer != NULL) {
         free((*handle)->work_buffer);
+    }
+    if ((*handle)->read_buffer != NULL) {
+        free((*handle)->read_buffer);
     }
     if ((*handle)->mutex != NULL) {
         vSemaphoreDelete((*handle)->mutex);
@@ -281,16 +293,17 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
 
-    if (dhara_map_read(&handle->dhara_map, sector_id, buffer, &err)) {
+    if (dhara_map_read(&handle->dhara_map, sector_id, handle->read_buffer, &err)) {
         ret = ESP_ERR_FLASH_BASE + err;
     } else if (err) {
         // This indicates a soft ECC error, we rewrite the sector to recover
-        if (dhara_map_write(&handle->dhara_map, sector_id, buffer, &err)) {
+        if (dhara_map_write(&handle->dhara_map, sector_id, handle->read_buffer, &err)) {
             ret = ESP_ERR_FLASH_BASE + err;
         }
     }
 
     xSemaphoreGive(handle->mutex);
+    memcpy(buffer, handle->read_buffer, handle->page_size);
     return ret;
 }
 
@@ -339,6 +352,7 @@ esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint32
 esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle)
 {
     free(handle->work_buffer);
+    free(handle->read_buffer);
     vSemaphoreDelete(handle->mutex);
     free(handle);
     return ESP_OK;
