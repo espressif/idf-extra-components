@@ -39,19 +39,21 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
     uint32_t start = index * rmt_strip->bytes_per_pixel;
-    if (rmt_strip->led_pixel_format==LED_PIXEL_FORMAT_GRB) {
-        // GRB (e.g., WS2812)
-        rmt_strip->pixel_buf[start + 0] = green & 0xFF;
-        rmt_strip->pixel_buf[start + 1] = red & 0xFF;
-        rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
-    } else {
-        // RGB (e.g., WS2811)
-        rmt_strip->pixel_buf[start + 0] = red & 0xFF;
-        rmt_strip->pixel_buf[start + 1] = green & 0xFF;
-        rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
-    }
-    if (rmt_strip->bytes_per_pixel > 3) {
-        rmt_strip->pixel_buf[start + 3] = 0;
+    switch(rmt_strip->led_pixel_format) {
+        case LED_PIXEL_FORMAT_GRBW:
+            rmt_strip->pixel_buf[start + 3] = 0;
+        case LED_PIXEL_FORMAT_GRB:
+            rmt_strip->pixel_buf[start + 0] = green & 0xFF;
+            rmt_strip->pixel_buf[start + 1] = red & 0xFF;
+            rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
+            break;
+        case LED_PIXEL_FORMAT_RGB:
+            rmt_strip->pixel_buf[start + 0] = red & 0xFF;
+            rmt_strip->pixel_buf[start + 1] = green & 0xFF;
+            rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
+            break;
+        default:
+            assert(false);
     }
     return ESP_OK;
 }
@@ -109,12 +111,16 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     ESP_GOTO_ON_FALSE(led_config && rmt_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
     ESP_GOTO_ON_FALSE(led_config->led_pixel_format < LED_PIXEL_FORMAT_INVALID, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel_format");
     uint8_t bytes_per_pixel = 3;
-    if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
-        bytes_per_pixel = 4;
-    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB || led_config->led_pixel_format == LED_PIXEL_FORMAT_RGB) {
-        bytes_per_pixel = 3;
-    } else {
-        assert(false);
+    switch(led_config->led_pixel_format) {
+        case LED_PIXEL_FORMAT_GRBW:
+            bytes_per_pixel = 4;
+            break;
+        case LED_PIXEL_FORMAT_GRB:
+        case LED_PIXEL_FORMAT_RGB:
+            bytes_per_pixel = 3;
+            break;
+        default:
+            assert(false);
     }
     rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
     ESP_GOTO_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, err, TAG, "no mem for rmt strip");
