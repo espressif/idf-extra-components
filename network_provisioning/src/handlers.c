@@ -23,6 +23,7 @@
 #include "network_provisioning/manager.h"
 #include "network_provisioning_priv.h"
 
+#if defined(CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI) || defined(CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD)
 static const char *TAG = "network_prov_handlers";
 
 /* Provide definition of network_prov_ctx_t */
@@ -40,6 +41,7 @@ static void free_network_prov_ctx(network_prov_ctx_t **ctx)
     free(*ctx);
     *ctx = NULL;
 }
+#endif
 
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 static wifi_config_t *get_wifi_config(network_prov_ctx_t **ctx)
