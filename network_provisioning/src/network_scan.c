@@ -65,7 +65,7 @@ static esp_err_t cmd_scan_start_handler(NetworkScanPayload *req,
                                         NetworkScanPayload *resp, void *priv_data)
 {
     network_prov_scan_handlers_t *h = (network_prov_scan_handlers_t *) priv_data;
-    if (!priv_data) {
+    if (!h) {
         ESP_LOGE(TAG, "Command invoked without handlers");
         return ESP_ERR_INVALID_STATE;
     }
@@ -175,9 +175,9 @@ static esp_err_t cmd_scan_status_handler(NetworkScanPayload *req,
 static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
         NetworkScanPayload *resp, void *priv_data)
 {
-    esp_err_t err;
+    esp_err_t err = ESP_OK;
     network_prov_scan_handlers_t *h = (network_prov_scan_handlers_t *) priv_data;
-    if (!priv_data) {
+    if (!h) {
         ESP_LOGE(TAG, "Command invoked without handlers");
         return ESP_ERR_INVALID_STATE;
     }
@@ -328,9 +328,10 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
         }
 #else // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         resp->status = STATUS__InvalidArgument;
+        err = ESP_ERR_INVALID_ARG;
 #endif // !CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     }
-    return ESP_OK;
+    return err;
 }
 
 
