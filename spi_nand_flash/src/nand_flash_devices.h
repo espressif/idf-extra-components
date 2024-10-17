@@ -42,3 +42,4 @@
 #define WINBOND_DI_BC21               0xBC21
 
 #define MICRON_DI_34                  0x34
+#define MICRON_DI_24                  0x24   // MT29F2G

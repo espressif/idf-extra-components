@@ -139,14 +139,23 @@ static esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
         .miso_data = &device_id
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
-    dev->read_page_delay_us = 115;
     dev->erase_block_delay_us = 2000;
-    dev->program_page_delay_us = 240;
     switch (device_id) {
     case MICRON_DI_34:
+        dev->read_page_delay_us = 115;
+        dev->program_page_delay_us = 240;
         dev->dhara_nand.num_blocks = 2048;
         dev->dhara_nand.log2_ppb = 6;        // 64 pages per block
         dev->dhara_nand.log2_page_size = 12; // 4096 bytes per page
+        break;
+    case MICRON_DI_24:
+        dev->read_page_delay_us = 55;
+        dev->program_page_delay_us = 220;
+        dev->dhara_nand.num_blocks = 2048;
+        dev->dhara_nand.log2_ppb = 6;        // 64 pages per block
+        dev->dhara_nand.log2_page_size = 11; // 2048 bytes per page
+        dev->flags |= NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
+        dev->num_planes = 2;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
@@ -222,6 +231,8 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
     (*handle)->block_size = (1 << (*handle)->dhara_nand.log2_ppb) * (*handle)->page_size;
     (*handle)->num_blocks = (*handle)->dhara_nand.num_blocks;
     (*handle)->work_buffer = malloc((*handle)->page_size);
+    (*handle)->num_planes = 1;
+    (*handle)->flags = 0;
 
     ESP_GOTO_ON_FALSE((*handle)->work_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
 
@@ -276,7 +287,7 @@ end:
 
 esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, dhara_sector_t sector_id)
 {
-    dhara_error_t err;
+    dhara_error_t err = 0;
     esp_err_t ret = ESP_OK;
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
@@ -296,7 +307,7 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
 
 esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, dhara_sector_t sector_id)
 {
-    dhara_error_t err;
+    dhara_error_t err = 0;
     esp_err_t ret = ESP_OK;
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
@@ -311,7 +322,7 @@ esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uin
 
 esp_err_t spi_nand_flash_sync(spi_nand_flash_device_t *handle)
 {
-    dhara_error_t err;
+    dhara_error_t err = 0;
     esp_err_t ret = ESP_OK;
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
