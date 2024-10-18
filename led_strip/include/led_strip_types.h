@@ -17,6 +17,7 @@ extern "C" {
 typedef enum {
     LED_PIXEL_FORMAT_GRB,    /*!< Pixel format: GRB */
     LED_PIXEL_FORMAT_GRBW,   /*!< Pixel format: GRBW */
+    LED_PIXEL_FORMAT_RGB,    /*!< Pixel format: RGB */
     LED_PIXEL_FORMAT_INVALID /*!< Invalid pixel format */
 } led_pixel_format_t;
 
@@ -27,6 +28,7 @@ typedef enum {
 typedef enum {
     LED_MODEL_WS2812, /*!< LED strip model: WS2812 */
     LED_MODEL_SK6812, /*!< LED strip model: SK6812 */
+    LED_MODEL_WS2811, /*!< LED strip model: WS2811 */
     LED_MODEL_INVALID /*!< Invalid LED strip model */
 } led_model_t;
 
