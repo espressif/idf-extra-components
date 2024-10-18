@@ -31,6 +31,17 @@ typedef enum {
 } led_model_t;
 
 /**
+ * @brief LED strip pixel order index
+ */
+typedef enum {
+    LED_PIXEL_INDEX_RED,     /*!< Red pixel index */
+    LED_PIXEL_INDEX_GREEN,   /*!< Green pixel index */
+    LED_PIXEL_INDEX_BLUE,    /*!< Blue pixel index */
+    LED_PIXEL_INDEX_WHITE,   /*!< White pixel index */
+    LED_PIXEL_INDEX_MAX      /*!< Max pixel index */
+} led_pixel_order_index_t;
+
+/**
  * @brief LED strip handle
  */
 typedef struct led_strip_t *led_strip_handle_t;
@@ -43,6 +54,7 @@ typedef struct {
     uint32_t max_leds;       /*!< Maximum LEDs in a single strip */
     led_pixel_format_t led_pixel_format; /*!< LED pixel format */
     led_model_t led_model;   /*!< LED model */
+    void (*config_pixel_order)(uint8_t *led_pixel_offset); /*!< User callback function of configuring pixel order */
 
     struct {
         uint32_t invert_out: 1; /*!< Invert output signal */
