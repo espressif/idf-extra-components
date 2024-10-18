@@ -58,6 +58,7 @@ static esp_err_t led_strip_spi_set_pixel(led_strip_t *strip, uint32_t index, uin
     switch(spi_strip->led_pixel_format) {
         case LED_PIXEL_FORMAT_GRBW:
             __led_strip_spi_bit(0, &spi_strip->pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * 3]);
+            // fall through
         case LED_PIXEL_FORMAT_GRB:
             __led_strip_spi_bit(green, &spi_strip->pixel_buf[start]);
             __led_strip_spi_bit(red, &spi_strip->pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE]);

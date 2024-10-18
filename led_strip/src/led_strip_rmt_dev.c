@@ -42,6 +42,7 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     switch(rmt_strip->led_pixel_format) {
         case LED_PIXEL_FORMAT_GRBW:
             rmt_strip->pixel_buf[start + 3] = 0;
+            // fall through
         case LED_PIXEL_FORMAT_GRB:
             rmt_strip->pixel_buf[start + 0] = green & 0xFF;
             rmt_strip->pixel_buf[start + 1] = red & 0xFF;
