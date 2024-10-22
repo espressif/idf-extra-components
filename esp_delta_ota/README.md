@@ -12,7 +12,10 @@ Compressed Delta OTA Updates aims at enabling Over-the-Air firmware update with 
 * Only firmware level changes are required for integrating this component. No bootloader related changes required.
 * This scheme can be implemented for the existing devices in the field.
 
-### Prerequisites
+## Workflow Block diagram
+![ESP Delta OTA Block Diagram](https://raw.githubusercontent.com/espressif/idf-extra-components/master/esp_delta_ota/esp_delta_ota_block_diagram.png)
+
+## Prerequisites
 
 * **ESP-IDF v4.3 and above**
 
