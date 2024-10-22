@@ -1,4 +1,4 @@
-version: "0.4.0"
+version: "0.4.1"
 description: Driver for accessing SPI NAND Flash
 url: https://github.com/espressif/idf-extra-components/tree/master/spi_nand_flash
 issues: https://github.com/espressif/idf-extra-components/issues
