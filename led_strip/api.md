@@ -21,6 +21,13 @@
 |  esp\_err\_t | [**led\_strip\_set\_pixel\_hsv**](#function-led_strip_set_pixel_hsv) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint16\_t hue, uint8\_t saturation, uint8\_t value) <br>_Set HSV for a specific pixel._ |
 |  esp\_err\_t | [**led\_strip\_set\_pixel\_rgbw**](#function-led_strip_set_pixel_rgbw) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue, uint32\_t white) <br>_Set RGBW for a specific pixel._ |
 
+## Macros
+
+| Type | Name |
+| ---: | :--- |
+| define  | [**LED\_STRIP\_SET\_RGBW\_ORDER**](#define-led_strip_set_rgbw_order) (R, G, B, W) (R &lt;&lt; 0 \| G &lt;&lt; 2 \| B &lt;&lt; 4 \| W &lt;&lt; 6)<br>_Help macro to set pixel RGBW color order The default order of the four-color LED strips is GRBW. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._ |
+| define  | [**LED\_STRIP\_SET\_RGB\_ORDER**](#define-led_strip_set_rgb_order) (R, G, B) (R &lt;&lt; 0 \| G &lt;&lt; 2 \| B &lt;&lt; 4)<br>_Help macro to set pixel RGB color order The default order of the three-color LED strips is GRB. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._ |
+
 ## Functions Documentation
 
 ### function `led_strip_clear`
@@ -178,6 +185,45 @@ Also see `led_strip_set_pixel` if you only want to specify the RGB part of the c
 - ESP\_ERR\_INVALID\_ARG: Set RGBW color for a specific pixel failed because of an invalid argument
 - ESP\_FAIL: Set RGBW color for a specific pixel failed because other error occurred
 
+## Macros Documentation
+
+### define `LED_STRIP_SET_RGBW_ORDER`
+
+_Help macro to set pixel RGBW color order The default order of the four-color LED strips is GRBW. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._
+
+```c
+#define LED_STRIP_SET_RGBW_ORDER (R, G, B, W) (R << 0 | G << 2 | B << 4 | W << 6)
+```
+
+**Parameters:**
+
+- `R` The position of the red channel in the color order.
+- `G` The position of the green channel in the color order.
+- `B` The position of the blue channel in the color order.
+- `W` The position of the white channel in the color order.
+
+**Note:**
+
+The order starts from 0. And the user needs to make sure that all the numbers appear exactly once and are all less than the number of colors per pixel.
+
+### define `LED_STRIP_SET_RGB_ORDER`
+
+_Help macro to set pixel RGB color order The default order of the three-color LED strips is GRB. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._
+
+```c
+#define LED_STRIP_SET_RGB_ORDER (R, G, B) (R << 0 | G << 2 | B << 4)
+```
+
+**Parameters:**
+
+- `R` The position of the red channel in the color order.
+- `G` The position of the green channel in the color order.
+- `B` The position of the blue channel in the color order.
+
+**Note:**
+
+The order starts from 0. And the user needs to make sure that all the numbers appear exactly once and are all less than the number of colors per pixel.
+
 ## File include/led_strip_rmt.h
 
 ## Structures and Types
@@ -306,7 +352,6 @@ Although only the MOSI line is used for generating the signal, the whole SPI bus
 | Type | Name |
 | ---: | :--- |
 | enum  | [**led\_model\_t**](#enum-led_model_t)  <br>_LED strip model._ |
-| enum  | [**led\_pixel\_format\_t**](#enum-led_pixel_format_t)  <br>_LED strip pixel format._ |
 | struct | [**led\_strip\_config\_t**](#struct-led_strip_config_t) <br>_LED Strip Configuration._ |
 | typedef struct [**led\_strip\_t**](#struct-led_strip_t) \* | [**led\_strip\_handle\_t**](#typedef-led_strip_handle_t)  <br>_LED strip handle._ |
 
@@ -328,33 +373,23 @@ enum led_model_t {
 
 Different led model may have different timing parameters, so we need to distinguish them.
 
-### enum `led_pixel_format_t`
-
-_LED strip pixel format._
-
-```c
-enum led_pixel_format_t {
-    LED_PIXEL_FORMAT_GRB,
-    LED_PIXEL_FORMAT_GRBW,
-    LED_PIXEL_FORMAT_INVALID
-};
-```
-
 ### struct `led_strip_config_t`
 
 _LED Strip Configuration._
 
 Variables:
 
-- struct led\_strip\_config\_t::@2 flags  <br>Extra driver flags
+- uint8\_t bytes_per_pixel  <br>bytes per LED pixel. Should be 3 or 4
+
+- struct led\_strip\_config\_t::@2 flags  <br>The order of the pixel color. Use help macro LED\_STRIP\_SET\_RGB\_ORDER or LED\_STRIP\_SET\_RGBW\_ORDER to set. Not set or set to 0 if the default order is used. Extra driver flags
 
 - uint32\_t invert_out  <br>Invert output signal
 
 - [**led\_model\_t**](#enum-led_model_t) led_model  <br>LED model
 
-- [**led\_pixel\_format\_t**](#enum-led_pixel_format_t) led_pixel_format  <br>LED pixel format
-
 - uint32\_t max_leds  <br>Maximum LEDs in a single strip
+
+- uint8\_t pixel_order  
 
 - int strip_gpio_num  <br>GPIO number that used by LED strip
 

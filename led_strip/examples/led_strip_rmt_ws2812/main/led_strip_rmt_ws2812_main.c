@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
@@ -11,9 +11,9 @@
 #include "esp_err.h"
 
 // GPIO assignment
-#define LED_STRIP_BLINK_GPIO  2
+#define LED_STRIP_GPIO_PIN  2
 // Numbers of the LED in the strip
-#define LED_STRIP_LED_NUMBERS 24
+#define LED_STRIP_LED_COUNT 24
 // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 #define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000)
 
@@ -23,11 +23,13 @@ led_strip_handle_t configure_led(void)
 {
     // LED strip general initialization, according to your led board design
     led_strip_config_t strip_config = {
-        .strip_gpio_num = LED_STRIP_BLINK_GPIO,   // The GPIO that connected to the LED strip's data line
-        .max_leds = LED_STRIP_LED_NUMBERS,        // The number of LEDs in the strip,
-        .led_pixel_format = LED_PIXEL_FORMAT_GRB, // Pixel format of your LED strip
-        .led_model = LED_MODEL_WS2812,            // LED strip model
-        .flags.invert_out = false,                // whether to invert the output signal
+        .strip_gpio_num = LED_STRIP_GPIO_PIN,   // The GPIO that connected to the LED strip's data line
+        .max_leds = LED_STRIP_LED_COUNT,        // The number of LEDs in the strip,
+        .bytes_per_pixel = 3,                   // 3 bytes per pixel of the LED strip
+        .led_model = LED_MODEL_WS2812,          // LED strip model
+        .flags.invert_out = false,              // whether to invert the output signal
+        .pixel_order = LED_STRIP_SET_RGB_ORDER(1, 0, 2), /* The order of the pixel color. Not set or set to 0 if the default order is used.
+                                                            Here set to the default GRB order to demonstrate usage */
     };
 
     // LED strip backend configuration: RMT
@@ -57,7 +59,7 @@ void app_main(void)
     while (1) {
         if (led_on_off) {
             /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-            for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++) {
+            for (int i = 0; i < LED_STRIP_LED_COUNT; i++) {
                 ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 5, 5, 5));
             }
             /* Refresh the strip to send data */

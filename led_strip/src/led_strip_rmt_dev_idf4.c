@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,6 +11,7 @@
 #include "driver/rmt.h"
 #include "led_strip.h"
 #include "led_strip_interface.h"
+#include "led_strip_common.h"
 
 static const char *TAG = "led_strip_rmt";
 
@@ -43,6 +44,7 @@ typedef struct {
     rmt_channel_t rmt_channel;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
+    uint8_t led_pixel_offset[LED_PIXEL_INDEX_MAX];
     uint8_t buffer[0];
 } led_strip_rmt_obj;
 
@@ -83,12 +85,14 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of the maximum number of leds");
     uint32_t start = index * rmt_strip->bytes_per_pixel;
-    // In thr order of GRB
-    rmt_strip->buffer[start + 0] = green & 0xFF;
-    rmt_strip->buffer[start + 1] = red & 0xFF;
-    rmt_strip->buffer[start + 2] = blue & 0xFF;
+    uint8_t *pixel_buf = rmt_strip->buffer;
+    uint8_t *offset = rmt_strip->led_pixel_offset;
+    // Support all kinds of pixel order
+    pixel_buf[start + offset[LED_PIXEL_INDEX_RED]] = red & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_GREEN]] = green & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_BLUE]] = blue & 0xFF;
     if (rmt_strip->bytes_per_pixel > 3) {
-        rmt_strip->buffer[start + 3] = 0;
+        rmt_strip->buffer[start + offset[LED_PIXEL_INDEX_WHITE]] = 0;
     }
     return ESP_OK;
 }
@@ -123,17 +127,9 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     led_strip_rmt_obj *rmt_strip = NULL;
     esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE(led_config && dev_config && ret_strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
-    ESP_RETURN_ON_FALSE(led_config->led_pixel_format < LED_PIXEL_FORMAT_INVALID, ESP_ERR_INVALID_ARG, TAG, "invalid led_pixel_format");
     ESP_RETURN_ON_FALSE(dev_config->flags.with_dma == 0, ESP_ERR_NOT_SUPPORTED, TAG, "DMA is not supported");
-
-    uint8_t bytes_per_pixel = 3;
-    if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
-        bytes_per_pixel = 4;
-    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB) {
-        bytes_per_pixel = 3;
-    } else {
-        assert(false);
-    }
+    ESP_RETURN_ON_FALSE(led_config->bytes_per_pixel == 3 || led_config->bytes_per_pixel == 4, ESP_ERR_INVALID_ARG, TAG, "invalid led_pixel bytes");
+    uint8_t bytes_per_pixel = led_config->bytes_per_pixel;
 
     // allocate memory for led_strip object
     rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
@@ -174,6 +170,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
 
     // adapter to translates the LES strip date frame into RMT symbols
     rmt_translator_init((rmt_channel_t)dev_config->rmt_channel, ws2812_rmt_adapter);
+    ESP_GOTO_ON_ERROR(led_strip_set_color_order(rmt_strip->led_pixel_offset, led_config->pixel_order, bytes_per_pixel), err, TAG, "adjust color order failed");
 
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
     rmt_strip->rmt_channel = (rmt_channel_t)dev_config->rmt_channel;

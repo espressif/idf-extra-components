@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,6 +12,7 @@
 #include "led_strip.h"
 #include "led_strip_interface.h"
 #include "led_strip_rmt_encoder.h"
+#include "led_strip_common.h"
 
 #define LED_STRIP_RMT_DEFAULT_RESOLUTION 10000000 // 10MHz resolution
 #define LED_STRIP_RMT_DEFAULT_TRANS_QUEUE_SIZE 4
@@ -30,6 +31,7 @@ typedef struct {
     rmt_encoder_handle_t strip_encoder;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
+    uint8_t led_pixel_offset[LED_PIXEL_INDEX_MAX];
     uint8_t pixel_buf[];
 } led_strip_rmt_obj;
 
@@ -38,12 +40,15 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
     uint32_t start = index * rmt_strip->bytes_per_pixel;
-    // In thr order of GRB, as LED strip like WS2812 sends out pixels in this order
-    rmt_strip->pixel_buf[start + 0] = green & 0xFF;
-    rmt_strip->pixel_buf[start + 1] = red & 0xFF;
-    rmt_strip->pixel_buf[start + 2] = blue & 0xFF;
+    uint8_t *pixel_buf = rmt_strip->pixel_buf;
+    uint8_t *offset = rmt_strip->led_pixel_offset;
+    // Support all kinds of pixel order
+    pixel_buf[start + offset[LED_PIXEL_INDEX_RED]] = red & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_GREEN]] = green & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_BLUE]] = blue & 0xFF;
+
     if (rmt_strip->bytes_per_pixel > 3) {
-        rmt_strip->pixel_buf[start + 3] = 0;
+        pixel_buf[start + offset[LED_PIXEL_INDEX_WHITE]] = 0;
     }
     return ESP_OK;
 }
@@ -53,12 +58,14 @@ static esp_err_t led_strip_rmt_set_pixel_rgbw(led_strip_t *strip, uint32_t index
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
     ESP_RETURN_ON_FALSE(rmt_strip->bytes_per_pixel == 4, ESP_ERR_INVALID_ARG, TAG, "wrong LED pixel format, expected 4 bytes per pixel");
-    uint8_t *buf_start = rmt_strip->pixel_buf + index * 4;
+    uint32_t start = index * rmt_strip->bytes_per_pixel;
+    uint8_t *pixel_buf = rmt_strip->pixel_buf;
+    uint8_t *offset = rmt_strip->led_pixel_offset;
     // SK6812 component order is GRBW
-    *buf_start = green & 0xFF;
-    *++buf_start = red & 0xFF;
-    *++buf_start = blue & 0xFF;
-    *++buf_start = white & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_RED]] = red & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_GREEN]] = green & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_BLUE]] = blue & 0xFF;
+    pixel_buf[start + offset[LED_PIXEL_INDEX_WHITE]] = white & 0xFF;
     return ESP_OK;
 }
 
@@ -99,15 +106,8 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     led_strip_rmt_obj *rmt_strip = NULL;
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_FALSE(led_config && rmt_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
-    ESP_GOTO_ON_FALSE(led_config->led_pixel_format < LED_PIXEL_FORMAT_INVALID, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel_format");
-    uint8_t bytes_per_pixel = 3;
-    if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRBW) {
-        bytes_per_pixel = 4;
-    } else if (led_config->led_pixel_format == LED_PIXEL_FORMAT_GRB) {
-        bytes_per_pixel = 3;
-    } else {
-        assert(false);
-    }
+    ESP_GOTO_ON_FALSE(led_config->bytes_per_pixel == 3 || led_config->bytes_per_pixel == 4, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel bytes");
+    uint8_t bytes_per_pixel = led_config->bytes_per_pixel;
     rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
     ESP_GOTO_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, err, TAG, "no mem for rmt strip");
     uint32_t resolution = rmt_config->resolution_hz ? rmt_config->resolution_hz : LED_STRIP_RMT_DEFAULT_RESOLUTION;
@@ -138,7 +138,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
         .led_model = led_config->led_model
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
-
+    ESP_GOTO_ON_ERROR(led_strip_set_color_order(rmt_strip->led_pixel_offset, led_config->pixel_order, bytes_per_pixel), err, TAG, "adjust color order failed");
 
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
     rmt_strip->strip_len = led_config->max_leds;

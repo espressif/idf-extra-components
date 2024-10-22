@@ -21,9 +21,11 @@ led_strip_handle_t led_strip;
 led_strip_config_t strip_config = {
     .strip_gpio_num = BLINK_GPIO, // The GPIO that connected to the LED strip's data line
     .max_leds = 1, // The number of LEDs in the strip,
-    .led_pixel_format = LED_PIXEL_FORMAT_GRB, // Pixel format of your LED strip
+    .bytes_per_pixel = 3, // 3 bytes per pixel of the LED strip
     .led_model = LED_MODEL_WS2812, // LED strip model
     .flags.invert_out = false, // whether to invert the output signal (useful when your hardware has a level inverter)
+    .pixel_order = LED_STRIP_SET_RGB_ORDER(1, 0, 2), /* The order of the pixel color. Not set or set to 0 if the default order is used.
+                                                        Here set to the default GRB order to demonstrate usage */
 };
 
 led_strip_rmt_config_t rmt_config = {
@@ -57,9 +59,11 @@ led_strip_handle_t led_strip;
 led_strip_config_t strip_config = {
     .strip_gpio_num = BLINK_GPIO, // The GPIO that connected to the LED strip's data line
     .max_leds = 1, // The number of LEDs in the strip,
-    .led_pixel_format = LED_PIXEL_FORMAT_GRB, // Pixel format of your LED strip
+    .bytes_per_pixel = 3, // 3 bytes per pixel of the LED strip
     .led_model = LED_MODEL_WS2812, // LED strip model
     .flags.invert_out = false, // whether to invert the output signal (useful when your hardware has a level inverter)
+    .pixel_order = LED_STRIP_SET_RGB_ORDER(1, 0, 2), /* The order of the pixel color. Not set or set to 0 if the default order is used.
+                                                        Here set to the default GRB order to demonstrate usage */
 };
 
 led_strip_spi_config_t spi_config = {

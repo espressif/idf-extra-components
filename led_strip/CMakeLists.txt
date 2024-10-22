@@ -1,6 +1,6 @@
 include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
-set(srcs "src/led_strip_api.c")
+set(srcs "src/led_strip_api.c" "src/led_strip_common.c")
 set(public_requires)
 
 # Starting from esp-idf v5.x, the RMT driver is rewritten

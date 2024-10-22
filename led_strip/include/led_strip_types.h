@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,15 +10,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief LED strip pixel format
- */
-typedef enum {
-    LED_PIXEL_FORMAT_GRB,    /*!< Pixel format: GRB */
-    LED_PIXEL_FORMAT_GRBW,   /*!< Pixel format: GRBW */
-    LED_PIXEL_FORMAT_INVALID /*!< Invalid pixel format */
-} led_pixel_format_t;
 
 /**
  * @brief LED strip model
@@ -41,9 +32,11 @@ typedef struct led_strip_t *led_strip_handle_t;
 typedef struct {
     int strip_gpio_num;      /*!< GPIO number that used by LED strip */
     uint32_t max_leds;       /*!< Maximum LEDs in a single strip */
-    led_pixel_format_t led_pixel_format; /*!< LED pixel format */
+    uint8_t bytes_per_pixel; /*!< bytes per LED pixel. Should be 3 or 4 */
     led_model_t led_model;   /*!< LED model */
-
+    uint8_t pixel_order; /*! The order of the pixel color.
+                             Use help macro LED_STRIP_SET_RGB_ORDER or LED_STRIP_SET_RGBW_ORDER to set.
+                             Not set or set to 0 if the default order is used. */
     struct {
         uint32_t invert_out: 1; /*!< Invert output signal */
     } flags;                    /*!< Extra driver flags */
