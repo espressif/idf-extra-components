@@ -267,7 +267,7 @@ fail:
 esp_err_t spi_nand_erase_chip(spi_nand_flash_device_t *handle)
 {
     ESP_LOGW(TAG, "Entire chip is being erased");
-    esp_err_t ret;
+    esp_err_t ret = ESP_OK;
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
 
@@ -283,7 +283,6 @@ esp_err_t spi_nand_erase_chip(spi_nand_flash_device_t *handle)
     dhara_map_init(&handle->dhara_map, &handle->dhara_nand, handle->work_buffer, handle->config.gc_factor);
     dhara_map_clear(&handle->dhara_map);
 
-    return ESP_OK;
 end:
     xSemaphoreGive(handle->mutex);
     return ret;
@@ -307,6 +306,21 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
 
     xSemaphoreGive(handle->mutex);
     memcpy(buffer, handle->read_buffer, handle->page_size);
+    return ret;
+}
+
+esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, dhara_sector_t src_sec, dhara_sector_t dst_sec)
+{
+    dhara_error_t err;
+    esp_err_t ret = ESP_OK;
+
+    xSemaphoreTake(handle->mutex, portMAX_DELAY);
+
+    if (dhara_map_copy_sector(&handle->dhara_map, src_sec, dst_sec, &err)) {
+        ret = ESP_ERR_FLASH_BASE + err;
+    }
+
+    xSemaphoreGive(handle->mutex);
     return ret;
 }
 

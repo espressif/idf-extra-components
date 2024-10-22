@@ -47,6 +47,7 @@
 
 #define PATTERN_SEED    0x12345678
 
+static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_sec, uint16_t sec_count);
 static void setup_bus(spi_host_device_t host_id)
 {
     spi_bus_config_t spi_bus_cfg = {
@@ -104,6 +105,7 @@ TEST_CASE("erase nand flash", "[spi_nand_flash]")
     spi_device_handle_t spi;
     setup_nand_flash(&nand_flash_device_handle, &spi);
     TEST_ESP_OK(spi_nand_erase_chip(nand_flash_device_handle));
+    do_single_write_test(nand_flash_device_handle, 1, 1);
     deinit_nand_flash(nand_flash_device_handle, spi);
 }
 
@@ -186,5 +188,25 @@ TEST_CASE("write nand flash sectors", "[spi_nand_flash]")
     do_single_write_test(nand_flash_device_handle, sector_num / 2, 256);
     do_single_write_test(nand_flash_device_handle, sector_num - 20, 16);
 
+    deinit_nand_flash(nand_flash_device_handle, spi);
+}
+
+TEST_CASE("copy nand flash sectors", "[spi_nand_flash]")
+{
+    spi_nand_flash_device_t *nand_flash_device_handle;
+    spi_device_handle_t spi;
+    setup_nand_flash(&nand_flash_device_handle, &spi);
+    uint32_t sector_num, sector_size;
+    uint32_t src_sec = 10;
+    uint32_t dst_sec = 11;
+
+    TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
+    TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
+    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
+
+    if (src_sec < sector_num && dst_sec < sector_num) {
+        do_single_write_test(nand_flash_device_handle, src_sec, 1);
+        TEST_ESP_OK(spi_nand_flash_copy_sector(nand_flash_device_handle, src_sec, dst_sec));
+    }
     deinit_nand_flash(nand_flash_device_handle, spi);
 }

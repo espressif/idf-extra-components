@@ -6,6 +6,7 @@
  * SPDX-FileContributor: 2015-2023 Espressif Systems (Shanghai) CO LTD
  */
 
+#include <string.h>
 #include "dhara/nand.h"
 #include "esp_check.h"
 #include "esp_err.h"
@@ -18,6 +19,28 @@
 #define ROM_WAIT_THRESHOLD_US 1000
 
 static const char *TAG = "dhara_glue";
+
+#if CONFIG_NAND_FLASH_VERIFY_WRITE
+static esp_err_t s_verify_write(spi_nand_flash_device_t *handle, const uint8_t *expected_buffer, uint16_t offset, uint16_t length)
+{
+    uint8_t *temp_buf = NULL;
+    temp_buf = heap_caps_malloc(length, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
+    if (spi_nand_read(handle->config.device_handle, temp_buf, offset, length)) {
+        ESP_LOGE(TAG, "%s: Failed to read nand flash to verify previous write", __func__);
+        free(temp_buf);
+        return ESP_FAIL;
+    }
+
+    if (memcmp(temp_buf, expected_buffer, length)) {
+        ESP_LOGE(TAG, "%s: Data mismatch detected. The previously written buffer does not match the read buffer.", __func__);
+        free(temp_buf);
+        return ESP_FAIL;
+    }
+    free(temp_buf);
+    return ESP_OK;
+}
+#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
 
 esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_operation_time_us, uint8_t *status_out)
 {
@@ -83,7 +106,7 @@ fail:
 void dhara_nand_mark_bad(const struct dhara_nand *n, dhara_block_t b)
 {
     spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret;
+    esp_err_t ret = ESP_OK;
 
     dhara_page_t first_block_page = b * (1 << n->log2_ppb);
     uint16_t bad_block_indicator = 0;
@@ -98,6 +121,13 @@ void dhara_nand_mark_bad(const struct dhara_nand *n, dhara_block_t b)
                                             dev->page_size, 2),
                       fail, TAG, "");
     ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, first_block_page, NULL), fail, TAG, "");
+
+#if CONFIG_NAND_FLASH_VERIFY_WRITE
+    ret = s_verify_write(dev, (uint8_t *)&bad_block_indicator, dev->page_size, 2);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "%s: mark_bad write verification failed for block=%"PRIu32" and page=%"PRIu32"", __func__, b, first_block_page);
+    }
+#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
     return;
 fail:
     ESP_LOGE(TAG, "Error in dhara_nand_mark_bad %d", ret);
@@ -135,7 +165,7 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
 {
     ESP_LOGV(TAG, "prog, page=%"PRIu32",", p);
     spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret;
+    esp_err_t ret = ESP_OK;
     uint8_t status;
     uint16_t used_marker = 0;
 
@@ -153,6 +183,17 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
         dhara_set_error(err, DHARA_E_BAD_BLOCK);
         return -1;
     }
+
+#if CONFIG_NAND_FLASH_VERIFY_WRITE
+    ret = s_verify_write(dev, data, 0, dev->page_size);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "%s: prog page=%"PRIu32" write verification failed", __func__, p);
+    }
+    ret = s_verify_write(dev, (uint8_t *)&used_marker, dev->page_size + 2, 2);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "%s: prog page=%"PRIu32" used marker write verification failed", __func__, p);
+    }
+#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
 
     return 0;
 fail:
@@ -212,8 +253,11 @@ int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t d
 {
     ESP_LOGD(TAG, "copy, src=%"PRIu32", dst=%"PRIu32"", src, dst);
     spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret;
+    esp_err_t ret = ESP_OK;
     uint8_t status;
+#if CONFIG_NAND_FLASH_VERIFY_WRITE
+    uint8_t *temp_buf = NULL;
+#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, src, &status), fail, TAG, "");
 
@@ -232,8 +276,35 @@ int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t d
         return -1;
     }
 
-    return 0;
+#if CONFIG_NAND_FLASH_VERIFY_WRITE
+    // First read src page data from cache to temp_buf
+    temp_buf = heap_caps_malloc(dev->page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
+    if (spi_nand_read(dev->config.device_handle, temp_buf, 0, dev->page_size)) {
+        ESP_LOGE(TAG, "%s: Failed to read src_page=%"PRIu32"", __func__, src);
+        goto fail;
+    }
+    // Then read dst page data from nand memory array and load it in cache
+    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, dst, &status), fail, TAG, "");
+    if (is_ecc_error(status)) {
+        ESP_LOGE(TAG, "%s: dst_page=%"PRIu32" read, ecc error", __func__, dst);
+        dhara_set_error(err, DHARA_E_ECC);
+        goto fail;
+    }
+    // Check if the data in the src page matches the dst page
+    ret = s_verify_write(dev, temp_buf, 0, dev->page_size);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "%s: dst_page=%"PRIu32" write verification failed", __func__, dst);
+    }
+
+    free(temp_buf);
+#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
+    return ret;
+
 fail:
+#if CONFIG_NAND_FLASH_VERIFY_WRITE
+    free(temp_buf);
+#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
     ESP_LOGE(TAG, "Error in dhara_nand_copy %d", ret);
     return -1;
 }

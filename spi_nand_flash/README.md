@@ -25,3 +25,19 @@ At present, `spi_nand_flash` component is compatible with the chips produced by 
 * Winbond - W25N01GVxxxG/T/R, W25N512GVxIG/IT, W25N512GWxxR/T, W25N01JWxxxG/T, W25N01JWxxxG/T
 * Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG
 * Alliance - AS5F31G04SND-08LIN, AS5F32G04SND-08LIN, AS5F12G04SND-10LIN, AS5F34G04SND-08LIN, AS5F14G04SND-10LIN, AS5F38G04SND-08LIN, AS5F18G04SND-10LIN
+* Micron - MT29F4G01ABAFDWB
+
+## Troubleshooting
+
+To verify SPI NAND Flash writes, enable the `NAND_FLASH_VERIFY_WRITE` option in menuconfig. When this option is enabled, every time data is written to the SPI NAND Flash, it will be read back and verified. This helps in identifying hardware issues with the SPI NAND Flash.
+
+To configure the project for this setting, follow these steps:
+
+```
+idf.py menuconfig
+-> Component config
+-> SPI NAND Flash configuration
+-> NAND_FLASH_VERIFY_WRITE
+```
+
+Run `idf.py -p PORT flash monitor` and if the write verification fails, an error log will be printed to the console.
