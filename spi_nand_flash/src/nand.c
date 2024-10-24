@@ -145,6 +145,7 @@ static esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
         .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
+    dev->ecc_data.ecc_status_reg_len_in_bits = 3;
     dev->erase_block_delay_us = 2000;
     ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);
     switch (device_id) {
@@ -227,6 +228,8 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
 
     memcpy(&(*handle)->config, config, sizeof(spi_nand_flash_config_t));
 
+    (*handle)->ecc_data.ecc_status_reg_len_in_bits = 2;
+    (*handle)->ecc_data.ecc_data_refresh_threshold = 4;
     (*handle)->dhara_nand.log2_ppb = 6; // 64 pages per block is standard
     (*handle)->dhara_nand.log2_page_size = 11;  // 2048 bytes per page is fairly standard
 
@@ -296,6 +299,25 @@ end:
     return ret;
 }
 
+static bool s_need_data_refresh(spi_nand_flash_device_t *handle)
+{
+    uint8_t min_bits_corrected = 0;
+    bool ret = false;
+    if (handle->ecc_data.ecc_corrected_bits_status == STAT_ECC_1_TO_3_BITS_CORRECTED) {
+        min_bits_corrected = 1;
+    } else if (handle->ecc_data.ecc_corrected_bits_status == STAT_ECC_4_TO_6_BITS_CORRECTED) {
+        min_bits_corrected = 4;
+    } else if (handle->ecc_data.ecc_corrected_bits_status == STAT_ECC_7_8_BITS_CORRECTED) {
+        min_bits_corrected = 7;
+    }
+
+    // if number of corrected bits is greater than refresh threshold then rewite the sector
+    if (min_bits_corrected >= handle->ecc_data.ecc_data_refresh_threshold) {
+        ret = true;
+    }
+    return ret;
+}
+
 esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, dhara_sector_t sector_id)
 {
     dhara_error_t err;
@@ -303,12 +325,15 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
 
+    // After a successful read operation, check the ECC corrected bit status; if the read fails, return an error
     if (dhara_map_read(&handle->dhara_map, sector_id, handle->read_buffer, &err)) {
         ret = ESP_ERR_FLASH_BASE + err;
-    } else if (err) {
-        // This indicates a soft ECC error, we rewrite the sector to recover
-        if (dhara_map_write(&handle->dhara_map, sector_id, handle->read_buffer, &err)) {
-            ret = ESP_ERR_FLASH_BASE + err;
+    } else if (handle->ecc_data.ecc_corrected_bits_status) {
+        // This indicates a soft ECC error, we rewrite the sector to recover if corrected bits are greater than refresh threshold
+        if (s_need_data_refresh(handle)) {
+            if (dhara_map_write(&handle->dhara_map, sector_id, handle->read_buffer, &err)) {
+                ret = ESP_ERR_FLASH_BASE + err;
+            }
         }
     }
 

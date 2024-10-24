@@ -53,6 +53,7 @@ typedef struct spi_nand_transaction_t spi_nand_transaction_t;
 #define STAT_PROGRAM_FAILED 1 << 3
 #define STAT_ECC0           1 << 4
 #define STAT_ECC1           1 << 5
+#define STAT_ECC2           1 << 6
 
 esp_err_t spi_nand_execute_transaction(spi_device_handle_t device, spi_nand_transaction_t *transaction);
 

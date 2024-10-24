@@ -219,9 +219,31 @@ fail:
     return 0;
 }
 
-static int is_ecc_error(uint8_t status)
+#define PACK_2BITS_STATUS(status, bit1, bit0)         ((((status) & (bit1)) << 1) | ((status) & (bit0)))
+#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   ((((status) & (bit2)) << 2) | (((status) & (bit1)) << 1) | ((status) & (bit0)))
+
+static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status, dhara_error_t *err)
 {
-    return (status & STAT_ECC1) != 0 && (status & STAT_ECC0) == 0;
+    bool is_ecc_err = false;
+    ecc_status_t bits_corrected_status = STAT_ECC_OK;
+    if (dev->ecc_data.ecc_status_reg_len_in_bits == 2) {
+        bits_corrected_status = PACK_2BITS_STATUS(status, STAT_ECC1, STAT_ECC0);
+    } else if (dev->ecc_data.ecc_status_reg_len_in_bits == 3) {
+        bits_corrected_status = PACK_3BITS_STATUS(status, STAT_ECC2, STAT_ECC1, STAT_ECC0);
+    } else {
+        bits_corrected_status = STAT_ECC_MAX;
+    }
+    dev->ecc_data.ecc_corrected_bits_status = bits_corrected_status;
+    if (bits_corrected_status) {
+        if (bits_corrected_status == STAT_ECC_MAX) {
+            ESP_LOGE(TAG, "%s: Error while initializing value of ecc_status_reg_len_in_bits", __func__);
+            is_ecc_err = true;
+        } else if (bits_corrected_status == STAT_ECC_NOT_CORRECTED) {
+            dhara_set_error(err, DHARA_E_ECC);
+            is_ecc_err = true;
+        }
+    }
+    return is_ecc_err;
 }
 
 int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, size_t length,
@@ -235,9 +257,8 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, &status), fail, TAG, "");
 
-    if (is_ecc_error(status)) {
+    if (is_ecc_error(dev, status, err)) {
         ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", p);
-        dhara_set_error(err, DHARA_E_ECC);
         return -1;
     }
 
@@ -261,9 +282,8 @@ int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t d
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, src, &status), fail, TAG, "");
 
-    if (is_ecc_error(status)) {
+    if (is_ecc_error(dev, status, err)) {
         ESP_LOGD(TAG, "copy, ecc error");
-        dhara_set_error(err, DHARA_E_ECC);
         return -1;
     }
 
@@ -286,11 +306,12 @@ int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t d
     }
     // Then read dst page data from nand memory array and load it in cache
     ESP_GOTO_ON_ERROR(read_page_and_wait(dev, dst, &status), fail, TAG, "");
-    if (is_ecc_error(status)) {
+
+    if (is_ecc_error(dev, status, err)) {
         ESP_LOGE(TAG, "%s: dst_page=%"PRIu32" read, ecc error", __func__, dst);
-        dhara_set_error(err, DHARA_E_ECC);
         goto fail;
     }
+
     // Check if the data in the src page matches the dst page
     ret = s_verify_write(dev, temp_buf, 0, dev->page_size);
     if (ret != ESP_OK) {

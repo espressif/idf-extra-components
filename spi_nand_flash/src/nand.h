@@ -19,6 +19,23 @@ extern "C" {
 
 #define INVALID_PAGE 0xFFFF
 
+typedef enum {
+    STAT_ECC_OK = 0,
+    STAT_ECC_1_TO_3_BITS_CORRECTED = 1,
+    STAT_ECC_BITS_CORRECTED = STAT_ECC_1_TO_3_BITS_CORRECTED,
+    STAT_ECC_NOT_CORRECTED = 2,
+    STAT_ECC_4_TO_6_BITS_CORRECTED = 3,
+    STAT_ECC_MAX_BITS_CORRECTED = STAT_ECC_4_TO_6_BITS_CORRECTED,
+    STAT_ECC_7_8_BITS_CORRECTED = 5,
+    STAT_ECC_MAX
+} ecc_status_t;
+
+typedef struct {
+    uint8_t ecc_status_reg_len_in_bits;
+    uint8_t ecc_data_refresh_threshold;
+    ecc_status_t ecc_corrected_bits_status;
+} ecc_data_t;
+
 struct spi_nand_flash_device_t {
     spi_nand_flash_config_t config;
     uint32_t block_size;
@@ -31,6 +48,7 @@ struct spi_nand_flash_device_t {
     uint32_t read_page_delay_us;
     uint32_t erase_block_delay_us;
     uint32_t program_page_delay_us;
+    ecc_data_t ecc_data;
     SemaphoreHandle_t mutex;
 };
 
