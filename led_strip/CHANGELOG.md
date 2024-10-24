@@ -1,7 +1,8 @@
-## 2.6.0
+## 3.0.0
 
-- Add pixel order configuration to support user-defined pixel order.
-  
+- Discontinued support for ESP-IDF v4.x
+- Added configuration for user-defined color component format
+
 ## 2.5.5
 
 - Simplified the led_strip component dependency, the time of full build with ESP-IDF v5.3 can now be shorter.

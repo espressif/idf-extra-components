@@ -8,38 +8,11 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "led_strip_rmt.h"
-#include "esp_idf_version.h"
-
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 1, 0)
 #include "led_strip_spi.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief Help macro to set pixel RGB color order
- *        The default order of the three-color LED strips is GRB. If you have a different order, you can use the macro to set `pixel_order` in led_strip_config_t.
- *        The positions are counted from the least significant bit (LSB).
- * @param R The position of the red channel in the color order.
- * @param G The position of the green channel in the color order.
- * @param B The position of the blue channel in the color order.
- * @note The order starts from 0. And the user needs to make sure that all the numbers appear exactly once and are all less than the number of colors per pixel.
- */
-#define LED_STRIP_SET_RGB_ORDER(R, G, B) (R << 0 | G << 2 | B << 4)
-
-/**
- * @brief Help macro to set pixel RGBW color order
- *        The default order of the four-color LED strips is GRBW. If you have a different order, you can use the macro to set `pixel_order` in led_strip_config_t.
- *        The positions are counted from the least significant bit (LSB).
- * @param R The position of the red channel in the color order.
- * @param G The position of the green channel in the color order.
- * @param B The position of the blue channel in the color order.
- * @param W The position of the white channel in the color order.
- * @note The order starts from 0. And the user needs to make sure that all the numbers appear exactly once and are all less than the number of colors per pixel.
- */
-#define LED_STRIP_SET_RGBW_ORDER(R, G, B, W) (R << 0 | G << 2 | B << 4 | W << 6)
 
 /**
  * @brief Set RGB for a specific pixel

@@ -21,20 +21,30 @@ led_strip_handle_t configure_led(void)
 {
     // LED strip general initialization, according to your led board design
     led_strip_config_t strip_config = {
-        .strip_gpio_num = LED_STRIP_GPIO_PIN,   // The GPIO that connected to the LED strip's data line
-        .max_leds = LED_STRIP_LED_COUNT,        // The number of LEDs in the strip,
-        .bytes_per_pixel = 3,                   // 3 bytes per pixel of the LED strip
-        .led_model = LED_MODEL_WS2812,          // LED strip model
-        .flags.invert_out = false,              // whether to invert the output signal
-        .pixel_order = LED_STRIP_SET_RGB_ORDER(1, 0, 2), /* The order of the pixel color. Not set or set to 0 if the default order is used.
-                                                            Here set to the default GRB order to demonstrate usage */
+        .strip_gpio_num = LED_STRIP_GPIO_PIN, // The GPIO that connected to the LED strip's data line
+        .max_leds = LED_STRIP_LED_COUNT,      // The number of LEDs in the strip,
+        .led_model = LED_MODEL_WS2812,        // LED strip model
+        // set the color order of the strip: GRB
+        .color_component_format = {
+            .format = {
+                .r_pos = 1, // red is the second byte in the color data
+                .g_pos = 0, // green is the first byte in the color data
+                .b_pos = 2, // blue is the third byte in the color data
+                .num_components = 3, // total 3 color components
+            },
+        },
+        .flags = {
+            .invert_out = false, // don't invert the output signal
+        }
     };
 
     // LED strip backend configuration: SPI
     led_strip_spi_config_t spi_config = {
         .clk_src = SPI_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
-        .flags.with_dma = true,         // Using DMA can improve performance and help drive more LEDs
         .spi_bus = SPI2_HOST,           // SPI bus ID
+        .flags = {
+            .with_dma = true, // Using DMA can improve performance and help drive more LEDs
+        }
     };
 
     // LED Strip object handle

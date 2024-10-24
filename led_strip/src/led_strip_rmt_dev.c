@@ -12,7 +12,6 @@
 #include "led_strip.h"
 #include "led_strip_interface.h"
 #include "led_strip_rmt_encoder.h"
-#include "led_strip_common.h"
 
 #define LED_STRIP_RMT_DEFAULT_RESOLUTION 10000000 // 10MHz resolution
 #define LED_STRIP_RMT_DEFAULT_TRANS_QUEUE_SIZE 4
@@ -31,7 +30,7 @@ typedef struct {
     rmt_encoder_handle_t strip_encoder;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
-    uint8_t led_pixel_offset[LED_PIXEL_INDEX_MAX];
+    led_color_component_format_t component_fmt;
     uint8_t pixel_buf[];
 } led_strip_rmt_obj;
 
@@ -39,33 +38,36 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
 {
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
+
+    led_color_component_format_t component_fmt = rmt_strip->component_fmt;
     uint32_t start = index * rmt_strip->bytes_per_pixel;
     uint8_t *pixel_buf = rmt_strip->pixel_buf;
-    uint8_t *offset = rmt_strip->led_pixel_offset;
-    // Support all kinds of pixel order
-    pixel_buf[start + offset[LED_PIXEL_INDEX_RED]] = red & 0xFF;
-    pixel_buf[start + offset[LED_PIXEL_INDEX_GREEN]] = green & 0xFF;
-    pixel_buf[start + offset[LED_PIXEL_INDEX_BLUE]] = blue & 0xFF;
 
-    if (rmt_strip->bytes_per_pixel > 3) {
-        pixel_buf[start + offset[LED_PIXEL_INDEX_WHITE]] = 0;
+    pixel_buf[start + component_fmt.format.r_pos] = red & 0xFF;
+    pixel_buf[start + component_fmt.format.g_pos] = green & 0xFF;
+    pixel_buf[start + component_fmt.format.b_pos] = blue & 0xFF;
+    if (component_fmt.format.num_components > 3) {
+        pixel_buf[start + component_fmt.format.w_pos] = 0;
     }
+
     return ESP_OK;
 }
 
 static esp_err_t led_strip_rmt_set_pixel_rgbw(led_strip_t *strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue, uint32_t white)
 {
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+    led_color_component_format_t component_fmt = rmt_strip->component_fmt;
     ESP_RETURN_ON_FALSE(index < rmt_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
-    ESP_RETURN_ON_FALSE(rmt_strip->bytes_per_pixel == 4, ESP_ERR_INVALID_ARG, TAG, "wrong LED pixel format, expected 4 bytes per pixel");
+    ESP_RETURN_ON_FALSE(component_fmt.format.num_components == 4, ESP_ERR_INVALID_ARG, TAG, "led doesn't have 4 components");
+
     uint32_t start = index * rmt_strip->bytes_per_pixel;
     uint8_t *pixel_buf = rmt_strip->pixel_buf;
-    uint8_t *offset = rmt_strip->led_pixel_offset;
-    // SK6812 component order is GRBW
-    pixel_buf[start + offset[LED_PIXEL_INDEX_RED]] = red & 0xFF;
-    pixel_buf[start + offset[LED_PIXEL_INDEX_GREEN]] = green & 0xFF;
-    pixel_buf[start + offset[LED_PIXEL_INDEX_BLUE]] = blue & 0xFF;
-    pixel_buf[start + offset[LED_PIXEL_INDEX_WHITE]] = white & 0xFF;
+
+    pixel_buf[start + component_fmt.format.r_pos] = red & 0xFF;
+    pixel_buf[start + component_fmt.format.g_pos] = green & 0xFF;
+    pixel_buf[start + component_fmt.format.b_pos] = blue & 0xFF;
+    pixel_buf[start + component_fmt.format.w_pos] = white & 0xFF;
+
     return ESP_OK;
 }
 
@@ -106,8 +108,26 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     led_strip_rmt_obj *rmt_strip = NULL;
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_FALSE(led_config && rmt_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
-    ESP_GOTO_ON_FALSE(led_config->bytes_per_pixel == 3 || led_config->bytes_per_pixel == 4, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel bytes");
-    uint8_t bytes_per_pixel = led_config->bytes_per_pixel;
+    led_color_component_format_t component_fmt = led_config->color_component_format;
+    // If R/G/B order is not specified, set default GRB order as fallback
+    if (component_fmt.format_id == 0) {
+        component_fmt = LED_STRIP_COLOR_COMPONENT_FMT_GRB;
+    }
+    // check the validation of the color component format
+    uint8_t mask = 0;
+    if (component_fmt.format.num_components == 3) {
+        mask = BIT(component_fmt.format.r_pos) | BIT(component_fmt.format.g_pos) | BIT(component_fmt.format.b_pos);
+        // Check for invalid values
+        ESP_RETURN_ON_FALSE(mask == 0x07, ESP_ERR_INVALID_ARG, TAG, "invalid order argument");
+    } else if (component_fmt.format.num_components == 4) {
+        mask = BIT(component_fmt.format.r_pos) | BIT(component_fmt.format.g_pos) | BIT(component_fmt.format.b_pos) | BIT(component_fmt.format.w_pos);
+        // Check for invalid values
+        ESP_RETURN_ON_FALSE(mask == 0x0F, ESP_ERR_INVALID_ARG, TAG, "invalid order argument");
+    } else {
+        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "invalid number of color components: %d", component_fmt.format.num_components);
+    }
+    // TODO: we assume each color component is 8 bits, may need to support other configurations in the future, e.g. 10bits per color component?
+    uint8_t bytes_per_pixel = component_fmt.format.num_components;
     rmt_strip = calloc(1, sizeof(led_strip_rmt_obj) + led_config->max_leds * bytes_per_pixel);
     ESP_GOTO_ON_FALSE(rmt_strip, ESP_ERR_NO_MEM, err, TAG, "no mem for rmt strip");
     uint32_t resolution = rmt_config->resolution_hz ? rmt_config->resolution_hz : LED_STRIP_RMT_DEFAULT_RESOLUTION;
@@ -138,8 +158,8 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
         .led_model = led_config->led_model
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
-    ESP_GOTO_ON_ERROR(led_strip_set_color_order(rmt_strip->led_pixel_offset, led_config->pixel_order, bytes_per_pixel), err, TAG, "adjust color order failed");
 
+    rmt_strip->component_fmt = component_fmt;
     rmt_strip->bytes_per_pixel = bytes_per_pixel;
     rmt_strip->strip_len = led_config->max_leds;
     rmt_strip->base.set_pixel = led_strip_rmt_set_pixel;

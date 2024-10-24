@@ -15,28 +15,29 @@ This is the most economical way to drive the LEDs because it only consumes one R
 ```c
 #define BLINK_GPIO 0
 
-led_strip_handle_t led_strip;
-
-/* LED strip initialization with the GPIO and pixels number*/
+/// LED strip common configuration
 led_strip_config_t strip_config = {
-    .strip_gpio_num = BLINK_GPIO, // The GPIO that connected to the LED strip's data line
-    .max_leds = 1, // The number of LEDs in the strip,
-    .bytes_per_pixel = 3, // 3 bytes per pixel of the LED strip
-    .led_model = LED_MODEL_WS2812, // LED strip model
-    .flags.invert_out = false, // whether to invert the output signal (useful when your hardware has a level inverter)
-    .pixel_order = LED_STRIP_SET_RGB_ORDER(1, 0, 2), /* The order of the pixel color. Not set or set to 0 if the default order is used.
-                                                        Here set to the default GRB order to demonstrate usage */
+    .strip_gpio_num = BLINK_GPIO,  // The GPIO that connected to the LED strip's data line
+    .max_leds = 1,                 // The number of LEDs in the strip,
+    .led_model = LED_MODEL_WS2812, // LED strip model, it determines the bit timing
+    .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB, // The color component format is G-R-B
+    .flags = {
+        .invert_out = false, // don't invert the output signal
+    }
 };
 
+/// RMT backend specific configuration
 led_strip_rmt_config_t rmt_config = {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-    .rmt_channel = 0,
-#else
-    .clk_src = RMT_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
-    .resolution_hz = 10 * 1000 * 1000, // 10MHz
-    .flags.with_dma = false, // whether to enable the DMA feature
-#endif
+    .clk_src = RMT_CLK_SRC_DEFAULT,    // different clock source can lead to different power consumption
+    .resolution_hz = 10 * 1000 * 1000, // RMT counter clock frequency: 10MHz
+    .mem_block_symbols = 64,           // the memory size of each RMT channel, in words (4 bytes)
+    .flags = {
+        .with_dma = false, // DMA feature is available on chips like ESP32-S3/P4
+    }
 };
+
+/// Create the LED strip object
+led_strip_handle_t led_strip;
 ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
 ```
 
@@ -53,24 +54,28 @@ Please note, the SPI backend has a dependency of **ESP-IDF >= 5.1**
 ```c
 #define BLINK_GPIO 0
 
-led_strip_handle_t led_strip;
-
-/* LED strip initialization with the GPIO and pixels number*/
+/// LED strip common configuration
 led_strip_config_t strip_config = {
-    .strip_gpio_num = BLINK_GPIO, // The GPIO that connected to the LED strip's data line
-    .max_leds = 1, // The number of LEDs in the strip,
-    .bytes_per_pixel = 3, // 3 bytes per pixel of the LED strip
-    .led_model = LED_MODEL_WS2812, // LED strip model
-    .flags.invert_out = false, // whether to invert the output signal (useful when your hardware has a level inverter)
-    .pixel_order = LED_STRIP_SET_RGB_ORDER(1, 0, 2), /* The order of the pixel color. Not set or set to 0 if the default order is used.
-                                                        Here set to the default GRB order to demonstrate usage */
+    .strip_gpio_num = BLINK_GPIO,  // The GPIO that connected to the LED strip's data line
+    .max_leds = 1,                 // The number of LEDs in the strip,
+    .led_model = LED_MODEL_WS2812, // LED strip model, it determines the bit timing
+    .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB, // The color component format is G-R-B
+    .flags = {
+        .invert_out = false, // don't invert the output signal
+    }
 };
 
+/// SPI backend specific configuration
 led_strip_spi_config_t spi_config = {
     .clk_src = SPI_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
-    .flags.with_dma = true, // Using DMA can improve performance and help drive more LEDs
-    .spi_bus = SPI2_HOST,   // SPI bus ID
+    .spi_bus = SPI2_HOST,           // SPI bus ID
+    .flags = {
+        .with_dma = true, // Using DMA can improve performance and help drive more LEDs
+    }
 };
+
+/// Create the LED strip object
+led_strip_handle_t led_strip;
 ESP_ERROR_CHECK(led_strip_new_spi_device(&strip_config, &spi_config, &led_strip));
 ```
 

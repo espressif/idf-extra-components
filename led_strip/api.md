@@ -21,13 +21,6 @@
 |  esp\_err\_t | [**led\_strip\_set\_pixel\_hsv**](#function-led_strip_set_pixel_hsv) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint16\_t hue, uint8\_t saturation, uint8\_t value) <br>_Set HSV for a specific pixel._ |
 |  esp\_err\_t | [**led\_strip\_set\_pixel\_rgbw**](#function-led_strip_set_pixel_rgbw) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue, uint32\_t white) <br>_Set RGBW for a specific pixel._ |
 
-## Macros
-
-| Type | Name |
-| ---: | :--- |
-| define  | [**LED\_STRIP\_SET\_RGBW\_ORDER**](#define-led_strip_set_rgbw_order) (R, G, B, W) (R &lt;&lt; 0 \| G &lt;&lt; 2 \| B &lt;&lt; 4 \| W &lt;&lt; 6)<br>_Help macro to set pixel RGBW color order The default order of the four-color LED strips is GRBW. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._ |
-| define  | [**LED\_STRIP\_SET\_RGB\_ORDER**](#define-led_strip_set_rgb_order) (R, G, B) (R &lt;&lt; 0 \| G &lt;&lt; 2 \| B &lt;&lt; 4)<br>_Help macro to set pixel RGB color order The default order of the three-color LED strips is GRB. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._ |
-
 ## Functions Documentation
 
 ### function `led_strip_clear`
@@ -185,45 +178,6 @@ Also see `led_strip_set_pixel` if you only want to specify the RGB part of the c
 - ESP\_ERR\_INVALID\_ARG: Set RGBW color for a specific pixel failed because of an invalid argument
 - ESP\_FAIL: Set RGBW color for a specific pixel failed because other error occurred
 
-## Macros Documentation
-
-### define `LED_STRIP_SET_RGBW_ORDER`
-
-_Help macro to set pixel RGBW color order The default order of the four-color LED strips is GRBW. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._
-
-```c
-#define LED_STRIP_SET_RGBW_ORDER (R, G, B, W) (R << 0 | G << 2 | B << 4 | W << 6)
-```
-
-**Parameters:**
-
-- `R` The position of the red channel in the color order.
-- `G` The position of the green channel in the color order.
-- `B` The position of the blue channel in the color order.
-- `W` The position of the white channel in the color order.
-
-**Note:**
-
-The order starts from 0. And the user needs to make sure that all the numbers appear exactly once and are all less than the number of colors per pixel.
-
-### define `LED_STRIP_SET_RGB_ORDER`
-
-_Help macro to set pixel RGB color order The default order of the three-color LED strips is GRB. If you have a different order, you can use the macro to set_ `pixel_order`_in_[_**led\_strip\_config\_t**_](#struct-led_strip_config_t)_. The positions are counted from the least significant bit (LSB)._
-
-```c
-#define LED_STRIP_SET_RGB_ORDER (R, G, B) (R << 0 | G << 2 | B << 4)
-```
-
-**Parameters:**
-
-- `R` The position of the red channel in the color order.
-- `G` The position of the green channel in the color order.
-- `B` The position of the blue channel in the color order.
-
-**Note:**
-
-The order starts from 0. And the user needs to make sure that all the numbers appear exactly once and are all less than the number of colors per pixel.
-
 ## File include/led_strip_rmt.h
 
 ## Structures and Types
@@ -231,6 +185,7 @@ The order starts from 0. And the user needs to make sure that all the numbers ap
 | Type | Name |
 | ---: | :--- |
 | struct | [**led\_strip\_rmt\_config\_t**](#struct-led_strip_rmt_config_t) <br>_LED Strip RMT specific configuration._ |
+| struct | [**led\_strip\_rmt\_extra\_config**](#struct-led_strip_rmt_config_tled_strip_rmt_extra_config) <br> |
 
 ## Functions
 
@@ -248,11 +203,15 @@ Variables:
 
 - rmt\_clock\_source\_t clk_src  <br>RMT clock source
 
-- struct led\_strip\_rmt\_config\_t::@0 flags  <br>Extra driver flags
+- struct [**led\_strip\_rmt\_config\_t::led\_strip\_rmt\_extra\_config**](#struct-led_strip_rmt_config_tled_strip_rmt_extra_config) flags  <br>Extra driver flags
 
-- size\_t mem_block_symbols  <br>How many RMT symbols can one RMT channel hold at one time. Set to 0 will fallback to use the default size.
+- size\_t mem_block_symbols  <br>How many RMT symbols can one RMT channel hold at one time. Set to 0 will fallback to use the default size. Extra RMT specific driver flags
 
 - uint32\_t resolution_hz  <br>RMT tick resolution, if set to zero, a default resolution (10MHz) will be applied
+
+### struct `led_strip_rmt_config_t::led_strip_rmt_extra_config`
+
+Variables:
 
 - uint32\_t with_dma  <br>Use DMA to transmit data
 
@@ -307,7 +266,7 @@ Variables:
 
 - spi\_clock\_source\_t clk_src  <br>SPI clock source
 
-- struct led\_strip\_spi\_config\_t::@1 flags  <br>Extra driver flags
+- struct [**led\_strip\_spi\_config\_t**](#struct-led_strip_spi_config_t) flags  <br>Extra driver flags
 
 - spi\_host\_device\_t spi_bus  <br>SPI bus ID. Which buses are available depends on the specific chip
 
@@ -351,11 +310,53 @@ Although only the MOSI line is used for generating the signal, the whole SPI bus
 
 | Type | Name |
 | ---: | :--- |
+| union  | [**led\_color\_component\_format\_t**](#union-led_color_component_format_t)  <br>_LED color component format._ |
+| struct | [**format\_layout**](#struct-led_color_component_format_tformat_layout) <br> |
 | enum  | [**led\_model\_t**](#enum-led_model_t)  <br>_LED strip model._ |
-| struct | [**led\_strip\_config\_t**](#struct-led_strip_config_t) <br>_LED Strip Configuration._ |
-| typedef struct [**led\_strip\_t**](#struct-led_strip_t) \* | [**led\_strip\_handle\_t**](#typedef-led_strip_handle_t)  <br>_LED strip handle._ |
+| struct | [**led\_strip\_config\_t**](#struct-led_strip_config_t) <br>_LED Strip common configurations The common configurations are not specific to any backend peripheral._ |
+| struct | [**led\_strip\_extra\_flags**](#struct-led_strip_config_tled_strip_extra_flags) <br> |
+| typedef struct [**led\_strip\_t**](#struct-led_strip_t) \* | [**led\_strip\_handle\_t**](#typedef-led_strip_handle_t)  <br>_Type of LED strip handle._ |
+
+## Macros
+
+| Type | Name |
+| ---: | :--- |
+| define  | [**LED\_STRIP\_COLOR\_COMPONENT\_FMT\_GRB**](#define-led_strip_color_component_fmt_grb)  ([**led\_color\_component\_format\_t**](#union-led_color_component_format_t)){.format = {.r\_pos = 1, .g\_pos = 0, .b\_pos = 2, .w\_pos = 3, .reserved = 0, .num\_components = 3}}<br>_Helper macros to set the color component format._ |
+| define  | [**LED\_STRIP\_COLOR\_COMPONENT\_FMT\_GRBW**](#define-led_strip_color_component_fmt_grbw)  ([**led\_color\_component\_format\_t**](#union-led_color_component_format_t)){.format = {.r\_pos = 1, .g\_pos = 0, .b\_pos = 2, .w\_pos = 3, .reserved = 0, .num\_components = 4}}<br> |
+| define  | [**LED\_STRIP\_COLOR\_COMPONENT\_FMT\_RGB**](#define-led_strip_color_component_fmt_rgb)  ([**led\_color\_component\_format\_t**](#union-led_color_component_format_t)){.format = {.r\_pos = 0, .g\_pos = 1, .b\_pos = 2, .w\_pos = 3, .reserved = 0, .num\_components = 3}}<br> |
+| define  | [**LED\_STRIP\_COLOR\_COMPONENT\_FMT\_RGBW**](#define-led_strip_color_component_fmt_rgbw)  ([**led\_color\_component\_format\_t**](#union-led_color_component_format_t)){.format = {.r\_pos = 0, .g\_pos = 1, .b\_pos = 2, .w\_pos = 3, .reserved = 0, .num\_components = 4}}<br> |
 
 ## Structures and Types Documentation
+
+### union `led_color_component_format_t`
+
+_LED color component format._
+
+**Note:**
+
+The format is used to specify the order of color components in each pixel, also the number of color components.
+
+Variables:
+
+- struct [**led\_color\_component\_format\_t::format\_layout**](#struct-led_color_component_format_tformat_layout) format  <br>Format layout
+
+- uint32\_t format_id  <br>Format ID
+
+### struct `led_color_component_format_t::format_layout`
+
+Variables:
+
+- uint32\_t b_pos  <br>Position of the blue channel in the color order: 0~3
+
+- uint32\_t g_pos  <br>Position of the green channel in the color order: 0~3
+
+- uint32\_t num_components  <br>Number of color components per pixel: 3 or 4. If set to 0, it will fallback to 3
+
+- uint32\_t r_pos  <br>Position of the red channel in the color order: 0~3
+
+- uint32\_t reserved  <br>Reserved
+
+- uint32\_t w_pos  <br>Position of the white channel in the color order: 0~3
 
 ### enum `led_model_t`
 
@@ -375,30 +376,60 @@ Different led model may have different timing parameters, so we need to distingu
 
 ### struct `led_strip_config_t`
 
-_LED Strip Configuration._
+_LED Strip common configurations The common configurations are not specific to any backend peripheral._
 
 Variables:
 
-- uint8\_t bytes_per_pixel  <br>bytes per LED pixel. Should be 3 or 4
+- [**led\_color\_component\_format\_t**](#union-led_color_component_format_t) color_component_format  <br>Specifies the order of color components in each pixel. Use helper macros like `LED_STRIP_COLOR_COMPONENT_FMT_GRB` to set the format LED strip extra driver flags
 
-- struct led\_strip\_config\_t::@2 flags  <br>The order of the pixel color. Use help macro LED\_STRIP\_SET\_RGB\_ORDER or LED\_STRIP\_SET\_RGBW\_ORDER to set. Not set or set to 0 if the default order is used. Extra driver flags
+- struct [**led\_strip\_config\_t::led\_strip\_extra\_flags**](#struct-led_strip_config_tled_strip_extra_flags) flags  <br>Extra driver flags
 
-- uint32\_t invert_out  <br>Invert output signal
+- [**led\_model\_t**](#enum-led_model_t) led_model  <br>Specifies the LED strip model (e.g., WS2812, SK6812)
 
-- [**led\_model\_t**](#enum-led_model_t) led_model  <br>LED model
-
-- uint32\_t max_leds  <br>Maximum LEDs in a single strip
-
-- uint8\_t pixel_order  
+- uint32\_t max_leds  <br>Maximum number of LEDs that can be controlled in a single strip
 
 - int strip_gpio_num  <br>GPIO number that used by LED strip
 
+### struct `led_strip_config_t::led_strip_extra_flags`
+
+Variables:
+
+- uint32\_t invert_out  <br>Invert output signal
+
 ### typedef `led_strip_handle_t`
 
-_LED strip handle._
+_Type of LED strip handle._
 
 ```c
 typedef struct led_strip_t* led_strip_handle_t;
+```
+
+## Macros Documentation
+
+### define `LED_STRIP_COLOR_COMPONENT_FMT_GRB`
+
+_Helper macros to set the color component format._
+
+```c
+#define LED_STRIP_COLOR_COMPONENT_FMT_GRB ( led_color_component_format_t ){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 3}}
+```
+
+### define `LED_STRIP_COLOR_COMPONENT_FMT_GRBW`
+
+```c
+#define LED_STRIP_COLOR_COMPONENT_FMT_GRBW ( led_color_component_format_t ){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 4}}
+```
+
+### define `LED_STRIP_COLOR_COMPONENT_FMT_RGB`
+
+```c
+#define LED_STRIP_COLOR_COMPONENT_FMT_RGB ( led_color_component_format_t ){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 3}}
+```
+
+### define `LED_STRIP_COLOR_COMPONENT_FMT_RGBW`
+
+```c
+#define LED_STRIP_COLOR_COMPONENT_FMT_RGBW ( led_color_component_format_t ){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 4}}
 ```
 
 ## File interface/led_strip_interface.h
@@ -408,7 +439,7 @@ typedef struct led_strip_t* led_strip_handle_t;
 | Type | Name |
 | ---: | :--- |
 | struct | [**led\_strip\_t**](#struct-led_strip_t) <br>_LED strip interface definition._ |
-| typedef struct [**led\_strip\_t**](#struct-led_strip_t) | [**led\_strip\_t**](#typedef-led_strip_t)  <br> |
+| typedef struct led\_strip\_t | [**led\_strip\_t**](#typedef-led_strip_t)  <br> |
 
 ## Structures and Types Documentation
 

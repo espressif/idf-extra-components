@@ -1,15 +1,10 @@
 include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
-set(srcs "src/led_strip_api.c" "src/led_strip_common.c")
+set(srcs "src/led_strip_api.c")
 set(public_requires)
 
-# Starting from esp-idf v5.x, the RMT driver is rewritten
-if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.0")
-    if(CONFIG_SOC_RMT_SUPPORTED)
-        list(APPEND srcs "src/led_strip_rmt_dev.c" "src/led_strip_rmt_encoder.c")
-    endif()
-else()
-    list(APPEND srcs "src/led_strip_rmt_dev_idf4.c")
+if(CONFIG_SOC_RMT_SUPPORTED)
+    list(APPEND srcs "src/led_strip_rmt_dev.c" "src/led_strip_rmt_encoder.c")
 endif()
 
 # the SPI backend driver relies on some feature that was available in IDF 5.1

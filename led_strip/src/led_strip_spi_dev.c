@@ -10,10 +10,8 @@
 #include "esp_check.h"
 #include "esp_rom_gpio.h"
 #include "soc/spi_periph.h"
-#include "hal/spi_hal.h"
 #include "led_strip.h"
 #include "led_strip_interface.h"
-#include "led_strip_common.h"
 
 #define LED_STRIP_SPI_DEFAULT_RESOLUTION (2.5 * 1000 * 1000) // 2.5MHz resolution
 #define LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE 4
@@ -29,7 +27,7 @@ typedef struct {
     spi_device_handle_t spi_device;
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
-    uint8_t led_pixel_offset[LED_PIXEL_INDEX_MAX];
+    led_color_component_format_t component_fmt;
     uint8_t pixel_buf[];
 } led_strip_spi_obj;
 
@@ -56,32 +54,35 @@ static esp_err_t led_strip_spi_set_pixel(led_strip_t *strip, uint32_t index, uin
     // 3 pixels take 72bits(9bytes)
     uint32_t start = index * spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE;
     uint8_t *pixel_buf = spi_strip->pixel_buf;
-    uint8_t *offset = spi_strip->led_pixel_offset;
+    led_color_component_format_t component_fmt = spi_strip->component_fmt;
     memset(pixel_buf + start, 0, spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE);
-    __led_strip_spi_bit(red, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * offset[LED_PIXEL_INDEX_RED]]);
-    __led_strip_spi_bit(green, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * offset[LED_PIXEL_INDEX_GREEN]]);
-    __led_strip_spi_bit(blue, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * offset[LED_PIXEL_INDEX_BLUE]]);
-    if (spi_strip->bytes_per_pixel > 3) {
-        __led_strip_spi_bit(0, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * LED_PIXEL_INDEX_WHITE]);
+
+    __led_strip_spi_bit(red, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.r_pos]);
+    __led_strip_spi_bit(green, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.g_pos]);
+    __led_strip_spi_bit(blue, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.b_pos]);
+    if (component_fmt.format.num_components > 3) {
+        __led_strip_spi_bit(0, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.w_pos]);
     }
+
     return ESP_OK;
 }
 
 static esp_err_t led_strip_spi_set_pixel_rgbw(led_strip_t *strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue, uint32_t white)
 {
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
+    led_color_component_format_t component_fmt = spi_strip->component_fmt;
     ESP_RETURN_ON_FALSE(index < spi_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
-    ESP_RETURN_ON_FALSE(spi_strip->bytes_per_pixel == 4, ESP_ERR_INVALID_ARG, TAG, "wrong LED pixel format, expected 4 bytes per pixel");
+    ESP_RETURN_ON_FALSE(component_fmt.format.num_components == 4, ESP_ERR_INVALID_ARG, TAG, "led doesn't have 4 components");
+
     // LED_PIXEL_FORMAT_GRBW takes 96bits(12bytes)
     uint32_t start = index * spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE;
     uint8_t *pixel_buf = spi_strip->pixel_buf;
-    uint8_t *offset = spi_strip->led_pixel_offset;
-    // SK6812 component order is GRBW
     memset(pixel_buf + start, 0, spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE);
-    __led_strip_spi_bit(red, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * offset[LED_PIXEL_INDEX_RED]]);
-    __led_strip_spi_bit(green, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * offset[LED_PIXEL_INDEX_GREEN]]);
-    __led_strip_spi_bit(blue, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * offset[LED_PIXEL_INDEX_BLUE]]);
-    __led_strip_spi_bit(white, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * offset[LED_PIXEL_INDEX_WHITE]]);
+
+    __led_strip_spi_bit(red, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.r_pos]);
+    __led_strip_spi_bit(green, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.g_pos]);
+    __led_strip_spi_bit(blue, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.b_pos]);
+    __led_strip_spi_bit(white, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.w_pos]);
 
     return ESP_OK;
 }
@@ -130,8 +131,26 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     led_strip_spi_obj *spi_strip = NULL;
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_FALSE(led_config && spi_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
-    ESP_GOTO_ON_FALSE(led_config->bytes_per_pixel == 3 || led_config->bytes_per_pixel == 4, ESP_ERR_INVALID_ARG, err, TAG, "invalid led_pixel bytes");
-    uint8_t bytes_per_pixel = led_config->bytes_per_pixel;
+    led_color_component_format_t component_fmt = led_config->color_component_format;
+    // If R/G/B order is not specified, set default GRB order as fallback
+    if (component_fmt.format_id == 0) {
+        component_fmt = LED_STRIP_COLOR_COMPONENT_FMT_GRB;
+    }
+    // check the validation of the color component format
+    uint8_t mask = 0;
+    if (component_fmt.format.num_components == 3) {
+        mask = BIT(component_fmt.format.r_pos) | BIT(component_fmt.format.g_pos) | BIT(component_fmt.format.b_pos);
+        // Check for invalid values
+        ESP_RETURN_ON_FALSE(mask == 0x07, ESP_ERR_INVALID_ARG, TAG, "invalid order argument");
+    } else if (component_fmt.format.num_components == 4) {
+        mask = BIT(component_fmt.format.r_pos) | BIT(component_fmt.format.g_pos) | BIT(component_fmt.format.b_pos) | BIT(component_fmt.format.w_pos);
+        // Check for invalid values
+        ESP_RETURN_ON_FALSE(mask == 0x0F, ESP_ERR_INVALID_ARG, TAG, "invalid order argument");
+    } else {
+        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "invalid number of color components: %d", component_fmt.format.num_components);
+    }
+    // TODO: we assume each color component is 8 bits, may need to support other configurations in the future, e.g. 10bits per color component?
+    uint8_t bytes_per_pixel = component_fmt.format.num_components;
     uint32_t mem_caps = MALLOC_CAP_DEFAULT;
     if (spi_config->flags.with_dma) {
         // DMA buffer must be placed in internal SRAM
@@ -185,8 +204,8 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     // clock_resolution between 2.2MHz to 2.8MHz is supported
     ESP_GOTO_ON_FALSE((clock_resolution_khz < LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 + 300) && (clock_resolution_khz > LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
                       TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
-    ESP_GOTO_ON_ERROR(led_strip_set_color_order(spi_strip->led_pixel_offset, led_config->pixel_order, bytes_per_pixel), err, TAG, "adjust color order failed");
 
+    spi_strip->component_fmt = component_fmt;
     spi_strip->bytes_per_pixel = bytes_per_pixel;
     spi_strip->strip_len = led_config->max_leds;
     spi_strip->base.set_pixel = led_strip_spi_set_pixel;

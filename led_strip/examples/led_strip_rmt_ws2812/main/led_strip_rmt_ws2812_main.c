@@ -23,24 +23,23 @@ led_strip_handle_t configure_led(void)
 {
     // LED strip general initialization, according to your led board design
     led_strip_config_t strip_config = {
-        .strip_gpio_num = LED_STRIP_GPIO_PIN,   // The GPIO that connected to the LED strip's data line
-        .max_leds = LED_STRIP_LED_COUNT,        // The number of LEDs in the strip,
-        .bytes_per_pixel = 3,                   // 3 bytes per pixel of the LED strip
-        .led_model = LED_MODEL_WS2812,          // LED strip model
-        .flags.invert_out = false,              // whether to invert the output signal
-        .pixel_order = LED_STRIP_SET_RGB_ORDER(1, 0, 2), /* The order of the pixel color. Not set or set to 0 if the default order is used.
-                                                            Here set to the default GRB order to demonstrate usage */
+        .strip_gpio_num = LED_STRIP_GPIO_PIN, // The GPIO that connected to the LED strip's data line
+        .max_leds = LED_STRIP_LED_COUNT,      // The number of LEDs in the strip,
+        .led_model = LED_MODEL_WS2812,        // LED strip model
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB, // The color order of the strip: GRB
+        .flags = {
+            .invert_out = false, // don't invert the output signal
+        }
     };
 
     // LED strip backend configuration: RMT
     led_strip_rmt_config_t rmt_config = {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        .rmt_channel = 0,
-#else
         .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
         .resolution_hz = LED_STRIP_RMT_RES_HZ, // RMT counter clock frequency
-        .flags.with_dma = false,               // DMA feature is available on ESP target like ESP32-S3
-#endif
+        .mem_block_symbols = 64,               // the memory size of each RMT channel, in words (4 bytes)
+        .flags = {
+            .with_dma = false, // DMA feature is available on chips like ESP32-S3/P4
+        }
     };
 
     // LED Strip object handle
