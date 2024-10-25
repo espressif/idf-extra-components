@@ -31,6 +31,8 @@ Some microcontrollers have TJpg decoder in ROM. It is used as default, but it ca
 - ESP32-S3
 - ESP32-C3
 - ESP32-C6
+- ESP32-C5
+- ESP32-C61
 
 ### Fixed compilation configuration of the ROM code
 - Stream input buffer: 512
