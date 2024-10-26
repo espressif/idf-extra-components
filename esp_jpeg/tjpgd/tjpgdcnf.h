@@ -41,3 +41,8 @@
 /  2: + Table conversion for huffman decoding (wants 6 << HUFF_BIT bytes of RAM)
 */
 
+#if defined(CONFIG_JD_DEFAULT_HUFFMAN)
+#define JD_DEFAULT_HUFFMAN CONFIG_JD_DEFAULT_HUFFMAN
+#else
+#define JD_DEFAULT_HUFFMAN 0
+#endif

@@ -2,29 +2,33 @@
 
 [![Component Registry](https://components.espressif.com/components/espressif/esp_jpeg/badge.svg)](https://components.espressif.com/components/espressif/esp_jpeg)
 
-TJpgDec is a generic JPEG image decompressor that is highly optimized for small embedded systems. It works with very low memory consumption.
+TJpgDec is a lightweight JPEG image decompressor optimized for embedded systems with minimal memory consumption.
 
-Some microcontrollers have TJpg decoder in ROM, it is used, if there is. [^1] Using ROM code can be disabled in menuconfig.
+On some microcontrollers, TJpgDec is available in ROM and will be used by default, though this can be disabled in menuconfig if desired[^1].
 
 [^1]: **_NOTE:_** When the ROM decoder is used, the configuration can't be changed. The configuration is fixed.
 
 ## Features
 
 **Compilation configuration:**
-- Size of stream input buffer (default 512)
-- Output pixel format (default RGB888): RGB888/RGB565
-- Switches output descaling feature (default enabled)
-- Use table conversion for saturation arithmetic (default enabled)
-- Three optimization levels (default basic): 8/16-bit MCUs, 32-bit MCUs, Table conversion for huffman decoding 
+- Stream input buffer size (default: 512 bytes)
+- Output pixel format (default: RGB888; options: RGB888/RGB565)
+- Enable/disable output descaling (default: enabled)
+- Use table-based saturation for arithmetic operations (default: enabled)
+- Use default Huffman tables: Useful from decoding frames from cameras, that do not provide Huffman tables (default: disabled to save ROM)
+- Three optimization levels (default: 32-bit MCUs) for different CPU types:
+  - 8/16-bit MCUs
+  - 32-bit MCUs
+  - Table-based Huffman decoding
 
 **Runtime configuration:**
-- Pixel Format: RGB888, RGB565
-- Scaling Ratio: 1/1, 1/2, 1/4 or 1/8 Selectable on Decompression
-- Allow swap the first and the last byte of the color
+- Pixel format options: RGB888, RGB565
+- Selectable scaling ratios: 1/1, 1/2, 1/4, or 1/8 (chosen at decompression)
+- Option to swap the first and last bytes of color values
 
 ## TJpgDec in ROM
 
-Some microcontrollers have TJpg decoder in ROM. It is used as default, but it can be disabled in menuconfig. Then there will be used code saved in this component. 
+On certain microcontrollers, TJpgDec is available in ROM and used by default. This can be disabled in menuconfig if you prefer to use the library code provided in this component.
 
 ### List of MCUs, which have TJpgDec in ROM
 - ESP32
@@ -35,24 +39,25 @@ Some microcontrollers have TJpg decoder in ROM. It is used as default, but it ca
 - ESP32-C61
 
 ### Fixed compilation configuration of the ROM code
-- Stream input buffer: 512
+The ROM version uses the following fixed settings:
+- Stream input buffer: 512 bytes
 - Output pixel format: RGB888
-- Descaling feature for output: Enabled
-- Table for saturation: Enabled
+- Output descaling: enabled
+- Saturation table: enabled
 - Optimization level: Basic (JD_FASTDECODE = 0)
 
 ### Pros and cons using ROM code
 
 **Advantages:**
-- Save 5k of the flash memory (in the same configuration)
+- Saves approximately 5 KB of flash memory with the same configuration
 
 **Disadvantages:**
-- Cannot be changed compilation configuration
-- Some configuration can be faster in some cases
+- Compilation configuration cannot be changed
+- Certain configurations may provide faster performance
 
 ## Speed comparison
 
-In this table are examples of speed decoding JPEG image with this configuration:
+The table below shows example decoding times for a JPEG image using various configurations:
 * Image size: 320 x 180 px
 * Output format: RGB565
 * CPU: ESP32-S3

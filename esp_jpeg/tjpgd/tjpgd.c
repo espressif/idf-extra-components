@@ -154,6 +154,75 @@ static void *alloc_pool (   /* Pointer to allocated memory block (NULL:no memory
 
 
 
+#if JD_DEFAULT_HUFFMAN
+/*-----------------------------------------------------------------------*/
+/* Load default Huffman table                                            */
+/*-----------------------------------------------------------------------*/
+
+extern unsigned char esp_jpeg_lum_dc_num_bits[], esp_jpeg_lum_dc_values[];
+extern unsigned char esp_jpeg_chrom_dc_num_bits[], esp_jpeg_chrom_dc_values[];
+extern unsigned char esp_jpeg_lum_ac_num_bits[], esp_jpeg_lum_ac_values[];
+extern unsigned char esp_jpeg_chrom_ac_num_bits[], esp_jpeg_chrom_ac_values[];
+extern unsigned esp_jpeg_lum_dc_codes_total, esp_jpeg_lum_ac_codes_total, esp_jpeg_chrom_dc_codes_total, esp_jpeg_chrom_ac_codes_total;
+JRESULT jd_load_default_huffman (JDEC *jd)
+{
+    // Variable declarations to keep a similar structure to create_huffman_tbl()
+    unsigned int i, j, b;
+    uint8_t *pb;
+    uint16_t hc, *ph;
+
+    // Group default tables for Y/CbCr channels and DC/AC components to access them in loops
+    // These arrays store predefined Huffman bit lengths and values for JPEG decoding
+    unsigned char *num_bits[2][2] = {
+        {esp_jpeg_lum_dc_num_bits, esp_jpeg_lum_ac_num_bits},   // Luminance (Y) DC and AC bit lengths
+        {esp_jpeg_chrom_dc_num_bits, esp_jpeg_chrom_ac_num_bits} // Chrominance (CbCr) DC and AC bit lengths
+    };
+    unsigned codes_total[2][2] = {
+        {esp_jpeg_lum_dc_codes_total, esp_jpeg_lum_ac_codes_total},   // Total codes for Y DC and AC components
+        {esp_jpeg_chrom_dc_codes_total, esp_jpeg_chrom_ac_codes_total} // Total codes for CbCr DC and AC components
+    };
+    unsigned char *values[2][2] = {
+        {esp_jpeg_lum_dc_values, esp_jpeg_lum_ac_values},   // Default Huffman values for Y DC and AC components
+        {esp_jpeg_chrom_dc_values, esp_jpeg_chrom_ac_values} // Default Huffman values for CbCr DC and AC components
+    };
+
+    // Loop over Y/CbCr channels and DC/AC components to initialize Huffman tables
+    for (int ycbcr = 0; ycbcr < 2; ycbcr++) { // Loop for Luminance (Y) and Chrominance (CbCr)
+        for (int dcac = 0; dcac < 2; dcac++) { // Loop for DC and AC tables
+            // Assign the bit lengths and values arrays to Huffman table fields in the JDEC structure
+            jd->huffbits[ycbcr][dcac] = num_bits[ycbcr][dcac];
+            jd->huffdata[ycbcr][dcac] = values[ycbcr][dcac];
+
+            // Calculate Huffman codes from bit lengths to construct codeword tables
+            pb = num_bits[ycbcr][dcac]; // Access bit length array
+            size_t np = codes_total[ycbcr][dcac]; // Total number of codes
+
+            // The bits and values are usually in the Huffman table of the JPEG picture.
+            // The codes themselves must be calculated based on the bits and values; that is what we do here.
+            // Since this function uses default bits and values that are constant and known at compile time,
+            // We could optimize this even more by providing pre-calculated codes too...
+
+            // Allocate memory for the Huffman codeword table
+            ph = alloc_pool(jd, np * sizeof(uint16_t));
+            if (!ph) {
+                return JDR_MEM1;    // Error: Memory allocation failed
+            }
+            jd->huffcode[ycbcr][dcac] = ph; // Store allocated memory address for code table
+            hc = 0; // Initialize Huffman code
+
+            // Generate Huffman codes based on the bit lengths in pb
+            for (j = i = 0; i < 16; i++) { // Iterate over 16 possible code lengths
+                b = pb[i]; // Number of codes with length (i+1) bits
+                while (b--) {
+                    ph[j++] = hc++; // Assign code and increment index
+                }
+                hc <<= 1; // Left shift code to increase bit length
+            }
+        }
+    }
+    return JDR_OK; // Return success status
+}
+#endif
 
 /*-----------------------------------------------------------------------*/
 /* Create de-quantization and prescaling tables with a DQT segment       */
@@ -906,7 +975,10 @@ static JRESULT mcu_output (
                         if (ix == 8) {
                             py += 64 - 8;    /* Jump to next block if double block heigt */
                         }
-                        pc += ix & 1;               /* Step forward chroma pointer every two pixels */
+                        /* Step forward chroma pointer every two pixels */
+                        if (ix % 2) {
+                            pc++;
+                        }
                     } else {                        /* Single block width */
                         pc++;                       /* Step forward chroma pointer every pixel */
                     }
@@ -1187,7 +1259,11 @@ JRESULT jd_prepare (
                 }
                 n = i ? 1 : 0;                          /* Component class */
                 if (!jd->huffbits[n][0] || !jd->huffbits[n][1]) {   /* Check huffman table for this component */
+#if JD_DEFAULT_HUFFMAN
+                    jd_load_default_huffman(jd); // Always returns OK
+#else
                     return JDR_FMT1;                    /* Err: Nnot loaded */
+#endif
                 }
                 if (!jd->qttbl[jd->qtid[i]]) {          /* Check dequantizer table for this component */
                     return JDR_FMT1;                    /* Err: Not loaded */

@@ -66,4 +66,15 @@ menu "JPEG Decoder"
         config JD_FASTDECODE_TABLE
             bool "+ Table conversion for huffman decoding (wants 6 << HUFF_BIT bytes of RAM)"
         endchoice
+
+    config JD_DEFAULT_HUFFMAN
+        bool "Support images without Huffman table"
+        depends on !JD_USE_ROM
+        default n
+        help
+            Enable this option to support decoding JPEG images that lack an embedded Huffman table.
+            When enabled, a default Huffman table is used during decoding, allowing the JPEG decoder to handle
+            images without explicitly provided Huffman tables.
+
+            Note: Enabling this option increases ROM usage due to the inclusion of default Huffman tables.
 endmenu

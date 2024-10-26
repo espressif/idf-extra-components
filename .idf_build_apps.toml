@@ -1,5 +1,3 @@
-target = "all"
-paths = "."
 recursive = true
 exclude = [
     ".github",
