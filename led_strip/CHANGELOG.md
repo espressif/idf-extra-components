@@ -1,3 +1,8 @@
+## 3.0.0
+
+- Discontinued support for ESP-IDF v4.x
+- Added configuration for user-defined color component format
+
 ## 2.5.5
 
 - Simplified the led_strip component dependency, the time of full build with ESP-IDF v5.3 can now be shorter.

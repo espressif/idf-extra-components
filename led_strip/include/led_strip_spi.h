@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -27,6 +27,7 @@ typedef struct {
 
 /**
  * @brief Create LED strip based on SPI MOSI channel
+ *
  * @note Although only the MOSI line is used for generating the signal, the whole SPI bus can't be used for other purposes.
  *
  * @param led_config LED strip configuration
