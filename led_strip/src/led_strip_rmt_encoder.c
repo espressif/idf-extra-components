@@ -83,6 +83,7 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     led_encoder->base.del = rmt_del_led_strip_encoder;
     led_encoder->base.reset = rmt_led_strip_encoder_reset;
     rmt_bytes_encoder_config_t bytes_encoder_config;
+    uint32_t reset_ticks = config->resolution / 1000000 * 280 / 2; // reset code duration defaults to 280us to accomodate WS2812B-V5
     if (config->led_model == LED_MODEL_SK6812) {
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {
@@ -116,6 +117,24 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             },
             .flags.msb_first = 1 // WS2812 transfer bit order: G7...G0R7...R0B7...B0
         };
+    } else if (config->led_model == LED_MODEL_WS2811) {
+        // different led strip might have its own timing requirements, following parameter is for WS2811
+        bytes_encoder_config = (rmt_bytes_encoder_config_t) {
+            .bit0 = {
+                .level0 = 1,
+                .duration0 = 0.5 * config->resolution / 1000000., // T0H=0.5us
+                .level1 = 0,
+                .duration1 = 2.0 * config->resolution / 1000000., // T0L=2.0us
+            },
+            .bit1 = {
+                .level0 = 1,
+                .duration0 = 1.2 * config->resolution / 1000000., // T1H=1.2us
+                .level1 = 0,
+                .duration1 = 1.3 * config->resolution / 1000000., // T1L=1.3us
+            },
+            .flags.msb_first = 1
+        };
+        reset_ticks = config->resolution / 1000000 * 50 / 2; // divide by 2... signal is sent twice
     } else {
         assert(false);
     }
@@ -123,7 +142,6 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     rmt_copy_encoder_config_t copy_encoder_config = {};
     ESP_GOTO_ON_ERROR(rmt_new_copy_encoder(&copy_encoder_config, &led_encoder->copy_encoder), err, TAG, "create copy encoder failed");
 
-    uint32_t reset_ticks = config->resolution / 1000000 * 280 / 2; // reset code duration defaults to 280us to accomodate WS2812B-V5
     led_encoder->reset_code = (rmt_symbol_word_t) {
         .level0 = 0,
         .duration0 = reset_ticks,
