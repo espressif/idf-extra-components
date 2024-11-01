@@ -67,6 +67,18 @@ esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, dhara_sect
  */
 esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, dhara_sector_t sector_id);
 
+/** @brief Trim sector from the nand flash.
+ *
+ * This function marks specified sector as free to optimize memory usage
+ * and support wear-leveling. Typically invoked when files are deleted or
+ * resized to allow the underlying storage to manage these sectors.
+ *
+ * @param handle The handle to the SPI nand flash chip.
+ * @param sector_id The id of the sector to be trimmed.
+ * @return ESP_OK on success, or a flash error code if the trim failed.
+ */
+esp_err_t spi_nand_flash_trim(spi_nand_flash_device_t *handle, dhara_sector_t sector_id);
+
 /** @brief Synchronizes any cache to the device.
  *
  * After this method is called, the nand flash chip should be synchronized with the results of any previous read/writes.

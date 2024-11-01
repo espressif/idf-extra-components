@@ -372,6 +372,21 @@ esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uin
     return ret;
 }
 
+esp_err_t spi_nand_flash_trim(spi_nand_flash_device_t *handle, dhara_sector_t sector_id)
+{
+    dhara_error_t err;
+    esp_err_t ret = ESP_OK;
+
+    xSemaphoreTake(handle->mutex, portMAX_DELAY);
+
+    if (dhara_map_trim(&handle->dhara_map, sector_id, &err)) {
+        ret = ESP_ERR_FLASH_BASE + err;
+    }
+
+    xSemaphoreGive(handle->mutex);
+    return ret;
+}
+
 esp_err_t spi_nand_flash_sync(spi_nand_flash_device_t *handle)
 {
     dhara_error_t err;
