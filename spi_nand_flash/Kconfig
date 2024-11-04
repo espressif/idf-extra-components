@@ -1,0 +1,10 @@
+menu "SPI NAND Flash configuration"
+
+    config NAND_FLASH_VERIFY_WRITE
+        bool "Verify SPI NAND flash writes"
+        default n
+        help
+            If this option is enabled, any time SPI NAND flash is written then the data will be read
+            back and verified. This can catch hardware problems with SPI NAND flash, or flash which
+            was not erased before verification.
+endmenu

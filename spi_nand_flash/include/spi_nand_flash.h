@@ -49,6 +49,15 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
  */
 esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, dhara_sector_t sector_id);
 
+/** @brief Copy a sector to another sector from the nand flash.
+ *
+ * @param handle The handle to the SPI nand flash chip.
+ * @param src_sec The source sector id from which data to be copied.
+ * @param dst_sec The destination sector id to which data should be copied.
+ * @return ESP_OK on success, or a flash error code if the copy failed.
+ */
+esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, dhara_sector_t src_sec, dhara_sector_t dst_sec);
+
 /** @brief Write a sector to the nand flash.
  *
  * @param handle The handle to the SPI nand flash chip.
