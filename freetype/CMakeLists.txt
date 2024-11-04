@@ -13,6 +13,8 @@ set(SKIP_INSTALL_ALL TRUE)
 set(BUILD_SHARED_LIBS OFF)
 
 add_subdirectory(freetype output)
+
+# https://gitlab.freedesktop.org/freetype/freetype/-/issues/1299
 target_compile_options(freetype PRIVATE "-Wno-dangling-pointer")
 
 target_link_libraries(${COMPONENT_LIB} INTERFACE freetype)

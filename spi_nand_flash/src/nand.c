@@ -145,15 +145,23 @@ static esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
         .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev->config.device_handle, &t);
-    dev->read_page_delay_us = 115;
     dev->erase_block_delay_us = 2000;
-    dev->program_page_delay_us = 240;
     ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);
     switch (device_id) {
     case MICRON_DI_34:
+        dev->read_page_delay_us = 115;
+        dev->program_page_delay_us = 240;
         dev->dhara_nand.num_blocks = 2048;
         dev->dhara_nand.log2_ppb = 6;        // 64 pages per block
         dev->dhara_nand.log2_page_size = 12; // 4096 bytes per page
+        break;
+    case MICRON_DI_14:
+    case MICRON_DI_15:
+        dev->read_page_delay_us = 46;
+        dev->program_page_delay_us = 220;
+        dev->dhara_nand.num_blocks = 1024;
+        dev->dhara_nand.log2_ppb = 6;          // 64 pages per block
+        dev->dhara_nand.log2_page_size = 11;   // 2048 bytes per page
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;

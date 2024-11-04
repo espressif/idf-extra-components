@@ -14,13 +14,21 @@
 /  2: Grayscale (8-bit/pix)
 */
 
+#if defined(CONFIG_JD_USE_SCALE)
 #define JD_USE_SCALE    CONFIG_JD_USE_SCALE
+#else
+#define JD_USE_SCALE    0
+#endif
 /* Switches output descaling feature.
 /  0: Disable
 /  1: Enable
 */
 
+#if defined(CONFIG_JD_TBLCLIP)
 #define JD_TBLCLIP      CONFIG_JD_TBLCLIP
+#else
+#define JD_TBLCLIP      0
+#endif
 /* Use table conversion for saturation arithmetic. A bit faster, but increases 1 KB of code size.
 /  0: Disable
 /  1: Enable
@@ -33,3 +41,8 @@
 /  2: + Table conversion for huffman decoding (wants 6 << HUFF_BIT bytes of RAM)
 */
 
+#if defined(CONFIG_JD_DEFAULT_HUFFMAN)
+#define JD_DEFAULT_HUFFMAN CONFIG_JD_DEFAULT_HUFFMAN
+#else
+#define JD_DEFAULT_HUFFMAN 0
+#endif
