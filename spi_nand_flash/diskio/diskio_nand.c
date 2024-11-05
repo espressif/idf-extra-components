@@ -73,6 +73,32 @@ fail:
     return RES_ERROR;
 }
 
+#if FF_USE_TRIM
+DRESULT ff_nand_trim(BYTE pdrv, DWORD start_sector, DWORD sector_count)
+{
+    esp_err_t ret;
+    uint32_t sector_size;
+    spi_nand_flash_device_t *dev = ff_nand_handles[pdrv];
+    assert(dev);
+
+    ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &sector_size), fail, TAG, "");
+
+    if ((start_sector > sector_size) || ((start_sector + sector_count) > sector_size)) {
+        return RES_PARERR;
+    }
+
+    for (int i = 0; i < sector_count; i++) {
+        ESP_GOTO_ON_ERROR(spi_nand_flash_trim(dev, start_sector + i),
+                          fail, TAG, "spi_nand_flash_trim failed");
+    }
+    return RES_OK;
+
+fail:
+    ESP_LOGE(TAG, "ff_nand_trim failed with error 0x%X", ret);
+    return RES_ERROR;
+}
+#endif //FF_USE_TRIM
+
 DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
 {
     spi_nand_flash_device_t *dev = ff_nand_handles[pdrv];
@@ -106,6 +132,13 @@ DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         ESP_LOGV(TAG, "sector size=%d", *((WORD *)buff));
         break;
     }
+#if FF_USE_TRIM
+    case CTRL_TRIM:
+        DWORD start_sector = *((DWORD *)buff);
+        DWORD end_sector = *((DWORD *)buff + 1) + 1;
+        DWORD sector_count = end_sector - start_sector;
+        return ff_nand_trim(pdrv, start_sector, sector_count);
+#endif //FF_USE_TRIM
     default:
         return RES_ERROR;
     }
