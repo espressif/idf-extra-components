@@ -61,13 +61,13 @@
 #define PACKAGE "expat"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "expat-bugs@libexpat.org"
+#define PACKAGE_BUGREPORT "https://github.com/libexpat/libexpat/issues"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "expat"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "expat 2.6.3"
+#define PACKAGE_STRING "expat 2.6.4"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "expat"
@@ -76,13 +76,13 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.6.3"
+#define PACKAGE_VERSION "2.6.4"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "2.6.3"
+#define VERSION "2.6.4"
 
 /* whether byteorder is bigendian */
 /* #undef WORDS_BIGENDIAN */
