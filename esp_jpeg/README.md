@@ -1,6 +1,7 @@
 # JPEG Decoder: TJpgDec - Tiny JPEG Decompressor
 
 [![Component Registry](https://components.espressif.com/components/espressif/esp_jpeg/badge.svg)](https://components.espressif.com/components/espressif/esp_jpeg)
+![maintenance-status](https://img.shields.io/badge/maintenance-actively--developed-brightgreen.svg)
 
 TJpgDec is a lightweight JPEG image decompressor optimized for embedded systems with minimal memory consumption.
 

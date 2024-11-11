@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
@@ -18,16 +18,29 @@
 #define TESTW 46
 #define TESTH 46
 
-TEST_CASE("Test JPEG decompression library", "[esp_jpeg]")
+void esp_jpeg_print_ascii(unsigned char *rgb888, esp_jpeg_image_output_t *outimg)
 {
     char aapix[] = " .:;+=xX$$";
+    unsigned char *p = rgb888 + 2;
+
+    for (int y = 0; y < outimg->width; y++) {
+        for (int x = 0; x < outimg->height; x++) {
+            int v = ((*p) * (sizeof(aapix) - 2) * 2) / 256;
+            printf("%c%c", aapix[v / 2], aapix[(v + 1) / 2]);
+            p += 3;
+        }
+        printf("%c%c", ' ', '\n');
+    }
+}
+
+TEST_CASE("Test JPEG decompression library", "[esp_jpeg]")
+{
     unsigned char *decoded, *p;
     const unsigned char *o;
-    int x, y, v;
     int decoded_outsize = TESTW * TESTH * 3;
 
     decoded = malloc(decoded_outsize);
-    for (x = 0; x < decoded_outsize; x += 2) {
+    for (int x = 0; x < decoded_outsize; x += 2) {
         decoded[x] = 0;
         decoded[x + 1] = 0xff;
     }
@@ -54,7 +67,7 @@ TEST_CASE("Test JPEG decompression library", "[esp_jpeg]")
 
     p = decoded;
     o = logo_rgb888;
-    for (x = 0; x < outimg.width * outimg.height; x++) {
+    for (int x = 0; x < outimg.width * outimg.height; x++) {
         /* The color can be +- 2 */
         TEST_ASSERT_UINT8_WITHIN(2, o[0], p[0]);
         TEST_ASSERT_UINT8_WITHIN(2, o[1], p[1]);
@@ -64,17 +77,64 @@ TEST_CASE("Test JPEG decompression library", "[esp_jpeg]")
         o += 3;
     }
 
-    p = decoded + 2;
-    for (y = 0; y < outimg.width; y++) {
-        for (x = 0; x < outimg.height; x++) {
-            v = ((*p) * (sizeof(aapix) - 2) * 2) / 256;
-            printf("%c%c", aapix[v / 2], aapix[(v + 1) / 2]);
-            p += 3;
-        }
-        printf("%c%c", ' ', '\n');
+    esp_jpeg_print_ascii(decoded, &outimg);
+
+    free(decoded);
+}
+
+#define WORKING_BUFFER_SIZE 4096
+TEST_CASE("Test JPEG decompression library: User defined working buffer", "[esp_jpeg]")
+{
+    unsigned char *decoded, *p;
+    const unsigned char *o;
+    int decoded_outsize = TESTW * TESTH * 3;
+
+    decoded = malloc(decoded_outsize);
+    uint8_t *working_buf = malloc(WORKING_BUFFER_SIZE);
+    assert(decoded);
+    assert(working_buf);
+
+    for (int x = 0; x < decoded_outsize; x += 2) {
+        decoded[x] = 0;
+        decoded[x + 1] = 0xff;
     }
 
+    /* JPEG decode */
+    esp_jpeg_image_cfg_t jpeg_cfg = {
+        .indata = (uint8_t *)logo_jpg,
+        .indata_size = logo_jpg_len,
+        .outbuf = decoded,
+        .outbuf_size = decoded_outsize,
+        .out_format = JPEG_IMAGE_FORMAT_RGB888,
+        .out_scale = JPEG_IMAGE_SCALE_0,
+        .flags = {
+            .swap_color_bytes = 0,
+        },
+        .advanced = {
+            .working_buffer = working_buf,
+            .working_buffer_size = WORKING_BUFFER_SIZE,
+        },
+    };
+    esp_jpeg_image_output_t outimg;
+    esp_err_t err = esp_jpeg_decode(&jpeg_cfg, &outimg);
+    TEST_ASSERT_EQUAL(err, ESP_OK);
 
+    /* Decoded image size */
+    TEST_ASSERT_EQUAL(outimg.width, TESTW);
+    TEST_ASSERT_EQUAL(outimg.height, TESTH);
+
+    p = decoded;
+    o = logo_rgb888;
+    for (int x = 0; x < outimg.width * outimg.height; x++) {
+        /* The color can be +- 2 */
+        TEST_ASSERT_UINT8_WITHIN(2, o[0], p[0]);
+        TEST_ASSERT_UINT8_WITHIN(2, o[1], p[1]);
+        TEST_ASSERT_UINT8_WITHIN(2, o[2], p[2]);
+
+        p += 3;
+        o += 3;
+    }
+    free(working_buf);
     free(decoded);
 }
 
