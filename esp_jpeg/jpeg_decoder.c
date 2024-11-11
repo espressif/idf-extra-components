@@ -79,13 +79,21 @@ esp_err_t esp_jpeg_decode(esp_jpeg_image_cfg_t *cfg, esp_jpeg_image_output_t *im
     assert(cfg != NULL);
     assert(img != NULL);
 
-    workbuf = heap_caps_malloc(JPEG_WORK_BUF_SIZE, MALLOC_CAP_DEFAULT);
-    ESP_GOTO_ON_FALSE(workbuf, ESP_ERR_NO_MEM, err, TAG, "no mem for JPEG work buffer");
+    const bool allocate_buffer = (cfg->advanced.working_buffer == NULL);
+    const size_t workbuf_size = allocate_buffer ? JPEG_WORK_BUF_SIZE : cfg->advanced.working_buffer_size;
+    if (allocate_buffer) {
+        workbuf = heap_caps_malloc(JPEG_WORK_BUF_SIZE, MALLOC_CAP_DEFAULT);
+        ESP_GOTO_ON_FALSE(workbuf, ESP_ERR_NO_MEM, err, TAG, "no mem for JPEG work buffer");
+    } else {
+        workbuf = cfg->advanced.working_buffer;
+        ESP_RETURN_ON_FALSE(workbuf_size != 0, ESP_ERR_INVALID_ARG, TAG, "Working buffer size not defined!");
+    }
+
 
     cfg->priv.read = 0;
 
     /* Prepare image */
-    res = jd_prepare(&JDEC, jpeg_decode_in_cb, workbuf, JPEG_WORK_BUF_SIZE, cfg);
+    res = jd_prepare(&JDEC, jpeg_decode_in_cb, workbuf, workbuf_size, cfg);
     ESP_GOTO_ON_FALSE((res == JDR_OK), ESP_FAIL, err, TAG, "Error in preparing JPEG image! %d", res);
 
     uint8_t scale_div = jpeg_get_div_by_scale(cfg->out_scale);
@@ -104,7 +112,7 @@ esp_err_t esp_jpeg_decode(esp_jpeg_image_cfg_t *cfg, esp_jpeg_image_output_t *im
     ESP_GOTO_ON_FALSE((res == JDR_OK), ESP_FAIL, err, TAG, "Error in decoding JPEG image! %d", res);
 
 err:
-    if (workbuf) {
+    if (workbuf && allocate_buffer) {
         free(workbuf);
     }
 

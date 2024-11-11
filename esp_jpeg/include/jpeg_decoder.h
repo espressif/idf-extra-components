@@ -49,6 +49,13 @@ typedef struct esp_jpeg_image_cfg_s {
     } flags;
 
     struct {
+        void *working_buffer;       /*!< If set to NULL, a working buffer will be allocated in esp_jpeg_decode().
+                                         Tjpgd does not use dynamic allocation, se we pass this buffer to Tjpgd that uses it as scratchpad */
+        size_t working_buffer_size; /*!< Size of the working buffer. Must be set it working_buffer != NULL.
+                                         Default size is 3.1kB or 65kB if JD_FASTDECODE == 2 */
+    } advanced;
+
+    struct {
         uint32_t read;  /*!< Internal count of read bytes */
     } priv;
 } esp_jpeg_image_cfg_t;
