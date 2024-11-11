@@ -8,7 +8,6 @@ else()
 endif()
 
 idf_component_register(SRCS ${src}
-                       PRIV_INCLUDE_DIRS .
                        PRIV_REQUIRES ${priv_reqs}
                        WHOLE_ARCHIVE
                        )
