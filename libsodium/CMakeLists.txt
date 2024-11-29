@@ -4,6 +4,10 @@ set(SRC libsodium/src/libsodium)
 set(srcs
     "${SRC}/crypto_aead/chacha20poly1305/aead_chacha20poly1305.c"
     "${SRC}/crypto_aead/xchacha20poly1305/aead_xchacha20poly1305.c"
+    "${SRC}/crypto_aead/aegis256/aead_aegis256.c"
+    "${SRC}/crypto_aead/aegis256/aegis256_soft.c"
+    "${SRC}/crypto_aead/aegis128l/aead_aegis128l.c"
+    "${SRC}/crypto_aead/aegis128l/aegis128l_soft.c"
     "${SRC}/crypto_auth/crypto_auth.c"
     "${SRC}/crypto_auth/hmacsha256/auth_hmacsha256.c"
     "${SRC}/crypto_auth/hmacsha512/auth_hmacsha512.c"
@@ -21,6 +25,7 @@ set(srcs
     "${SRC}/crypto_core/hsalsa20/core_hsalsa20.c"
     "${SRC}/crypto_core/hsalsa20/ref2/core_hsalsa20_ref2.c"
     "${SRC}/crypto_core/salsa/ref/core_salsa_ref.c"
+    "${SRC}/crypto_core/softaes/softaes.c"
     "${SRC}/crypto_generichash/blake2b/generichash_blake2.c"
     "${SRC}/crypto_generichash/blake2b/ref/blake2b-compress-avx2.c"
     "${SRC}/crypto_generichash/blake2b/ref/blake2b-compress-ref.c"
