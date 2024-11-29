@@ -1,6 +1,6 @@
 get_filename_component(LS_TESTDIR "${CMAKE_CURRENT_LIST_DIR}/../../libsodium/test/default" ABSOLUTE)
 
-set(TEST_CASES "chacha20;aead_chacha20poly1305;box;box2;ed25519_convert;sign;hash")
+set(TEST_CASES "aead_aegis128l;aead_aegis256;chacha20;aead_chacha20poly1305;box;box2;ed25519_convert;sign;hash")
 
 foreach(test_case ${TEST_CASES})
     file(GLOB test_case_file "${LS_TESTDIR}/${test_case}.c")
