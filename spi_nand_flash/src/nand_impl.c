@@ -351,3 +351,19 @@ fail:
     ESP_LOGE(TAG, "Error in nand_copy %d", ret);
     return ret;
 }
+
+esp_err_t nand_get_ecc_status(spi_nand_flash_device_t *handle, uint32_t page)
+{
+    esp_err_t ret = ESP_OK;
+    uint8_t status;
+    ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, &status), fail, TAG, "");
+
+    if (is_ecc_error(handle, status)) {
+        ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", page);
+    }
+    return ret;
+
+fail:
+    ESP_LOGE(TAG, "Error in nand_is_ecc_error %d", ret);
+    return ret;
+}

@@ -41,13 +41,56 @@ static const char *TAG = "example";
 // Mount path for the partition
 const char *base_path = "/nandflash";
 
-static spi_nand_flash_device_t *example_init_nand_flash(void);
+static void example_init_nand_flash(spi_nand_flash_device_t **out_handle, spi_device_handle_t *spi_handle)
+{
+    const spi_bus_config_t bus_config = {
+        .mosi_io_num = PIN_MOSI,
+        .miso_io_num = PIN_MISO,
+        .sclk_io_num = PIN_CLK,
+        .quadhd_io_num = PIN_HD,
+        .quadwp_io_num = PIN_WP,
+        .max_transfer_sz = 4096 * 2,
+    };
+
+    // Initialize the SPI bus
+    ESP_LOGI(TAG, "DMA CHANNEL: %d", SPI_DMA_CHAN);
+    ESP_ERROR_CHECK(spi_bus_initialize(HOST_ID, &bus_config, SPI_DMA_CHAN));
+
+    spi_device_interface_config_t devcfg = {
+        .clock_speed_hz = EXAMPLE_FLASH_FREQ_KHZ * 1000,
+        .mode = 0,
+        .spics_io_num = PIN_CS,
+        .queue_size = 10,
+        .flags = SPI_DEVICE_HALFDUPLEX,
+    };
+
+    spi_device_handle_t spi;
+    ESP_ERROR_CHECK(spi_bus_add_device(HOST_ID, &devcfg, &spi));
+
+    spi_nand_flash_config_t nand_flash_config = {
+        .device_handle = spi,
+    };
+    spi_nand_flash_device_t *nand_flash_device_handle;
+    ESP_ERROR_CHECK(spi_nand_flash_init_device(&nand_flash_config, &nand_flash_device_handle));
+
+    *out_handle = nand_flash_device_handle;
+    *spi_handle = spi;
+}
+
+static void example_deinit_nand_flash(spi_nand_flash_device_t *flash, spi_device_handle_t spi)
+{
+    ESP_ERROR_CHECK(spi_nand_flash_deinit_device(flash));
+    ESP_ERROR_CHECK(spi_bus_remove_device(spi));
+    ESP_ERROR_CHECK(spi_bus_free(HOST_ID));
+}
 
 void app_main(void)
 {
     esp_err_t ret;
     // Set up SPI bus and initialize the external SPI Flash chip
-    spi_nand_flash_device_t *flash = example_init_nand_flash();
+    spi_device_handle_t spi;
+    spi_nand_flash_device_t *flash;
+    example_init_nand_flash(&flash, &spi);
     if (flash == NULL) {
         return;
     }
@@ -109,40 +152,5 @@ void app_main(void)
 
     esp_vfs_fat_nand_unmount(base_path, flash);
 
-    spi_nand_flash_deinit_device(flash);
-}
-
-static spi_nand_flash_device_t *example_init_nand_flash(void)
-{
-    const spi_bus_config_t bus_config = {
-        .mosi_io_num = PIN_MOSI,
-        .miso_io_num = PIN_MISO,
-        .sclk_io_num = PIN_CLK,
-        .quadhd_io_num = PIN_HD,
-        .quadwp_io_num = PIN_WP,
-        .max_transfer_sz = 4096 * 2,
-    };
-
-    // Initialize the SPI bus
-    ESP_LOGI(TAG, "DMA CHANNEL: %d", SPI_DMA_CHAN);
-    ESP_ERROR_CHECK(spi_bus_initialize(HOST_ID, &bus_config, SPI_DMA_CHAN));
-
-    spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = EXAMPLE_FLASH_FREQ_KHZ * 1000,
-        .mode = 0,
-        .spics_io_num = PIN_CS,
-        .queue_size = 10,
-        .flags = SPI_DEVICE_HALFDUPLEX,
-    };
-
-    spi_device_handle_t spi;
-    spi_bus_add_device(HOST_ID, &devcfg, &spi);
-
-    spi_nand_flash_config_t nand_flash_config = {
-        .device_handle = spi,
-    };
-    spi_nand_flash_device_t *nand_flash_device_handle;
-    ESP_ERROR_CHECK(spi_nand_flash_init_device(&nand_flash_config, &nand_flash_device_handle));
-
-    return nand_flash_device_handle;
+    example_deinit_nand_flash(flash, spi);
 }
