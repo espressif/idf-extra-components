@@ -82,3 +82,12 @@ esp_err_t nand_wrap_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t
     xSemaphoreGive(handle->mutex);
     return ret;
 }
+
+esp_err_t nand_wrap_get_ecc_status(spi_nand_flash_device_t *handle, uint32_t page)
+{
+    esp_err_t ret = ESP_OK;
+    xSemaphoreTake(handle->mutex, portMAX_DELAY);
+    ret = nand_get_ecc_status(handle, page);
+    xSemaphoreGive(handle->mutex);
+    return ret;
+}
