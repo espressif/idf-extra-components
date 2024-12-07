@@ -18,6 +18,7 @@
 #include "freertos/semphr.h"
 #include "driver/spi_master.h"
 #include "spi_nand_flash.h"
+#include "nand_private/nand_impl_wrap.h"
 #include "unity.h"
 #include "soc/spi_pins.h"
 #include "sdkconfig.h"
@@ -208,5 +209,78 @@ TEST_CASE("copy nand flash sectors", "[spi_nand_flash]")
         do_single_write_test(nand_flash_device_handle, src_sec, 1);
         TEST_ESP_OK(spi_nand_flash_copy_sector(nand_flash_device_handle, src_sec, dst_sec));
     }
+    deinit_nand_flash(nand_flash_device_handle, spi);
+}
+
+TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
+{
+    spi_nand_flash_device_t *nand_flash_device_handle;
+    spi_device_handle_t spi;
+    setup_nand_flash(&nand_flash_device_handle, &spi);
+    uint32_t sector_num, sector_size;
+
+    TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
+    TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
+    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
+
+    uint32_t test_block = 15;
+    if (test_block < sector_num) {
+        bool is_bad_status = false;
+        // Verify if test_block is not bad block
+        TEST_ESP_OK(nand_wrap_is_bad(nand_flash_device_handle, test_block, &is_bad_status));
+        TEST_ASSERT_TRUE(is_bad_status == false);
+        // mark test_block as a bad block
+        TEST_ESP_OK(nand_wrap_mark_bad(nand_flash_device_handle, test_block));
+        // Verify if test_block is marked as bad block
+        TEST_ESP_OK(nand_wrap_is_bad(nand_flash_device_handle, test_block, &is_bad_status));
+        TEST_ASSERT_TRUE(is_bad_status == true);
+    }
+
+    deinit_nand_flash(nand_flash_device_handle, spi);
+}
+
+TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_nand_flash]")
+{
+    spi_nand_flash_device_t *nand_flash_device_handle;
+    spi_device_handle_t spi;
+    setup_nand_flash(&nand_flash_device_handle, &spi);
+    uint32_t sector_num, sector_size, block_size;
+
+    TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
+    TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
+    TEST_ESP_OK(spi_nand_flash_get_block_size(nand_flash_device_handle, &block_size));
+    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
+
+    uint8_t *pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    TEST_ASSERT_NOT_NULL(pattern_buf);
+    uint8_t *temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    TEST_ASSERT_NOT_NULL(temp_buf);
+
+    fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
+
+    bool is_page_free = true;
+    uint32_t test_block = 20;
+    uint32_t test_page = test_block * (block_size / sector_size); //(block_num * pages_per_block)
+    uint32_t dst_page = test_page + 1;
+    if (test_page < sector_num) {
+        // Verify if test_page is free
+        TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
+        TEST_ASSERT_TRUE(is_page_free == true);
+        // Write/program test_page
+        TEST_ESP_OK(nand_wrap_prog(nand_flash_device_handle, test_page, pattern_buf));
+        // Verify if test_page is used/programmed
+        TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
+        TEST_ASSERT_TRUE(is_page_free == false);
+        // read test_page and verify with pattern_buf
+        TEST_ESP_OK(nand_wrap_read(nand_flash_device_handle, test_page, 0, sector_size, temp_buf));
+        check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
+        // Copy test_page to dst_page
+        TEST_ESP_OK(nand_wrap_copy(nand_flash_device_handle, test_page, dst_page));
+        // read dst_page and verify with pattern_buf
+        TEST_ESP_OK(nand_wrap_read(nand_flash_device_handle, dst_page, 0, sector_size, temp_buf));
+        check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
+    }
+    free(pattern_buf);
+    free(temp_buf);
     deinit_nand_flash(nand_flash_device_handle, spi);
 }

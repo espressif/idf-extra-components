@@ -3,329 +3,251 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2024 Espressif Systems (Shanghai) CO LTD
  */
 
 #include <string.h>
+#include <sys/lock.h>
 #include "dhara/nand.h"
+#include "dhara/map.h"
+#include "dhara/error.h"
 #include "esp_check.h"
 #include "esp_err.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "spi_nand_oper.h"
-#include "spi_nand_flash.h"
+#include "nand_impl.h"
 #include "nand.h"
 
-#define ROM_WAIT_THRESHOLD_US 1000
+typedef struct {
+    struct dhara_nand dhara_nand;
+    struct dhara_map dhara_map;
+    spi_nand_flash_device_t *parent_handle;
+} spi_nand_flash_dhara_priv_data_t;
 
-static const char *TAG = "dhara_glue";
-
-#if CONFIG_NAND_FLASH_VERIFY_WRITE
-static esp_err_t s_verify_write(spi_nand_flash_device_t *handle, const uint8_t *expected_buffer, uint16_t offset, uint16_t length)
+static esp_err_t dhara_init(spi_nand_flash_device_t *handle)
 {
-    uint8_t *temp_buf = NULL;
-    temp_buf = heap_caps_malloc(length, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    if (spi_nand_read(handle->config.device_handle, temp_buf, offset, length)) {
-        ESP_LOGE(TAG, "%s: Failed to read nand flash to verify previous write", __func__);
-        free(temp_buf);
-        return ESP_FAIL;
-    }
+    // create a holder structure for dhara context
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = calloc(1, sizeof(spi_nand_flash_dhara_priv_data_t));
+    // save the holder inside the device structure
+    handle->ops_priv_data = dhara_priv_data;
+    // store the pointer back to device structure in the holder stucture
+    dhara_priv_data->parent_handle = handle;
 
-    if (memcmp(temp_buf, expected_buffer, length)) {
-        ESP_LOGE(TAG, "%s: Data mismatch detected. The previously written buffer does not match the read buffer.", __func__);
-        free(temp_buf);
-        return ESP_FAIL;
-    }
-    free(temp_buf);
-    return ESP_OK;
-}
-#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
+    dhara_priv_data->dhara_nand.log2_page_size = handle->chip.log2_page_size;
+    dhara_priv_data->dhara_nand.log2_ppb = handle->chip.log2_ppb;
+    dhara_priv_data->dhara_nand.num_blocks = handle->chip.num_blocks;
 
-esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_operation_time_us, uint8_t *status_out)
-{
-    if (expected_operation_time_us < ROM_WAIT_THRESHOLD_US) {
-        esp_rom_delay_us(expected_operation_time_us);
-    }
-
-    while (true) {
-        uint8_t status;
-        ESP_RETURN_ON_ERROR(spi_nand_read_register(device, REG_STATUS, &status), TAG, "");
-
-        if ((status & STAT_BUSY) == 0) {
-            if (status_out) {
-                *status_out = status;
-            }
-            break;
-        }
-
-        if (expected_operation_time_us >= ROM_WAIT_THRESHOLD_US) {
-            vTaskDelay(1);
-        }
-    }
+    dhara_map_init(&dhara_priv_data->dhara_map, &dhara_priv_data->dhara_nand, handle->work_buffer, handle->config.gc_factor);
+    dhara_error_t ignored;
+    dhara_map_resume(&dhara_priv_data->dhara_map, &ignored);
 
     return ESP_OK;
 }
 
-static esp_err_t read_page_and_wait(spi_nand_flash_device_t *dev, uint32_t page, uint8_t *status_out)
+static esp_err_t dhara_deinit(spi_nand_flash_device_t *handle)
 {
-    ESP_RETURN_ON_ERROR(spi_nand_read_page(dev->config.device_handle, page), TAG, "");
-
-    return wait_for_ready(dev->config.device_handle, dev->read_page_delay_us, status_out);
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = (spi_nand_flash_dhara_priv_data_t *)handle->ops_priv_data;
+    // clear dhara map
+    dhara_map_init(&dhara_priv_data->dhara_map, &dhara_priv_data->dhara_nand, handle->work_buffer, handle->config.gc_factor);
+    dhara_map_clear(&dhara_priv_data->dhara_map);
+    return ESP_OK;
 }
 
-static esp_err_t program_execute_and_wait(spi_nand_flash_device_t *dev, uint32_t page, uint8_t *status_out)
+static esp_err_t dhara_read(spi_nand_flash_device_t *handle, uint8_t *buffer, dhara_sector_t sector_id)
 {
-    ESP_RETURN_ON_ERROR(spi_nand_program_execute(dev->config.device_handle, page), TAG, "");
-
-    return wait_for_ready(dev->config.device_handle, dev->program_page_delay_us, status_out);
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = (spi_nand_flash_dhara_priv_data_t *)handle->ops_priv_data;
+    dhara_error_t err;
+    if (dhara_map_read(&dhara_priv_data->dhara_map, sector_id, handle->read_buffer, &err)) {
+        return ESP_ERR_FLASH_BASE + err;
+    }
+    memcpy(buffer, handle->read_buffer, handle->chip.page_size);
+    return ESP_OK;
 }
+
+static esp_err_t dhara_write(spi_nand_flash_device_t *handle, const uint8_t *buffer, dhara_sector_t sector_id)
+{
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = (spi_nand_flash_dhara_priv_data_t *)handle->ops_priv_data;
+    dhara_error_t err;
+    if (dhara_map_write(&dhara_priv_data->dhara_map, sector_id, buffer, &err)) {
+        return ESP_ERR_FLASH_BASE + err;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t dhara_copy_sector(spi_nand_flash_device_t *handle, dhara_sector_t src_sec, dhara_sector_t dst_sec)
+{
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = (spi_nand_flash_dhara_priv_data_t *)handle->ops_priv_data;
+    dhara_error_t err;
+    if (dhara_map_copy_sector(&dhara_priv_data->dhara_map, src_sec, dst_sec, &err)) {
+        return ESP_ERR_FLASH_BASE + err;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t dhara_trim(spi_nand_flash_device_t *handle, dhara_sector_t sector_id)
+{
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = (spi_nand_flash_dhara_priv_data_t *)handle->ops_priv_data;
+    dhara_error_t err;
+    if (dhara_map_trim(&dhara_priv_data->dhara_map, sector_id, &err)) {
+        return ESP_ERR_FLASH_BASE + err;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t dhara_sync(spi_nand_flash_device_t *handle)
+{
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = (spi_nand_flash_dhara_priv_data_t *)handle->ops_priv_data;
+    dhara_error_t err;
+    if (dhara_map_sync(&dhara_priv_data->dhara_map, &err)) {
+        return ESP_ERR_FLASH_BASE + err;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t dhara_get_capacity(spi_nand_flash_device_t *handle, dhara_sector_t *number_of_sectors)
+{
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = (spi_nand_flash_dhara_priv_data_t *)handle->ops_priv_data;
+    *number_of_sectors = dhara_map_capacity(&dhara_priv_data->dhara_map);
+    return ESP_OK;
+}
+
+static esp_err_t dhara_erase_chip(spi_nand_flash_device_t *handle)
+{
+    return nand_erase_chip(handle);
+}
+
+static esp_err_t dhara_erase_block(spi_nand_flash_device_t *handle, uint32_t block)
+{
+    return nand_erase_block(handle, block);
+}
+
+
+const spi_nand_ops dhara_nand_ops = {
+    .init = &dhara_init,
+    .deinit = &dhara_deinit,
+    .read = &dhara_read,
+    .write = &dhara_write,
+    .erase_chip = &dhara_erase_chip,
+    .erase_block = &dhara_erase_block,
+    .trim = &dhara_trim,
+    .sync = &dhara_sync,
+    .copy_sector = &dhara_copy_sector,
+    .get_capacity = &dhara_get_capacity,
+};
+
+esp_err_t nand_register_dev(spi_nand_flash_device_t *handle)
+{
+    if (handle == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    handle->ops = &dhara_nand_ops;
+    return ESP_OK;
+}
+
+esp_err_t nand_unregister_dev(spi_nand_flash_device_t *handle)
+{
+    free(handle->ops_priv_data);
+    handle->ops = NULL;
+    return ESP_OK;
+}
+
+/*------------------------------------------------------------------------------------------------------*/
+
+
+// The following APIs are implementations required by the Dhara library.
+// Please refer to the header file dhara/nand.h for details.
 
 int dhara_nand_is_bad(const struct dhara_nand *n, dhara_block_t b)
 {
-    spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-
-    dhara_page_t first_block_page = b * (1 << n->log2_ppb);
-    uint16_t bad_block_indicator;
-    esp_err_t ret;
-
-    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, first_block_page, NULL), fail, TAG, "");
-
-    // Read the first 2 bytes on the OOB of the first page in the block. This should be 0xFFFF for a good block
-    ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, (uint8_t *) &bad_block_indicator, dev->page_size, 2),
-                      fail, TAG, "");
-
-    ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", b, first_block_page, bad_block_indicator);
-    return bad_block_indicator != 0xFFFF;
-
-fail:
-    ESP_LOGE(TAG, "Error in dhara_nand_is_bad %d", ret);
-    return 1;
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    bool is_bad_status = false;
+    if (nand_is_bad(dev_handle, b, &is_bad_status)) {
+        return 1;
+    }
+    if (is_bad_status == true) {
+        return 1;
+    }
+    return 0;
 }
 
 void dhara_nand_mark_bad(const struct dhara_nand *n, dhara_block_t b)
 {
-    spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret = ESP_OK;
-
-    dhara_page_t first_block_page = b * (1 << n->log2_ppb);
-    uint16_t bad_block_indicator = 0;
-    ESP_LOGD(TAG, "mark_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", b, first_block_page, bad_block_indicator);
-
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_erase_block(dev->config.device_handle, first_block_page),
-                      fail, TAG, "");
-
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, (const uint8_t *) &bad_block_indicator,
-                                            dev->page_size, 2),
-                      fail, TAG, "");
-    ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, first_block_page, NULL), fail, TAG, "");
-
-#if CONFIG_NAND_FLASH_VERIFY_WRITE
-    ret = s_verify_write(dev, (uint8_t *)&bad_block_indicator, dev->page_size, 2);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "%s: mark_bad write verification failed for block=%"PRIu32" and page=%"PRIu32"", __func__, b, first_block_page);
-    }
-#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    nand_mark_bad(dev_handle, b);
     return;
-fail:
-    ESP_LOGE(TAG, "Error in dhara_nand_mark_bad %d", ret);
 }
 
 int dhara_nand_erase(const struct dhara_nand *n, dhara_block_t b, dhara_error_t *err)
 {
-    ESP_LOGD(TAG, "erase_block, block=%"PRIu32",", b);
-    spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret;
-
-    dhara_page_t first_block_page = b * (1 << n->log2_ppb);
-    uint8_t status;
-
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_erase_block(dev->config.device_handle, first_block_page),
-                      fail, TAG, "");
-    ESP_GOTO_ON_ERROR(wait_for_ready(dev->config.device_handle,
-                                     dev->erase_block_delay_us, &status),
-                      fail, TAG, "");
-
-    if ((status & STAT_ERASE_FAILED) != 0) {
-        dhara_set_error(err, DHARA_E_BAD_BLOCK);
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    esp_err_t ret = nand_erase_block(dev_handle, b);
+    if (ret) {
+        if (ret == ESP_ERR_NOT_FINISHED) {
+            dhara_set_error(err, DHARA_E_BAD_BLOCK);
+        }
         return -1;
     }
-
     return 0;
-
-fail:
-    ESP_LOGE(TAG, "Error in dhara_nand_erase %d", ret);
-    return -1;
 }
 
 int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *data, dhara_error_t *err)
 {
-    ESP_LOGV(TAG, "prog, page=%"PRIu32",", p);
-    spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret = ESP_OK;
-    uint8_t status;
-    uint16_t used_marker = 0;
-
-    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, NULL), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, data, 0, dev->page_size),
-                      fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(dev->config.device_handle, (uint8_t *)&used_marker,
-                                            dev->page_size + 2, 2),
-                      fail, TAG, "");
-    ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, p, &status), fail, TAG, "");
-
-    if ((status & STAT_PROGRAM_FAILED) != 0) {
-        ESP_LOGD(TAG, "prog failed, page=%"PRIu32",", p);
-        dhara_set_error(err, DHARA_E_BAD_BLOCK);
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    esp_err_t ret = nand_prog(dev_handle, p, data);
+    if (ret) {
+        if (ret == ESP_ERR_NOT_FINISHED) {
+            dhara_set_error(err, DHARA_E_BAD_BLOCK);
+        }
         return -1;
     }
-
-#if CONFIG_NAND_FLASH_VERIFY_WRITE
-    ret = s_verify_write(dev, data, 0, dev->page_size);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "%s: prog page=%"PRIu32" write verification failed", __func__, p);
-    }
-    ret = s_verify_write(dev, (uint8_t *)&used_marker, dev->page_size + 2, 2);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "%s: prog page=%"PRIu32" used marker write verification failed", __func__, p);
-    }
-#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
-
     return 0;
-fail:
-    ESP_LOGE(TAG, "Error in dhara_nand_prog %d", ret);
-    return -1;
 }
 
 int dhara_nand_is_free(const struct dhara_nand *n, dhara_page_t p)
 {
-    spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret;
-    uint16_t used_marker;
-
-    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, NULL), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, (uint8_t *)&used_marker,
-                                    dev->page_size + 2, 2),
-                      fail, TAG, "");
-
-    ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%04x,", p, used_marker);
-    return used_marker == 0xFFFF;
-fail:
-    ESP_LOGE(TAG, "Error in dhara_nand_is_free %d", ret);
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    bool is_free_status = true;
+    if (nand_is_free(dev_handle, p, &is_free_status)) {
+        return 0;
+    }
+    if (is_free_status == true) {
+        return 1;
+    }
     return 0;
-}
-
-#define PACK_2BITS_STATUS(status, bit1, bit0)         ((((status) & (bit1)) << 1) | ((status) & (bit0)))
-#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   ((((status) & (bit2)) << 2) | (((status) & (bit1)) << 1) | ((status) & (bit0)))
-
-static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status, dhara_error_t *err)
-{
-    bool is_ecc_err = false;
-    ecc_status_t bits_corrected_status = STAT_ECC_OK;
-    if (dev->ecc_data.ecc_status_reg_len_in_bits == 2) {
-        bits_corrected_status = PACK_2BITS_STATUS(status, STAT_ECC1, STAT_ECC0);
-    } else if (dev->ecc_data.ecc_status_reg_len_in_bits == 3) {
-        bits_corrected_status = PACK_3BITS_STATUS(status, STAT_ECC2, STAT_ECC1, STAT_ECC0);
-    } else {
-        bits_corrected_status = STAT_ECC_MAX;
-    }
-    dev->ecc_data.ecc_corrected_bits_status = bits_corrected_status;
-    if (bits_corrected_status) {
-        if (bits_corrected_status == STAT_ECC_MAX) {
-            ESP_LOGE(TAG, "%s: Error while initializing value of ecc_status_reg_len_in_bits", __func__);
-            is_ecc_err = true;
-        } else if (bits_corrected_status == STAT_ECC_NOT_CORRECTED) {
-            dhara_set_error(err, DHARA_E_ECC);
-            is_ecc_err = true;
-        }
-    }
-    return is_ecc_err;
 }
 
 int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, size_t length,
                     uint8_t *data, dhara_error_t *err)
 {
-    ESP_LOGV(TAG, "read, page=%"PRIu32", offset=%d, length=%d", p, offset, length);
-    assert(p < n->num_blocks * (1 << n->log2_ppb));
-    spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret;
-    uint8_t status;
-
-    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, &status), fail, TAG, "");
-
-    if (is_ecc_error(dev, status, err)) {
-        ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", p);
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    if (nand_read(dev_handle, p, offset, length, data)) {
+        if (dev_handle->chip.ecc_data.ecc_corrected_bits_status == STAT_ECC_NOT_CORRECTED) {
+            dhara_set_error(err, DHARA_E_ECC);
+        }
         return -1;
     }
-
-    ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, data, offset, length), fail, TAG, "");
-
     return 0;
-fail:
-    ESP_LOGE(TAG, "Error in dhara_nand_read %d", ret);
-    return -1;
 }
 
 int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t dst, dhara_error_t *err)
 {
-    ESP_LOGD(TAG, "copy, src=%"PRIu32", dst=%"PRIu32"", src, dst);
-    spi_nand_flash_device_t *dev = __containerof(n, spi_nand_flash_device_t, dhara_nand);
-    esp_err_t ret = ESP_OK;
-    uint8_t status;
-#if CONFIG_NAND_FLASH_VERIFY_WRITE
-    uint8_t *temp_buf = NULL;
-#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
-
-    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, src, &status), fail, TAG, "");
-
-    if (is_ecc_error(dev, status, err)) {
-        ESP_LOGD(TAG, "copy, ecc error");
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    esp_err_t ret = nand_copy(dev_handle, src, dst);
+    if (ret) {
+        if (dev_handle->chip.ecc_data.ecc_corrected_bits_status == STAT_ECC_NOT_CORRECTED) {
+            dhara_set_error(err, DHARA_E_ECC);
+        }
+        if (ret == ESP_ERR_NOT_FINISHED) {
+            dhara_set_error(err, DHARA_E_BAD_BLOCK);
+        }
         return -1;
     }
-
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(dev->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(program_execute_and_wait(dev, dst, &status), fail, TAG, "");
-
-    if ((status & STAT_PROGRAM_FAILED) != 0) {
-        ESP_LOGD(TAG, "copy, prog failed");
-        dhara_set_error(err, DHARA_E_BAD_BLOCK);
-        return -1;
-    }
-
-#if CONFIG_NAND_FLASH_VERIFY_WRITE
-    // First read src page data from cache to temp_buf
-    temp_buf = heap_caps_malloc(dev->page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    if (spi_nand_read(dev->config.device_handle, temp_buf, 0, dev->page_size)) {
-        ESP_LOGE(TAG, "%s: Failed to read src_page=%"PRIu32"", __func__, src);
-        goto fail;
-    }
-    // Then read dst page data from nand memory array and load it in cache
-    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, dst, &status), fail, TAG, "");
-
-    if (is_ecc_error(dev, status, err)) {
-        ESP_LOGE(TAG, "%s: dst_page=%"PRIu32" read, ecc error", __func__, dst);
-        goto fail;
-    }
-
-    // Check if the data in the src page matches the dst page
-    ret = s_verify_write(dev, temp_buf, 0, dev->page_size);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "%s: dst_page=%"PRIu32" write verification failed", __func__, dst);
-    }
-
-    free(temp_buf);
-#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
-    return ret;
-
-fail:
-#if CONFIG_NAND_FLASH_VERIFY_WRITE
-    free(temp_buf);
-#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
-    ESP_LOGE(TAG, "Error in dhara_nand_copy %d", ret);
-    return -1;
+    return 0;
 }
+/*------------------------------------------------------------------------------------------------------*/

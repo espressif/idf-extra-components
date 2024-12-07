@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2024 Espressif Systems (Shanghai) CO LTD
  */
 
 #pragma once
@@ -12,7 +12,6 @@
 #include "esp_err.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
-#include "dhara/map.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,7 +46,7 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
  * @param sector_id The id of the sector to read.
  * @return ESP_OK on success, or a flash error code if the read failed.
  */
-esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, dhara_sector_t sector_id);
+esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, uint32_t sector_id);
 
 /** @brief Copy a sector to another sector from the nand flash.
  *
@@ -56,7 +55,7 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
  * @param dst_sec The destination sector id to which data should be copied.
  * @return ESP_OK on success, or a flash error code if the copy failed.
  */
-esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, dhara_sector_t src_sec, dhara_sector_t dst_sec);
+esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, uint32_t src_sec, uint32_t dst_sec);
 
 /** @brief Write a sector to the nand flash.
  *
@@ -65,7 +64,7 @@ esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, dhara_sect
  * @param sector_id The id of the sector to write.
  * @return ESP_OK on success, or a flash error code if the write failed.
  */
-esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, dhara_sector_t sector_id);
+esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint32_t sector_id);
 
 /** @brief Trim sector from the nand flash.
  *
@@ -77,7 +76,7 @@ esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uin
  * @param sector_id The id of the sector to be trimmed.
  * @return ESP_OK on success, or a flash error code if the trim failed.
  */
-esp_err_t spi_nand_flash_trim(spi_nand_flash_device_t *handle, dhara_sector_t sector_id);
+esp_err_t spi_nand_flash_trim(spi_nand_flash_device_t *handle, uint32_t sector_id);
 
 /** @brief Synchronizes any cache to the device.
  *
@@ -94,15 +93,23 @@ esp_err_t spi_nand_flash_sync(spi_nand_flash_device_t *handle);
  * @param[out] number_of_sectors A pointer of where to put the return value
  * @return ESP_OK on success, or a flash error code if the operation failed.
  */
-esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, dhara_sector_t *number_of_sectors);
+esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, uint32_t *number_of_sectors);
 
 /** @brief Retrieve the size of each sector.
  *
  * @param handle The handle to the SPI nand flash chip.
- * @param[out] number_of_sectors A pointer of where to put the return value
+ * @param[out] sectors_size A pointer of where to put the return value
  * @return ESP_OK on success, or a flash error code if the operation failed.
  */
 esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint32_t *sector_size);
+
+/** @brief Retrieve the size of each block.
+ *
+ * @param handle The handle to the SPI nand flash chip.
+ * @param[out] block_size A pointer of where to put the return value
+ * @return ESP_OK on success, or a flash error code if the operation failed.
+ */
+esp_err_t spi_nand_flash_get_block_size(spi_nand_flash_device_t *handle, uint32_t *block_size);
 
 /** @brief Erases the entire chip, invalidating any data on the chip.
  *
@@ -110,6 +117,14 @@ esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint32
  * @return ESP_OK on success, or a flash error code if the erase failed.
  */
 esp_err_t spi_nand_erase_chip(spi_nand_flash_device_t *handle);
+
+/** @brief Retrieve the number of blocks available.
+ *
+ * @param handle The handle to the SPI nand flash chip.
+ * @param[out] number_of_blocks A pointer of where to put the return value
+ * @return ESP_OK on success, or a flash error code if the operation failed.
+ */
+esp_err_t spi_nand_flash_get_block_num(spi_nand_flash_device_t *handle, uint32_t *number_of_blocks);
 
 /** @brief De-initialize the handle, releasing any resources reserved.
  *

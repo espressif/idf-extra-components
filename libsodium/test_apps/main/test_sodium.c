@@ -29,6 +29,8 @@
     }
 
 
+LIBSODIUM_TEST(aead_aegis128l)
+LIBSODIUM_TEST(aead_aegis256)
 LIBSODIUM_TEST(aead_chacha20poly1305)
 LIBSODIUM_TEST(chacha20)
 LIBSODIUM_TEST(box)
