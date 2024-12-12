@@ -173,4 +173,6 @@ void app_main(void)
         // Release the mutex
         example_lvgl_unlock();
     }
+
+    ESP_LOGI(TAG, "LVGL Scatter Chart displayed");
 }

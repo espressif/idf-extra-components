@@ -34,11 +34,13 @@ static void draw_event_cb(lv_event_t *e)
     }
 }
 
+#ifndef CONFIG_EXAMPLE_QEMU_RGB_PANEL_STATIC
 static void add_data(lv_timer_t *timer)
 {
     lv_obj_t *chart = timer->user_data;
     lv_chart_set_next_value2(chart, lv_chart_get_series_next(chart, NULL), lv_rand(0, 200), lv_rand(0, 1000));
 }
+#endif //CONFIG_EXAMPLE_QEMU_RGB_PANEL_STATIC
 
 void example_lvgl_demo_ui(lv_disp_t *disp)
 {
@@ -64,5 +66,7 @@ void example_lvgl_demo_ui(lv_disp_t *disp)
         lv_chart_set_next_value2(chart, ser, lv_rand(0, 200), lv_rand(0, 1000));
     }
 
+#ifndef CONFIG_EXAMPLE_QEMU_RGB_PANEL_STATIC
     lv_timer_create(add_data, 100, chart);
+#endif
 }

@@ -6,4 +6,11 @@ menu "Example Configuration"
         help
             Use QEMU RGB panel dedicated framebuffer as the framebuffer for LVGL.
 
+    config EXAMPLE_QEMU_RGB_PANEL_STATIC
+        bool "Static UI (for testing)"
+        default "n"
+        help
+            If this option is enabled, example will not update the chart after
+            it was drawn. This option is used in CI when testing the example.
+
 endmenu
