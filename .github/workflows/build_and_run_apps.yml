@@ -72,11 +72,11 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver: 
-          - "release-v5.0"
-          - "release-v5.1"
-          - "release-v5.2"
+          # - "release-v5.0"
+          # - "release-v5.1"
+          # - "release-v5.2"
           - "release-v5.3"
-          - "latest"
+          # - "latest"
         parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ matrix.idf_ver }}
@@ -122,11 +122,11 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          - "release-v5.0"
-          - "release-v5.1"
-          - "release-v5.2"
+          # - "release-v5.0"
+          # - "release-v5.1"
+          # - "release-v5.2"
           - "release-v5.3"
-          - "latest"
+          # - "latest"
         runner:
           - runs-on: "esp32"
             marker: "generic"
