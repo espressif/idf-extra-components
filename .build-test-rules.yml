@@ -19,6 +19,11 @@ esp_delta_ota:
     - if: SOC_WIFI_SUPPORTED != 1
       reason: Relevant only for WiFi enabled targets
 
+esp_encrypted_img/examples/pre_encrypted_ota:
+  enable:
+    - if: IDF_TARGET in ["esp32"]
+      reason: Testing on single target is enough
+
 sh2lib/examples/http2_request:
   enable:
     - if: IDF_VERSION_MAJOR > 4 and INCLUDE_DEFAULT == 1
