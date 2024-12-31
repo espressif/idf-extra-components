@@ -37,8 +37,8 @@
 #endif
 
 static const char *TAG = "pre_encrypted_ota_example";
-extern const char server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
-extern const char server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
+extern const char server_cert_pem_start[] asm("_binary_servercert_pem_start");
+extern const char server_cert_pem_end[] asm("_binary_servercert_pem_end");
 
 extern const char rsa_private_pem_start[] asm("_binary_private_pem_start");
 extern const char rsa_private_pem_end[]   asm("_binary_private_pem_end");
