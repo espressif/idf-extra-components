@@ -1,3 +1,8 @@
+## 2.3.0
+
+### Enhancements:
+- Added pre_encrypted_ota example, which demonstrates the OTA using encrypted image file.
+
 ## 2.2.1
 
 - Build system: fix the dependency for generating pre encrypted image

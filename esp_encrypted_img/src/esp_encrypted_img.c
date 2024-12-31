@@ -125,7 +125,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
         ESP_LOGE(TAG, "esp_encrypted_img_decrypt_start : Invalid argument");
         return NULL;
     }
-    ESP_LOGI(TAG, "Starting Decryption Process");
+    ESP_LOGI(TAG, "Initializing Decryption Handle");
 
     esp_encrypted_img_t *handle = calloc(1, sizeof(esp_encrypted_img_t));
     if (!handle) {
