@@ -1,0 +1,6 @@
+dependencies:
+  espressif/esp_encrypted_img:
+      version: "*"
+      override_path: ../../../
+  protocol_examples_common:
+    path: ${IDF_PATH}/examples/common_components/protocol_examples_common

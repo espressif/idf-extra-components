@@ -24,6 +24,7 @@ jobs:
           curl -sSL https://github.com/psastras/sarif-rs/releases/download/clang-tidy-sarif-v0.3.3/clang-tidy-sarif-x86_64-unknown-linux-gnu -o clang-tidy-sarif
           chmod +x clang-tidy-sarif
       - name: Install pyclang
+        shell: bash
         run: |
           . ${IDF_PATH}/export.sh
           pip install pyclang~=0.2.0
