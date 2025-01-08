@@ -75,7 +75,7 @@ static void setup_chip(spi_device_handle_t *spi)
         .flags = SPI_DEVICE_HALFDUPLEX,
     };
 
-    spi_bus_add_device(HOST_ID, &devcfg, spi);
+    TEST_ESP_OK(spi_bus_add_device(HOST_ID, &devcfg, spi));
 }
 
 static void setup_nand_flash(spi_nand_flash_device_t **out_handle, spi_device_handle_t *spi_handle)
@@ -87,7 +87,7 @@ static void setup_nand_flash(spi_nand_flash_device_t **out_handle, spi_device_ha
         .device_handle = spi,
     };
     spi_nand_flash_device_t *device_handle;
-    ESP_ERROR_CHECK(spi_nand_flash_init_device(&nand_flash_config, &device_handle));
+    TEST_ESP_OK(spi_nand_flash_init_device(&nand_flash_config, &device_handle));
 
     *out_handle = device_handle;
     *spi_handle = spi;
