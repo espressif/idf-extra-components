@@ -1,3 +1,10 @@
+## 3.1.0
+
+- Support for led strip group based on the Parallel IO backend
+  - new interface type led_strip_group_handle
+  - new API led_strip_group_get_strip_handle
+  - new API led_strip_group_del
+
 ## 3.0.0
 
 - Discontinued support for ESP-IDF v4.x
