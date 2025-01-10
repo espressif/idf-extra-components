@@ -36,7 +36,7 @@ led_strip_handle_t configure_led(void)
     led_strip_rmt_config_t rmt_config = {
         .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
         .resolution_hz = LED_STRIP_RMT_RES_HZ, // RMT counter clock frequency
-        .mem_block_symbols = 64,               // the memory size of each RMT channel, in words (4 bytes)
+        .mem_block_symbols = 0,               // the memory size of each RMT channel, 0 lets the driver decide.
         .flags = {
             .with_dma = false, // DMA feature is available on chips like ESP32-S3/P4
         }
