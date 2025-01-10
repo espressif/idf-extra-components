@@ -256,6 +256,7 @@ static void coap_example_server(void *p)
         coap_context_set_block_mode(ctx,
                                     COAP_BLOCK_USE_LIBCOAP | COAP_BLOCK_SINGLE_BODY);
         coap_context_set_max_idle_sessions(ctx, 20);
+        coap_context_set_keepalive(ctx, 30);
 
 #ifdef CONFIG_COAP_MBEDTLS_PSK
         /* Need PSK setup before we set up endpoints */
