@@ -145,13 +145,13 @@ static esp_err_t root_head_handler(httpd_req_t *req)
     return httpd_resp_send(req, NULL, binary_size); // No body for HEAD method
 }
 
-static const httpd_uri_t root = {
+static const httpd_uri_t get_root = {
     .uri       = "/",
     .method    = HTTP_GET,
     .handler   = root_get_handler
 };
 
-static const httpd_uri_t root1 = {
+static const httpd_uri_t head_root = {
     .uri       = "/",
     .method    = HTTP_HEAD,
     .handler   = root_head_handler
@@ -184,7 +184,7 @@ esp_err_t example_test_start_webserver(void)
 
     // Set URI handlers
     ESP_LOGI(TAG, "Registering URI handlers");
-    httpd_register_uri_handler(server, &root);
-    httpd_register_uri_handler(server, &root1);
+    httpd_register_uri_handler(server, &get_root);
+    httpd_register_uri_handler(server, &head_root);
     return ESP_OK;
 }
