@@ -31,6 +31,7 @@
 
 #include "protocol_examples_common.h"
 
+#include "coap_config.h"
 #include "coap3/coap.h"
 
 
