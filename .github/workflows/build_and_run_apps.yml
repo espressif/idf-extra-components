@@ -72,10 +72,10 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver: 
-          - "release-v5.0"
-          - "release-v5.1"
-          - "release-v5.2"
-          - "release-v5.3"
+          # - "release-v5.0"
+          # - "release-v5.1"
+          # - "release-v5.2"
+          # - "release-v5.3"
           - "latest"
         parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
     runs-on: ubuntu-22.04
@@ -122,27 +122,30 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          - "release-v5.0"
-          - "release-v5.1"
-          - "release-v5.2"
-          - "release-v5.3"
+          # - "release-v5.0"
+          # - "release-v5.1"
+          # - "release-v5.2"
+          # - "release-v5.3"
           - "latest"
         runner:
-          - runs-on: "esp32"
+          - runs-on: '["self-hosted", "linux", "docker", "esp32"]'
             marker: "generic"
             target: "esp32"
-          - runs-on: "ESP32-ETHERNET-KIT"
+          - runs-on: '["self-hosted", "linux", "docker", "ESP32-ETHERNET-KIT"]'
             marker: "ethernet"
             target: "esp32"
-          - runs-on: "spi_nand_flash"
+          - runs-on: '["self-hosted", "linux", "docker", "spi_nand_flash"]'
             marker: "spi_nand_flash"
+            target: "esp32"
+          - runs-on: '["ubuntu-22.04"]'
+            marker: "qemu"
             target: "esp32"
     env:
       TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
       TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
-    runs-on: [self-hosted, linux, docker, "${{ matrix.runner.runs-on }}"]
+    runs-on: ${{ fromjson(matrix.runner.runs-on) }}
     container:
-      image: python:3.11-bookworm
+      image: 'python:3.11-bookworm'
       options: --privileged # Privileged mode has access to serial ports
     steps:
       - uses: actions/checkout@v4
@@ -153,7 +156,19 @@ jobs:
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
+        run: python3 -m pip install --prefer-binary -r .github/test_requirements.txt
+      - name: Install QEMU
+        if: matrix.runner.marker == 'qemu'
+        env:
+          QEMU_VERSION: "esp-develop-9.0.0-20240606"
+          QEMU_ARCHIVE: "qemu-xtensa-softmmu-esp_develop_9.0.0_20240606-x86_64-linux-gnu.tar.xz"
+        run: |
+          curl -sSL -o ${QEMU_ARCHIVE} https://github.com/espressif/qemu/releases/download/${QEMU_VERSION}/${QEMU_ARCHIVE}
+          tar -xf ${QEMU_ARCHIVE}
+          rm ${QEMU_ARCHIVE}
+          apt-get update
+          apt-get install -y libgcrypt20 libglib2.0-0 libpixman-1-0 libsdl2-2.0-0 libslirp0
+          echo "$PWD/qemu/bin" >> $GITHUB_PATH
       - name: Run apps
         run: |
           python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
