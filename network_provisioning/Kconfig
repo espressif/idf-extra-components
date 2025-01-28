@@ -2,12 +2,12 @@ menu "Network Provisioning Manager"
 
     choice NETWORK_PROV_NETWORK_TYPE
         prompt "Network Type"
-        default NETWORK_PROV_NETWORK_TYPE_WIFI if ESP_WIFI_ENABLED
+        default NETWORK_PROV_NETWORK_TYPE_WIFI if (ESP_WIFI_ENABLED || ESP_WIFI_REMOTE_ENABLED)
         default NETWORK_PROV_NETWORK_TYPE_THREAD if !ESP_WIFI_ENABLE && OPENTHREAD_ENABLED
 
         config NETWORK_PROV_NETWORK_TYPE_WIFI
             bool "Network Type - Wi-Fi"
-            depends on ESP_WIFI_ENABLED
+            depends on ESP_WIFI_ENABLED || ESP_WIFI_REMOTE_ENABLED
 
         config NETWORK_PROV_NETWORK_TYPE_THREAD
             bool "Network Type - Thread"

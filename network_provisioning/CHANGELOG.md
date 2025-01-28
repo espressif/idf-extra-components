@@ -1,4 +1,9 @@
-# 17-March-2024
+# 01-April-2025
+
+- Extend provisioning check for `ESP_WIFI_REMOTE_ENABLED` as well along with existing `ESP_WIFI_ENABLED`
+- This enables provisioning for the devices not having native Wi-Fi (e.g., ESP32-P4) and using external/remote Wi-Fi solution such as esp-hosted for Wi-Fi connectivity.
+
+# 17-March-2025
 
 - Update the network provisioning component to work with the protocomm component which fixes incorrect AES-GCM IV usage in security2 scheme.
 
