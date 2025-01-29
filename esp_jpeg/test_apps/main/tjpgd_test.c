@@ -14,6 +14,8 @@
 #include "jpeg_decoder.h"
 #include "test_logo_jpg.h"
 #include "test_logo_rgb888.h"
+#include "test_usb_camera_2_jpg.h"
+#include "test_usb_camera_2_rgb888.h"
 
 #define TESTW 46
 #define TESTH 46
@@ -221,3 +223,39 @@ TEST_CASE("Test JPEG decompression library: No Huffman tables", "[esp_jpeg]")
 }
 
 #endif
+
+TEST_CASE("Test JPEG invalid marker 0xFFFF", "[esp_jpeg]")
+{
+    unsigned char *decoded;
+    int decoded_outsize = 160 * 120 * 3;
+
+    decoded = malloc(decoded_outsize);
+    assert(decoded);
+    for (int x = 0; x < decoded_outsize; x += 2) {
+        decoded[x] = 0;
+        decoded[x + 1] = 0xff;
+    }
+
+    /* JPEG decode */
+    esp_jpeg_image_cfg_t jpeg_cfg = {
+        .indata = (uint8_t *)camera_2_jpg,
+        .indata_size = camera_2_jpg_len,
+        .outbuf = decoded,
+        .outbuf_size = decoded_outsize,
+        .out_format = JPEG_IMAGE_FORMAT_RGB888,
+        .out_scale = JPEG_IMAGE_SCALE_0,
+        .flags = {
+            .swap_color_bytes = 0,
+        }
+    };
+    esp_jpeg_image_output_t outimg;
+    esp_err_t err = esp_jpeg_decode(&jpeg_cfg, &outimg);
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+
+    /* Decoded image size */
+    TEST_ASSERT_EQUAL(160, outimg.width);
+    TEST_ASSERT_EQUAL(120, outimg.height);
+
+    free(decoded);
+}
+

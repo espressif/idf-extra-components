@@ -1155,6 +1155,25 @@ JRESULT jd_prepare (
         }
         marker = LDB_WORD(seg);     /* Marker */
         len = LDB_WORD(seg + 2);    /* Length field */
+
+        /*
+        In the baseline JPEG specification, 0xFF is always used as the "marker prefix," and the byte that follows determines
+        the marker type (e.g., 0xD8 for SOI, 0xD9 for EOI, 0xDA for SOS, etc.).
+        A 0xFFFF sequence, however, does not correspond to any valid, standard JPEG marker.
+
+        In JPEG-compressed data, any single 0xFF in the entropy-coded segment is supposed to be followed by 0x00 if it is not a marker.
+        Sometimes, encoders or hardware incorrectly insert repeated 0xFF bytes without the 0x00 "stuffing" byte.
+        This confuses decoders that strictly follow the JPEG standard.
+        */
+        if (marker == 0xFFFF) {
+            // Check if ignoring seg[0] byte gives us valid marker
+            // We must read 1 more byte from the input stream
+            if (jd->infunc(jd, &seg[4], 1) != 1) {
+                return JDR_INP;
+            }
+            marker = LDB_WORD(seg + 1);
+            len = LDB_WORD(seg + 3);
+        }
         if (len <= 2 || (marker >> 8) != 0xFF) {
             return JDR_FMT1;
         }

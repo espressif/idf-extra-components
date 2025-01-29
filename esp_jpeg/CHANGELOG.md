@@ -1,3 +1,7 @@
+## 1.2.1
+
+- Fixed decoding of non-conforming 0xFFFF marker
+
 ## 1.2.0
 
 - Added option to for passing user defined working buffer
