@@ -9,7 +9,6 @@
 #pragma once
 
 #include "spi_nand_flash.h"
-#include "ff.h"
 
 #ifdef __cplusplus
 extern "C" {

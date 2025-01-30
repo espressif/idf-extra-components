@@ -18,6 +18,28 @@ SPI NAND Flash combines the benefits of NAND Flash technology with the simplicit
 
 * Fast Read/Write Operations: The SPI interface enables reasonably fast read and write operations, making it suitable for applications where data access speed is crucial.
 
+### Implementation Architecture
+
+```mermaid
+graph TD
+    A[Application] --> B[FATFS]
+    B --> C[Dhara Library]
+    C --> Hardware_Path[Hardware Path]
+    C --> Linux_Path[Linux Path]
+
+    subgraph Hardware_Path [Hardware Path]
+        HP1[NAND Flash Layer]
+        HP1 --> HP2[SPI NAND Flash Driver]
+        HP2 --> HP3["SPI Driver (ESP-IDF)"]
+        HP3 --> HP4[Hardware via SPI]
+    end
+
+    subgraph Linux_Path [Linux Path]
+        LP1[NAND Flash Layer]
+        LP1 --> LP2[NAND Emulation Layer]
+        LP2 --> LP3[Memory Mapped File]
+    end
+```
 ## Supported SPI NAND Flash chips
 
 At present, `spi_nand_flash` component is compatible with the chips produced by the following manufacturers and and their respective model numbers:
