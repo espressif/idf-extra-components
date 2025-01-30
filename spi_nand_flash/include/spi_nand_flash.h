@@ -10,8 +10,10 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#ifndef CONFIG_IDF_TARGET_LINUX
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,7 +23,9 @@ extern "C" {
  @note The spi_device_handle_t must be initialized with the flag SPI_DEVICE_HALFDUPLEX
 */
 struct spi_nand_flash_config_t {
+#ifndef CONFIG_IDF_TARGET_LINUX
     spi_device_handle_t device_handle;       ///< SPI Device for this nand chip.
+#endif
     uint8_t gc_factor;                       ///< The gc factor controls the number of blocks to spare block ratio.
     ///< Lower values will reduce the available space but increase performance
 };
