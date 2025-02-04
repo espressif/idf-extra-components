@@ -9,14 +9,51 @@
 #include <string.h>
 #include "esp_check.h"
 #include "spi_nand_flash.h"
+#include "nand.h"
+
+#ifndef CONFIG_IDF_TARGET_LINUX
 #include "spi_nand_oper.h"
 #include "nand_impl.h"
-#include "nand.h"
 #include "nand_flash_devices.h"
 #include "nand_flash_chip.h"
 #include "esp_vfs_fat_nand.h"
+#endif //CONFIG_IDF_TARGET_LINUX
 
 static const char *TAG = "nand_flash";
+
+#ifdef CONFIG_IDF_TARGET_LINUX
+
+static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
+{
+    esp_err_t ret = ESP_OK;
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
+    dev->chip.page_size = (1 << dev->chip.log2_page_size);
+
+    dev->chip.emulated_page_oob = 64;  // The default page size is 2048, so the OOB size is 64.
+
+    if (dev->chip.page_size == 512) {
+        dev->chip.emulated_page_oob = 16;
+    } else if (dev->chip.page_size == 2048) {
+        dev->chip.emulated_page_oob = 64;
+    } else if (dev->chip.page_size == 4096) {
+        dev->chip.emulated_page_oob = 128;
+    }
+    dev->chip.emulated_page_size = dev->chip.page_size + dev->chip.emulated_page_oob;
+    dev->chip.block_size = (1 << dev->chip.log2_ppb) * dev->chip.emulated_page_size;
+    dev->chip.num_blocks = partition->size / dev->chip.block_size;
+    dev->chip.erase_block_delay_us = 3000;
+    dev->chip.program_page_delay_us = 630;
+    dev->chip.read_page_delay_us = 60;
+    dev->partition = partition;
+    return ret;
+}
+
+static esp_err_t unprotect_chip(spi_nand_flash_device_t *dev)
+{
+    return ESP_OK;
+}
+
+#else
 
 static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
 {
@@ -60,10 +97,13 @@ static esp_err_t unprotect_chip(spi_nand_flash_device_t *dev)
 
     return ret;
 }
+#endif //CONFIG_IDF_TARGET_LINUX
 
 esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_flash_device_t **handle)
 {
+#ifndef CONFIG_IDF_TARGET_LINUX
     ESP_RETURN_ON_FALSE(config->device_handle != NULL, ESP_ERR_INVALID_ARG, TAG, "Spi device pointer can not be NULL");
+#endif //CONFIG_IDF_TARGET_LINUX
 
     if (!config->gc_factor) {
         config->gc_factor = 45;

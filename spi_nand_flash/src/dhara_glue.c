@@ -13,7 +13,9 @@
 #include "dhara/error.h"
 #include "esp_check.h"
 #include "esp_err.h"
+#ifndef CONFIG_IDF_TARGET_LINUX
 #include "spi_nand_oper.h"
+#endif
 #include "nand_impl.h"
 #include "nand.h"
 
