@@ -17,6 +17,12 @@
 extern "C" {
 #endif
 
+typedef enum {
+    SPI_NAND_IO_MODE_SIO = 0,
+    SPI_NAND_IO_MODE_DOUT,
+    SPI_NAND_IO_MODE_DIO,
+} spi_nand_flash_io_mode_t;
+
 /** @brief Structure to describe how to configure the nand access layer.
  @note The spi_device_handle_t must be initialized with the flag SPI_DEVICE_HALFDUPLEX
 */
@@ -24,6 +30,8 @@ struct spi_nand_flash_config_t {
     spi_device_handle_t device_handle;       ///< SPI Device for this nand chip.
     uint8_t gc_factor;                       ///< The gc factor controls the number of blocks to spare block ratio.
     ///< Lower values will reduce the available space but increase performance
+    spi_nand_flash_io_mode_t io_mode;        ///< set io mode for SPI NAND communication
+    uint8_t flags;                           ///< set flag with SPI_DEVICE_HALFDUPLEX for half duplex communcation.
 };
 
 typedef struct spi_nand_flash_config_t spi_nand_flash_config_t;

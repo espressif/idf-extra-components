@@ -48,6 +48,10 @@
 
 #define PATTERN_SEED    0x12345678
 
+// SPI_FLAGS -> SPI_DEVICE_HALFDUPLEX => half-duplex mode
+// SPI_FLAGS -> 0 => full-duplex mode
+#define SPI_FLAGS       SPI_DEVICE_HALFDUPLEX
+
 static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_sec, uint16_t sec_count);
 static void setup_bus(spi_host_device_t host_id)
 {
@@ -72,19 +76,21 @@ static void setup_chip(spi_device_handle_t *spi)
         .mode = 0,
         .spics_io_num = PIN_CS,
         .queue_size = 10,
-        .flags = SPI_DEVICE_HALFDUPLEX,
+        .flags = SPI_FLAGS,
     };
 
     TEST_ESP_OK(spi_bus_add_device(HOST_ID, &devcfg, spi));
 }
 
-static void setup_nand_flash(spi_nand_flash_device_t **out_handle, spi_device_handle_t *spi_handle)
+static void setup_nand_flash(spi_nand_flash_device_t **out_handle, spi_device_handle_t *spi_handle, spi_nand_flash_io_mode_t mode)
 {
     spi_device_handle_t spi;
     setup_chip(&spi);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
+        .flags = SPI_FLAGS,
+        .io_mode = mode,
     };
     spi_nand_flash_device_t *device_handle;
     TEST_ESP_OK(spi_nand_flash_init_device(&nand_flash_config, &device_handle));
@@ -104,7 +110,7 @@ TEST_CASE("erase nand flash", "[spi_nand_flash]")
 {
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
-    setup_nand_flash(&nand_flash_device_handle, &spi);
+    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_SIO);
     TEST_ESP_OK(spi_nand_erase_chip(nand_flash_device_handle));
     do_single_write_test(nand_flash_device_handle, 1, 1);
     deinit_nand_flash(nand_flash_device_handle, spi);
@@ -175,7 +181,7 @@ TEST_CASE("write nand flash sectors", "[spi_nand_flash]")
     uint32_t sector_num, sector_size;
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
-    setup_nand_flash(&nand_flash_device_handle, &spi);
+    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_SIO);
 
     TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
     TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
@@ -196,7 +202,7 @@ TEST_CASE("copy nand flash sectors", "[spi_nand_flash]")
 {
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
-    setup_nand_flash(&nand_flash_device_handle, &spi);
+    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_SIO);
     uint32_t sector_num, sector_size;
     uint32_t src_sec = 10;
     uint32_t dst_sec = 11;
@@ -216,7 +222,7 @@ TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
 {
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
-    setup_nand_flash(&nand_flash_device_handle, &spi);
+    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_SIO);
     uint32_t sector_num, sector_size;
 
     TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
@@ -239,11 +245,8 @@ TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
     deinit_nand_flash(nand_flash_device_handle, spi);
 }
 
-TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_nand_flash]")
+static void test_nand_operations(spi_nand_flash_device_t *nand_flash_device_handle)
 {
-    spi_nand_flash_device_t *nand_flash_device_handle;
-    spi_device_handle_t spi;
-    setup_nand_flash(&nand_flash_device_handle, &spi);
     uint32_t sector_num, sector_size, block_size;
 
     TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
@@ -262,6 +265,7 @@ TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_na
     uint32_t test_block = 20;
     uint32_t test_page = test_block * (block_size / sector_size); //(block_num * pages_per_block)
     uint32_t dst_page = test_page + 1;
+    TEST_ESP_OK(nand_wrap_erase_block(nand_flash_device_handle, test_block));
     if (test_page < sector_num) {
         // Verify if test_page is free
         TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
@@ -282,5 +286,31 @@ TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_na
     }
     free(pattern_buf);
     free(temp_buf);
+}
+
+TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works in SIO and DIO mode", "[spi_nand_flash]")
+{
+    spi_nand_flash_device_t *nand_flash_device_handle;
+    spi_device_handle_t spi;
+
+    //setup chip for SIO mode
+    ESP_LOGI("test", "Starting SIO mode");
+    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_SIO);
+    test_nand_operations(nand_flash_device_handle);
+    do_single_write_test(nand_flash_device_handle, 1, 16);
+    deinit_nand_flash(nand_flash_device_handle, spi);
+
+    //setup chip for DOUT mode
+    ESP_LOGI("test", "Starting DOUT mode");
+    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_DOUT);
+    test_nand_operations(nand_flash_device_handle);
+    do_single_write_test(nand_flash_device_handle, 1, 16);
+    deinit_nand_flash(nand_flash_device_handle, spi);
+
+    //setup chip for DIO mode
+    ESP_LOGI("test", "Starting DIO mode");
+    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_DIO);
+    test_nand_operations(nand_flash_device_handle);
+    do_single_write_test(nand_flash_device_handle, 1, 16);
     deinit_nand_flash(nand_flash_device_handle, spi);
 }

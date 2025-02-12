@@ -29,7 +29,7 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         .miso_data = &manufacturer_id,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_nand_execute_transaction(dev->config.device_handle, &t);
+    spi_nand_execute_transaction(dev, &t);
     ESP_LOGD(TAG, "%s: manufacturer_id: %x\n", __func__, manufacturer_id);
 
     switch (manufacturer_id) {
@@ -49,13 +49,13 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
 static esp_err_t unprotect_chip(spi_nand_flash_device_t *dev)
 {
     uint8_t status;
-    esp_err_t ret = spi_nand_read_register(dev->config.device_handle, REG_PROTECT, &status);
+    esp_err_t ret = spi_nand_read_register(dev, REG_PROTECT, &status);
     if (ret != ESP_OK) {
         return ret;
     }
 
     if (status != 0x00) {
-        ret = spi_nand_write_register(dev->config.device_handle, REG_PROTECT, 0);
+        ret = spi_nand_write_register(dev, REG_PROTECT, 0);
     }
 
     return ret;
