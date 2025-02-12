@@ -10,8 +10,15 @@
 #include "spi_nand_oper.h"
 #include "driver/spi_master.h"
 
-esp_err_t spi_nand_execute_transaction(spi_device_handle_t device, spi_nand_transaction_t *transaction)
+esp_err_t spi_nand_execute_transaction(spi_nand_flash_device_t *handle, spi_nand_transaction_t *transaction)
 {
+    uint8_t half_duplex = handle->config.flags & SPI_DEVICE_HALFDUPLEX;
+    if (!half_duplex) {
+        uint32_t len = transaction->miso_len > transaction->mosi_len ? transaction->miso_len : transaction->mosi_len;
+        transaction->miso_len = len;
+        transaction->mosi_len = len;
+    }
+
     spi_transaction_ext_t e = {
         .base = {
             .flags = SPI_TRANS_VARIABLE_ADDR |  SPI_TRANS_VARIABLE_CMD |  SPI_TRANS_VARIABLE_DUMMY | transaction->flags,
@@ -35,7 +42,7 @@ esp_err_t spi_nand_execute_transaction(spi_device_handle_t device, spi_nand_tran
         assert(transaction->miso_len <= 4 && "SPI_TRANS_USE_RXDATA used for a long transaction");
     }
 
-    esp_err_t ret = spi_device_transmit(device, (spi_transaction_t *) &e);
+    esp_err_t ret = spi_device_transmit(handle->config.device_handle, (spi_transaction_t *) &e);
     if (ret == ESP_OK) {
         if (transaction->flags == SPI_TRANS_USE_RXDATA) {
             memcpy(transaction->miso_data, e.base.rx_data, transaction->miso_len);
@@ -44,7 +51,7 @@ esp_err_t spi_nand_execute_transaction(spi_device_handle_t device, spi_nand_tran
     return ret;
 }
 
-esp_err_t spi_nand_read_register(spi_device_handle_t device, uint8_t reg, uint8_t *val)
+esp_err_t spi_nand_read_register(spi_nand_flash_device_t *handle, uint8_t reg, uint8_t *val)
 {
     spi_nand_transaction_t t = {
         .command = CMD_READ_REGISTER,
@@ -55,10 +62,10 @@ esp_err_t spi_nand_read_register(spi_device_handle_t device, uint8_t reg, uint8_
         .flags = SPI_TRANS_USE_RXDATA,
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    return spi_nand_execute_transaction(handle, &t);
 }
 
-esp_err_t spi_nand_write_register(spi_device_handle_t device, uint8_t reg, uint8_t val)
+esp_err_t spi_nand_write_register(spi_nand_flash_device_t *handle, uint8_t reg, uint8_t val)
 {
     spi_nand_transaction_t  t = {
         .command = CMD_SET_REGISTER,
@@ -69,19 +76,19 @@ esp_err_t spi_nand_write_register(spi_device_handle_t device, uint8_t reg, uint8
         .flags = SPI_TRANS_USE_TXDATA,
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    return spi_nand_execute_transaction(handle, &t);
 }
 
-esp_err_t spi_nand_write_enable(spi_device_handle_t device)
+esp_err_t spi_nand_write_enable(spi_nand_flash_device_t *handle)
 {
     spi_nand_transaction_t  t = {
         .command = CMD_WRITE_ENABLE
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    return spi_nand_execute_transaction(handle, &t);
 }
 
-esp_err_t spi_nand_read_page(spi_device_handle_t device, uint32_t page)
+esp_err_t spi_nand_read_page(spi_nand_flash_device_t *handle, uint32_t page)
 {
     spi_nand_transaction_t  t = {
         .command = CMD_PAGE_READ,
@@ -89,27 +96,83 @@ esp_err_t spi_nand_read_page(spi_device_handle_t device, uint32_t page)
         .address = page
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    return spi_nand_execute_transaction(handle, &t);
 }
 
-esp_err_t spi_nand_read(spi_device_handle_t device, uint8_t *data, uint16_t column, uint16_t length)
+static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
 {
+    uint32_t spi_flags = SPI_TRANS_MODE_DIO;
+    uint8_t cmd = CMD_READ_X2;
+    uint8_t dummy_bits = 8;
+
+    if (handle->config.io_mode == SPI_NAND_IO_MODE_DIO) {
+        spi_flags |= SPI_TRANS_MULTILINE_ADDR;
+        cmd = CMD_READ_DIO;
+        dummy_bits = 4;
+    }
+
     spi_nand_transaction_t  t = {
-        .command = CMD_READ_FAST,
+        .command = cmd,
         .address_bytes = 2,
         .address = column,
         .miso_len = length,
         .miso_data = data,
-        .dummy_bits = 8,
+        .dummy_bits = dummy_bits,
+        .flags = spi_flags,
+    };
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+    t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
+#endif
+    return spi_nand_execute_transaction(handle, &t);
+}
+
+static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
+{
+    uint8_t *data_read = NULL;
+    uint16_t data_read_len;
+    uint8_t half_duplex = handle->config.flags & SPI_DEVICE_HALFDUPLEX;
+    if (half_duplex) {
+        data_read_len = length;
+        data_read = data;
+    } else {
+        data_read_len = length + 1;
+        data_read = handle->temp_buffer;
+    }
+    spi_nand_transaction_t  t = {
+        .command = CMD_READ_FAST,
+        .address_bytes = 2,
+        .address = column,
+        .miso_len = data_read_len,
+        .miso_data = data_read,
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
         .flags = SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL,
 #endif
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    if (half_duplex) {
+        t.dummy_bits = 8;
+    }
+    esp_err_t ret = spi_nand_execute_transaction(handle, &t);
+    if (ret != ESP_OK) {
+        goto fail;
+    }
+    if (!half_duplex) {
+        memcpy(data, data_read + 1, length);
+    }
+fail:
+    return ret;
 }
 
-esp_err_t spi_nand_program_execute(spi_device_handle_t device, uint32_t page)
+esp_err_t spi_nand_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
+{
+    if (handle->config.io_mode == SPI_NAND_IO_MODE_DOUT || handle->config.io_mode == SPI_NAND_IO_MODE_DIO) {
+        return spi_nand_dual_read(handle, data, column, length);
+    }
+    return spi_nand_fast_read(handle, data, column, length);
+}
+
+esp_err_t spi_nand_program_execute(spi_nand_flash_device_t *handle, uint32_t page)
 {
     spi_nand_transaction_t  t = {
         .command = CMD_PROGRAM_EXECUTE,
@@ -117,10 +180,10 @@ esp_err_t spi_nand_program_execute(spi_device_handle_t device, uint32_t page)
         .address = page
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    return spi_nand_execute_transaction(handle, &t);
 }
 
-esp_err_t spi_nand_program_load(spi_device_handle_t device, const uint8_t *data, uint16_t column, uint16_t length)
+esp_err_t spi_nand_program_load(spi_nand_flash_device_t *handle, const uint8_t *data, uint16_t column, uint16_t length)
 {
     spi_nand_transaction_t  t = {
         .command = CMD_PROGRAM_LOAD,
@@ -130,10 +193,10 @@ esp_err_t spi_nand_program_load(spi_device_handle_t device, const uint8_t *data,
         .mosi_data = data
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    return spi_nand_execute_transaction(handle, &t);
 }
 
-esp_err_t spi_nand_erase_block(spi_device_handle_t device, uint32_t page)
+esp_err_t spi_nand_erase_block(spi_nand_flash_device_t *handle, uint32_t page)
 {
     spi_nand_transaction_t  t = {
         .command = CMD_ERASE_BLOCK,
@@ -141,5 +204,5 @@ esp_err_t spi_nand_erase_block(spi_device_handle_t device, uint32_t page)
         .address = page
     };
 
-    return spi_nand_execute_transaction(device, &t);
+    return spi_nand_execute_transaction(handle, &t);
 }

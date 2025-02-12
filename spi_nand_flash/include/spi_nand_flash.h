@@ -26,8 +26,16 @@ typedef struct spi_nand_flash_device_t spi_nand_flash_device_t;
 #include "nand_linux_mmap_emul.h"
 #endif
 
+/** @brief SPI mode used for reading from SPI NAND Flash */
+typedef enum {
+    SPI_NAND_IO_MODE_SIO = 0,
+    SPI_NAND_IO_MODE_DOUT,
+    SPI_NAND_IO_MODE_DIO,
+} spi_nand_flash_io_mode_t;
+
 /** @brief Structure to describe how to configure the nand access layer.
- @note The spi_device_handle_t must be initialized with the flag SPI_DEVICE_HALFDUPLEX
+ @note For DIO and DOUT mode The spi_device_handle_t must be initialized with the flag SPI_DEVICE_HALFDUPLEX
+ SIO mode can be initialized with half-duplex or full-duplex mode
 */
 struct spi_nand_flash_config_t {
 #ifndef CONFIG_IDF_TARGET_LINUX
@@ -37,6 +45,9 @@ struct spi_nand_flash_config_t {
 #endif
     uint8_t gc_factor;                       ///< The gc factor controls the number of blocks to spare block ratio.
     ///< Lower values will reduce the available space but increase performance
+    spi_nand_flash_io_mode_t io_mode;        ///< set io mode for SPI NAND communication
+    uint8_t flags;                           ///< set flag with SPI_DEVICE_HALFDUPLEX for half duplex communcation, 0 for full-duplex.
+    ///< This flag value must match the flag value in the spi_device_interface_config_t structure.
 };
 
 typedef struct spi_nand_flash_config_t spi_nand_flash_config_t;

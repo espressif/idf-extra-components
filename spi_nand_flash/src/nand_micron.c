@@ -17,12 +17,13 @@ esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
     uint8_t device_id;
     spi_nand_transaction_t t = {
         .command = CMD_READ_ID,
-        .dummy_bits = 16,
+        .address = 0,
+        .address_bytes = 2,
         .miso_len = 1,
         .miso_data = &device_id,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_nand_execute_transaction(dev->config.device_handle, &t);
+    spi_nand_execute_transaction(dev, &t);
     dev->chip.ecc_data.ecc_status_reg_len_in_bits = 3;
     dev->chip.erase_block_delay_us = 2000;
     ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);
