@@ -87,15 +87,12 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
     // Read the first 2 bytes on the OOB of the first page in the block. This should be 0xFFFF for a good block
-    ESP_GOTO_ON_ERROR(spi_nand_read(handle->config.device_handle, (uint8_t *) &bad_block_indicator, handle->chip.page_size, 2),
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle->config.device_handle, (uint8_t *) handle->read_buffer, handle->chip.page_size, 2),
                       fail, TAG, "");
 
+    memcpy(&bad_block_indicator, handle->read_buffer, sizeof(bad_block_indicator));
     ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", block, first_block_page, bad_block_indicator);
-    if (bad_block_indicator == 0xFFFF) {
-        *is_bad_status = false;
-    } else {
-        *is_bad_status = true;
-    }
+    *is_bad_status = (bad_block_indicator != 0xFFFF);
     return ret;
 
 fail:
@@ -232,16 +229,13 @@ esp_err_t nand_is_free(spi_nand_flash_device_t *handle, uint32_t page, bool *is_
     uint16_t used_marker;
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, NULL), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_read(handle->config.device_handle, (uint8_t *)&used_marker,
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle->config.device_handle, (uint8_t *)handle->read_buffer,
                                     handle->chip.page_size + 2, 2),
                       fail, TAG, "");
 
+    memcpy(&used_marker, handle->read_buffer, sizeof(used_marker));
     ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%04x,", page, used_marker);
-    if (used_marker == 0xFFFF) {
-        *is_free_status = true;
-    } else {
-        *is_free_status = false;
-    }
+    *is_free_status = (used_marker == 0xFFFF);
     return ret;
 fail:
     ESP_LOGE(TAG, "Error in nand_is_free %d", ret);
