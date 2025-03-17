@@ -8,16 +8,17 @@
 
 import argparse
 import os
-import subprocess
 import re
 import tempfile
 import hashlib
 import sys
+import esptool
 
 try:
     import detools
-except:
+except ImportError:
     print("Please install 'detools'. Use command `pip install -r tools/requirements.txt`")
+    sys.exit(1)
 
 # Magic Byte is created using command: echo -n "esp_delta_ota" | sha256sum
 esp_delta_ota_magic = 0xfccdde10
@@ -40,26 +41,41 @@ def calculate_sha256(file_path: str) -> str:
     return sha256_hash.hexdigest()
 
 def create_patch(chip: str, base_binary: str, new_binary: str, patch_file_name: str) -> None:
-    cmd = "esptool.py --chip " + chip + " image_info " + base_binary
-    proc = subprocess.Popen([cmd], stdout=subprocess.PIPE, shell=True)
-    (out, err) = proc.communicate()
-    x = re.search(b"Validation Hash: ([A-Za-z0-9]+) \\(valid\\)", out)
+    command = ['--chip', chip, 'image_info', base_binary]
+    output = sys.stdout
+    sys.stdout = tempfile.TemporaryFile(mode='w+')
+    try:
+        esptool.main(command)
+        sys.stdout.seek(0)
+        content = sys.stdout.read()
+    except Exception as e:
+        print(f"Error during esptool command execution: {e}")
+    finally:
+        sys.stdout.close()
+        sys.stdout = output
 
-    os.system("detools create_patch -c heatshrink " + base_binary + " " + new_binary + " " + patch_file_name)
+    x = re.search(r"Validation Hash: ([A-Za-z0-9]+) \(valid\)", content)
+    
+    if x is None:
+        print("Failed to find validation hash in base binary.")
+        return
     patch_file_without_header = "patch_file_temp.bin"
-    os.system("mv " + patch_file_name + " " + patch_file_without_header)
+    try:
+        with open(base_binary, 'rb') as b_binary, open(new_binary, 'rb') as n_binary, open(patch_file_without_header, 'wb') as p_binary:
+            detools.create_patch(b_binary, n_binary, p_binary, compression='heatshrink') # b_binary is the base binary, n_binary is the new binary, p_binary is the patch file without header
 
-    with open(patch_file_without_header, "rb") as temp_patch:
-        patch_content = temp_patch.read()
+        with open(patch_file_without_header, "rb") as p_binary, open(patch_file_name, "wb") as patch_file:
+            patch_file.write(esp_delta_ota_magic.to_bytes(MAGIC_SIZE, 'little'))
+            patch_file.write(bytes.fromhex(x[1]))
+            patch_file.write(bytearray(RESERVED_HEADER))
+            patch_file.write(p_binary.read())    
+    except Exception as e:
+        print(f"Error during patch creation: {e}")
+    finally:
+        if os.path.exists(patch_file_without_header):
+            os.remove(patch_file_without_header)
 
-    with open(patch_file_name, "wb") as patch_file:
-        patch_file.write(esp_delta_ota_magic.to_bytes(MAGIC_SIZE, 'little'))
-        patch_file.write(bytes.fromhex(x[1].decode()))
-        patch_file.write(bytearray(RESERVED_HEADER))
-        patch_file.write(patch_content)
-
-    os.remove(patch_file_without_header)
-
+    print("Patch created successfully.")
     # Verifying the created patch file
     verify_patch(base_binary, patch_file_name, new_binary)
 
@@ -68,35 +84,31 @@ def create_patch(chip: str, base_binary: str, new_binary: str, patch_file_name: 
 def verify_patch(base_binary: str, patch_to_verify: str, new_binary: str) -> None:
 
     with open(patch_to_verify, "rb") as original_file:
-        original_file.seek(HEADER_SIZE)  # Move the file pointer 64 bytes ahead
-        patch_content = original_file.read()  # Read the rest of the file
+        original_file.seek(HEADER_SIZE)
+        patch_content = original_file.read()
 
-    with tempfile.NamedTemporaryFile() as temp_file:
-        temp_file.write(patch_content)
-        temp_file.flush()
+    temp_file_name = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(patch_content)
+            temp_file.flush()
+            temp_file_name = temp_file.name
 
-        cmd = "detools apply_patch " + base_binary + " " + temp_file.name + " binary.new"
+        detools.apply_patch_filenames(base_binary, temp_file_name, "binary.new")
+    except Exception as e:
+        print(f"Failed to apply patch: {e}")
+    finally:
+        if temp_file_name and os.path.exists(temp_file_name):
+            os.remove(temp_file_name)
 
-        try:
-            proc = subprocess.Popen([cmd], stdout=subprocess.PIPE, shell = True)
-        except:
-            print("Failed to execute the command `detools apply_patch`")
-            return
-            
-        (out, err) = proc.communicate()
-
-        if err:
-            print("Failed to execute the command `detools apply_patch`")
-            return
-
-        sha_of_new_created_binary = calculate_sha256("binary.new")
-        sha_of_new_binary = calculate_sha256(new_binary)
-        
-        if sha_of_new_created_binary == sha_of_new_binary:
-            print("Patch file verified successfully")
-        else:
-            print("Failed to verify the patch")
-        os.remove("binary.new")
+    sha_of_new_created_binary = calculate_sha256("binary.new")
+    sha_of_new_binary = calculate_sha256(new_binary)
+    
+    if sha_of_new_created_binary == sha_of_new_binary:
+        print("Patch file verified successfully")
+    else:
+        print("Failed to verify the patch")
+    os.remove("binary.new")
 
 def main() -> None:
     if len(sys.argv) < 2:
