@@ -1,4 +1,4 @@
-version: "2.6.4~1"
+version: "2.7.0"
 description: "Expat - XML Parsing C Library"
 url: https://github.com/espressif/idf-extra-components/tree/master/expat
 dependencies:
