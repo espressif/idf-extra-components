@@ -1,5 +1,5 @@
 name: freetype
-version: 2.13.3
+version: 2.13.3~1
 cpe: cpe:2.3:a:freetype:freetype:{}:*:*:*:*:*:*:*
 supplier: 'Organization: freetype <https://www.freetype.org>'
 description: FreeType is a software font engine
