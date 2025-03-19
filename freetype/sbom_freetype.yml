@@ -5,3 +5,6 @@ supplier: 'Organization: freetype <https://www.freetype.org>'
 description: FreeType is a software font engine
 url: https://github.com/freetype/freetype
 hash: 42608f77f20749dd6ddc9e0536788eaad70ea4b5
+cve-exclude-list:
+  - cve: CVE-2025-27363
+    reason: Only affects version 2.13.0 and below
