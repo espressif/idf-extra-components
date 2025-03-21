@@ -17,12 +17,13 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
     uint8_t device_id_buf[2];
     spi_nand_transaction_t t = {
         .command = CMD_READ_ID,
-        .dummy_bits = 16,
+        .address = 0,
+        .address_bytes = 2,
         .miso_len = 2,
         .miso_data = device_id_buf,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_nand_execute_transaction(dev->config.device_handle, &t);
+    spi_nand_execute_transaction(dev, &t);
     uint16_t device_id = (device_id_buf[0] << 8) + device_id_buf[1];
     dev->chip.read_page_delay_us = 10;
     dev->chip.erase_block_delay_us = 2500;
