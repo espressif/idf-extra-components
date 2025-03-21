@@ -1,3 +1,7 @@
+## 3.0.1
+
+- Support WS2811 bit timing
+
 ## 3.0.0
 
 - Discontinued support for ESP-IDF v4.x
