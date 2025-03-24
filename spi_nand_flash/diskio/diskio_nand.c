@@ -6,7 +6,6 @@
  * SPDX-FileContributor: 2015-2023 Espressif Systems (Shanghai) CO LTD
  */
 
-#include "ff.h"
 #include "diskio.h"
 #include "esp_log.h"
 #include "esp_check.h"
@@ -133,11 +132,12 @@ DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         break;
     }
 #if FF_USE_TRIM
-    case CTRL_TRIM:
+    case CTRL_TRIM: {
         DWORD start_sector = *((DWORD *)buff);
         DWORD end_sector = *((DWORD *)buff + 1) + 1;
         DWORD sector_count = end_sector - start_sector;
         return ff_nand_trim(pdrv, start_sector, sector_count);
+    }
 #endif //FF_USE_TRIM
     default:
         return RES_ERROR;

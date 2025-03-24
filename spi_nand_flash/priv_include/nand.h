@@ -10,6 +10,10 @@
 
 #include <stdint.h>
 #include "spi_nand_flash.h"
+#ifdef CONFIG_IDF_TARGET_LINUX
+#include "freertos/FreeRTOS.h"
+#include "nand_linux_mmap_emul.h"
+#endif
 #include "freertos/semphr.h"
 
 #ifdef __cplusplus
@@ -40,6 +44,10 @@ typedef struct {
     uint8_t log2_ppb;  //is power of 2, log2_ppb shift ((1<<log2_ppb) * page_size) will be stored in block size
     uint32_t block_size;
     uint32_t page_size;
+#ifdef CONFIG_IDF_TARGET_LINUX
+    uint32_t emulated_page_size;
+    uint32_t emulated_page_oob;
+#endif
     uint32_t num_blocks;
     uint32_t read_page_delay_us;
     uint32_t erase_block_delay_us;
@@ -68,6 +76,9 @@ struct spi_nand_flash_device_t {
     uint8_t *work_buffer;
     uint8_t *read_buffer;
     SemaphoreHandle_t mutex;
+#ifdef CONFIG_IDF_TARGET_LINUX
+    nand_mmap_emul_handle_t *emul_handle;
+#endif
 };
 
 esp_err_t nand_register_dev(spi_nand_flash_device_t *handle);
