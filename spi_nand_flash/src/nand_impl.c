@@ -23,7 +23,7 @@ static esp_err_t s_verify_write(spi_nand_flash_device_t *handle, const uint8_t *
     uint8_t *temp_buf = NULL;
     temp_buf = heap_caps_malloc(length, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    if (spi_nand_read(handle->config.device_handle, temp_buf, offset, length)) {
+    if (spi_nand_read(handle, temp_buf, offset, length)) {
         ESP_LOGE(TAG, "%s: Failed to read nand flash to verify previous write", __func__);
         free(temp_buf);
         return ESP_FAIL;
@@ -39,7 +39,7 @@ static esp_err_t s_verify_write(spi_nand_flash_device_t *handle, const uint8_t *
 }
 #endif //CONFIG_NAND_FLASH_VERIFY_WRITE
 
-static esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_operation_time_us, uint8_t *status_out)
+static esp_err_t wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_operation_time_us, uint8_t *status_out)
 {
     if (expected_operation_time_us < ROM_WAIT_THRESHOLD_US) {
         esp_rom_delay_us(expected_operation_time_us);
@@ -47,7 +47,7 @@ static esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_op
 
     while (true) {
         uint8_t status;
-        ESP_RETURN_ON_ERROR(spi_nand_read_register(device, REG_STATUS, &status), TAG, "");
+        ESP_RETURN_ON_ERROR(spi_nand_read_register(dev, REG_STATUS, &status), TAG, "");
 
         if ((status & STAT_BUSY) == 0) {
             if (status_out) {
@@ -66,16 +66,16 @@ static esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_op
 
 static esp_err_t read_page_and_wait(spi_nand_flash_device_t *dev, uint32_t page, uint8_t *status_out)
 {
-    ESP_RETURN_ON_ERROR(spi_nand_read_page(dev->config.device_handle, page), TAG, "");
+    ESP_RETURN_ON_ERROR(spi_nand_read_page(dev, page), TAG, "");
 
-    return wait_for_ready(dev->config.device_handle, dev->chip.read_page_delay_us, status_out);
+    return wait_for_ready(dev, dev->chip.read_page_delay_us, status_out);
 }
 
 static esp_err_t program_execute_and_wait(spi_nand_flash_device_t *dev, uint32_t page, uint8_t *status_out)
 {
-    ESP_RETURN_ON_ERROR(spi_nand_program_execute(dev->config.device_handle, page), TAG, "");
+    ESP_RETURN_ON_ERROR(spi_nand_program_execute(dev, page), TAG, "");
 
-    return wait_for_ready(dev->config.device_handle, dev->chip.program_page_delay_us, status_out);
+    return wait_for_ready(dev, dev->chip.program_page_delay_us, status_out);
 }
 
 esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_bad_status)
@@ -87,7 +87,7 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
     // Read the first 2 bytes on the OOB of the first page in the block. This should be 0xFFFF for a good block
-    ESP_GOTO_ON_ERROR(spi_nand_read(handle->config.device_handle, (uint8_t *) handle->read_buffer, handle->chip.page_size, 2),
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *) handle->read_buffer, handle->chip.page_size, 2),
                       fail, TAG, "");
 
     memcpy(&bad_block_indicator, handle->read_buffer, sizeof(bad_block_indicator));
@@ -110,18 +110,18 @@ esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t block)
     ESP_LOGD(TAG, "mark_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", block, first_block_page, bad_block_indicator);
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_erase_block(handle->config.device_handle, first_block_page),
+    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_erase_block(handle, first_block_page),
                       fail, TAG, "");
-    ESP_GOTO_ON_ERROR(wait_for_ready(handle->config.device_handle, handle->chip.erase_block_delay_us, &status),
+    ESP_GOTO_ON_ERROR(wait_for_ready(handle, handle->chip.erase_block_delay_us, &status),
                       fail, TAG, "");
     if ((status & STAT_ERASE_FAILED) != 0) {
         ret = ESP_ERR_NOT_FINISHED;
         goto fail;
     }
 
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle->config.device_handle, (const uint8_t *) &bad_block_indicator,
+    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (const uint8_t *) &bad_block_indicator,
                                             handle->chip.page_size, 2),
                       fail, TAG, "");
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, first_block_page, NULL), fail, TAG, "");
@@ -144,10 +144,10 @@ esp_err_t nand_erase_chip(spi_nand_flash_device_t *handle)
     uint8_t status;
 
     for (int i = 0; i < handle->chip.num_blocks; i++) {
-        ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), end, TAG, "");
-        ESP_GOTO_ON_ERROR(spi_nand_erase_block(handle->config.device_handle, i * (1 << handle->chip.log2_ppb)),
+        ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), end, TAG, "");
+        ESP_GOTO_ON_ERROR(spi_nand_erase_block(handle, i * (1 << handle->chip.log2_ppb)),
                           end, TAG, "");
-        ESP_GOTO_ON_ERROR(wait_for_ready(handle->config.device_handle, handle->chip.erase_block_delay_us, &status),
+        ESP_GOTO_ON_ERROR(wait_for_ready(handle, handle->chip.erase_block_delay_us, &status),
                           end, TAG, "");
         if ((status & STAT_ERASE_FAILED) != 0) {
             ret = ESP_ERR_NOT_FINISHED;
@@ -168,10 +168,10 @@ esp_err_t nand_erase_block(spi_nand_flash_device_t *handle, uint32_t block)
 
     uint32_t first_block_page = block * (1 << handle->chip.log2_ppb);
 
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_erase_block(handle->config.device_handle, first_block_page),
+    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_erase_block(handle, first_block_page),
                       fail, TAG, "");
-    ESP_GOTO_ON_ERROR(wait_for_ready(handle->config.device_handle,
+    ESP_GOTO_ON_ERROR(wait_for_ready(handle,
                                      handle->chip.erase_block_delay_us, &status),
                       fail, TAG, "");
 
@@ -193,10 +193,10 @@ esp_err_t nand_prog(spi_nand_flash_device_t *handle, uint32_t page, const uint8_
     uint8_t status;
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, NULL), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle->config.device_handle, data, 0, handle->chip.page_size),
+    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, data, 0, handle->chip.page_size),
                       fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle->config.device_handle, (uint8_t *)&used_marker,
+    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (uint8_t *)&used_marker,
                                             handle->chip.page_size + 2, 2),
                       fail, TAG, "");
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, page, &status), fail, TAG, "");
@@ -229,7 +229,7 @@ esp_err_t nand_is_free(spi_nand_flash_device_t *handle, uint32_t page, bool *is_
     uint16_t used_marker;
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, NULL), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_read(handle->config.device_handle, (uint8_t *)handle->read_buffer,
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *)handle->read_buffer,
                                     handle->chip.page_size + 2, 2),
                       fail, TAG, "");
 
@@ -282,7 +282,7 @@ esp_err_t nand_read(spi_nand_flash_device_t *handle, uint32_t page, size_t offse
         return ESP_FAIL;
     }
 
-    ESP_GOTO_ON_ERROR(spi_nand_read(handle->config.device_handle, data, offset, length), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle, data, offset, length), fail, TAG, "");
 
     return ret;
 fail:
@@ -306,7 +306,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
         return ESP_FAIL;
     }
 
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, dst, &status), fail, TAG, "");
 
     if ((status & STAT_PROGRAM_FAILED) != 0) {
@@ -318,7 +318,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
     // First read src page data from cache to temp_buf
     temp_buf = heap_caps_malloc(handle->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    if (spi_nand_read(handle->config.device_handle, temp_buf, 0, handle->chip.page_size)) {
+    if (spi_nand_read(handle, temp_buf, 0, handle->chip.page_size)) {
         ESP_LOGE(TAG, "%s: Failed to read src_page=%"PRIu32"", __func__, src);
         goto fail;
     }

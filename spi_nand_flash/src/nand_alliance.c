@@ -18,13 +18,12 @@ esp_err_t spi_nand_alliance_init(spi_nand_flash_device_t *dev)
     spi_nand_transaction_t t = {
         .command = CMD_READ_ID,
         .address = 1,
-        .address_bytes = 1,
-        .dummy_bits = 8,
+        .address_bytes = 2,
         .miso_len = 1,
         .miso_data = &device_id,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_nand_execute_transaction(dev->config.device_handle, &t);
+    spi_nand_execute_transaction(dev, &t);
     dev->chip.erase_block_delay_us = 3000;
     dev->chip.program_page_delay_us = 630;
     ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);

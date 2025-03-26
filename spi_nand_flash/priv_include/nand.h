@@ -75,6 +75,7 @@ struct spi_nand_flash_device_t {
     void *ops_priv_data;
     uint8_t *work_buffer;
     uint8_t *read_buffer;
+    uint8_t *temp_buffer;
     SemaphoreHandle_t mutex;
 #ifdef CONFIG_IDF_TARGET_LINUX
     nand_mmap_emul_handle_t *emul_handle;

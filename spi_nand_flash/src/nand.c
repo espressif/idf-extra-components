@@ -67,7 +67,7 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         .miso_data = &manufacturer_id,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_nand_execute_transaction(dev->config.device_handle, &t);
+    spi_nand_execute_transaction(dev, &t);
     ESP_LOGD(TAG, "%s: manufacturer_id: %x\n", __func__, manufacturer_id);
 
     switch (manufacturer_id) {
@@ -87,13 +87,13 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
 static esp_err_t unprotect_chip(spi_nand_flash_device_t *dev)
 {
     uint8_t status;
-    esp_err_t ret = spi_nand_read_register(dev->config.device_handle, REG_PROTECT, &status);
+    esp_err_t ret = spi_nand_read_register(dev, REG_PROTECT, &status);
     if (ret != ESP_OK) {
         return ret;
     }
 
     if (status != 0x00) {
-        ret = spi_nand_write_register(dev->config.device_handle, REG_PROTECT, 0);
+        ret = spi_nand_write_register(dev, REG_PROTECT, 0);
     }
 
     return ret;
@@ -142,6 +142,9 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
     (*handle)->read_buffer = heap_caps_malloc((*handle)->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_GOTO_ON_FALSE((*handle)->read_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
 
+    (*handle)->temp_buffer = heap_caps_malloc((*handle)->chip.page_size + 1, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    ESP_GOTO_ON_FALSE((*handle)->temp_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+
     (*handle)->mutex = xSemaphoreCreateMutex();
     if (!(*handle)->mutex) {
         ret = ESP_ERR_NO_MEM;
@@ -162,7 +165,10 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
 fail:
     free((*handle)->work_buffer);
     free((*handle)->read_buffer);
-    vSemaphoreDelete((*handle)->mutex);
+    free((*handle)->temp_buffer);
+    if ((*handle)->mutex) {
+        vSemaphoreDelete((*handle)->mutex);
+    }
     free(*handle);
     return ret;
 }
@@ -297,6 +303,7 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle)
     nand_unregister_dev(handle);
     free(handle->work_buffer);
     free(handle->read_buffer);
+    free(handle->temp_buffer);
     vSemaphoreDelete(handle->mutex);
     free(handle);
     return ret;
