@@ -53,6 +53,8 @@ typedef struct {
     uint32_t erase_block_delay_us;
     uint32_t program_page_delay_us;
     ecc_data_t ecc_data;
+    uint8_t has_quad_enable_bit;    // 1 if the chip supports enabling QIO/QOUT mode using bit 0 of 0xB0 (REG_CONFIG), 0 otherwise
+    uint8_t quad_enable_bit_pos;
 } spi_nand_chip_t;
 
 typedef struct {

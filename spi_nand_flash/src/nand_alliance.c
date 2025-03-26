@@ -24,6 +24,8 @@ esp_err_t spi_nand_alliance_init(spi_nand_flash_device_t *dev)
         .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev, &t);
+    dev->chip.has_quad_enable_bit = 1;
+    dev->chip.quad_enable_bit_pos = 0;
     dev->chip.erase_block_delay_us = 3000;
     dev->chip.program_page_delay_us = 630;
     ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);

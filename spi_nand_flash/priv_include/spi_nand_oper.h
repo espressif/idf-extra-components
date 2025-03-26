@@ -44,6 +44,7 @@ typedef struct spi_nand_transaction_t spi_nand_transaction_t;
 #define CMD_READ_X4         0x6B
 #define CMD_ERASE_BLOCK     0xD8
 #define CMD_READ_DIO        0xBB
+#define CMD_READ_QIO        0xEB
 
 #define REG_PROTECT         0xA0
 #define REG_CONFIG          0xB0

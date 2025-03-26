@@ -99,6 +99,34 @@ esp_err_t spi_nand_read_page(spi_nand_flash_device_t *handle, uint32_t page)
     return spi_nand_execute_transaction(handle, &t);
 }
 
+static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
+{
+    uint32_t spi_flags = SPI_TRANS_MODE_QIO;
+    uint8_t cmd = CMD_READ_X4;
+    uint8_t dummy_bits = 8;
+
+    if (handle->config.io_mode == SPI_NAND_IO_MODE_QIO) {
+        spi_flags |= SPI_TRANS_MULTILINE_ADDR;
+        cmd = CMD_READ_QIO;
+        dummy_bits = 4;
+    }
+
+    spi_nand_transaction_t  t = {
+        .command = cmd,
+        .address_bytes = 2,
+        .address = column,
+        .miso_len = length,
+        .miso_data = data,
+        .dummy_bits = dummy_bits,
+        .flags = spi_flags,
+    };
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+    t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
+#endif
+    return spi_nand_execute_transaction(handle, &t);
+}
+
 static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
 {
     uint32_t spi_flags = SPI_TRANS_MODE_DIO;
@@ -168,6 +196,8 @@ esp_err_t spi_nand_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t
 {
     if (handle->config.io_mode == SPI_NAND_IO_MODE_DOUT || handle->config.io_mode == SPI_NAND_IO_MODE_DIO) {
         return spi_nand_dual_read(handle, data, column, length);
+    } else if (handle->config.io_mode == SPI_NAND_IO_MODE_QOUT || handle->config.io_mode == SPI_NAND_IO_MODE_QIO) {
+        return spi_nand_quad_read(handle, data, column, length);
     }
     return spi_nand_fast_read(handle, data, column, length);
 }
@@ -185,12 +215,20 @@ esp_err_t spi_nand_program_execute(spi_nand_flash_device_t *handle, uint32_t pag
 
 esp_err_t spi_nand_program_load(spi_nand_flash_device_t *handle, const uint8_t *data, uint16_t column, uint16_t length)
 {
+    uint8_t cmd = CMD_PROGRAM_LOAD;
+    uint32_t spi_flags = 0;
+    if (handle->config.io_mode == SPI_NAND_IO_MODE_QOUT || handle->config.io_mode == SPI_NAND_IO_MODE_QIO) {
+        cmd = CMD_PROGRAM_LOAD_X4;
+        spi_flags = SPI_TRANS_MODE_QIO;
+    }
+
     spi_nand_transaction_t  t = {
-        .command = CMD_PROGRAM_LOAD,
+        .command = cmd,
         .address_bytes = 2,
         .address = column,
         .mosi_len = length,
-        .mosi_data = data
+        .mosi_data = data,
+        .flags = spi_flags,
     };
 
     return spi_nand_execute_transaction(handle, &t);
