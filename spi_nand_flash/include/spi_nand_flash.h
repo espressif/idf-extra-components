@@ -31,6 +31,8 @@ typedef enum {
     SPI_NAND_IO_MODE_SIO = 0,
     SPI_NAND_IO_MODE_DOUT,
     SPI_NAND_IO_MODE_DIO,
+    SPI_NAND_IO_MODE_QOUT,
+    SPI_NAND_IO_MODE_QIO,
 } spi_nand_flash_io_mode_t;
 
 /** @brief Structure to describe how to configure the nand access layer.

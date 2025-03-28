@@ -241,6 +241,16 @@ TEST_CASE("read and write nand flash sectors (dout)", "[spi_nand_flash]")
     test_write_nand_flash_sectors(SPI_NAND_IO_MODE_DOUT, SPI_DEVICE_HALFDUPLEX);
 }
 
+TEST_CASE("read and write nand flash sectors (qio)", "[spi_nand_flash]")
+{
+    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_QIO, SPI_DEVICE_HALFDUPLEX);
+}
+
+TEST_CASE("read and write nand flash sectors (qout)", "[spi_nand_flash]")
+{
+    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_QOUT, SPI_DEVICE_HALFDUPLEX);
+}
+
 static void test_copy_nand_flash_sectors(spi_nand_flash_io_mode_t mode, uint8_t flags)
 {
     spi_nand_flash_device_t *nand_flash_device_handle;
@@ -279,6 +289,16 @@ TEST_CASE("copy nand flash sectors (dio)", "[spi_nand_flash]")
 TEST_CASE("copy nand flash sectors (dout)", "[spi_nand_flash]")
 {
     test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_DOUT, SPI_DEVICE_HALFDUPLEX);
+}
+
+TEST_CASE("copy nand flash sectors (qio)", "[spi_nand_flash]")
+{
+    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_QIO, SPI_DEVICE_HALFDUPLEX);
+}
+
+TEST_CASE("copy nand flash sectors (qout)", "[spi_nand_flash]")
+{
+    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_QOUT, SPI_DEVICE_HALFDUPLEX);
 }
 
 static void test_nand_operations(spi_nand_flash_io_mode_t mode, uint8_t flags)
@@ -347,6 +367,16 @@ TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works (bypassing
 TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works (bypassing dhara) (dout)", "[spi_nand_flash]")
 {
     test_nand_operations(SPI_NAND_IO_MODE_DOUT, SPI_DEVICE_HALFDUPLEX);
+}
+
+TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works (bypassing dhara) (qio)", "[spi_nand_flash]")
+{
+    test_nand_operations(SPI_NAND_IO_MODE_QIO, SPI_DEVICE_HALFDUPLEX);
+}
+
+TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works (bypassing dhara) (qout)", "[spi_nand_flash]")
+{
+    test_nand_operations(SPI_NAND_IO_MODE_QOUT, SPI_DEVICE_HALFDUPLEX);
 }
 
 TEST_CASE("Fail safe test if chip is not detected", "[spi_nand_flash]")

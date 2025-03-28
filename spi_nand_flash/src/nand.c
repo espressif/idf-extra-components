@@ -84,6 +84,24 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
     }
 }
 
+static esp_err_t enable_quad_io_mode(spi_nand_flash_device_t *dev)
+{
+    uint8_t io_config;
+    esp_err_t ret = spi_nand_read_register(dev, REG_CONFIG, &io_config);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    io_config |= (1 << dev->chip.quad_enable_bit_pos);
+    ESP_LOGD(TAG, "%s: quad config register value: 0x%x", __func__, io_config);
+
+    if (io_config != 0x00) {
+        ret = spi_nand_write_register(dev, REG_CONFIG, io_config);
+    }
+
+    return ret;
+}
+
 static esp_err_t unprotect_chip(spi_nand_flash_device_t *dev)
 {
     uint8_t status;
@@ -132,6 +150,11 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
     ESP_GOTO_ON_ERROR(detect_chip(*handle), fail, TAG, "Failed to detect nand chip");
 #endif
     ESP_GOTO_ON_ERROR(unprotect_chip(*handle), fail, TAG, "Failed to clear protection register");
+
+    if (((*handle)->config.io_mode ==  SPI_NAND_IO_MODE_QOUT || (*handle)->config.io_mode ==  SPI_NAND_IO_MODE_QIO)
+            && (*handle)->chip.has_quad_enable_bit) {
+        ESP_GOTO_ON_ERROR(enable_quad_io_mode(*handle), fail, TAG, "Failed to enable quad mode");
+    }
 
     (*handle)->chip.page_size = 1 << (*handle)->chip.log2_page_size;
     (*handle)->chip.block_size = (1 << (*handle)->chip.log2_ppb) * (*handle)->chip.page_size;

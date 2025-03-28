@@ -24,6 +24,8 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
         .flags = SPI_TRANS_USE_RXDATA,
     };
     spi_nand_execute_transaction(dev, &t);
+    dev->chip.has_quad_enable_bit = 0;
+    dev->chip.quad_enable_bit_pos = 0;
     uint16_t device_id = (device_id_buf[0] << 8) + device_id_buf[1];
     dev->chip.read_page_delay_us = 10;
     dev->chip.erase_block_delay_us = 2500;

@@ -59,12 +59,16 @@ static void example_init_nand_flash(spi_nand_flash_device_t **out_handle, spi_de
     ESP_LOGI(TAG, "DMA CHANNEL: %d", SPI_DMA_CHAN);
     ESP_ERROR_CHECK(spi_bus_initialize(HOST_ID, &bus_config, SPI_DMA_CHAN));
 
+    // spi_flags = SPI_DEVICE_HALFDUPLEX -> half duplex
+    // spi_flags = 0 -> full_duplex
+    const uint32_t spi_flags = SPI_DEVICE_HALFDUPLEX;
+
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = EXAMPLE_FLASH_FREQ_KHZ * 1000,
         .mode = 0,
         .spics_io_num = PIN_CS,
         .queue_size = 10,
-        .flags = SPI_DEVICE_HALFDUPLEX,
+        .flags = spi_flags,
     };
 
     spi_device_handle_t spi;
@@ -72,6 +76,8 @@ static void example_init_nand_flash(spi_nand_flash_device_t **out_handle, spi_de
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
+        .io_mode = SPI_NAND_IO_MODE_SIO,
+        .flags = spi_flags
     };
     spi_nand_flash_device_t *nand_flash_device_handle;
     ESP_ERROR_CHECK(spi_nand_flash_init_device(&nand_flash_config, &nand_flash_device_handle));
