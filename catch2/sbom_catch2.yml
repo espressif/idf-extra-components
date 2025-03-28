@@ -1,7 +1,7 @@
 name: catch2
-version: 3.7.0
+version: 3.7.1
 cpe: cpe:2.3:a:catchorg:catch2:{}:*:*:*:*:*:*:*
 supplier: 'Organization: catchorg <https://github.com/catchorg>'
 description: A modern, C++-native, test framework for unit-tests, TDD and BDD - using C++14, C++17 and later
 url: https://github.com/catchorg/Catch2
-hash: 31588bb4f56b638dd5afc28d3ebff9b9dcefb88d
+hash: fa43b77429ba76c462b1898d6cd2f2d7a9416b14
