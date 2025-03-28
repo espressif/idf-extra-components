@@ -1,8 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+#include <sdkconfig.h>
 
 #include <string.h>
 #include <sys/param.h>
@@ -286,7 +288,16 @@ static cJSON *network_prov_get_info_json(void)
     /* Version field */
     cJSON_AddStringToObject(prov_info_json, "ver", prov_ctx->mgr_info.version);
 
+    /* Security field */
     cJSON_AddNumberToObject(prov_info_json, "sec_ver", prov_ctx->security);
+#ifdef CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_PATCH_VERSION
+    int sec_ver = 0;
+    uint8_t sec_patch_ver = 0;
+    protocomm_get_sec_version(prov_ctx->pc, &sec_ver, &sec_patch_ver);
+    assert(sec_ver == prov_ctx->security);
+    cJSON_AddNumberToObject(prov_info_json, "sec_patch_ver", sec_patch_ver);
+#endif
+
     /* Capabilities field */
     cJSON_AddItemToObject(prov_info_json, "cap", prov_capabilities);
 
@@ -343,19 +354,6 @@ static esp_err_t network_prov_mgr_start_service(const char *service_name, const 
         return ret;
     }
 
-    /* Set version information / capabilities of provisioning service and application */
-    cJSON *version_json = network_prov_get_info_json();
-    char *version_str = cJSON_Print(version_json);
-    ret = protocomm_set_version(prov_ctx->pc, "proto-ver", version_str);
-    free(version_str);
-    cJSON_Delete(version_json);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set version endpoint");
-        scheme->prov_stop(prov_ctx->pc);
-        protocomm_delete(prov_ctx->pc);
-        return ret;
-    }
-
     /* Set protocomm security type for endpoint */
     if (prov_ctx->security == 0) {
 #ifdef CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_0
@@ -387,6 +385,19 @@ static esp_err_t network_prov_mgr_start_service(const char *service_name, const 
     }
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set security endpoint");
+        scheme->prov_stop(prov_ctx->pc);
+        protocomm_delete(prov_ctx->pc);
+        return ret;
+    }
+
+    /* Set version information / capabilities of provisioning service and application */
+    cJSON *version_json = network_prov_get_info_json();
+    char *version_str = cJSON_Print(version_json);
+    ret = protocomm_set_version(prov_ctx->pc, "proto-ver", version_str);
+    free(version_str);
+    cJSON_Delete(version_json);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set version endpoint");
         scheme->prov_stop(prov_ctx->pc);
         protocomm_delete(prov_ctx->pc);
         return ret;
