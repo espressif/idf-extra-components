@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -91,4 +91,16 @@ esp_err_t led_strip_del(led_strip_handle_t strip)
 {
     ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     return strip->del(strip);
+}
+
+esp_err_t led_strip_group_get_strip_handle(led_strip_group_handle_t group, uint8_t index, led_strip_handle_t *strip)
+{
+    ESP_RETURN_ON_FALSE(group, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    return group->get_strip_handle(group, index, strip);
+}
+
+esp_err_t led_strip_group_del(led_strip_group_handle_t group)
+{
+    ESP_RETURN_ON_FALSE(group, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    return group->del(group);
 }
