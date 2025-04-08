@@ -1,7 +1,16 @@
+## 3.1.0
+
+- Support for led strip group based on the Parallel IO backend
+  - new interface type led_strip_group_handle
+  - new API led_strip_group_get_strip_handle
+  - new API led_strip_group_del
+- Add async refresh API, the next frame is free to be computed while the current frame is being transmitted.
+- Support to use custom timing config in RMT backend
+
 ## 3.0.1
 
 - Support WS2811 bit timing
-
+  
 ## 3.0.0
 
 - Discontinued support for ESP-IDF v4.x
