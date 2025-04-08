@@ -11,6 +11,11 @@ led_strip/examples/led_strip_spi_ws2812:
     - if: CONFIG_SOC_GPSPI_SUPPORTED != 1
       reason: Relevant only for SPI enabled targets
 
+led_strip/examples/led_strip_parlio_ws2812:
+  disable:
+    - if: CONFIG_SOC_PARLIO_SUPPORTED != 1
+      reason: Relevant only for PARLIO enabled targets
+
 esp_delta_ota:
   enable:
     - if: IDF_VERSION_MAJOR > 4
