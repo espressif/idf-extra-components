@@ -1,0 +1,4 @@
+libjpeg-turbo/examples/hello_jpeg:
+  enable:
+    - if: (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 4) and (IDF_TARGET in ["esp32", "esp32p4"])
+      reason: "Sufficient to test on one Xtensa and one RISC-V target"

@@ -21,6 +21,7 @@ manifest_file = [
     "qrcode/.build-test-rules.yml",
     "quirc/.build-test-rules.yml",
     "zlib/.build-test-rules.yml",
+    "libjpeg-turbo/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true
