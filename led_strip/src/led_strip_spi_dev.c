@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_rom_gpio.h"
+#include "esp_heap_caps.h"
 #include "soc/spi_periph.h"
 #include "led_strip.h"
 #include "led_strip_interface.h"
@@ -19,6 +20,7 @@
 
 #define SPI_BYTES_PER_COLOR_BYTE 3
 #define SPI_BITS_PER_COLOR_BYTE (SPI_BYTES_PER_COLOR_BYTE * 8)
+#define SPI_TRANS_MAX_DELAY (uint32_t) 0xffffffffUL
 
 static const char *TAG = "led_strip_spi";
 
@@ -29,6 +31,7 @@ typedef struct {
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
     led_color_component_format_t component_fmt;
+    spi_transaction_t trans;
     uint8_t pixel_buf[];
 } led_strip_spi_obj;
 
@@ -94,17 +97,29 @@ static esp_err_t led_strip_spi_set_pixel_rgbw(led_strip_t *strip, uint32_t index
     return ESP_OK;
 }
 
-static esp_err_t led_strip_spi_refresh(led_strip_t *strip)
+static esp_err_t led_strip_spi_refresh_async(led_strip_t *strip)
 {
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
-    spi_transaction_t tx_conf;
-    memset(&tx_conf, 0, sizeof(tx_conf));
+    memset(&spi_strip->trans, 0, sizeof(spi_strip->trans));
+    spi_strip->trans.length = spi_strip->strip_len * spi_strip->bytes_per_pixel * SPI_BITS_PER_COLOR_BYTE;
+    spi_strip->trans.tx_buffer = spi_strip->pixel_buf;
+    spi_strip->trans.rx_buffer = NULL;
+    ESP_RETURN_ON_ERROR(spi_device_queue_trans(spi_strip->spi_device, &spi_strip->trans, SPI_TRANS_MAX_DELAY), TAG, "transmit pixels by SPI failed");
+    return ESP_OK;
+}
 
-    tx_conf.length = spi_strip->strip_len * spi_strip->bytes_per_pixel * SPI_BITS_PER_COLOR_BYTE;
-    tx_conf.tx_buffer = spi_strip->pixel_buf;
-    tx_conf.rx_buffer = NULL;
-    ESP_RETURN_ON_ERROR(spi_device_transmit(spi_strip->spi_device, &tx_conf), TAG, "transmit pixels by SPI failed");
+static esp_err_t led_strip_spi_refresh_wait_async_done(led_strip_t *strip)
+{
+    led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
+    spi_transaction_t *tx_conf = NULL;
+    ESP_RETURN_ON_ERROR(spi_device_get_trans_result(spi_strip->spi_device, &tx_conf, SPI_TRANS_MAX_DELAY), TAG, "wait for done failed");
+    return ESP_OK;
+}
 
+static esp_err_t led_strip_spi_refresh(led_strip_t *strip)
+{
+    ESP_RETURN_ON_ERROR(led_strip_spi_refresh_async(strip), TAG, "refresh async failed");
+    ESP_RETURN_ON_ERROR(led_strip_spi_refresh_wait_async_done(strip), TAG, "wait for done failed");
     return ESP_OK;
 }
 
@@ -229,6 +244,8 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip->base.set_pixel = led_strip_spi_set_pixel;
     spi_strip->base.set_pixel_rgbw = led_strip_spi_set_pixel_rgbw;
     spi_strip->base.refresh = led_strip_spi_refresh;
+    spi_strip->base.refresh_async = led_strip_spi_refresh_async;
+    spi_strip->base.refresh_wait_async_done = led_strip_spi_refresh_wait_async_done;
     spi_strip->base.clear = led_strip_spi_clear;
     spi_strip->base.del = led_strip_spi_del;
 
