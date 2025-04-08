@@ -1,6 +1,6 @@
 led_strip/examples/led_strip_rmt_ws2812:
   disable:
-    - if: CONFIG_SOC_RMT_SUPPORTED != 1
+    - if: SOC_RMT_SUPPORTED != 1
       reason: Relevant only for RMT enabled targets
 
 led_strip/examples/led_strip_spi_ws2812:
@@ -8,7 +8,7 @@ led_strip/examples/led_strip_spi_ws2812:
     - if: (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5)
       reason: Example uses some SPI driver features which was introduced in IDF v5.1
   disable:
-    - if: CONFIG_SOC_GPSPI_SUPPORTED != 1
+    - if: SOC_GPSPI_SUPPORTED != 1
       reason: Relevant only for SPI enabled targets
 
 esp_delta_ota:
