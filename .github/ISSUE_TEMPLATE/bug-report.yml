@@ -55,6 +55,7 @@ body:
         - supertinycron
         - thorvg
         - zlib
+        - libjpeg-turbo
         - Other
     validations:
       required: true
