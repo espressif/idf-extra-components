@@ -16,6 +16,7 @@
 #define LED_STRIP_SPI_DEFAULT_RESOLUTION (2.5 * 1000 * 1000) // 2.5MHz resolution
 #define LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE 4
 
+// Each color of 1 bit is represented by 3 bits of SPI, low_level:100 ,high_level:110
 #define SPI_BYTES_PER_COLOR_BYTE 3
 #define SPI_BITS_PER_COLOR_BYTE (SPI_BYTES_PER_COLOR_BYTE * 8)
 

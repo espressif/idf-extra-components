@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -13,6 +13,8 @@ extern "C" {
 #endif
 
 typedef struct led_strip_t led_strip_t; /*!< Type of LED strip */
+
+typedef struct led_strip_group_t led_strip_group_t; /*!< Type of LED group strip */
 
 /**
  * @brief LED strip interface definition
@@ -112,6 +114,35 @@ struct led_strip_t {
      *      - ESP_FAIL: Free resources failed because error occurred
      */
     esp_err_t (*del)(led_strip_t *strip);
+};
+
+
+/**
+ * @brief LED strip group interface definition
+ */
+struct led_strip_group_t {
+    /**
+     * @brief Get LED strip handle by index
+     *
+     * @param group: LED strip group
+     * @param index: LED strip index
+     * @param ret_strip: Retured LED strip handle
+     *
+     * @return
+     *     - ESP_OK: Success
+     *     - ESP_ERR_INVALID_ARG: Invalid argument
+     */
+    esp_err_t (*get_strip_handle)(led_strip_group_t *group, uint8_t index, led_strip_handle_t *ret_strip);
+    /**
+     * @brief Free LED strip group resources
+     *
+     * @param group: LED strip group
+     *
+     * @return
+     *      - ESP_OK: Free resources successfully
+     *      - ESP_FAIL: Free resources failed because error occurred
+     */
+    esp_err_t (*del)(led_strip_group_t *group);
 };
 
 #ifdef __cplusplus

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -15,6 +15,11 @@ extern "C" {
  * @brief Type of LED strip handle
  */
 typedef struct led_strip_t *led_strip_handle_t;
+
+/**
+ * @brief Type of LED strip group handle
+ */
+typedef struct led_strip_group_t *led_strip_group_handle_t;
 
 /**
  * @brief LED strip model
