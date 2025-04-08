@@ -67,6 +67,30 @@ struct led_strip_t {
     esp_err_t (*refresh)(led_strip_t *strip);
 
     /**
+     * @brief Refresh memory colors to LEDs asynchronously
+     *
+     * @param strip: LED strip
+     *
+     * @return
+     *      - ESP_OK: Refresh successfully
+     *      - ESP_FAIL: Refresh failed because some other error occurred
+     *
+     * @note:
+     *      This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
+     */
+    esp_err_t (*refresh_async)(led_strip_t *strip);
+
+    /**
+     * @brief Wait for the async refresh to complete
+     *
+     * @param strip: LED strip
+     *
+     * @return
+     *      - ESP_OK: Wait for the async refresh to complete successfully
+     */
+    esp_err_t (*refresh_wait_async_done)(led_strip_t *strip);
+
+    /**
      * @brief Clear LED strip (turn off all LEDs)
      *
      * @param strip: LED strip
