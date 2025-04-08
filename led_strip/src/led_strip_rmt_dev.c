@@ -182,7 +182,8 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
 
     led_strip_encoder_config_t strip_encoder_conf = {
         .resolution = resolution,
-        .led_model = led_config->led_model
+        .led_model = led_config->led_model,
+        .timings = led_config->timings,
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
 

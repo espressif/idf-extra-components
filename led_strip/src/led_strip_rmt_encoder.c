@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -97,7 +97,8 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     led_encoder->base.reset = rmt_led_strip_encoder_reset;
     rmt_bytes_encoder_config_t bytes_encoder_config;
     uint32_t reset_ticks = config->resolution / 1000000 * 280 / 2; // reset code duration defaults to 280us to accommodate WS2812B-V5
-    if (config->led_model == LED_MODEL_SK6812) {
+    switch (config->led_model) {
+    case LED_MODEL_SK6812:
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {
                 .level0 = 1,
@@ -113,7 +114,8 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             },
             .flags.msb_first = 1 // SK6812 transfer bit order: G7...G0R7...R0B7...B0(W7...W0)
         };
-    } else if (config->led_model == LED_MODEL_WS2812) {
+        break;
+    case LED_MODEL_WS2812:
         // different led strip might have its own timing requirements, following parameter is for WS2812
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {
@@ -130,25 +132,27 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             },
             .flags.msb_first = 1 // WS2812 transfer bit order: G7...G0R7...R0B7...B0
         };
-    } else if (config->led_model == LED_MODEL_WS2811) {
+        break;
+    case LED_MODEL_WS2811:
         // different led strip might have its own timing requirements, following parameter is for WS2811
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {
                 .level0 = 1,
-                .duration0 = 0.5 * config->resolution / 1000000., // T0H=0.5us
+                .duration0 = 0.5 * config->resolution / 1000000, // T0H=0.5us
                 .level1 = 0,
-                .duration1 = 2.0 * config->resolution / 1000000., // T0L=2.0us
+                .duration1 = 2.0 * config->resolution / 1000000, // T0L=2.0us
             },
             .bit1 = {
                 .level0 = 1,
-                .duration0 = 1.2 * config->resolution / 1000000., // T1H=1.2us
+                .duration0 = 1.2 * config->resolution / 1000000, // T1H=1.2us
                 .level1 = 0,
-                .duration1 = 1.3 * config->resolution / 1000000., // T1L=1.3us
+                .duration1 = 1.3 * config->resolution / 1000000, // T1L=1.3us
             },
             .flags.msb_first = 1
         };
         reset_ticks = config->resolution / 1000000 * 50 / 2; // divide by 2... signal is sent twice
-    } else if (config->led_model == LED_MODEL_WS2816) {
+        break;
+    case LED_MODEL_WS2816:
         // different led strip might have its own timing requirements, following parameter is for WS2816
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {
@@ -165,7 +169,28 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             },
             .flags.msb_first = 1
         };
-    } else {
+        break;
+    case LED_MODEL_CUSTOM:
+        // Custom LED strip model. Use the timings from the config
+        ESP_GOTO_ON_FALSE(config->timings.t0h && config->timings.t0l && config->timings.t1h && config->timings.t1l && config->timings.reset, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
+        bytes_encoder_config = (rmt_bytes_encoder_config_t) {
+            .bit0 = {
+                .level0 = 1,
+                .duration0 = (float)config->timings.t0h * config->resolution / 1000000000, // Convert ns to ticks
+                .level1 = 0,
+                .duration1 = (float)config->timings.t0l * config->resolution / 1000000000,
+            },
+            .bit1 = {
+                .level0 = 1,
+                .duration0 = (float)config->timings.t1h * config->resolution / 1000000000,
+                .level1 = 0,
+                .duration1 = (float)config->timings.t1l * config->resolution / 1000000000,
+            },
+            .flags.msb_first = 1
+        };
+        reset_ticks = config->resolution / 1000000 * config->timings.reset / 2; // divide by 2... signal is sent twice
+        break;
+    default:
         assert(false);
     }
     ESP_GOTO_ON_ERROR(rmt_new_bytes_encoder(&bytes_encoder_config, &led_encoder->bytes_encoder), err, TAG, "create bytes encoder failed");
