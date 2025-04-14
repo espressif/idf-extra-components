@@ -1,6 +1,6 @@
 
-version: "1.1.0~1"
+version: "3.1.0~1"
 description: Jpeg-turbo port to ESP
 url: https://github.com/espressif/idf-extra-components/tree/master/libjpeg-turbo
 dependencies:
-  idf: ">=5.4.0"
+  idf: ">=5.0.0"
