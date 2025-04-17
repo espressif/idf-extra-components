@@ -10,19 +10,6 @@ idf_component_register(
 set(idf_include_directories $<TARGET_PROPERTY:idf::libjpeg-turbo,INCLUDE_DIRECTORIES>)
 set(includes "-I$<JOIN:${idf_include_directories}, -I>")
 
-
-if(CONFIG_COMPILER_OPTIMIZATION_DEFAULT)
-    set(opt_args -DCMAKE_BUILD_TYPE=Debug)
-elseif(CONFIG_COMPILER_OPTIMIZATION_SIZE)
-    set(opt_args -DCMAKE_BUILD_TYPE=Relese)
-elseif(CONFIG_COMPILER_OPTIMIZATION_PERF)
-    set(opt_args -DCMAKE_BUILD_TYPE=Relese)
-elseif(CONFIG_COMPILER_OPTIMIZATION_NONE)
-    set(opt_args -DCMAKE_BUILD_TYPE=Debug )
-else()
-    message(FATAL_ERROR "Unsupported optimization level")
-endif()
-
 set(c_flags "${includes} ${extra_defines} ")
 set(cxx_flags "${includes} ${extra_defines} ")
 set(common_flags "-ggdb  -ffunction-sections -fdata-sections -fpermissive -lm")
@@ -40,7 +27,7 @@ if(CONFIG_COMPILER_OPTIMIZATION_DEFAULT)
     -DCMAKE_CXX_FLAGS_RELEASE=${opt_flags})
 elseif(CONFIG_COMPILER_OPTIMIZATION_SIZE)
     set(opt_flags "-Os ${common_flags} ${assert_flags}")
-    set(opt_args -DCMAKE_BUILD_TYPE=Release
+    set(opt_args -DCMAKE_BUILD_TYPE=MinSizeRel
                  -DCMAKE_C_FLAGS_RELEASE=${opt_flags}
                  -DCMAKE_CXX_FLAGS_RELEASE=${opt_flags})
 elseif(CONFIG_COMPILER_OPTIMIZATION_PERF)   
