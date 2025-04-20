@@ -1,0 +1,10 @@
+# Generic requirements for all tests
+pytest-embedded==1.11.7
+pytest-embedded-serial-esp==1.11.7
+pytest-embedded-idf==1.11.7
+pytest-embedded-qemu==1.11.7
+pytest-custom_exit_code==0.3.0
+
+# Test-specific requirements
+cryptography==43.0.3
+pillow==10.3.0

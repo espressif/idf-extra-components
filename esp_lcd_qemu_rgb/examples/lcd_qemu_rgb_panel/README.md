@@ -16,9 +16,12 @@ By default, the example will use the target internal RAM as the frame buffer. To
 
 ### Build and run
 
-To build the example, run `idf.py build` command.
+To build and run the example, run:
+```shell
+idf.py qemu -g monitor
+```
 
-Please refer to the [QEMU Guide](https://github.com/espressif/esp-toolchain-docs/blob/main/qemu/README.md) for the detailed steps to setup and run the image.
+Please refer to the [QEMU Guide](https://github.com/espressif/esp-toolchain-docs/blob/main/qemu/README.md) for more information on installing and running QEMU.
 
 ## Example Output
 
@@ -34,3 +37,6 @@ I (55) example: Starting LVGL task
 I (65) example: Display LVGL Scatter Chart
 I (75) main_task: Returned from app_main()
 ```
+
+The following image should be displayed:
+![](doc/scatter_chart.png)
