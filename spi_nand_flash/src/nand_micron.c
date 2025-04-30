@@ -45,6 +45,15 @@ esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
         dev->chip.log2_ppb = 6;          // 64 pages per block
         dev->chip.log2_page_size = 11;   // 2048 bytes per page
         break;
+    case MICRON_DI_24:
+        dev->chip.read_page_delay_us = 55;
+        dev->chip.program_page_delay_us = 220;
+        dev->chip.num_blocks = 2048;
+        dev->chip.log2_ppb = 6;        // 64 pages per block
+        dev->chip.log2_page_size = 11; // 2048 bytes per page
+        dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
+        dev->chip.num_planes = 2;
+        break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
     }
