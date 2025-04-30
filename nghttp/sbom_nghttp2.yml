@@ -8,3 +8,5 @@ hash: 319bf015de8fa38e21ac271ce2f7d61aa77d90cb
 cve-exclude-list:
   - cve: CVE-2024-28182
     reason: Resolved in version v1.61.0
+  - cve: CVE-2025-30194
+    reason: nghttp2 is not affected by this CVE
