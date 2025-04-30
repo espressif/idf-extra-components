@@ -44,3 +44,4 @@
 #define MICRON_DI_34                  0x34
 #define MICRON_DI_14                  0x14
 #define MICRON_DI_15                  0x15
+#define MICRON_DI_24                  0x24   // MT29F2G
