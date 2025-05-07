@@ -6,6 +6,7 @@
   - new API led_strip_group_del
 - Add async refresh API, the next frame is free to be computed while the current frame is being transmitted.
 - Support to use custom timing config in RMT backend
+- Support to switch GPIO at runtime in RMT backend
 
 ## 3.0.1
 

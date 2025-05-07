@@ -25,6 +25,7 @@
 |  esp\_err\_t | [**led\_strip\_set\_pixel**](#function-led_strip_set_pixel) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue) <br>_Set RGB for a specific pixel._ |
 |  esp\_err\_t | [**led\_strip\_set\_pixel\_hsv**](#function-led_strip_set_pixel_hsv) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint16\_t hue, uint8\_t saturation, uint8\_t value) <br>_Set HSV for a specific pixel._ |
 |  esp\_err\_t | [**led\_strip\_set\_pixel\_rgbw**](#function-led_strip_set_pixel_rgbw) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, uint32\_t index, uint32\_t red, uint32\_t green, uint32\_t blue, uint32\_t white) <br>_Set RGBW for a specific pixel._ |
+|  esp\_err\_t | [**led\_strip\_switch\_gpio**](#function-led_strip_switch_gpio) ([**led\_strip\_handle\_t**](#typedef-led_strip_handle_t) strip, gpio\_num\_t new\_gpio\_num, bool invert\_output) <br>_Switch GPIO of LED strip._ |
 
 ## Functions Documentation
 
@@ -129,7 +130,7 @@ esp_err_t led_strip_refresh (
 
 **Note:**
 
-: After updating the LED colors in the memory, a following invocation of this API is needed to flush colors to strip.
+After updating the LED colors in the memory, a following invocation of this API is needed to flush colors to strip.
 
 ### function `led_strip_refresh_async`
 
@@ -152,7 +153,7 @@ esp_err_t led_strip_refresh_async (
 
 **Note:**
 
-: This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
+This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
 
 ### function `led_strip_refresh_wait_async_done`
 
@@ -265,6 +266,33 @@ Also see `led_strip_set_pixel` if you only want to specify the RGB part of the c
 - ESP\_OK: Set RGBW color for a specific pixel successfully
 - ESP\_ERR\_INVALID\_ARG: Set RGBW color for a specific pixel failed because of an invalid argument
 - ESP\_FAIL: Set RGBW color for a specific pixel failed because other error occurred
+
+### function `led_strip_switch_gpio`
+
+_Switch GPIO of LED strip._
+
+```c
+esp_err_t led_strip_switch_gpio (
+    led_strip_handle_t strip,
+    gpio_num_t new_gpio_num,
+    bool invert_output
+) 
+```
+
+**Parameters:**
+
+- `strip` LED strip
+- `new_gpio_num` new GPIO number
+- `invert_output` invert output
+
+**Note:**
+
+Only support RMT backend now
+
+**Returns:**
+
+- ESP\_OK: Switch GPIO successfully
+- ESP\_FAIL: Switch GPIO failed because some other error occurred
 
 ## File include/led_strip_parlio.h
 
@@ -396,6 +424,7 @@ esp_err_t led_strip_new_rmt_device (
 | Type | Name |
 | ---: | :--- |
 | struct | [**led\_strip\_spi\_config\_t**](#struct-led_strip_spi_config_t) <br>_LED Strip SPI specific configuration._ |
+| struct | [**led\_strip\_spi\_extra\_config**](#struct-led_strip_spi_config_tled_strip_spi_extra_config) <br> |
 
 ## Functions
 
@@ -413,9 +442,13 @@ Variables:
 
 - spi\_clock\_source\_t clk_src  <br>SPI clock source
 
-- struct [**led\_strip\_spi\_config\_t**](#struct-led_strip_spi_config_t) flags  <br>Extra driver flags
+- struct [**led\_strip\_spi\_config\_t::led\_strip\_spi\_extra\_config**](#struct-led_strip_spi_config_tled_strip_spi_extra_config) flags  <br>Extra driver flags
 
 - spi\_host\_device\_t spi_bus  <br>SPI bus ID. Which buses are available depends on the specific chip
+
+### struct `led_strip_spi_config_t::led_strip_spi_extra_config`
+
+Variables:
 
 - uint32\_t with_dma  <br>Use DMA to transmit data
 
@@ -645,7 +678,7 @@ Variables:
 
 - `group` LED strip group
 - `index` LED strip index
-- `ret_strip` Retured LED strip handle
+- `ret_strip` Returned LED strip handle
 
 **Returns:**
 
@@ -669,7 +702,6 @@ Variables:
 - esp\_err\_t(\* clear  <br>_Clear LED strip (turn off all LEDs)_<br>**Parameters:**
 
 - `strip` LED strip
-- `timeout_ms` timeout value for clearing task
 
 **Returns:**
 
@@ -688,7 +720,6 @@ Variables:
 - esp\_err\_t(\* refresh  <br>_Refresh memory colors to LEDs._<br>**Parameters:**
 
 - `strip` LED strip
-- `timeout_ms` timeout value for refreshing task
 
 **Returns:**
 
@@ -697,7 +728,7 @@ Variables:
 
 **Note:**
 
-: After updating the LED colors in the memory, a following invocation of this API is needed to flush colors to strip.
+After updating the LED colors in the memory, a following invocation of this API is needed to flush colors to strip.
 
 - esp\_err\_t(\* refresh_async  <br>_Refresh memory colors to LEDs asynchronously._<br>**Parameters:**
 
@@ -710,7 +741,7 @@ Variables:
 
 **Note:**
 
-: This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
+This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
 
 - esp\_err\_t(\* refresh_wait_async_done  <br>_Wait for the async refresh to complete._<br>**Parameters:**
 
@@ -748,6 +779,21 @@ Variables:
 - ESP\_OK: Set RGBW color for a specific pixel successfully
 - ESP\_ERR\_INVALID\_ARG: Set RGBW color for a specific pixel failed because of an invalid argument
 - ESP\_FAIL: Set RGBW color for a specific pixel failed because other error occurred
+
+- esp\_err\_t(\* switch_gpio  <br>_Switch GPIO of LED strip._<br>**Parameters:**
+
+- `strip` LED strip
+- `new_gpio_num` new GPIO number
+- `invert_output` invert output
+
+**Note:**
+
+Only support RMT backend now
+
+**Returns:**
+
+- ESP\_OK: Switch GPIO successfully
+- ESP\_FAIL: Switch GPIO failed because some other error occurred
 
 ### typedef `led_strip_t`
 
