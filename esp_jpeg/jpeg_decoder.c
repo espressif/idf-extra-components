@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -65,6 +65,7 @@ static uint8_t jpeg_get_color_bytes(esp_jpeg_image_format_t format);
 
 static unsigned int jpeg_decode_in_cb(JDEC *jd, uint8_t *buff, unsigned int nbyte);
 static jpeg_decode_out_t jpeg_decode_out_cb(JDEC *jd, void *bitmap, JRECT *rect);
+static inline uint16_t ldb_word(const void *ptr);
 /*******************************************************************************
 * Public API functions
 *******************************************************************************/
@@ -96,16 +97,17 @@ esp_err_t esp_jpeg_decode(esp_jpeg_image_cfg_t *cfg, esp_jpeg_image_output_t *im
     res = jd_prepare(&JDEC, jpeg_decode_in_cb, workbuf, workbuf_size, cfg);
     ESP_GOTO_ON_FALSE((res == JDR_OK), ESP_FAIL, err, TAG, "Error in preparing JPEG image! %d", res);
 
-    uint8_t scale_div = jpeg_get_div_by_scale(cfg->out_scale);
-    uint8_t out_color_bytes = jpeg_get_color_bytes(cfg->out_format);
+    const uint8_t scale_div       = jpeg_get_div_by_scale(cfg->out_scale);
+    const uint8_t out_color_bytes = jpeg_get_color_bytes(cfg->out_format);
 
     /* Size of output image */
-    uint32_t outsize = (JDEC.height / scale_div) * (JDEC.width / scale_div) * out_color_bytes;
+    const uint32_t outsize = (JDEC.height / scale_div) * (JDEC.width / scale_div) * out_color_bytes;
     ESP_GOTO_ON_FALSE((outsize <= cfg->outbuf_size), ESP_ERR_NO_MEM, err, TAG, "Not enough size in output buffer!");
 
     /* Size of output image */
     img->height = JDEC.height / scale_div;
     img->width = JDEC.width / scale_div;
+    img->output_len = outsize;
 
     /* Decode JPEG */
     res = jd_decomp(&JDEC, jpeg_decode_out_cb, cfg->out_scale);
@@ -116,6 +118,49 @@ err:
         free(workbuf);
     }
 
+    return ret;
+}
+
+esp_err_t esp_jpeg_get_image_info(esp_jpeg_image_cfg_t *cfg, esp_jpeg_image_output_t *img)
+{
+    if (cfg == NULL || img == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    } else if (cfg->indata == NULL || cfg->indata_size < 5) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_err_t ret = ESP_FAIL;
+
+    if (ldb_word(cfg->indata) != 0xFFD8) {
+        return ESP_FAIL;    /* Err: SOI is not detected */
+    }
+    unsigned ofs = 2; // Start after SOI marker
+
+    while (true) {
+        /* Get a JPEG marker */
+        uint8_t *seg = cfg->indata + ofs;       /* Segment pointer */
+        unsigned short marker = ldb_word(seg);  /* Marker */
+        unsigned int len = ldb_word(seg + 2);   /* Length field */
+        if (len <= 2 || (marker >> 8) != 0xFF) {
+            return ESP_FAIL;
+        }
+        ofs += 2 + len; /* Number of bytes loaded */
+        if (ofs > cfg->indata_size) {
+            return ESP_FAIL; // No more data
+        }
+
+        if ((marker & 0xFF) == 0xC0) {  /* SOF0 (baseline JPEG) */
+            seg += 4; /* Skip marker and length field */
+
+            /* Size of output image */
+            img->height = ldb_word(seg + 1);
+            img->width = ldb_word(seg + 3);
+            const uint8_t scale_div       = jpeg_get_div_by_scale(cfg->out_scale);
+            const uint8_t out_color_bytes = jpeg_get_color_bytes(cfg->out_format);
+            img->output_len = (img->height / scale_div) * (img->width / scale_div) * out_color_bytes;
+            ret = ESP_OK;
+            break;
+        }
+    }
     return ret;
 }
 
@@ -233,4 +278,10 @@ static uint8_t jpeg_get_color_bytes(esp_jpeg_image_format_t format)
     }
 
     return 1;
+}
+
+static inline uint16_t ldb_word(const void *ptr)
+{
+    const uint8_t *p = (const uint8_t *)ptr;
+    return ((uint16_t)p[0] << 8) | p[1];
 }

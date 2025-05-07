@@ -1,3 +1,7 @@
+## 1.3.0
+
+- Added option to get image size without decoding it
+
 ## 1.2.1
 
 - Fixed decoding of non-conforming 0xFFFF marker

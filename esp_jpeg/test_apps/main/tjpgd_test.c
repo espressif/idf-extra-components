@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
@@ -81,6 +81,64 @@ TEST_CASE("Test JPEG decompression library", "[esp_jpeg]")
 
     esp_jpeg_print_ascii(decoded, &outimg);
 
+    free(decoded);
+}
+
+/**
+ * @brief JPEG unknown size test
+ *
+ * This test case verifies the functionality of the JPEG decompression library
+ * when decoding an image with unknown size. The image is decoded from a
+ * JPEG file, and the output size is determined dynamically. The test checks
+ * that the decoded image dimensions match the expected values and that the
+ * pixel data is within an acceptable tolerance range.
+ */
+TEST_CASE("Test JPEG unknown size", "[esp_jpeg]")
+{
+    unsigned char *decoded, *p;
+    const unsigned char *o;
+
+    /* JPEG decode */
+    esp_jpeg_image_cfg_t jpeg_cfg = {
+        .indata = (uint8_t *)logo_jpg,
+        .indata_size = logo_jpg_len,
+        .out_format = JPEG_IMAGE_FORMAT_RGB888,
+    };
+
+    // 1. Get required output size
+    esp_jpeg_image_output_t outimg;
+    esp_err_t err = esp_jpeg_get_image_info(&jpeg_cfg, &outimg);
+    TEST_ASSERT_EQUAL(err, ESP_OK);
+    TEST_ASSERT_EQUAL(TESTW * TESTH * 3, outimg.output_len);
+    TEST_ASSERT_EQUAL(outimg.width, TESTW);
+    TEST_ASSERT_EQUAL(outimg.height, TESTH);
+
+    // 2. Allocate output buffer and assign it to the config
+    decoded = malloc(outimg.output_len);
+    TEST_ASSERT_NOT_NULL(decoded);
+    jpeg_cfg.outbuf = decoded;
+    jpeg_cfg.outbuf_size = outimg.output_len;
+
+    // 3. Decode the image
+    err = esp_jpeg_decode(&jpeg_cfg, &outimg);
+    TEST_ASSERT_EQUAL(err, ESP_OK);
+
+    /* Decoded image size */
+    TEST_ASSERT_EQUAL(TESTW * TESTH * 3, outimg.output_len);
+    TEST_ASSERT_EQUAL(outimg.width, TESTW);
+    TEST_ASSERT_EQUAL(outimg.height, TESTH);
+
+    p = decoded;
+    o = logo_rgb888;
+    for (int x = 0; x < outimg.width * outimg.height; x++) {
+        /* The color can be +- 2 */
+        TEST_ASSERT_UINT8_WITHIN(2, o[0], p[0]);
+        TEST_ASSERT_UINT8_WITHIN(2, o[1], p[1]);
+        TEST_ASSERT_UINT8_WITHIN(2, o[2], p[2]);
+
+        p += 3;
+        o += 3;
+    }
     free(decoded);
 }
 
@@ -224,6 +282,15 @@ TEST_CASE("Test JPEG decompression library: No Huffman tables", "[esp_jpeg]")
 
 #endif
 
+/**
+ * @brief Invalid JPEG marker test
+ *
+ * This test case verifies the behavior of the JPEG decompression library
+ * when encountering an invalid marker (0xFFFF) in the JPEG data stream.
+ * The test uses a known JPEG image (camera_2_jpg) that contains this invalid
+ * marker. The test checks whether the library can handle the invalid marker
+ * gracefully and still decode the image correctly.
+ */
 TEST_CASE("Test JPEG invalid marker 0xFFFF", "[esp_jpeg]")
 {
     unsigned char *decoded;
