@@ -91,8 +91,7 @@ esp_err_t led_strip_set_pixel_hsv_16(led_strip_handle_t strip, uint32_t index, u
  *      - ESP_OK: Refresh successfully
  *      - ESP_FAIL: Refresh failed because some other error occurred
  *
- * @note:
- *      After updating the LED colors in the memory, a following invocation of this API is needed to flush colors to strip.
+ * @note After updating the LED colors in the memory, a following invocation of this API is needed to flush colors to strip.
  */
 esp_err_t led_strip_refresh(led_strip_handle_t strip);
 
@@ -107,8 +106,7 @@ esp_err_t led_strip_refresh(led_strip_handle_t strip);
  *      - ESP_ERR_INVALID_STATE: Refresh failed because another transaction is in progress
  *      - ESP_FAIL: Refresh failed because some other error occurred
  *
- * @note:
- *      This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
+ * @note This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
  */
 esp_err_t led_strip_refresh_async(led_strip_handle_t strip);
 
@@ -134,6 +132,24 @@ esp_err_t led_strip_refresh_wait_async_done(led_strip_handle_t strip);
  *      - ESP_FAIL: Clear LEDs failed because some other error occurred
  */
 esp_err_t led_strip_clear(led_strip_handle_t strip);
+
+/**
+ * @brief Switch GPIO of LED strip
+ *
+ * @param strip: LED strip
+ * @param new_gpio_num: new GPIO number
+ * @param invert_output: invert output
+ *
+ * @note Only the RMT backend supports this operation
+ *
+ * @return
+ *      - ESP_OK: Switch GPIO successfully
+ *      - ESP_ERR_INVALID_ARG: Switch GPIO failed because of an invalid argument
+ *      - ESP_ERR_INVALID_STATE: Switch GPIO failed because a transaction is in progress
+ *      - ESP_ERR_NOT_SUPPORTED: Switch GPIO is not supported by this backend
+ *      - ESP_FAIL: Switch GPIO failed because some other error occurred
+ */
+esp_err_t led_strip_switch_gpio(led_strip_handle_t strip, gpio_num_t new_gpio_num, bool invert_output);
 
 /**
  * @brief Free LED strip resources
