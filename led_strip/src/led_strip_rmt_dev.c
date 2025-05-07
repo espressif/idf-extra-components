@@ -122,6 +122,15 @@ static esp_err_t led_strip_rmt_del(led_strip_t *strip)
     return ESP_OK;
 }
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+static esp_err_t led_strip_rmt_switch_gpio(led_strip_t *strip, gpio_num_t new_gpio_num, bool invert_output)
+{
+    led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+    ESP_RETURN_ON_ERROR(rmt_tx_switch_gpio(rmt_strip->rmt_chan, new_gpio_num, invert_output), TAG, "switch RMT GPIO failed");
+    return ESP_OK;
+}
+#endif
+
 esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *rmt_config, led_strip_handle_t *ret_strip)
 {
     led_strip_rmt_obj *rmt_strip = NULL;
@@ -197,6 +206,9 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip->base.refresh_wait_async_done = led_strip_rmt_refresh_wait_async_done;
     rmt_strip->base.clear = led_strip_rmt_clear;
     rmt_strip->base.del = led_strip_rmt_del;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+    rmt_strip->base.switch_gpio = led_strip_rmt_switch_gpio;
+#endif
 
     *ret_strip = &rmt_strip->base;
     return ESP_OK;
