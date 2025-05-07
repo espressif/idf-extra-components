@@ -180,6 +180,19 @@ err:
     return ret;
 }
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+static esp_err_t led_strip_rmt_switch_gpio(led_strip_t *strip, gpio_num_t new_gpio_num, bool invert_output)
+{
+    esp_err_t ret = ESP_OK;
+    led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+    ESP_RETURN_ON_FALSE(led_strip_trans_state_try_set(&rmt_strip->trans_state, LED_STRIP_TRANS_IDLE, LED_STRIP_TRANS_LOCKED),
+                        ESP_ERR_INVALID_STATE, TAG, "RMT transaction is busy");
+    ret = rmt_tx_switch_gpio(rmt_strip->rmt_chan, new_gpio_num, invert_output);
+    atomic_store(&rmt_strip->trans_state, LED_STRIP_TRANS_IDLE);
+    return ret;
+}
+#endif
+
 esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *rmt_config, led_strip_handle_t *ret_strip)
 {
     led_strip_rmt_obj *rmt_strip = NULL;
@@ -256,6 +269,9 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip->base.refresh_wait_async_done = led_strip_rmt_refresh_wait_async_done;
     rmt_strip->base.clear = led_strip_rmt_clear;
     rmt_strip->base.del = led_strip_rmt_del;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+    rmt_strip->base.switch_gpio = led_strip_rmt_switch_gpio;
+#endif
 
     *ret_strip = &rmt_strip->base;
     return ret;
