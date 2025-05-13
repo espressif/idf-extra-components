@@ -40,8 +40,14 @@ static const char *TAG = "pre_encrypted_ota_example";
 extern const char server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
 extern const char server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
 
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
 extern const char rsa_private_pem_start[] asm("_binary_private_pem_start");
 extern const char rsa_private_pem_end[]   asm("_binary_private_pem_end");
+#elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+#define HMAC_UP_KEY_ID 2
+#else
+#error "Please select a valid encryption algorithm in menuconfig"
+#endif
 
 static esp_err_t validate_image_header(esp_app_desc_t *new_app_info)
 {
@@ -76,6 +82,8 @@ static esp_err_t _decrypt_cb(decrypt_cb_arg_t *args, void *user_ctx)
     pargs.data_in_len = args->data_in_len;
     err = esp_encrypted_img_decrypt_data((esp_decrypt_handle_t *)user_ctx, &pargs);
     if (err != ESP_OK && err != ESP_ERR_NOT_FINISHED) {
+        ESP_LOGE(TAG, "Decrypt callback failed %d", err);
+        free(pargs.data_out);
         return err;
     }
 
@@ -121,9 +129,13 @@ void pre_encrypted_ota_task(void *pvParameter)
         .save_client_session = true,
 #endif
     };
-    esp_decrypt_cfg_t cfg = {};
+    esp_decrypt_cfg_t cfg = {0};
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     cfg.rsa_priv_key = rsa_private_pem_start;
     cfg.rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start;
+#elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+    cfg.hmac_key_id = HMAC_UP_KEY_ID;
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
     esp_decrypt_handle_t decrypt_handle = esp_encrypted_img_decrypt_start(&cfg);
     if (!decrypt_handle) {
         ESP_LOGE(TAG, "OTA upgrade failed");
@@ -191,6 +203,7 @@ void pre_encrypted_ota_task(void *pvParameter)
 
 ota_end:
     esp_https_ota_abort(https_ota_handle);
+    esp_encrypted_img_decrypt_abort(decrypt_handle);
     ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed");
     vTaskDelete(NULL);
 }
