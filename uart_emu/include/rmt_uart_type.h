@@ -24,19 +24,17 @@ extern "C" {
 typedef struct rmt_uart_device_t *rmt_uart_device_handle_t;
 
 typedef enum {
-    RMT_UART_DATA_8_BITS   = 0x8,    /*!< word length: 8bits*/
-} rmt_uart_word_length_t;
+    UART_EMU_DATA_8_BITS   = 0x8,    /*!< word length: 8bits*/
+} uart_emu_word_length_t;
 
 typedef enum {
-    RMT_UART_STOP_BITS_1   = 0x1,  /*!< stop bit: 1bit*/
-    RMT_UART_STOP_BITS_2   = 0x2,  /*!< stop bit: 2bits*/
-} rmt_uart_stop_bits_t;
+    UART_EMU_STOP_BITS_1   = 0x0,  /*!< stop bit: 1bit*/
+    UART_EMU_STOP_BITS_2   = 0x1,  /*!< stop bit: 2bits*/
+} uart_emu_stop_bits_t;
 
 typedef enum {
-    RMT_UART_PARITY_DISABLE = 0x0,  /*!< Disable UART parity*/
-    RMT_UART_PARITY_EVEN    = 0x1,  /*!< Enable UART even parity*/
-    RMT_UART_PARITY_ODD     = 0x2,  /*!< Enable UART odd parity*/
-} rmt_uart_parity_t;
+    UART_EMU_PARITY_DISABLE = 0x0,  /*!< Disable UART parity*/
+} uart_emu_parity_t;
 
 /**
  * @brief RMT UART TX Done Event Data

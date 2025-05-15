@@ -123,11 +123,11 @@ esp_err_t rmt_new_uart_encoder(const rmt_uart_config_t *config, rmt_encoder_hand
         .level1 = 1,
     };
     switch (config->stop_bits) {
-    case RMT_UART_STOP_BITS_1:
+    case UART_EMU_STOP_BITS_1:
         stop_bit_symbol.duration0 = RMT_BIT_RESOLUTION / 2;
         stop_bit_symbol.duration1 = RMT_BIT_RESOLUTION / 2;
         break;
-    case RMT_UART_STOP_BITS_2:
+    case UART_EMU_STOP_BITS_2:
         stop_bit_symbol.duration0 = RMT_BIT_RESOLUTION;
         stop_bit_symbol.duration1 = RMT_BIT_RESOLUTION;
         break;

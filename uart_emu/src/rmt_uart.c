@@ -53,6 +53,7 @@ struct rmt_uart_rx_context_t {
     size_t max_bytes_len;                           // buffer size in byte for single transaction
     rmt_uart_rx_done_callback_t on_rx_trans_done;   // callback function for rx done event
     void *user_ctx;                                 // user context for rx done callback
+    uint32_t read_symbol_index;                     // the index of the read buffer
 };
 
 struct rmt_uart_decode_context_t {
@@ -65,12 +66,11 @@ struct rmt_uart_decode_context_t {
 struct rmt_uart_device_t {
     rmt_uart_tx_context_t rmt_uart_context_tx;  // rmt tx context
     rmt_uart_rx_context_t rmt_uart_context_rx;  // rmt rx context
-    rmt_uart_word_length_t data_bits;           // UART byte size
-    rmt_uart_parity_t parity;                   // UART parity mode
-    rmt_uart_stop_bits_t stop_bits;             // UART stop bits
+    uart_emu_word_length_t data_bits;           // UART byte size
+    uart_emu_parity_t parity;                   // UART parity mode
+    uart_emu_stop_bits_t stop_bits;             // UART stop bits
     size_t frame_len;                           // frame length
     uint32_t baud_rate;                         // baud rate
-    SemaphoreHandle_t mutex;                    // mutex for synchronization
 };
 
 static bool rmt_uart_process_level(uint8_t level, uint32_t duration, int bit_ticks,
@@ -80,15 +80,18 @@ static bool rmt_uart_process_level(uint8_t level, uint32_t duration, int bit_tic
 {
     int bit_count = ROUND_CLOSEST(duration, bit_ticks);
     uint8_t data_bits = uart_device->data_bits;
-    uint8_t has_parity = (uart_device->parity != RMT_UART_PARITY_DISABLE);
-    uint8_t stop_bits = (uart_device->stop_bits == RMT_UART_STOP_BITS_1) ? 1 : 2;
-    uint8_t total_bits = 1 + data_bits + has_parity + stop_bits;
+    uint8_t stop_bits = (uart_device->stop_bits == UART_EMU_STOP_BITS_1) ? 1 : 2;
+    uint8_t total_bits = 1 + data_bits + stop_bits;
 
     for (int i = 0; i < bit_count; i++) {
         // if the current bit is not a start bit, stop the decoding
         if (decode_context->bit_pos == 0 && level != 0) {
-            ESP_LOGE(TAG, "Invalid start bit @ byte %d", decode_context->byte_pos);
-            return decode_context->continue_on_error;
+            if (decode_context->continue_on_error) {
+                continue;
+            } else {
+                ESP_LOGE(TAG, "Invalid start bit @ byte %d", decode_context->byte_pos);
+                return false;
+            }
         }
 
         decode_context->raw_data |= (level << decode_context->bit_pos);
@@ -104,26 +107,11 @@ static bool rmt_uart_process_level(uint8_t level, uint32_t duration, int bit_tic
             // extract the data byte
             uint8_t data_byte = (decode_context->raw_data >> 1) & ((1 << data_bits) - 1);
 
-            // check the parity
-            if (has_parity) {
-                uint8_t parity_bit = (decode_context->raw_data >> (1 + data_bits)) & 0x01;
-                uint8_t parity_calc = __builtin_parity(data_byte);
-                bool parity_ok = (uart_device->parity == RMT_UART_PARITY_EVEN)
-                                 ? parity_calc == parity_bit
-                                 : parity_calc != parity_bit;
-
-                // if the parity is wrong, stop the decoding
-                if (!parity_ok) {
-                    ESP_LOGE(TAG, "Parity error @ byte %d", decode_context->byte_pos);
-                    decode_context->bit_pos = 0;
-                    decode_context->raw_data = 0;
-                    return decode_context->continue_on_error;
-                }
-            }
-
             // if the stop bit is wrong, stop the decoding
             if ((decode_context->raw_data >> (total_bits - 1)) != 1) {
-                ESP_LOGE(TAG, "Invalid stop bit @ byte %d", decode_context->byte_pos);
+                if (decode_context->continue_on_error == false) {
+                    ESP_LOGE(TAG, "Invalid stop bit @ byte %d", decode_context->byte_pos);
+                }
                 decode_context->bit_pos = 0;
                 decode_context->raw_data = 0;
                 return decode_context->continue_on_error;
@@ -152,6 +140,11 @@ static bool rmt_uart_process_level(uint8_t level, uint32_t duration, int bit_tic
 int rmt_uart_decode_data(rmt_uart_device_handle_t uart_device, rmt_uart_rx_done_event_data_t *rmt_rx_evt_data,
                          uint8_t *rx_buf, size_t rx_buf_size, bool continue_on_error)
 {
+    if (rx_buf_size > uart_device->rmt_uart_context_rx.max_bytes_len) {
+        ESP_LOGE(TAG, "rx_buf_size should not be greater than %d, which is configured in rmt_new_uart_device", uart_device->rmt_uart_context_rx.max_bytes_len);
+        return 0;
+    }
+
     rmt_uart_decode_context_t decode_context = {
         .bit_pos = 0,
         .raw_data = 0,
@@ -165,8 +158,18 @@ int rmt_uart_decode_data(rmt_uart_device_handle_t uart_device, rmt_uart_rx_done_
     for (size_t i = 0; i < num_symbols; i++) {
         rmt_symbol_word_t *sym = &symbols[i];
 
-        ESP_LOGD(TAG, "Symbol[%02d]: duration0: %d level0: %d  duration1: %d level1: %d",
+        ESP_LOGV(TAG, "Symbol[%02d]: duration0: %d level0: %d  duration1: %d level1: %d",
                  i, sym->duration0, sym->level0, sym->duration1, sym->level1);
+
+        // if the symbol is the last one, the duration of the stop bit will be 0 because the rmt_rx_done_event_data is triggered
+        // so we need to set the duration of the stop bit manually
+        if (i == num_symbols - 1) {
+            if (sym->level0 == 1) {
+                sym->duration0 = (uart_device->stop_bits + 1) * RMT_BIT_RESOLUTION;
+            } else if (sym->level1 == 1) {
+                sym->duration1 = (uart_device->stop_bits + 1) * RMT_BIT_RESOLUTION;
+            }
+        }
 
         if (!rmt_uart_process_level(sym->level0, sym->duration0, RMT_BIT_RESOLUTION, uart_device, &decode_context, rx_buf, rx_buf_size)) {
             break;
@@ -185,10 +188,32 @@ IRAM_ATTR bool uart_rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt
     BaseType_t high_task_woken = pdFALSE;
     rmt_uart_device_t *uart_device = (rmt_uart_device_t *)user_data;
     rmt_uart_rx_context_t *rx_context = &uart_device->rmt_uart_context_rx;
+    uint32_t *read_symbol_index = &rx_context->read_symbol_index;
 
-    if (rx_context->on_rx_trans_done(uart_device, edata, rx_context->user_ctx)) {
-        high_task_woken |= pdTRUE;
+    // avoid memory trampling
+    if (*read_symbol_index + edata->num_symbols > rx_context->max_bytes_len * uart_device->frame_len) {
+        ESP_EARLY_LOGW(TAG, "Received symbols number is over the buffer size, truncate the data");
+        *read_symbol_index = 0;
     }
+
+    // do memory copy, the pingpong buffer should not be very large, so the memory copy should be fast
+    if (edata->flags.is_last) {
+        memcpy(rx_context->rx_symbols_buf + *read_symbol_index, edata->received_symbols, edata->num_symbols * sizeof(rmt_symbol_word_t));
+        *read_symbol_index += edata->num_symbols;
+        rmt_rx_done_event_data_t last_edata = {
+            .received_symbols = rx_context->rx_symbols_buf,
+            .num_symbols = *read_symbol_index,
+            .flags.is_last = true,
+        };
+        if (rx_context->on_rx_trans_done(uart_device, &last_edata, rx_context->user_ctx)) {
+            high_task_woken |= pdTRUE;
+        }
+        *read_symbol_index = 0;
+    } else {
+        memcpy(rx_context->rx_symbols_buf + *read_symbol_index, edata->received_symbols, edata->num_symbols * sizeof(rmt_symbol_word_t));
+        *read_symbol_index += edata->num_symbols;
+    }
+
     return high_task_woken;
 }
 
@@ -214,14 +239,11 @@ esp_err_t rmt_new_uart_device(const rmt_uart_config_t *uart_config, rmt_uart_dev
     // malloc channel memory
     rmt_uart_device_t *uart_device = heap_caps_calloc(1, sizeof(rmt_uart_device_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     ESP_RETURN_ON_FALSE(uart_device, ESP_ERR_NO_MEM, TAG, "no mem for rmt_uart_device");
-    ESP_RETURN_ON_FALSE(uart_config->data_bits == RMT_UART_DATA_8_BITS, ESP_ERR_INVALID_ARG, TAG, "Invalid data bits");
-    ESP_RETURN_ON_FALSE(uart_config->parity == RMT_UART_PARITY_DISABLE, ESP_ERR_INVALID_ARG, TAG, "Invalid parity");
+    ESP_RETURN_ON_FALSE(uart_config->data_bits == UART_EMU_DATA_8_BITS, ESP_ERR_INVALID_ARG, TAG, "Invalid data bits");
     uart_device->baud_rate = uart_config->baud_rate;
     uart_device->data_bits = uart_config->data_bits;
     uart_device->stop_bits = uart_config->stop_bits;
     uart_device->parity = uart_config->parity;
-    /* Initialize mutex lock */
-    uart_device->mutex = xSemaphoreCreateMutexWithCaps(MALLOC_CAP_DEFAULT);
 
     // 1 RMT symbol represents 1 bit. 1 bit start and 1 bit stop, n bits data, 1 bit parity (optional), total n + 2 (+ 1) bits, equivalent to n + 2 (+ 1) symbols
     uart_device->frame_len = uart_config->parity ? uart_config->data_bits + 3 : uart_config->data_bits + 2;
@@ -235,13 +257,12 @@ esp_err_t rmt_new_uart_device(const rmt_uart_config_t *uart_config, rmt_uart_dev
             .mem_block_symbols = UART_RMT_DEFAULT_MEM_BLOCK_SYMBOLS,
             .intr_priority = UART_RMT_DEFAULT_INTR_PRIORITY,
             .flags.invert_in = false,
-#if SOC_RMT_SUPPORT_DMA
-            .flags.with_dma = true,
-#endif
+            .flags.with_dma = uart_config->flags.with_dma,
         };
         ESP_GOTO_ON_ERROR(rmt_new_rx_channel(&uart_rx_channel_cfg, &rx_context->rx_channel), err, TAG, "new rx channel failed");
 
         rx_context->max_bytes_len = uart_config->rx_buffer_size;
+
         // allocate rmt rx symbol buffer
         rx_context->rx_symbols_buf = heap_caps_calloc(1, rx_context->max_bytes_len * sizeof(rmt_symbol_word_t) * uart_device->frame_len, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         ESP_GOTO_ON_FALSE(rx_context->rx_symbols_buf, ESP_ERR_NO_MEM, err, TAG, "no mem to store received RMT symbols");
@@ -267,7 +288,7 @@ esp_err_t rmt_new_uart_device(const rmt_uart_config_t *uart_config, rmt_uart_dev
             .intr_priority = UART_RMT_DEFAULT_INTR_PRIORITY,
             .flags.invert_out = false,
 #if SOC_RMT_SUPPORT_DMA
-            .flags.with_dma = true,
+            .flags.with_dma = uart_config->flags.with_dma,
 #endif
         };
         ESP_GOTO_ON_ERROR(rmt_new_tx_channel(&uart_tx_channel_cfg, &tx_context->tx_channel), err, TAG, "new tx channel failed");
@@ -291,9 +312,6 @@ esp_err_t rmt_new_uart_device(const rmt_uart_config_t *uart_config, rmt_uart_dev
     return ESP_OK;
 
 err:
-    if (uart_device->mutex) {
-        vSemaphoreDeleteWithCaps(uart_device->mutex);
-    }
     if (uart_device->rmt_uart_context_rx.rx_symbols_buf) {
         free(uart_device->rmt_uart_context_rx.rx_symbols_buf);
     }
@@ -303,37 +321,31 @@ err:
     return ret;
 }
 
-esp_err_t rmt_uart_transmit(rmt_uart_device_t *uart_device, const uint8_t *data, size_t size)
+esp_err_t uart_emu_transmit(rmt_uart_device_t *uart_device, const uint8_t *data, size_t size)
 {
     rmt_uart_tx_context_t *tx_context = &uart_device->rmt_uart_context_tx;
     ESP_RETURN_ON_FALSE(uart_device, ESP_ERR_INVALID_ARG, TAG, "Invalid argument");
 
-    // transmit data with the copy encoder
+    // transmit data with the encoder
     ESP_RETURN_ON_ERROR(rmt_transmit(tx_context->tx_channel, tx_context->tx_encoder, data, size, &tx_context->tx_config), TAG, "rmt uart transmit failed");
 
     return ESP_OK;
 }
 
-int rmt_uart_receive(rmt_uart_device_t *uart_device, uint8_t *buf, size_t rx_buf_size)
+esp_err_t uart_emu_receive(rmt_uart_device_t *uart_device, uint8_t *buf, size_t rx_buf_size)
 {
     rmt_uart_rx_context_t *rx_context = &uart_device->rmt_uart_context_rx;
     ESP_RETURN_ON_FALSE(uart_device, ESP_ERR_INVALID_ARG, TAG, "Invalid argument");
 
-    ESP_RETURN_ON_FALSE(rx_buf_size <= rx_context->max_bytes_len, ESP_ERR_INVALID_ARG, TAG, "rx_buf_size too large for buffer to hold");
-
-    //xSemaphoreTake(uart_device->mutex, portMAX_DELAY);
-
+    // calculate the bit time in nanoseconds
     uint32_t bit_time_ns = 1000000000 / uart_device->baud_rate;
     rmt_receive_config_t receive_config = {
         .signal_range_min_ns = bit_time_ns / 100,
         .signal_range_max_ns = bit_time_ns * 10,
-        .flags.en_partial_rx = 1,
+        .flags.en_partial_rx = 1, // the uart data may be large, so we need to enable partial receive to do the pingpong
     };
 
-    // Note: the receive buffer size is the max possible size of the received data
-    // The actual received symbols number is determined by the edge transition of the received data
-    rmt_receive(rx_context->rx_channel, rx_context->rx_symbols_buf, rx_buf_size * uart_device->frame_len * sizeof(rmt_symbol_word_t), &receive_config);
-
+    rmt_receive(rx_context->rx_channel, buf, rx_buf_size, &receive_config);
     return ESP_OK;
 }
 
@@ -364,9 +376,6 @@ esp_err_t rmt_delete_uart_device(rmt_uart_device_t *uart_device)
     // delete uart device
     if (rx_context->rx_symbols_buf) {
         free(rx_context->rx_symbols_buf);
-    }
-    if (uart_device->mutex) {
-        vSemaphoreDeleteWithCaps(uart_device->mutex);
     }
 
     free(uart_device);
