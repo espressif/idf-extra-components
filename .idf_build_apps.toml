@@ -20,6 +20,7 @@ manifest_file = [
     "pid_ctrl/.build-test-rules.yml",
     "qrcode/.build-test-rules.yml",
     "quirc/.build-test-rules.yml",
+    "soft_uart/.build-test-rules.yml",
     "zlib/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]

@@ -70,7 +70,6 @@ struct rmt_uart_device_t {
     rmt_uart_stop_bits_t stop_bits;             // UART stop bits
     size_t frame_len;                           // frame length
     uint32_t baud_rate;                         // baud rate
-    SemaphoreHandle_t mutex;                    // mutex for synchronization
 };
 
 static bool rmt_uart_process_level(uint8_t level, uint32_t duration, int bit_ticks,
@@ -80,15 +79,18 @@ static bool rmt_uart_process_level(uint8_t level, uint32_t duration, int bit_tic
 {
     int bit_count = ROUND_CLOSEST(duration, bit_ticks);
     uint8_t data_bits = uart_device->data_bits;
-    uint8_t has_parity = (uart_device->parity != RMT_UART_PARITY_DISABLE);
     uint8_t stop_bits = (uart_device->stop_bits == RMT_UART_STOP_BITS_1) ? 1 : 2;
-    uint8_t total_bits = 1 + data_bits + has_parity + stop_bits;
+    uint8_t total_bits = 1 + data_bits + stop_bits;
 
     for (int i = 0; i < bit_count; i++) {
         // if the current bit is not a start bit, stop the decoding
         if (decode_context->bit_pos == 0 && level != 0) {
             ESP_LOGE(TAG, "Invalid start bit @ byte %d", decode_context->byte_pos);
-            return decode_context->continue_on_error;
+            if (decode_context->continue_on_error) {
+                continue;
+            } else {
+                return false;
+            }
         }
 
         decode_context->raw_data |= (level << decode_context->bit_pos);
@@ -103,23 +105,6 @@ static bool rmt_uart_process_level(uint8_t level, uint32_t duration, int bit_tic
 
             // extract the data byte
             uint8_t data_byte = (decode_context->raw_data >> 1) & ((1 << data_bits) - 1);
-
-            // check the parity
-            if (has_parity) {
-                uint8_t parity_bit = (decode_context->raw_data >> (1 + data_bits)) & 0x01;
-                uint8_t parity_calc = __builtin_parity(data_byte);
-                bool parity_ok = (uart_device->parity == RMT_UART_PARITY_EVEN)
-                                 ? parity_calc == parity_bit
-                                 : parity_calc != parity_bit;
-
-                // if the parity is wrong, stop the decoding
-                if (!parity_ok) {
-                    ESP_LOGE(TAG, "Parity error @ byte %d", decode_context->byte_pos);
-                    decode_context->bit_pos = 0;
-                    decode_context->raw_data = 0;
-                    return decode_context->continue_on_error;
-                }
-            }
 
             // if the stop bit is wrong, stop the decoding
             if ((decode_context->raw_data >> (total_bits - 1)) != 1) {
@@ -168,6 +153,16 @@ int rmt_uart_decode_data(rmt_uart_device_handle_t uart_device, rmt_uart_rx_done_
         ESP_LOGD(TAG, "Symbol[%02d]: duration0: %d level0: %d  duration1: %d level1: %d",
                  i, sym->duration0, sym->level0, sym->duration1, sym->level1);
 
+        // if the symbol is the last one, the duration of the stop bit will be 0 because the rmt_rx_done_event_data is triggered
+        // so we need to set the duration of the stop bit manually
+        if (i == num_symbols - 1) {
+            if (sym->level0 == 1) {
+                sym->duration0 = (uart_device->stop_bits + 1) * RMT_BIT_RESOLUTION;
+            } else if (sym->level1 == 1) {
+                sym->duration1 = (uart_device->stop_bits + 1) * RMT_BIT_RESOLUTION;
+            }
+        }
+
         if (!rmt_uart_process_level(sym->level0, sym->duration0, RMT_BIT_RESOLUTION, uart_device, &decode_context, rx_buf, rx_buf_size)) {
             break;
         }
@@ -215,13 +210,10 @@ esp_err_t rmt_new_uart_device(const rmt_uart_config_t *uart_config, rmt_uart_dev
     rmt_uart_device_t *uart_device = heap_caps_calloc(1, sizeof(rmt_uart_device_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     ESP_RETURN_ON_FALSE(uart_device, ESP_ERR_NO_MEM, TAG, "no mem for rmt_uart_device");
     ESP_RETURN_ON_FALSE(uart_config->data_bits == RMT_UART_DATA_8_BITS, ESP_ERR_INVALID_ARG, TAG, "Invalid data bits");
-    ESP_RETURN_ON_FALSE(uart_config->parity == RMT_UART_PARITY_DISABLE, ESP_ERR_INVALID_ARG, TAG, "Invalid parity");
     uart_device->baud_rate = uart_config->baud_rate;
     uart_device->data_bits = uart_config->data_bits;
     uart_device->stop_bits = uart_config->stop_bits;
     uart_device->parity = uart_config->parity;
-    /* Initialize mutex lock */
-    uart_device->mutex = xSemaphoreCreateMutexWithCaps(MALLOC_CAP_DEFAULT);
 
     // 1 RMT symbol represents 1 bit. 1 bit start and 1 bit stop, n bits data, 1 bit parity (optional), total n + 2 (+ 1) bits, equivalent to n + 2 (+ 1) symbols
     uart_device->frame_len = uart_config->parity ? uart_config->data_bits + 3 : uart_config->data_bits + 2;
@@ -291,9 +283,6 @@ esp_err_t rmt_new_uart_device(const rmt_uart_config_t *uart_config, rmt_uart_dev
     return ESP_OK;
 
 err:
-    if (uart_device->mutex) {
-        vSemaphoreDeleteWithCaps(uart_device->mutex);
-    }
     if (uart_device->rmt_uart_context_rx.rx_symbols_buf) {
         free(uart_device->rmt_uart_context_rx.rx_symbols_buf);
     }
@@ -314,14 +303,12 @@ esp_err_t rmt_uart_transmit(rmt_uart_device_t *uart_device, const uint8_t *data,
     return ESP_OK;
 }
 
-int rmt_uart_receive(rmt_uart_device_t *uart_device, uint8_t *buf, size_t rx_buf_size)
+esp_err_t rmt_uart_receive(rmt_uart_device_t *uart_device, uint8_t *buf, size_t rx_buf_size)
 {
     rmt_uart_rx_context_t *rx_context = &uart_device->rmt_uart_context_rx;
     ESP_RETURN_ON_FALSE(uart_device, ESP_ERR_INVALID_ARG, TAG, "Invalid argument");
 
     ESP_RETURN_ON_FALSE(rx_buf_size <= rx_context->max_bytes_len, ESP_ERR_INVALID_ARG, TAG, "rx_buf_size too large for buffer to hold");
-
-    //xSemaphoreTake(uart_device->mutex, portMAX_DELAY);
 
     uint32_t bit_time_ns = 1000000000 / uart_device->baud_rate;
     rmt_receive_config_t receive_config = {
@@ -364,9 +351,6 @@ esp_err_t rmt_delete_uart_device(rmt_uart_device_t *uart_device)
     // delete uart device
     if (rx_context->rx_symbols_buf) {
         free(rx_context->rx_symbols_buf);
-    }
-    if (uart_device->mutex) {
-        vSemaphoreDeleteWithCaps(uart_device->mutex);
     }
 
     free(uart_device);

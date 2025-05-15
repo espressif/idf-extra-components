@@ -28,14 +28,12 @@ typedef enum {
 } rmt_uart_word_length_t;
 
 typedef enum {
-    RMT_UART_STOP_BITS_1   = 0x1,  /*!< stop bit: 1bit*/
-    RMT_UART_STOP_BITS_2   = 0x2,  /*!< stop bit: 2bits*/
+    RMT_UART_STOP_BITS_1   = 0x0,  /*!< stop bit: 1bit*/
+    RMT_UART_STOP_BITS_2   = 0x1,  /*!< stop bit: 2bits*/
 } rmt_uart_stop_bits_t;
 
 typedef enum {
     RMT_UART_PARITY_DISABLE = 0x0,  /*!< Disable UART parity*/
-    RMT_UART_PARITY_EVEN    = 0x1,  /*!< Enable UART even parity*/
-    RMT_UART_PARITY_ODD     = 0x2,  /*!< Enable UART odd parity*/
 } rmt_uart_parity_t;
 
 /**

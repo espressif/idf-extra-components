@@ -1,4 +1,4 @@
 dependencies:
-  espressif/rmt_soft_uart:
+  espressif/soft_uart:
     version: "*"
     override_path: "../../"

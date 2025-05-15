@@ -63,6 +63,7 @@ jobs:
             quirc;
             sh2lib;
             spi_nand_flash;
+            soft_uart;
             supertinycron;
             thorvg;
             zlib;

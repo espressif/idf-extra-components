@@ -20,7 +20,6 @@
 
 const char *TAG = "rmt_uart_example";
 
-char sendbuf[100] = {0};
 
 IRAM_ATTR static bool rmt_uart_tx_event_cbs(rmt_uart_device_handle_t tx_unit, const rmt_uart_tx_done_event_data_t *edata, void *user_ctx)
 {
@@ -52,7 +51,7 @@ void uart_read_task(void *pvParameters)
         /* Read from the UART */
         ESP_ERROR_CHECK(rmt_uart_receive(uart_device, (uint8_t *)read_buffer, sizeof(read_buffer)));
         if (xQueueReceive(receive_queue, &rmt_rx_evt_data, portMAX_DELAY)) {
-            int read_len = rmt_uart_decode_data(uart_device, &rmt_rx_evt_data, (uint8_t *)read_buffer, sizeof(read_buffer), false);
+            int read_len = rmt_uart_decode_data(uart_device, &rmt_rx_evt_data, (uint8_t *)read_buffer, sizeof(read_buffer), true);
             if (read_len > 0) {
                 ESP_LOGI(TAG, "Read len: %d, data: %s", read_len, read_buffer);
                 memset(read_buffer, 0, sizeof(read_buffer));
@@ -84,10 +83,11 @@ void app_main(void)
     // create a task to read data from the UART
     xTaskCreate(uart_read_task, "uTask", 4096, uart_device, 4, NULL);
 
-    snprintf(sendbuf, sizeof(sendbuf), "RMT UART, transmission");
+    char sendbuf[100] = "RMT UART, transmission";
     for (int i = 0; i < 16; i++) {
         /* Write few bytes to the UART */
         ESP_ERROR_CHECK(rmt_uart_transmit(uart_device, (uint8_t *)sendbuf, strlen(sendbuf) + 1));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     int count = 0;

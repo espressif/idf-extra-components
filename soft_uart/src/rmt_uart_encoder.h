@@ -16,12 +16,12 @@ extern "C" {
 /**
  * @brief Create RMT encoder for encoding uart frame into RMT symbols
  *
- * @param[in] config Encoder configuration
+ * @param[in] uart_config Encoder configuration
  * @param[out] ret_encoder Returned encoder handle
  * @return
- *      - ESP_ERR_INVALID_ARG for any invalid arguments
- *      - ESP_ERR_NO_MEM out of memory when creating uart encoder
- *      - ESP_OK if creating encoder successfully
+ *      - `ESP_OK`: Create uart encoder successfully
+ *      - `ESP_ERR_INVALID_ARG`: Invalid arguments
+ *      - `ESP_ERR_NO_MEM`: No enough memory to create uart encoder
  */
 esp_err_t rmt_new_uart_encoder(const rmt_uart_config_t *uart_config, rmt_encoder_handle_t *ret_encoder);
 
