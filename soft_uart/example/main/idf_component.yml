@@ -1,0 +1,4 @@
+dependencies:
+  espressif/soft_uart:
+    version: "*"
+    override_path: "../../"
