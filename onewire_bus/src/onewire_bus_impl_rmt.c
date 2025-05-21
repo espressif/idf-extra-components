@@ -298,11 +298,19 @@ esp_err_t onewire_new_bus_rmt(const onewire_bus_config_t *bus_config, const onew
     ESP_GOTO_ON_ERROR(rmt_new_tx_channel(&onewire_tx_channel_cfg, &bus_rmt->tx_channel),
                       err, TAG, "create rmt tx channel failed");
 
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
     bus_rmt->data_gpio_num = bus_config->bus_gpio_num;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
     // enable open-drain mode for 1-wire bus
     gpio_od_enable(bus_rmt->data_gpio_num);
 #endif
+
+    if (bus_config->flags.en_pull_up) {
+        // enable internal pull-up resistor and disable pull-down resistor
+        gpio_set_pull_mode(bus_rmt->data_gpio_num, GPIO_PULLUP_ONLY);
+    } else {
+        // disable internal pull-up and pull-down resistors
+        gpio_set_pull_mode(bus_rmt->data_gpio_num, GPIO_FLOATING);
+    }
 
     // allocate rmt rx symbol buffer, one RMT symbol represents one bit, so x8
     bus_rmt->rx_symbols_buf = malloc(rmt_config->max_rx_bytes * sizeof(rmt_symbol_word_t) * 8);
