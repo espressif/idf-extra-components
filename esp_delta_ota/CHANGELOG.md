@@ -1,3 +1,9 @@
+## 1.1.2
+
+### Bugfixes:
+- Fixed `esp_delta_ota_patch_gen.py` python command for creating patch in README.md file of esp_delta_ota/https_delta_ota example.
+- Added `Verifying patch` section in the README.md and corresponding python command.
+
 ## 1.1.1
 
 ### Bugfixes:
