@@ -35,6 +35,9 @@
 #if CONFIG_EXAMPLE_CONNECT_WIFI
 #include "esp_wifi.h"
 #endif
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA) && defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+#include "esp_secure_cert_read.h"
+#endif
 
 static const char *TAG = "pre_encrypted_ota_example";
 extern const char server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
@@ -115,6 +118,7 @@ void pre_encrypted_ota_task(void *pvParameter)
     ESP_LOGI(TAG, "Starting Pre Encrypted OTA example");
 
     esp_err_t ota_finish_err = ESP_OK;
+    esp_err_t err = ESP_OK;
 
     esp_http_client_config_t config = {
         .url = CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL,
@@ -131,8 +135,18 @@ void pre_encrypted_ota_task(void *pvParameter)
     };
     esp_decrypt_cfg_t cfg = {0};
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    esp_ds_data_ctx_t *ds_data = esp_secure_cert_get_ds_ctx();
+    if (ds_data == NULL) {
+        ESP_LOGE(TAG, "Failed to get DS context");
+        vTaskDelete(NULL);
+    }
+    cfg.ds_data = ds_data;
+    cfg.rsa_padding = CONFIG_PRE_ENCRYPTED_RSA_PADDING;
+#else
     cfg.rsa_priv_key = rsa_private_pem_start;
     cfg.rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start;
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
     cfg.hmac_key_id = HMAC_UP_KEY_ID;
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
@@ -162,7 +176,7 @@ void pre_encrypted_ota_task(void *pvParameter)
     };
 
     esp_https_ota_handle_t https_ota_handle = NULL;
-    esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
+    err = esp_https_ota_begin(&ota_config, &https_ota_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ESP HTTPS OTA Begin failed");
         vTaskDelete(NULL);

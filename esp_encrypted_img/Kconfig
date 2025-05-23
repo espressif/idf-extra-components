@@ -11,6 +11,33 @@ menu "Pre Encrypted OTA Configuration"
             help
                 Use RSA for encrypting the GCM key.
                 The device will decrypt the GCM key using its private RSA key.
+        
+        config PRE_ENCRYPTED_RSA_USE_DS
+            depends on PRE_ENCRYPTED_OTA_USE_RSA
+            bool "Use DS Peripheral"
+            select MBEDTLS_HARDWARE_RSA_DIGITAL_SIGNATURE_DECRYPTION
+            help
+                Use DS Peripheral for RSA OTA Encryption Scheme. The DS peripheral is used 
+                for decrypting the AES-GCM key
+        
+        choice PRE_ENCRYPTED_RSA_PADDING_CHOICE
+            depends on PRE_ENCRYPTED_RSA_USE_DS
+            prompt "RSA Padding scheme"
+            default PRE_ENCRYPTED_RSA_PADDING_V1_5
+
+                config PRE_ENCRYPTED_RSA_PADDING_V1_5
+                    bool "Padding v1.5"
+
+                config PRE_ENCRYPTED_RSA_PADDING_V2_1
+                    bool "Padding v2.1"
+
+        endchoice
+
+        config PRE_ENCRYPTED_RSA_PADDING
+            depends on PRE_ENCRYPTED_RSA_USE_DS
+            int
+            default 0 if PRE_ENCRYPTED_RSA_PADDING_V1_5
+            default 1 if PRE_ENCRYPTED_RSA_PADDING_V2_1
 
         config PRE_ENCRYPTED_OTA_USE_ECIES
             depends on SOC_HMAC_SUPPORTED
