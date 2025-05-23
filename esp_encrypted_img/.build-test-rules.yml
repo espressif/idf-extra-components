@@ -1,0 +1,15 @@
+esp_encrypted_img/examples:
+  disable:
+    - if: (IDF_VERSION < "5.3" and CONFIG_NAME == "CONFIG_PRE_ENCRYPTED_RSA_USE_DS") or (IDF_TARGET == "esp32c61")
+      temporary: true
+      reason: IDF Version < 5.3 is not supported yet. Skipping c61 because it does not support HMAC peripheral
+
+esp_encrypted_img/test_apps:
+  disable:
+    - if: (IDF_VERSION < "5.3" and CONFIG_NAME == "CONFIG_PRE_ENCRYPTED_RSA_USE_DS") or (IDF_TARGET == "esp32c61")
+      temporary: true
+      reason: IDF Version < 5.3 is not supported yet. Skipping c61 because it does not support HMAC peripheral
+  disable_test:
+    - if: (IDF_VERSION < "5.3" and CONFIG_NAME == "CONFIG_PRE_ENCRYPTED_RSA_USE_DS") or (IDF_TARGET == "esp32c61")
+      temporary: true 
+      reason: IDF Version < 5.3 is not supported yet. Skipping c61 because it does not support HMAC peripheral

@@ -8,7 +8,7 @@
 #include "unity_test_runner.h"
 #include "esp_heap_caps.h"
 #include "esp_newlib.h"
-
+#include "soc/soc_caps.h"
 #include "unity_test_utils_memory.h"
 
 #include "soc/soc_caps.h"
