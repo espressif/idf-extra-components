@@ -49,6 +49,11 @@ fail:
     return ret;
 }
 
+static esp_err_t enable_quad_io_mode(spi_nand_flash_device_t *dev)
+{
+    return ESP_OK;
+}
+
 static esp_err_t unprotect_chip(spi_nand_flash_device_t *dev)
 {
     return ESP_OK;

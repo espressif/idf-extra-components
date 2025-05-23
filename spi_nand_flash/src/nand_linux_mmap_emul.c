@@ -29,7 +29,7 @@ static esp_err_t nand_emul_mmap_init(nand_mmap_emul_handle_t *emul_handle)
     }
 
     // Create or open file
-    if (emul_handle->file_mmap_ctrl.flash_file_name) {
+    if (emul_handle->file_mmap_ctrl.flash_file_name[0] != '\0') {
         emul_handle->mem_file_fd = open(emul_handle->file_mmap_ctrl.flash_file_name, O_RDWR | O_CREAT, 0600);
     } else {
         emul_handle->mem_file_fd = mkstemp(emul_handle->file_mmap_ctrl.flash_file_name);
