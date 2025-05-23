@@ -12,7 +12,8 @@
 static const char *TAG = "example";
 
 #define ERROR_WITHIN_TOLERANCE(result, expected, tolerance) \
-    (((result) >= ((expected) - ((result) * (tolerance)))) && ((result) <= ((expected) + ((result) * (tolerance)))))
+    (((result) >= ((expected) - ((expected) * (tolerance)))) && \
+    ((result) <= ((expected) + ((expected) * (tolerance)))))
 
 void app_main(void)
 {
