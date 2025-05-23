@@ -33,3 +33,11 @@ create_esp_enc_img(${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin
 if(CONFIG_EXAMPLE_ENABLE_CI_TEST)
     target_link_libraries(${COMPONENT_LIB} PRIVATE idf::esp_https_server)
 endif()
+
+if(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    set(TARGET_CHIP $ENV{IDF_TARGET})
+    # This is skipped unless esp_secure_cert_mgr
+    # can generate secure partition without providing port
+    # create_esp_enc_img_secure_cert_data(${TARGET_CHIP} ${KEY_FILE} "RSA 3072")
+    idf_component_optional_requires(PRIVATE espressif__esp_secure_cert_mgr)
+endif()
