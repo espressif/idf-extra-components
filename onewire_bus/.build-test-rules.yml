@@ -1,4 +1,4 @@
 onewire_bus/test_apps:
   disable:
-    - if: SOC_RTM_SUPPORTED != 1
+    - if: SOC_RMT_SUPPORTED != 1
       reason: Only RMT backend is implemented
