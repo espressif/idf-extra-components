@@ -22,6 +22,9 @@ extern "C" {
 
 #define INVALID_PAGE 0xFFFF
 
+#define NAND_FLAG_HAS_PROG_PLANE_SELECT       BIT(0)
+#define NAND_FLAG_HAS_READ_PLANE_SELECT       BIT(1)
+
 typedef enum {
     STAT_ECC_OK = 0,
     STAT_ECC_1_TO_3_BITS_CORRECTED = 1,
@@ -52,6 +55,8 @@ typedef struct {
     uint32_t read_page_delay_us;
     uint32_t erase_block_delay_us;
     uint32_t program_page_delay_us;
+    uint32_t num_planes;
+    uint32_t flags;
     ecc_data_t ecc_data;
     uint8_t has_quad_enable_bit;    // 1 if the chip supports enabling QIO/QOUT mode using bit 0 of 0xB0 (REG_CONFIG), 0 otherwise
     uint8_t quad_enable_bit_pos;
