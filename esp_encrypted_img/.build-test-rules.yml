@@ -1,0 +1,11 @@
+esp_encrypted_img/examples:
+  disable:
+    - if: CONFIG_NAME == "CONFIG_PRE_ENCRYPTED_RSA_USE_DS" and (IDF_VERSION < "5.3" or SOC_HMAC_SUPPORTED != 1)
+      temporary: true
+      reason: IDF Version < 5.3 is not supported yet to use DS peripheral. Also skipping targets that do not support HMAC peripheral
+
+esp_encrypted_img/test_apps:
+  disable:
+    - if: CONFIG_NAME == "CONFIG_PRE_ENCRYPTED_RSA_USE_DS" and (IDF_VERSION < "5.3" or SOC_HMAC_SUPPORTED != 1)
+      temporary: true
+      reason: IDF Version < 5.3 is not supported yet to use DS peripheral. Also skipping targets that do not support HMAC peripheral
