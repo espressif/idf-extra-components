@@ -1,0 +1,25 @@
+menu "Pre Encrypted OTA Configuration"
+
+    choice PRE_ENCRYPTED_OTA_SCHEME
+        prompt "Pre-encrypted OTA Scheme"
+        default PRE_ENCRYPTED_OTA_USE_RSA
+        help
+            Select the cryptographic scheme to use for pre-encrypted Over-The-Air updates.
+
+        config PRE_ENCRYPTED_OTA_USE_RSA
+            bool "RSA-3072 encryption"
+            help
+                Use RSA for encrypting the GCM key.
+                The device will decrypt the GCM key using its private RSA key.
+
+        config PRE_ENCRYPTED_OTA_USE_ECIES
+            depends on SOC_HMAC_SUPPORTED
+            select MBEDTLS_HKDF_C
+            bool "ECIES encryption"
+            help
+                Use Elliptic Curve Cryptography (ECC) for key agreement.
+                The GCM key will be derived using ECDH with a server public key
+                and a device private key (potentially derived via HMAC).
+
+    endchoice
+endmenu

@@ -7,14 +7,14 @@ else()
     set(app_dependency "${build_dir}/.bin_timestamp")
 endif()
 
-function(create_esp_enc_img input_file rsa_key_file output_file app)
+function(create_esp_enc_img input_file key_file output_file app)
     cmake_parse_arguments(arg "${options}" "" "${multi}" "${ARGN}")
     idf_build_get_property(python PYTHON)
 
     add_custom_command(OUTPUT ${output_file}
-        COMMAND ${python} ${ESP_IMG_GEN_TOOL_PATH} encrypt
-            ${input_file}
-            ${rsa_key_file} ${output_file}
+        COMMAND ${python} ${ESP_IMG_GEN_TOOL_PATH} encrypt 
+            ${input_file} ${key_file}
+            ${output_file}
         DEPENDS "${app_dependency}"
         COMMENT "Generating pre-encrypted binary"
         VERBATIM

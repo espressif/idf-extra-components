@@ -1,0 +1,8 @@
+# This file was generated using idf.py save-defconfig. It can be edited manually.
+# Espressif IoT Development Framework (ESP-IDF) 5.4.0 Project Minimal Configuration
+#
+CONFIG_ESP_TASK_WDT_INIT=n
+CONFIG_PRE_ENCRYPTED_OTA_USE_RSA=n
+CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES=y
+CONFIG_PRE_ENC_OTA_HMAC_EFUSE_KEY_ID=2
+CONFIG_MBEDTLS_HKDF_C=y

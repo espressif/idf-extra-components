@@ -50,9 +50,24 @@ extern "C" {
 #define DEPRECATED_ATTRIBUTE
 #endif
 
+#define MAGIC_SIZE          4
+#define ENC_GCM_KEY_SIZE    384
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+#define SERVER_ECC_KEY_LEN  64
+#define KDF_SALT_SIZE       32
+#define RESERVED_SIZE       (384 - (SERVER_ECC_KEY_LEN + KDF_SALT_SIZE))
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
+#define IV_SIZE             16
+#define AUTH_SIZE           16
+#define BIN_SIZE_DATA       4
+#define RESERVED_HEADER     88
+
+#define ESP_ERR_ENCRYPTED_IMAGE_HMAC_KEY_NOT_FOUND 1
+
 typedef void *esp_decrypt_handle_t;
 
 typedef struct {
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     union {
         const char *rsa_priv_key;                       /*!< 3072 bit RSA private key in PEM format */
         const char *rsa_pub_key DEPRECATED_ATTRIBUTE;   /*!< This name is kept for backward compatibility purpose,
@@ -65,6 +80,9 @@ typedef struct {
                                                              but it is not accurate (meaning wise) and hence it would
                                                              be removed in the next major release */
     };
+#elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+    int hmac_key_id;                             /*!< HMAC key ID to be used for HMAC generation */
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
 } esp_decrypt_cfg_t;
 
 #undef DEPRECATED_ATTRIBUTE

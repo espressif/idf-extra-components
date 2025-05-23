@@ -13,19 +13,34 @@
 #include "esp_system.h"
 #endif
 #include "esp_encrypted_img.h"
+#include "sdkconfig.h"
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+#include "test_mocks.h" // Include the new fakes header
+#include <string.h>
+// #include "esp_efuse.h"
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
 
 extern const uint8_t rsa_private_pem_start[] asm("_binary_test_rsa_private_key_pem_start");
 extern const uint8_t rsa_private_pem_end[]   asm("_binary_test_rsa_private_key_pem_end");
-
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+extern const uint8_t bin_start[] asm("_binary_image_ecc_bin_start");
+extern const uint8_t bin_end[]   asm("_binary_image_ecc_bin_end");
+#else
 extern const uint8_t bin_start[] asm("_binary_image_bin_start");
 extern const uint8_t bin_end[]   asm("_binary_image_bin_end");
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
 
 TEST_CASE("Sending all data at once", "[encrypted_img]")
 {
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {
         .rsa_priv_key = (char *)rsa_private_pem_start,
         .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
@@ -52,10 +67,15 @@ TEST_CASE("Sending all data at once", "[encrypted_img]")
 
 TEST_CASE("Sending 1 byte data at once", "[encrypted_img]")
 {
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {
         .rsa_priv_key = (char *)rsa_private_pem_start,
         .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
@@ -153,10 +173,15 @@ TEST_CASE("Invalid Magic", "[encrypted_img]")
         0x6c, 0x8b, 0x34, 0x4e, 0xc0
     };
 
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {
         .rsa_priv_key = (char *)rsa_private_pem_start,
         .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
@@ -246,10 +271,15 @@ TEST_CASE("Invalid Image", "[encrypted_img]")
         0x6c, 0x8b, 0x34, 0x4e, 0xd0
     };
 
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {
         .rsa_priv_key = (char *)rsa_private_pem_start,
         .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
@@ -261,7 +291,6 @@ TEST_CASE("Invalid Image", "[encrypted_img]")
 
     esp_err_t err;
     err = esp_encrypted_img_decrypt_data(ctx, args);
-
     TEST_ESP_OK(err);
 
     err = esp_encrypted_img_decrypt_end(ctx);
@@ -274,10 +303,15 @@ TEST_CASE("Invalid Image", "[encrypted_img]")
 
 TEST_CASE("Sending random size data at once", "[encrypted_img]")
 {
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {
         .rsa_priv_key = (char *)rsa_private_pem_start,
         .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
@@ -313,10 +347,15 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
 
 TEST_CASE("Sending imcomplete data", "[encrypted_img]")
 {
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {
         .rsa_priv_key = (char *)rsa_private_pem_start,
         .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
@@ -342,10 +381,15 @@ TEST_CASE("Sending imcomplete data", "[encrypted_img]")
 
 TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
 {
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {
         .rsa_priv_key = (char *)rsa_private_pem_start,
         .rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start,
     };
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
     int free_bytes_start = xPortGetFreeHeapSize();
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
@@ -357,3 +401,79 @@ TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
     // +/- 16 bytes to allow for some small fluctuations
     TEST_ASSERT(abs(free_bytes_start - free_bytes_end) <= 16);
 }
+
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+
+uint8_t server_pub[SERVER_ECC_KEY_LEN] = {
+    0x6b, 0x1e, 0xda, 0x43, 0xaf, 0xc4, 0x1d, 0x44, 0x28, 0x44, 0x5f, 0x06, 0x12, 0x07, 0xe3, 0x85,
+    0x8b, 0x93, 0x0d, 0x48, 0x09, 0xc3, 0xf2, 0x33, 0x3c, 0x04, 0x26, 0x64, 0xd6, 0x14, 0x1c, 0x62,
+    0x24, 0xd2, 0xf5, 0xc8, 0x2e, 0x10, 0x7c, 0xb5, 0x16, 0x2b, 0x4c, 0xd1, 0xa0, 0x1c, 0x93, 0xe4,
+    0x48, 0x2a, 0x03, 0x5d, 0x5e, 0x98, 0xb2, 0x82, 0xf6, 0x85, 0x70, 0x2a, 0x5e, 0x92, 0xd3, 0x6a,
+};
+
+uint8_t kdf_salt[KDF_SALT_SIZE] = {
+    0x1e, 0x74, 0x5d, 0xe2, 0x86, 0x03, 0x3f, 0x03, 0x73, 0x15, 0x80, 0xcb, 0x6e, 0xe1, 0x37, 0xaa,
+    0x1b, 0x4c, 0x2f, 0x8d, 0x3e, 0x5a, 0x6f, 0x7b, 0x9c, 0x8d, 0x4e, 0x2b, 0x1a, 0x3f, 0xd5, 0xe7
+};
+
+TEST_CASE("test_invalid_hmac_key", "[encrypted_img]")
+{
+    // --- Test Setup ---
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = -1; // Invalid HMAC key
+    esp_decrypt_handle_t decrypt_ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NULL(decrypt_ctx);
+
+    cfg.hmac_key_id = HMAC_KEY_MAX + 1; // Invalid HMAC key
+    decrypt_ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NULL(decrypt_ctx);
+
+    cfg.hmac_key_id = 1; // Invalid HMAC key
+    decrypt_ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NULL(decrypt_ctx);
+}
+
+TEST_CASE("test_ecc_key_derivation", "[encrypted_img]") // Renamed test case for clarity
+{
+    // --- Test Setup ---
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+    esp_decrypt_handle_t decrypt_ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NOT_NULL(decrypt_ctx);
+
+    pre_enc_decrypt_arg_t *args = (pre_enc_decrypt_arg_t *)calloc(1, sizeof(pre_enc_decrypt_arg_t));
+    TEST_ASSERT_NOT_NULL(args);
+
+    // Prepare input data: magic + ECC header (server_pub_key + kdf_salt_from_header + reserved)
+    size_t input_data_len = MAGIC_SIZE + SERVER_ECC_KEY_LEN + KDF_SALT_SIZE + RESERVED_SIZE;
+    uint8_t *input_data = (uint8_t *)malloc(input_data_len);
+    TEST_ASSERT_NOT_NULL(input_data);
+
+    uint32_t magic = 0x0788b6cf; // esp_enc_img_magic
+    memcpy(input_data, &magic, MAGIC_SIZE);
+    memcpy(input_data + MAGIC_SIZE, server_pub, SERVER_ECC_KEY_LEN); // Dummy server_pub_key from header
+    memcpy(input_data + MAGIC_SIZE + SERVER_ECC_KEY_LEN, kdf_salt, KDF_SALT_SIZE); // Dummy kdf_salt from header
+    memset(input_data + MAGIC_SIZE + SERVER_ECC_KEY_LEN + KDF_SALT_SIZE, 0x00, RESERVED_SIZE); // Dummy reserved data
+
+    args->data_in = (char *)input_data;
+    args->data_in_len = input_data_len;
+    args->data_out = NULL;
+    args->data_out_len = 0;
+
+    // --- Execute ---
+    // This call will trigger reading magic, then ECC header.
+    // derive_gcm_key -> derive_ota_ecc_device_key -> compute_ecc_key_with_hmac -> esp_encrypted_img_pbkdf2_hmac_sha256
+    esp_err_t err = esp_encrypted_img_decrypt_data(decrypt_ctx, args);
+
+    // --- Assert ---
+    // After processing the header, it expects more data (IV, etc.), so it should return ESP_ERR_NOT_FINISHED.
+    TEST_ESP_ERR(ESP_ERR_NOT_FINISHED, err);
+
+    esp_encrypted_img_decrypt_abort(decrypt_ctx); // Use abort as we didn't provide full data
+    free(input_data);
+    if (args->data_out) {
+        free(args->data_out);
+    }
+    free(args);
+}
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */

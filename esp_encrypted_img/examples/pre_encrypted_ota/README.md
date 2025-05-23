@@ -23,12 +23,28 @@ Please refer to its documentation [here](https://github.com/espressif/idf-extra-
 
 ## How to use the example
 
-To create self-signed certificate and key, refer to README.md in upper level 'examples' directory. This certificate should be flashed with binary as it will be used for connection with server.
+This example can use either RSA or ECIES-P256 for pre-encrypted OTA. You must first select your desired scheme:
+1. Run `idf.py menuconfig`.
+2. Navigate to `Component config` -> `Pre Encrypted OTA Configuration`.
+3. Set `Pre-encrypted OTA Scheme` to your choice:
+    * `RSA-3072 encryption`
+    * `ECIES encryption`
+4. If you selected `ECIES encryption` and will be using the HMAC-derived key, ensure `HMAC EFUSE KEY ID` is set to the eFuse block where `ecc_key/device_hmac_key.bin` will be burned.
+5. Save the configuration and exit.
+
+Once the scheme is selected, follow the relevant sub-section below for key generation and specific setup.
 
 ### Creating RSA key for encryption
 
-You can generate a public and private RSA key pair using following commands:
+You can generate a public and private RSA key pair using the `esp_enc_img_gen.py` tool or `openssl`.
 
+Using `esp_enc_img_gen.py`:
+```bash
+python esp_enc_img_gen.py --generate_rsa_key
+```
+This will create `rsa_pub_key.pem` and `rsa_priv_key.pem` in the current directory.
+
+Using `openssl`:
 `openssl genrsa -out rsa_key/private.pem 3072`
 
 This generates a 3072-bit RSA key pair, and writes them to a file.
@@ -40,9 +56,40 @@ Encrypted image generation tool will derive public key (from private key) and us
 * **NOTE:** We highly recommend the use of flash encryption or NVS encryption to protect the RSA Private Key on the device.
 * **NOTE:** RSA key provided in the example is for demonstration purpose only. We recommend to create a new key for production applications.
 
-### How to take firware URL from STDIN
+### Steps for ECIES Scheme
 
-You can take the firmware URL (or other data, just include the data with URL using " " deliminator) by enabling both CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN and CONFIG_EXAMPLE_ENABLE_CI_TEST configs.
+To test the ECIES-based encryption scheme:
+
+1.  **Configure for ECIES** (Ensure `ECIES encryption` is selected in `menuconfig` as described above):
+    *   Run `idf.py menuconfig` (if not already done, or to verify).
+    *   Navigate to `Component config` -> `Pre Encrypted OTA Configuration`.
+    *   Select `ECIES encryption` for the `Pre-encrypted OTA Scheme`.
+    *   Set the `HMAC EFUSE KEY ID` to the eFuse block number (0-5) where you will burn the `ecc_key/device_hmac_key.bin`. The default is -1 (disabled), so this must be changed.
+    *   Save the configuration and exit.
+
+2.  **Key Management**:
+    *   This example provides a pre-generated HMAC key and its corresponding public key in the `ecc_key/` directory (relative to this example).
+        *   `ecc_key/device_hmac_key.bin`: The HMAC key that needs to be burned into the device\'s eFuse.
+        *   `ecc_key/public.pem`: The device public key, derived from `device_hmac_key.bin`. This key will be used by the build system to encrypt the firmware.
+    *   **Burn the HMAC Key to eFuse**:
+        Use the `idf.py efuse-burn-key` command to burn the `ecc_key/device_hmac_key.bin` to the eFuse block you configured in `menuconfig`.
+        For example, if you set `HMAC EFUSE KEY ID` to 0:
+        ```bash
+        idf.py efuse-burn-key BLOCK_KEY0 ecc_key/device_hmac_key.bin HMAC_UP
+        ```
+        Replace `BLOCK_KEY0` with the correct eFuse block if you chose a different ID (e.g., `BLOCK_KEY1` for ID 1).
+    *   **(Alternative) Generate New Keys**: If you prefer not to use the provided keys, you can generate a new set:
+        ```bash
+        python <path_to_esp_encrypted_img>/tools/esp_enc_img_gen.py --generate_ecc_key
+        ```
+        This will create `device_hmac_key.bin` and `device_pub_key.pem` in the current directory. You would then need to:
+        1.  Replace `ecc_key/device_hmac_key.bin` and `ecc_key/public.pem` with these new files (or update the example to point to them).
+        2.  Burn the new `device_hmac_key.bin` to the eFuse.
+
+3.  **Build, Flash, and OTA**:
+    *   Follow the steps in "Build and Flash example" and "Configure and start python based HTTPS Server" below. The build system will use the ECIES scheme and the public key (e.g., `ecc_key/public.pem`) to generate `build/pre_encrypted_ota_secure.bin`.
+
+* **NOTE:** The keys in the `ecc_key/` directory are for demonstration purposes only. We recommend creating a new key pair for production applications.
 
 ## Build and Flash example
 

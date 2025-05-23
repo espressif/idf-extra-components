@@ -1,3 +1,8 @@
+## 2.4.0
+
+### Enhancements:
+- Added support for ECIES based OTA encryption scheme
+
 ## 2.3.0
 
 ### Enhancements:
