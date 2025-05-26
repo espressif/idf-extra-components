@@ -21,8 +21,8 @@ esp_delta_ota:
 
 esp_encrypted_img/examples/pre_encrypted_ota:
   enable:
-    - if: IDF_TARGET in ["esp32"]
-      reason: Testing on single target is enough
+    - if: IDF_TARGET in ["esp32", "esp32s3"]
+      reason: ESP32 runs RSA OTA encryption test, ESP32-S3 runs ECC OTA encryption test
 
 sh2lib/examples/http2_request:
   enable:
