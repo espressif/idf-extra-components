@@ -81,6 +81,58 @@ ESP_ERROR_CHECK(led_strip_new_spi_device(&strip_config, &spi_config, &led_strip)
 
 The number of LED strip objects can be created depends on how many free SPI buses are free to use in your project.
 
+### The [Parallel IO](https://docs.espressif.com/projects/esp-idf/en/latest/esp32h2/api-reference/peripherals/parlio.html) Peripheral
+
+Parallel IO peripheral can also be used to generate the timing required by the LED strip. Since the Parallel IO peripheral is a parallel interface, we manage it through groups. The number of LED strips supported in a strip group depends on the maximum data width of the Parallel IO tx_unit.
+The strip_handle obtained through **get_strip_handle** API is consistent with the handles used in RMT backend and SPI backend. However, it cannot be deleted individually. Call **group_del** API to delete the entire group.
+
+Please note, the Parallel IO backend has a dependency of **ESP-IDF >= 5.1**
+
+#### Allocate LED Strip Object with Parallel IO Backend
+
+```c
+#define LED_STRIP_COUNT 4
+#define LED_STRIP0_GPIO_PIN 0
+#define LED_STRIP1_GPIO_PIN 1
+#define LED_STRIP2_GPIO_PIN 2
+#define LED_STRIP3_GPIO_PIN 3
+
+/// LED strip common configuration
+led_strip_config_t strip_config = {
+    .max_leds = 1,                 // The number of LEDs in the strip,
+    .led_model = LED_MODEL_WS2812, // LED strip model, it determines the bit timing
+    .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB, // The color component format is G-R-B
+    .flags = {
+        .invert_out = false, // don't invert the output signal
+    }
+};
+
+/// Parallel IO backend specific configuration
+led_strip_parlio_config_t parlio_config = {
+    .clk_src = PARLIO_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
+    .strip_count = LED_STRIP_COUNT,
+    .strip_gpio_num = {
+                        LED_STRIP0_GPIO_PIN,
+                        LED_STRIP1_GPIO_PIN,
+                        LED_STRIP2_GPIO_PIN,
+                        LED_STRIP3_GPIO_PIN,
+                        ...,
+                      },
+};
+
+/// Create the LED strip group object
+led_strip_group_handle_t parlio_group;
+ESP_ERROR_CHECK(led_strip_new_parlio_group(&strip_config, &parlio_config, &parlio_group));
+
+/// get the LED strip object
+led_strip_handle_t *led_strip = calloc(LED_STRIP_COUNT, sizeof(led_strip_handle_t));
+for(int i = 0; i < LED_STRIP_COUNT; i++) {
+    ESP_ERROR_CHECK(led_strip_group_get_strip_handle(parlio_group, i, &led_strip[i]));
+}
+```
+
+The number of LED strip group objects can be created depends on how many free Parallel IO TX unit are free to use in your project.
+
 ## FAQ
 
 * Which led_strip backend should I choose?
