@@ -322,10 +322,12 @@ static void test_nand_operations(spi_nand_flash_io_mode_t mode, uint8_t flags)
     fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
 
     bool is_page_free = true;
-    uint32_t test_block = 20;
-    uint32_t test_page = test_block * (block_size / sector_size); //(block_num * pages_per_block)
-    uint32_t dst_page = test_page + 1;
-    TEST_ESP_OK(nand_wrap_erase_block(nand_flash_device_handle, test_block));
+    uint32_t src_block = 20;
+    uint32_t dst_block = 21;
+    uint32_t test_page = src_block * (block_size / sector_size); //(block_num * pages_per_block)
+    uint32_t dst_page = dst_block * (block_size / sector_size);
+    TEST_ESP_OK(nand_wrap_erase_block(nand_flash_device_handle, src_block));
+    TEST_ESP_OK(nand_wrap_erase_block(nand_flash_device_handle, dst_block));
     if (test_page < sector_num) {
         // Verify if test_page is free
         TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
