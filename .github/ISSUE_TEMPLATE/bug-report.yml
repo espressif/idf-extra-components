@@ -52,6 +52,7 @@ body:
         - quirc
         - sh2lib
         - spi_nand_flash
+        - uart_emu
         - supertinycron
         - thorvg
         - zlib
