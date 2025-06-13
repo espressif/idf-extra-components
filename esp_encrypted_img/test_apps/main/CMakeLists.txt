@@ -11,3 +11,7 @@ idf_component_register(SRCS "esp_encrypted_img_test.c" "test.c" "test_mocks.c"
                     EMBED_FILES "${EMBED_FILES}"
                     WHOLE_ARCHIVE
                     )
+
+if (CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    idf_component_optional_requires(PRIVATE mbedtls)
+endif()
