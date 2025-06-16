@@ -2,8 +2,8 @@
 dependencies:
   espressif/libjpeg-turbo: 
     version: "^3.1.0"
-    # This line define the local path of the eigen component because this 
-    # example is part of the eigen component. This line is optional.
+    # This line define the local path of the jpeg-turbo component because this 
+    # example is part of the jpeg-turbo component. This line is optional.
     override_path: "../../.."
   ## Required IDF version
   idf:
