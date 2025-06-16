@@ -182,6 +182,7 @@ void pre_encrypted_ota_task(void *pvParameter)
     if (!esp_https_ota_is_complete_data_received(https_ota_handle)) {
         // the OTA image was not completely received and user can customise the response to this situation.
         ESP_LOGE(TAG, "Complete data was not received.");
+        goto ota_end;
     } else {
         err = esp_encrypted_img_decrypt_end(decrypt_handle);
         if (err != ESP_OK) {
