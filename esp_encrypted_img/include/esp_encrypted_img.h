@@ -68,6 +68,9 @@ typedef void *esp_decrypt_handle_t;
 
 typedef struct {
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    void *ds_data;                         /*!< Data context for DS */
+#else
     union {
         const char *rsa_priv_key;                       /*!< 3072 bit RSA private key in PEM format */
         const char *rsa_pub_key DEPRECATED_ATTRIBUTE;   /*!< This name is kept for backward compatibility purpose,
@@ -80,6 +83,7 @@ typedef struct {
                                                              but it is not accurate (meaning wise) and hence it would
                                                              be removed in the next major release */
     };
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
     int hmac_key_id;                             /*!< HMAC key ID to be used for HMAC generation */
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
