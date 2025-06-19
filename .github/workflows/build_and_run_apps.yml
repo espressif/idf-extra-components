@@ -135,16 +135,27 @@ jobs:
           - runs-on: "esp32"
             marker: "generic"
             target: "esp32"
+            runner-labels: [self-hosted, linux, docker, "esp32"]
+            pytest_args: ""
           - runs-on: "ESP32-ETHERNET-KIT"
             marker: "ethernet"
             target: "esp32"
+            runner-labels: [self-hosted, linux, docker, "ESP32-ETHERNET-KIT"]
+            pytest_args: ""
           - runs-on: "spi_nand_flash"
             marker: "spi_nand_flash"
             target: "esp32"
+            runner-labels: [self-hosted, linux, docker, "spi_nand_flash"]
+            pytest_args: ""
+          - runs-on: "qemu"
+            marker: "qemu"
+            target: "esp32s3"
+            runner-labels: [self-hosted, linux, docker]
+            pytest_args: "--embedded-services idf,qemu"
     env:
       TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
       TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
-    runs-on: [self-hosted, linux, docker, "${{ matrix.runner.runs-on }}"]
+    runs-on: ${{ matrix.runner.runner-labels }}
     container:
       image: python:3.11-bookworm
       options: --privileged # Privileged mode has access to serial ports
@@ -157,12 +168,18 @@ jobs:
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
+        run: |
+          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-qemu pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
+      - name: Setup QEMU
+        if: matrix.runner.marker == 'qemu'
+        run: |
+          . .github/setup_qemu.sh
+          echo "PATH=$PATH" >> $GITHUB_ENV
       - name: Run apps
         run: |
           python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
           cat pytest-args.txt
-          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }}
+          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }} ${{ matrix.runner.pytest_args }}
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
