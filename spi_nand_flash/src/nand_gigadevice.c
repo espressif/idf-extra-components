@@ -14,7 +14,8 @@ static const char *TAG = "nand_gigadevice";
 
 esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
 {
-    uint8_t device_id;
+    esp_err_t ret = ESP_OK;
+    uint8_t device_id = 0;
     spi_nand_transaction_t t = {
         .command = CMD_READ_ID,
         .address = 0,
@@ -23,7 +24,8 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         .miso_data = &device_id,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_nand_execute_transaction(dev, &t);
+    ESP_RETURN_ON_ERROR(spi_nand_execute_transaction(dev, &t), TAG, "%s, Failed to get the device ID %d", __func__, ret);
+
     dev->chip.has_quad_enable_bit = 1;
     dev->chip.quad_enable_bit_pos = 0;
     dev->chip.read_page_delay_us = 25;

@@ -14,7 +14,8 @@ static const char *TAG = "nand_winbond";
 
 esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
 {
-    uint8_t device_id_buf[2];
+    esp_err_t ret = ESP_OK;
+    uint8_t device_id_buf[2] = {0};
     spi_nand_transaction_t t = {
         .command = CMD_READ_ID,
         .address = 0,
@@ -23,7 +24,8 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
         .miso_data = device_id_buf,
         .flags = SPI_TRANS_USE_RXDATA,
     };
-    spi_nand_execute_transaction(dev, &t);
+    ESP_RETURN_ON_ERROR(spi_nand_execute_transaction(dev, &t), TAG, "%s, Failed to get the device ID %d", __func__, ret);
+
     dev->chip.has_quad_enable_bit = 0;
     dev->chip.quad_enable_bit_pos = 0;
     uint16_t device_id = (device_id_buf[0] << 8) + device_id_buf[1];
@@ -40,6 +42,12 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
     case WINBOND_DI_BA21:
     case WINBOND_DI_BC21:
         dev->chip.num_blocks = 1024;
+        break;
+    case WINBOND_DI_AA22:
+        dev->chip.num_blocks = 2048;
+        break;
+    case WINBOND_DI_AA23:
+        dev->chip.num_blocks = 4096;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
