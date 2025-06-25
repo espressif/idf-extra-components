@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -16,6 +16,7 @@
 #define LED_STRIP_SPI_DEFAULT_RESOLUTION (2.5 * 1000 * 1000) // 2.5MHz resolution
 #define LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE 4
 
+// Each color of 1 bit is represented by 3 bits of SPI, low_level:100 ,high_level:110
 #define SPI_BYTES_PER_COLOR_BYTE 3
 #define SPI_BITS_PER_COLOR_BYTE (SPI_BYTES_PER_COLOR_BYTE * 8)
 
@@ -87,7 +88,7 @@ static esp_err_t led_strip_spi_set_pixel_rgbw(led_strip_t *strip, uint32_t index
     return ESP_OK;
 }
 
-static esp_err_t led_strip_spi_refresh(led_strip_t *strip)
+static esp_err_t led_strip_spi_refresh_async(led_strip_t *strip)
 {
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
     spi_transaction_t tx_conf;
@@ -96,8 +97,22 @@ static esp_err_t led_strip_spi_refresh(led_strip_t *strip)
     tx_conf.length = spi_strip->strip_len * spi_strip->bytes_per_pixel * SPI_BITS_PER_COLOR_BYTE;
     tx_conf.tx_buffer = spi_strip->pixel_buf;
     tx_conf.rx_buffer = NULL;
-    ESP_RETURN_ON_ERROR(spi_device_transmit(spi_strip->spi_device, &tx_conf), TAG, "transmit pixels by SPI failed");
+    ESP_RETURN_ON_ERROR(spi_device_queue_trans(spi_strip->spi_device, &tx_conf, portMAX_DELAY), TAG, "transmit pixels by SPI failed");
+    return ESP_OK;
+}
 
+static esp_err_t led_strip_spi_refresh_wait_async_done(led_strip_t *strip)
+{
+    led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
+    spi_transaction_t *tx_conf = NULL;
+    ESP_RETURN_ON_ERROR(spi_device_get_trans_result(spi_strip->spi_device, &tx_conf, portMAX_DELAY), TAG, "wait for done failed");
+    return ESP_OK;
+}
+
+static esp_err_t led_strip_spi_refresh(led_strip_t *strip)
+{
+    ESP_RETURN_ON_ERROR(led_strip_spi_refresh_async(strip), TAG, "refresh async failed");
+    ESP_RETURN_ON_ERROR(led_strip_spi_refresh_wait_async_done(strip), TAG, "wait for done failed");
     return ESP_OK;
 }
 
@@ -211,6 +226,8 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip->base.set_pixel = led_strip_spi_set_pixel;
     spi_strip->base.set_pixel_rgbw = led_strip_spi_set_pixel_rgbw;
     spi_strip->base.refresh = led_strip_spi_refresh;
+    spi_strip->base.refresh_async = led_strip_spi_refresh_async;
+    spi_strip->base.refresh_wait_async_done = led_strip_spi_refresh_wait_async_done;
     spi_strip->base.clear = led_strip_spi_clear;
     spi_strip->base.del = led_strip_spi_del;
 
