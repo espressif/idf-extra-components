@@ -84,6 +84,8 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         return spi_nand_gigadevice_init(dev);
     case SPI_NAND_FLASH_MICRON_MI: // Micron
         return spi_nand_micron_init(dev);
+    case SPI_NAND_FLASH_ZETTA_MI: // Zetta
+        return spi_nand_zetta_init(dev);
     default:
         return ESP_ERR_INVALID_RESPONSE;
     }
