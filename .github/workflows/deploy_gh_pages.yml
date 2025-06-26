@@ -1,0 +1,66 @@
+name: Build and Deploy Programming Guides
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+
+      - name: Setup mdBook 📥
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: "latest"
+
+      - name: Install doxygen tools 🧱
+        run: |-
+          sudo apt-get install -y doxygen
+          pip install esp-doxybook
+
+      - name: Build docs 🔧
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            python3 ./.github/build_docs.py --pr-number ${{ github.event.pull_request.number }}
+          else
+            python3 ./.github/build_docs.py
+          fi
+
+      - name: Check Links 🔍
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Check links in docs_build_output
+          args: >-
+            --no-progress
+            --include-fragments
+            './docs_build_output/**/*.html'
+          # Fail the action if broken links are found
+          fail: true
+
+      # For merge events, prepare files for deployment by copying directly to docs_to_public/latest
+      - name: Prepare files for deployment 📁
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          # Create docs_to_public/latest directory
+          mkdir -p docs_to_public/latest
+          # Copy files from docs_build_output directly to docs_to_public/latest
+          cp -r docs_build_output/* docs_to_public/latest/
+          echo "Files ready for deployment in docs_to_public/latest directory"
+
+      # Deploy to gh-pages branch only for master pushes
+      - name: Deploy to Github Pages 🚀
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: ./docs_to_public
+          # The following settings ensure we don't delete other content when deploying
+          CLEAN: false
