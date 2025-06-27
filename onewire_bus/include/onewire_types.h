@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -31,6 +31,11 @@ typedef struct onewire_device_iter_t *onewire_device_iter_handle_t;
  */
 typedef struct {
     int bus_gpio_num; /*!< GPIO number that used by the 1-Wire bus */
+    struct onewire_bus_config_flags {
+        uint32_t en_pull_up: 1; /*!< Set true to enable internal pull-up resistor.
+                                     Please note the internal pull-up resistor cannot provide enough current for some devices,
+                                     so external pull-up resistor is still recommended. */
+    } flags; /*!< Configuration flags for the bus */
 } onewire_bus_config_t;
 
 #ifdef __cplusplus

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,8 +12,11 @@
 #include "esp_attr.h"
 #include "driver/rmt_tx.h"
 #include "driver/rmt_rx.h"
+#include "driver/gpio.h"
+#include "esp_private/gpio.h"
 #include "onewire_bus_impl_rmt.h"
 #include "onewire_bus_interface.h"
+#include "esp_idf_version.h"
 
 static const char *TAG = "1-wire.rmt";
 
@@ -113,6 +116,8 @@ typedef struct {
     onewire_bus_t base; /*!< base class */
     rmt_channel_handle_t tx_channel; /*!< rmt tx channel handler */
     rmt_channel_handle_t rx_channel; /*!< rmt rx channel handler */
+
+    gpio_num_t data_gpio_num; /*!< GPIO number for 1-wire bus */
 
     rmt_encoder_handle_t tx_bytes_encoder; /*!< used to encode commands and data */
     rmt_encoder_handle_t tx_copy_encoder; /*!< used to encode reset pulse and bits */
@@ -253,6 +258,7 @@ esp_err_t onewire_new_bus_rmt(const onewire_bus_config_t *bus_config, const onew
 
     bus_rmt = calloc(1, sizeof(onewire_bus_rmt_obj_t));
     ESP_RETURN_ON_FALSE(bus_rmt, ESP_ERR_NO_MEM, TAG, "no mem for onewire_bus_rmt_obj_t");
+    bus_rmt->data_gpio_num = GPIO_NUM_NC;
 
     // create rmt bytes encoder to transmit 1-wire commands and data
     rmt_bytes_encoder_config_t bytes_encoder_config = {
@@ -268,7 +274,7 @@ esp_err_t onewire_new_bus_rmt(const onewire_bus_config_t *bus_config, const onew
     ESP_GOTO_ON_ERROR(rmt_new_copy_encoder(&copy_encoder_config, &bus_rmt->tx_copy_encoder),
                       err, TAG, "create copy encoder failed");
 
-    // Note: must create rmt rx channel before tx channel
+    // create RX and TX channels and bind them to the same GPIO
     rmt_rx_channel_config_t onewire_rx_channel_cfg = {
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = ONEWIRE_RMT_RESOLUTION_HZ,
@@ -278,18 +284,33 @@ esp_err_t onewire_new_bus_rmt(const onewire_bus_config_t *bus_config, const onew
     ESP_GOTO_ON_ERROR(rmt_new_rx_channel(&onewire_rx_channel_cfg, &bus_rmt->rx_channel),
                       err, TAG, "create rmt rx channel failed");
 
-    // create rmt tx channel
     rmt_tx_channel_config_t onewire_tx_channel_cfg = {
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = ONEWIRE_RMT_RESOLUTION_HZ,
         .gpio_num = bus_config->bus_gpio_num,
         .mem_block_symbols = ONEWIRE_RMT_DEFAULT_MEM_BLOCK_SYMBOLS,
         .trans_queue_depth = ONEWIRE_RMT_DEFAULT_TRANS_QUEUE_SIZE,
-        .flags.io_loop_back = true, // make tx channel coexist with rx channel on the same gpio pin
-        .flags.io_od_mode = true,   // enable open-drain mode for 1-wire bus
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
+        .flags.io_loop_back = true,
+        .flags.io_od_mode = true,
+#endif
     };
     ESP_GOTO_ON_ERROR(rmt_new_tx_channel(&onewire_tx_channel_cfg, &bus_rmt->tx_channel),
                       err, TAG, "create rmt tx channel failed");
+
+    bus_rmt->data_gpio_num = bus_config->bus_gpio_num;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+    // enable open-drain mode for 1-wire bus
+    gpio_od_enable(bus_rmt->data_gpio_num);
+#endif
+
+    if (bus_config->flags.en_pull_up) {
+        // enable internal pull-up resistor and disable pull-down resistor
+        gpio_set_pull_mode(bus_rmt->data_gpio_num, GPIO_PULLUP_ONLY);
+    } else {
+        // disable internal pull-up and pull-down resistors
+        gpio_set_pull_mode(bus_rmt->data_gpio_num, GPIO_FLOATING);
+    }
 
     // allocate rmt rx symbol buffer, one RMT symbol represents one bit, so x8
     bus_rmt->rx_symbols_buf = malloc(rmt_config->max_rx_bytes * sizeof(rmt_symbol_word_t) * 8);
@@ -366,6 +387,11 @@ static esp_err_t onewire_bus_rmt_destroy(onewire_bus_rmt_obj_t *bus_rmt)
     if (bus_rmt->rx_symbols_buf) {
         free(bus_rmt->rx_symbols_buf);
     }
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+    if (bus_rmt->data_gpio_num != GPIO_NUM_NC) {
+        gpio_od_disable(bus_rmt->data_gpio_num);
+    }
+#endif
     free(bus_rmt);
     return ESP_OK;
 }

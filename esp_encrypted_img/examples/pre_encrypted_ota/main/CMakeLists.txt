@@ -19,8 +19,16 @@ idf_component_register(SRCS "pre_encrypted_ota.c" ${SRCS}
                                    ${project_dir}/server_certs/ca_cert.pem
                                    ${EMBED_TXTFILES})
 
+if(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+    set(KEY_FILE "${project_dir}/rsa_key/private.pem")
+elseif(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+    set(KEY_FILE "${project_dir}/ecc_key/public.pem")
+else()
+    message(FATAL_ERROR "Unsupported encryption scheme")
+endif()
+
 create_esp_enc_img(${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin
-    ${project_dir}/rsa_key/private.pem ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}_secure.bin app)
+    ${KEY_FILE} ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}_secure.bin app)
 
 if(CONFIG_EXAMPLE_ENABLE_CI_TEST)
     target_link_libraries(${COMPONENT_LIB} PRIVATE idf::esp_https_server)

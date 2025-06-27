@@ -18,7 +18,7 @@
 TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
 {
     nand_file_mmap_emul_config_t conf = {"", 50 * 1024 * 1024, true};
-    spi_nand_flash_config_t nand_flash_config = {.emul_conf = &conf};
+    spi_nand_flash_config_t nand_flash_config = {&conf, 0, SPI_NAND_IO_MODE_SIO, 0};
     spi_nand_flash_device_t *device_handle;
     REQUIRE(spi_nand_flash_init_device(&nand_flash_config, &device_handle) == ESP_OK);
 
@@ -54,7 +54,7 @@ static void fill_buffer(uint32_t seed, uint8_t *dst, size_t count)
 TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_nand_flash]")
 {
     nand_file_mmap_emul_config_t conf = {"", 50 * 1024 * 1024, false};
-    spi_nand_flash_config_t nand_flash_config = {.emul_conf = &conf};
+    spi_nand_flash_config_t nand_flash_config = {&conf, 0, SPI_NAND_IO_MODE_SIO, 0};
     spi_nand_flash_device_t *device_handle;
     REQUIRE(spi_nand_flash_init_device(&nand_flash_config, &device_handle) == ESP_OK);
 

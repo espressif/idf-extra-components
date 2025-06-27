@@ -11,8 +11,23 @@
 
 #include "unity_test_utils_memory.h"
 
+#include "soc/soc_caps.h"
+#include "mbedtls/aes.h"
+
 void setUp(void)
 {
+#if SOC_AES_SUPPORTED
+    // Execute mbedtls_aes_init operation to allocate AES interrupt
+    // allocation memory which is considered as leak otherwise
+    const uint8_t plaintext[16] = {0};
+    uint8_t ciphertext[16];
+    const uint8_t key[16] = { 0 };
+    mbedtls_aes_context ctx;
+    mbedtls_aes_init(&ctx);
+    mbedtls_aes_setkey_enc(&ctx, key, 128);
+    mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_ENCRYPT, plaintext, ciphertext);
+    mbedtls_aes_free(&ctx);
+#endif // SOC_AES_SUPPORTED
     unity_utils_record_free_mem();
 }
 

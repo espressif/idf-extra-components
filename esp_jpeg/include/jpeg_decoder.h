@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -62,11 +62,11 @@ typedef struct esp_jpeg_image_cfg_s {
 
 /**
  * @brief JPEG output info
- *
  */
 typedef struct esp_jpeg_image_output_s {
     uint16_t width;    /*!< Width of the output image */
     uint16_t height;   /*!< Height of the output image */
+    size_t output_len; /*!< Length of the output image in bytes */
 } esp_jpeg_image_output_t;
 
 /**
@@ -74,8 +74,8 @@ typedef struct esp_jpeg_image_output_s {
  *
  * @note This function is blocking.
  *
- * @param cfg: Configuration structure
- * @param img: Output image info
+ * @param[in]  cfg: Configuration structure
+ * @param[out] img: Output image info
  *
  * @return
  *      - ESP_OK            on success
@@ -83,6 +83,23 @@ typedef struct esp_jpeg_image_output_s {
  *      - ESP_FAIL          if there is an error in decoding JPEG
  */
 esp_err_t esp_jpeg_decode(esp_jpeg_image_cfg_t *cfg, esp_jpeg_image_output_t *img);
+
+/**
+ * @brief Get information about the JPEG image
+ *
+ * Use this function to get the size of the JPEG image without decoding it.
+ * Allocate a buffer of size img->output_len to store the decoded image.
+ *
+ * @note cfg->outbuf and cfg->outbuf_size are not used in this function.
+ * @param[in]  cfg: Configuration structure
+ * @param[out] img: Output image info
+ *
+ * @return
+ *      - ESP_OK              on success
+ *      - ESP_ERR_INVALID_ARG if cfg or img is NULL
+ *      - ESP_FAIL            if there is an error in decoding JPEG
+ */
+esp_err_t esp_jpeg_get_image_info(esp_jpeg_image_cfg_t *cfg, esp_jpeg_image_output_t *img);
 
 #ifdef __cplusplus
 }
