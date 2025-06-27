@@ -1,0 +1,21 @@
+idf_component_register(SRCS "argtable3/src/arg_cmd.c"
+                            "argtable3/src/arg_date.c"
+                            "argtable3/src/arg_dbl.c"
+                            "argtable3/src/arg_dstr.c"
+                            "argtable3/src/arg_end.c"
+                            "argtable3/src/arg_file.c"
+                            "argtable3/src/arg_getopt_long.c"
+                            "argtable3/src/arg_hashtable.c"
+                            "argtable3/src/arg_int.c"
+                            "argtable3/src/arg_lit.c"
+                            "argtable3/src/arg_rem.c"
+                            "argtable3/src/arg_rex.c"
+                            "argtable3/src/arg_str.c"
+                            "argtable3/src/arg_utils.c"
+                            "argtable3/src/argtable3.c"
+                    INCLUDE_DIRS argtable3/src)
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+        ARG_ENABLE_LOG=0
+        ARG_REPLACE_GETOPT=0
+)
