@@ -13,3 +13,8 @@ idf_component_register(SRCS "argtable3/src/arg_cmd.c"
                             "argtable3/src/arg_utils.c"
                             "argtable3/src/argtable3.c"
                     INCLUDE_DIRS argtable3/src)
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+        ARG_ENABLE_LOG=0
+        ARG_REPLACE_GETOPT=0
+)
