@@ -1,0 +1,380 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>SDIO Slave Protocol - ESP Serial Slave Link Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ESP Serial Slave Link Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/espressif/idf-extra-components/tree/master/esp_serial_slave_link" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/espressif/idf-extra-components/edit/master/esp_serial_slave_link/docs/src/sdio_slave_protocol.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="sdio-slave-protocol"><a class="header" href="#sdio-slave-protocol">SDIO Slave Protocol</a></h1>
+<p>This document describes the process of initialization of an ESP SDIO Slave device and then provides details on the ESP SDIO Slave protocol - a non-standard protocol that allows an SDIO Host to communicate with an ESP SDIO slave.</p>
+<p>The ESP SDIO Slave protocol was created to implement the communication between SDIO host and slave, because the SDIO specification only shows how to access the custom region of a card (by sending CMD52 and CMD53 to functions 1-7) without any details regarding the underlying hardware implementation.</p>
+<h2 id="sdio-slave-capabilities-of-espressif-chips"><a class="header" href="#sdio-slave-capabilities-of-espressif-chips">SDIO Slave Capabilities of Espressif Chips</a></h2>
+<p>The services provided by the SDIO Slave peripheral of the
+{IDF_TARGET_NAME} chip are listed in the table below:</p>
+<div class="table-wrapper"><table><thead><tr><th>ESP Target Chip</th><th>Tohost intr</th><th>Frhost intr</th><th>TX DMA</th><th>RX DMA</th><th>Shared registers</th></tr></thead><tbody>
+<tr><td>ESP32</td><td>8</td><td>8</td><td>Y</td><td>Y</td><td>56*</td></tr>
+<tr><td>ESP32-C5</td><td>8</td><td>8</td><td>Y</td><td>Y</td><td>56*</td></tr>
+<tr><td>ESP32-C6</td><td>8</td><td>8</td><td>Y</td><td>Y</td><td>56*</td></tr>
+</tbody></table>
+</div>
+<p>* Not including the interrupt registers</p>
+<h2 id="esp-sdio-slave-initialization"><a class="header" href="#esp-sdio-slave-initialization">ESP SDIO Slave Initialization</a></h2>
+<p>The host should initialize the SDIO slave according to the standard SDIO initialization process (Section 3.1.2 of <a href="https://www.sdcard.org/downloads/pls/">SDIO Simplified Specification</a>). In this specification as well as below, the SDIO slave is called an SDIO/IO card. Here is a brief example of an ESP SDIO Slave initialization process:</p>
+<ol>
+<li>SDIO reset
+<blockquote>
+<p>CMD52 (Write 0x6 = 0x8)</p>
+</blockquote>
+</li>
+<li>SD reset
+<blockquote>
+<p>CMD0</p>
+</blockquote>
+</li>
+<li>Check whether IO card (optional)
+<blockquote>
+<p>CMD8</p>
+</blockquote>
+</li>
+<li>Send SDIO op cond and wait for card ready
+<blockquote>
+<p>CMD5 arg = 0x00000000</p>
+<p>CMD5 arg = 0x00ff8000 (according to the response above, poll until ready)</p>
+<p><strong>Example:</strong></p>
+<blockquote>
+<p>Arg of R4 after first CMD5 (arg = 0x00000000) is 0xXXFFFF00.</p>
+<p>Keep sending CMD5 with arg = 0x00FFFF00 until the R4 shows card ready (arg bit 31 = 1).</p>
+</blockquote>
+</blockquote>
+</li>
+<li>Set address
+<blockquote>
+<p>CMD3</p>
+</blockquote>
+</li>
+<li>Select card
+<blockquote>
+<p>CMD7 (arg address according to CMD3 response)</p>
+<p><strong>Example:</strong></p>
+<blockquote>
+<p>Arg of R6 after CMD3 is 0x0001xxxx.</p>
+<p>Arg of CMD7 should be 0x00010000.</p>
+</blockquote>
+</blockquote>
+</li>
+<li>Select 4-bit mode (optional)
+<blockquote>
+<p>CMD52 (Write 0x07 = 0x02)</p>
+</blockquote>
+</li>
+<li>Enable func1
+<blockquote>
+<p>CMD52 (Write 0x02 = 0x02)</p>
+</blockquote>
+</li>
+<li>Enable SDIO interrupt (required if interrupt line (DAT1) is used)
+<blockquote>
+<p>CMD52 (Write 0x04 = 0x03)</p>
+</blockquote>
+</li>
+<li>Set Func0 block size (optional, default value is 512 (0x200))
+<blockquote>
+<p>CMD52/53 (Read 0x10 ~ 0x11)</p>
+<p>CMD52/53 (Write 0x10 = 0x00)</p>
+<p>CMD52/53 (Write 0x11 = 0x02)</p>
+<p>CMD52/53 (Read 0x10 ~ 0x11, read to check the final value)</p>
+</blockquote>
+</li>
+<li>Set Func1 block size (optional, default value is 512 (0x200))
+<blockquote>
+<p>CMD52/53 (Read 0x110 ~ 0x111)</p>
+<p>CMD52/53 (Write 0x110 = 0x00)</p>
+<p>CMD52/53 (Write 0x111 = 0x02)</p>
+<p>CMD52/53 (Read 0x110 ~ 0x111, read to check the final value)</p>
+</blockquote>
+</li>
+</ol>
+<h2 id="esp-sdio-slave-protocol"><a class="header" href="#esp-sdio-slave-protocol">ESP SDIO Slave Protocol</a></h2>
+<p>The ESP SDIO Slave protocol is based on the SDIO Specification's I/O Read/Write commands, i.e., CMD52 and CMD53. The protocol offers the following services:</p>
+<ul>
+<li>Sending FIFO and receiving FIFO</li>
+<li>52 8-bit R/W registers shared by host and slave. For details, see <code>Technical Reference Manual &gt; SDIO Slave Controller &gt; Register Summary &gt; SDIO SLC Host registers</code>.</li>
+<li>16 general purpose interrupt sources, 8 from host to slave and 8 from slave to host.</li>
+</ul>
+<p>To begin communication, the host needs to enable the I/O Function 1 in the slave and access its registers as described below.</p>
+<p>The <code>esp_serial_slave_link</code> component implements the logic of this protocol for ESP32 SDIO Host when communicating with an ESP32 SDIO slave.</p>
+<h3 id="slave-register-table"><a class="header" href="#slave-register-table">Slave Register Table</a></h3>
+<h4 id="32-bit"><a class="header" href="#32-bit">32-bit</a></h4>
+<ul>
+<li>0x044 (TOKEN_RDATA): in which bit 27-16 holds the number of the receiving buffer.</li>
+<li>0x058 (INT_ST): holds the interrupt source bits from slave to host.</li>
+<li>0x060 (PKT_LEN): holds the accumulated data length (in bytes) already read by host plus the data copied to the buffer but yet to be read.</li>
+<li>0x0D4 (INT_CLR): write 1 to clear interrupt bits corresponding to INT_ST.</li>
+<li>0x0DC (INT_ENA): mask bits for interrupts from slave to host.</li>
+</ul>
+<h4 id="8-bit"><a class="header" href="#8-bit">8-bit</a></h4>
+<p>Shared general purpose registers:</p>
+<ul>
+<li>0x06C-0x077: R/W registers 0-11 shared by slave and host.</li>
+<li>0x07A-0x07B: R/W registers 14-15 shared by slave and host.</li>
+<li>0x07E-0x07F: R/W registers 18-19 shared by slave and host.</li>
+<li>0x088-0x08B: R/W registers 24-27 shared by slave and host.</li>
+<li>0x09C-0x0BB: R/W registers 32-63 shared by slave and host.</li>
+</ul>
+<p>Interrupt Registers:</p>
+<ul>
+<li>0x08D (SLAVE_INT): bits for host to interrupt slave. auto clear.</li>
+</ul>
+<h4 id="fifo-sending-and-receiving"><a class="header" href="#fifo-sending-and-receiving">FIFO (Sending and Receiving)</a></h4>
+<p>0x090 - 0x1F7FF are reserved for FIFOs.</p>
+<p>The address of CMD53 is related to the length requested to read from or write to the slave in a single transfer, as demonstrated by the equation below:</p>
+<p><em>requested length = 0x1F800 - address</em></p>
+<p>The slave responds to data that has a length equal to the length field of CMD53. In cases where the data is longer than the <strong>requested length</strong>, the data will be zero filled (when sending) or discarded (when receiving). This includes both the block and the byte mode of CMD53.</p>
+<div class="warning">
+The function number should be set to 1, and OP Code should be set to 1 (for CMD53).
+<p>In order to achieve higher efficiency when accessing the FIFO by an arbitrary length, the block and byte modes of CMD53 can be used in combination. For example, given that the block size is set to 512 by default, you can write or get 1031 bytes of data from the FIFO by doing the following:</p>
+<ol>
+<li>Send CMD53 in block mode, block count = 2 (1024 bytes) to address 0x1F3F9 = 0x1F800 - <strong>1031</strong>.</li>
+<li>Then send CMD53 in byte mode, byte count = 8 (or 7 if your controller supports that) to address 0x1F7F9 = 0x1F800 - <strong>7</strong>.</li>
+</ol>
+</div>
+<h3 id="interrupts"><a class="header" href="#interrupts">Interrupts</a></h3>
+<p>SDIO interrupts are "level sensitive". For host interrupts, the slave sends an interrupt by pulling the DAT1 line down at a proper time. The host detects when the interrupt line is pulled down and reads the <code>INT_ST</code> register to determine the source of the interrupt. After that, the host can clear the interrupt bits by writing the <code>INT_CLR</code> register and process the interrupt. The host can also mask unneeded sources by clearing the bits in the <code>INT_ENA</code> register corresponding to the sources. If all the sources are cleared (or masked), the DAT1 line goes inactive.</p>
+<p>On ESP32, the corresponding <code>host_int</code> bits are: bit 0 to bit 7.</p>
+<p>For slave interrupts, the host sends a transfer to write the <code>SLAVE_INT</code> register. Once a bit is set to 1, the slave hardware and the driver will detect it and inform the application.</p>
+<h3 id="receiving-fifo"><a class="header" href="#receiving-fifo">Receiving FIFO</a></h3>
+<p>To write to the slave's receiving FIFO, the host should complete the following steps:</p>
+<ol>
+<li><strong>Read the TOKEN1 field (bits 27-16) of the register TOKEN_RDATA (0x044)</strong>. The buffer number remaining is TOKEN1 minus the number of buffers used by host.</li>
+<li><strong>Make sure the buffer number is sufficient</strong> (<em>buffer_size</em> x <em>buffer_num</em> is greater than the data to write, <em>buffer_size</em> is pre-defined between the host and the slave before the communication starts). Otherwise, keep returning to step 1 until the buffer size is sufficient.</li>
+<li><strong>Write to the FIFO address with CMD53</strong>. Note that the <em>requested length</em> should not exceed the length calculated at step 2, and the FIFO address is related to <em>requested length</em>.</li>
+<li><strong>Calculate used buffers</strong>. Note that a partially-used buffer at the tail is counted as used.</li>
+</ol>
+<h3 id="sending-fifo"><a class="header" href="#sending-fifo">Sending FIFO</a></h3>
+<p>To read the slave's sending FIFO, the host should complete the following steps:</p>
+<ol>
+<li><strong>Wait for the interrupt line to become active</strong> (optional, low by default).</li>
+<li><strong>Read (poll) the interrupt bits in the INT_ST register</strong> to monitor if new packets exist.</li>
+<li><strong>If new packets are ready, read the PKT_LEN register</strong>. Before reading the packets, determine the length of data to be read. As the host keeps the length of data already read from the slave, subtract this value from <code>PKT_LEN</code>, the result will be the maximum length of data available for reading. If no data has been added to the sending FIFO yet, wait and poll until the slave is ready and update <code>PKT_LEN</code>.</li>
+<li><strong>Read from the FIFO using CMD53</strong>. Note that the <strong>requested length</strong> should not be greater than calculated at Step 3, and the FIFO address is related to <strong>requested length</strong>.</li>
+<li><strong>Update the read length</strong>.</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="spi_slave_hd_protocol.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="spi_slave_hd_protocol.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

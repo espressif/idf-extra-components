@@ -1,0 +1,324 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>SPI Slave HD Protocol - ESP Serial Slave Link Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ESP Serial Slave Link Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/espressif/idf-extra-components/tree/master/esp_serial_slave_link" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/espressif/idf-extra-components/edit/master/esp_serial_slave_link/docs/src/spi_slave_hd_protocol.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="spi-slave-hd-half-duplex-protocol"><a class="header" href="#spi-slave-hd-half-duplex-protocol">SPI Slave HD (Half Duplex) Protocol</a></h1>
+<div class="warning">
+<p>ESP32 does not support this feature.</p>
+</div>
+<h2 id="spi-slave-capabilities-of-espressif-chips"><a class="header" href="#spi-slave-capabilities-of-espressif-chips">SPI Slave Capabilities of Espressif Chips</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>ESP Target Chip</th><th style="text-align: center">Tohost intr</th><th style="text-align: center">Frhost intr</th><th style="text-align: center">TX DMA</th><th style="text-align: center">RX DMA</th><th style="text-align: center">Shared registers</th></tr></thead><tbody>
+<tr><td>ESP32-S2</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">72</td></tr>
+<tr><td>ESP32-C3</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-S3</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-C2</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-C6</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-H2</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-P4</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-C5</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-C61</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+<tr><td>ESP32-H21</td><td style="text-align: center">N</td><td style="text-align: center">2</td><td style="text-align: center">Y</td><td style="text-align: center">Y</td><td style="text-align: center">64</td></tr>
+</tbody></table>
+</div>
+<h2 id="introduction"><a class="header" href="#introduction">Introduction</a></h2>
+<p>In the half duplex mode, the master has to use the protocol defined by the slave to communicate with the slave. Each transaction may consist of the following phases (listed by the order they should exist):</p>
+<ul>
+<li>Command: 8-bit, master to slave
+<blockquote>
+<p>This phase determines the rest phases of the transactions. See <a href="#supported-commands">the supported commands</a>.</p>
+</blockquote>
+</li>
+<li>Address: 8-bit, master to slave, optional
+<blockquote>
+<p>For some commands (<code>WRBUF</code>, <code>RDBUF</code>), this phase specifies the address of the shared register to write to/read from.</p>
+<p>For other commands with this phase, they are meaningless but still have to exist in the transaction.</p>
+</blockquote>
+</li>
+<li>Dummy: 8-bit floating, optional
+<blockquote>
+<p>This phase is the turnaround time between the master and the slave on the bus, and also provides enough time for the slave to prepare the data to send to the master.</p>
+</blockquote>
+</li>
+<li>Data: variable length, the direction is also determined by the command.
+<blockquote>
+<p>This may be a data <code>OUT</code> phase, in which the direction is slave to master, or a data <code>IN</code> phase, in which the direction is master to slave.</p>
+</blockquote>
+</li>
+</ul>
+<p>The <strong>direction</strong> means which side (master or slave) controls the MOSI, MISO, WP, and HD pins.</p>
+<h2 id="data-io-modes"><a class="header" href="#data-io-modes">Data IO Modes</a></h2>
+<p>In some IO modes, more data wires can be used to send the data. As a result, the SPI clock cycles required for the same amount of data will be less than in the 1-bit mode. For example, in QIO mode, address and data (IN and OUT) should be sent on all 4 data wires (MOSI, MISO, WP, and HD). Here are the modes supported by the ESP32-S2 SPI slave and the wire number (WN) used in corresponding modes.</p>
+<div class="table-wrapper"><table><thead><tr><th>Mode</th><th>Command WN</th><th>Address WN</th><th>Dummy cycles</th><th>Data WN</th></tr></thead><tbody>
+<tr><td>1-bit</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+<tr><td>DOUT</td><td>1</td><td>1</td><td>4</td><td>2</td></tr>
+<tr><td>DIO</td><td>1</td><td>2</td><td>4</td><td>2</td></tr>
+<tr><td>QOUT</td><td>1</td><td>1</td><td>4</td><td>4</td></tr>
+<tr><td>QIO</td><td>1</td><td>4</td><td>4</td><td>4</td></tr>
+<tr><td>QPI</td><td>4</td><td>4</td><td>4</td><td>4</td></tr>
+</tbody></table>
+</div>
+<p>Normally, which mode is used is determined by the command sent by the master (See <a href="#supported-commands">the Supported Commands</a>), except the QPI mode.</p>
+<h3 id="qpi-mode"><a class="header" href="#qpi-mode">QPI Mode</a></h3>
+<p>The QPI mode is a special state of the SPI Slave. The master can send the <code>ENQPI</code> command to put the slave into the QPI mode state. In the QPI mode, the command is also sent in 4-bit, thus it is not compatible with the normal modes. The master should only send QPI commands when the slave is in QPI mode. To exit from the QPI mode, master can send the EXQPI command.</p>
+<h2 id="supported-commands"><a class="header" href="#supported-commands">Supported Commands</a></h2>
+<div class="warning">
+The command name is in a master-oriented direction. For example, WRBUF means master writes the buffer of slave.
+</div>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th><th>Command</th><th>Address</th><th>Data</th></tr></thead><tbody>
+<tr><td>WRBUF</td><td>Write buffer</td><td>0x01</td><td>Buf addr</td><td>master to slave, no longer than buffer size</td></tr>
+<tr><td>RDBUF</td><td>Read buffer</td><td>0x02</td><td>Buf addr</td><td>slave to master, no longer than buffer size</td></tr>
+<tr><td>WRDMA</td><td>Write DMA</td><td>0x03</td><td>8 bits</td><td>master to slave, no longer than length provided by slave</td></tr>
+<tr><td>RDDMA</td><td>Read DMA</td><td>0x04</td><td>8 bits</td><td>slave to master, no longer than length provided by slave</td></tr>
+<tr><td>SEG_DONE</td><td>Segments done</td><td>0x05</td><td></td><td></td></tr>
+<tr><td>ENQPI</td><td>Enter QPI mode</td><td>0x06</td><td></td><td></td></tr>
+<tr><td>WR_DONE</td><td>Write segments done</td><td>0x07</td><td></td><td></td></tr>
+<tr><td>CMD8</td><td>Interrupt</td><td>0x08</td><td></td><td></td></tr>
+<tr><td>CMD9</td><td>Interrupt</td><td>0x09</td><td></td><td></td></tr>
+<tr><td>CMDA</td><td>Interrupt</td><td>0x0A</td><td></td><td></td></tr>
+<tr><td>EXQPI</td><td>Exit QPI mode</td><td>0xDD</td><td></td><td></td></tr>
+</tbody></table>
+</div>
+<p>Moreover, <code>WRBUF</code>, <code>RDBUF</code>, <code>WRDMA</code>, and <code>RDDMA</code> commands have their 2-bit and 4-bit version. To do transactions in 2-bit or 4-bit mode, send the original command ORed by the corresponding command mask below. For example, command 0xA1 means WRBUF in QIO mode.</p>
+<div class="table-wrapper"><table><thead><tr><th>Mode</th><th>Mask</th></tr></thead><tbody>
+<tr><td>1-bit</td><td>0x00</td></tr>
+<tr><td>DOUT</td><td>0x10</td></tr>
+<tr><td>DIO</td><td>0x50</td></tr>
+<tr><td>QOUT</td><td>0x20</td></tr>
+<tr><td>QIO</td><td>0xA0</td></tr>
+<tr><td>QPI</td><td>0xA0</td></tr>
+</tbody></table>
+</div>
+<h2 id="segment-transaction-mode"><a class="header" href="#segment-transaction-mode">Segment Transaction Mode</a></h2>
+<p>Segment transaction mode is the only mode supported by the SPI Slave HD driver for now. In this mode, for a transaction the slave loads onto the DMA, the master is allowed to read or write in segments. In this way, the master does not have to prepare a large buffer as the size of data provided by the slave. After the master finishes reading/writing a buffer, it has to send the corresponding termination command to the slave as a synchronization signal. The slave driver will update new data (if exist) onto the DMA upon seeing the termination command.</p>
+<p>The termination command is <code>WR_DONE</code> (0x07) for <code>WRDMA</code> and <code>CMD8</code> (0x08) for <code>RDDMA</code>.</p>
+<p>Here is an example for the flow the master read data from the slave DMA:</p>
+<ol>
+<li>The slave loads 4092 bytes of data onto the RDDMA.</li>
+<li>The master do seven <code>RDDMA</code> transactions, each of them is 512 bytes long, and reads the first 3584 bytes from the slave.</li>
+<li>The master do the last <code>RDDMA</code> transaction of 512 bytes (equal, longer, or shorter than the total length loaded by the slave are all allowed). The first 508 bytes are valid data from the slave, while the last 4 bytes are meaningless bytes.</li>
+<li>The master sends <code>CMD8</code> to the slave.</li>
+<li>The slave loads another 4092 bytes of data onto the RDDMA.</li>
+<li>The master can start new reading transactions after it sends the <code>CMD8</code>.</li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="sdio_slave_protocol.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="api.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="sdio_slave_protocol.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="api.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

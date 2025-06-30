@@ -1,0 +1,1068 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>API Reference - ESP Serial Slave Link Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ESP Serial Slave Link Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/espressif/idf-extra-components/tree/master/esp_serial_slave_link" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/espressif/idf-extra-components/edit/master/esp_serial_slave_link/docs/src/api.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="api-reference"><a class="header" href="#api-reference">API Reference</a></h1>
+<h2 id="header-files"><a class="header" href="#header-files">Header files</a></h2>
+<ul>
+<li><a href="#file-includeesp_serial_slave_linkesslh">include/esp_serial_slave_link/essl.h</a></li>
+<li><a href="#file-includeesp_serial_slave_linkessl_sdioh">include/esp_serial_slave_link/essl_sdio.h</a></li>
+<li><a href="#file-includeesp_serial_slave_linkessl_sdio_defsh">include/esp_serial_slave_link/essl_sdio_defs.h</a></li>
+<li><a href="#file-includeesp_serial_slave_linkessl_spih">include/esp_serial_slave_link/essl_spi.h</a></li>
+</ul>
+<h2 id="file-includeesp_serial_slave_linkesslh"><a class="header" href="#file-includeesp_serial_slave_linkesslh">File include/esp_serial_slave_link/essl.h</a></h2>
+<h2 id="structures-and-types"><a class="header" href="#structures-and-types">Structures and Types</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Type</th><th style="text-align: left">Name</th></tr></thead><tbody>
+<tr><td style="text-align: right">typedef struct essl_dev_t *</td><td style="text-align: left"><a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a>  <br><em>Handle of an ESSL device.</em></td></tr>
+</tbody></table>
+</div>
+<h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Type</th><th style="text-align: left">Name</th></tr></thead><tbody>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_clear_intr"><strong>essl_clear_intr</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t intr_mask, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_get_intr"><strong>essl_get_intr</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t *intr_raw, uint32_t *intr_st, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_get_intr_ena"><strong>essl_get_intr_ena</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t *ena_mask_o, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_get_packet"><strong>essl_get_packet</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, void *out_data, size_t size, size_t *out_length, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_get_rx_data_size"><strong>essl_get_rx_data_size</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t *out_rx_size, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_get_tx_buffer_num"><strong>essl_get_tx_buffer_num</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t *out_tx_num, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_init"><strong>essl_init</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t wait_ms) <br><em>Initialize the slave.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_read_reg"><strong>essl_read_reg</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint8_t add, uint8_t *value_o, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_reset_cnt"><strong>essl_reset_cnt</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_send_packet"><strong>essl_send_packet</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, const void *start, size_t length, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_send_slave_intr"><strong>essl_send_slave_intr</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t intr_mask, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_set_intr_ena"><strong>essl_set_intr_ena</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t ena_mask, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_wait_for_ready"><strong>essl_wait_for_ready</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_wait_int"><strong>essl_wait_int</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint32_t wait_ms) <br></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_write_reg"><strong>essl_write_reg</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle, uint8_t addr, uint8_t value, uint8_t *value_o, uint32_t wait_ms) <br></td></tr>
+</tbody></table>
+</div>
+<h2 id="structures-and-types-documentation"><a class="header" href="#structures-and-types-documentation">Structures and Types Documentation</a></h2>
+<h3 id="typedef-essl_handle_t"><a class="header" href="#typedef-essl_handle_t">typedef <code>essl_handle_t</code></a></h3>
+<p><em>Handle of an ESSL device.</em></p>
+<pre><code class="language-c">typedef struct essl_dev_t* essl_handle_t;
+</code></pre>
+<h2 id="functions-documentation"><a class="header" href="#functions-documentation">Functions Documentation</a></h2>
+<h3 id="function-essl_clear_intr"><a class="header" href="#function-essl_clear_intr">function <code>essl_clear_intr</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_clear_intr (
+    essl_handle_t handle,
+    uint32_t intr_mask,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Clear interrupt bits of ESSL slave. All the bits set in the mask will be cleared, while other bits will stay the same.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>intr_mask</code> Mask of interrupt bits to clear.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: Success</li>
+<li>ESP_ERR_NOT_SUPPORTED: Current device does not support this function.</li>
+<li>One of the error codes from SDMMC host controller</li>
+</ul>
+<h3 id="function-essl_get_intr"><a class="header" href="#function-essl_get_intr">function <code>essl_get_intr</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_get_intr (
+    essl_handle_t handle,
+    uint32_t *intr_raw,
+    uint32_t *intr_st,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Get interrupt bits of ESSL slave.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>intr_raw</code> Output of the raw interrupt bits. Set to NULL if only masked bits are read.</li>
+<li><code>intr_st</code> Output of the masked interrupt bits. set to NULL if only raw bits are read.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: Success</li>
+<li>ESP_INVALID_ARG: If both <code>intr_raw</code> and<code>intr_st</code> are NULL.</li>
+<li>ESP_ERR_NOT_SUPPORTED: Current device does not support this function.</li>
+<li>One of the error codes from SDMMC host controller</li>
+</ul>
+<h3 id="function-essl_get_intr_ena"><a class="header" href="#function-essl_get_intr_ena">function <code>essl_get_intr_ena</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_get_intr_ena (
+    essl_handle_t handle,
+    uint32_t *ena_mask_o,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Get interrupt enable bits of ESSL slave.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>ena_mask_o</code> Output of interrupt bit enable mask.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK Success</li>
+<li>One of the error codes from SDMMC host controller</li>
+</ul>
+<h3 id="function-essl_get_packet"><a class="header" href="#function-essl_get_packet">function <code>essl_get_packet</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_get_packet (
+    essl_handle_t handle,
+    void *out_data,
+    size_t size,
+    size_t *out_length,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Get a packet from ESSL slave.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>out_data</code> Data output address</li>
+<li><code>size</code> The size of the output buffer, if the buffer is smaller than the size of data to receive from slave, the driver returns <code>ESP_ERR_NOT_FINISHED</code></li>
+<li><code>out_length</code> Output of length the data actually received from slave.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK Success: All the data has been read from the slave.</li>
+<li>ESP_ERR_INVALID_ARG: Invalid argument, The handle is not initialized or the other arguments are invalid.</li>
+<li>ESP_ERR_NOT_FINISHED: Read was successful, but there is still data remaining.</li>
+<li>ESP_ERR_NOT_FOUND: Slave is not ready to send data.</li>
+<li>ESP_ERR_NOT_SUPPORTED: This API is not supported in this mode</li>
+<li>One of the error codes from SDMMC/SPI host controller.</li>
+</ul>
+<h3 id="function-essl_get_rx_data_size"><a class="header" href="#function-essl_get_rx_data_size">function <code>essl_get_rx_data_size</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_get_rx_data_size (
+    essl_handle_t handle,
+    uint32_t *out_rx_size,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Get the size, in bytes, of the data that the ESSL slave is ready to send</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>out_rx_size</code> Output of data size to read from slave, in bytes</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: Success</li>
+<li>ESP_ERR_NOT_SUPPORTED: This API is not supported in this mode</li>
+<li>One of the error codes from SDMMC/SPI host controller</li>
+</ul>
+<h3 id="function-essl_get_tx_buffer_num"><a class="header" href="#function-essl_get_tx_buffer_num">function <code>essl_get_tx_buffer_num</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_get_tx_buffer_num (
+    essl_handle_t handle,
+    uint32_t *out_tx_num,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Get buffer num for the host to send data to the slave. The buffers are size of <code>buffer_size</code>.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of a ESSL device.</li>
+<li><code>out_tx_num</code> Output of buffer num that host can send data to ESSL slave.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: Success</li>
+<li>ESP_ERR_NOT_SUPPORTED: This API is not supported in this mode</li>
+<li>One of the error codes from SDMMC/SPI host controller</li>
+</ul>
+<h3 id="function-essl_init"><a class="header" href="#function-essl_init">function <code>essl_init</code></a></h3>
+<p><em>Initialize the slave.</em></p>
+<pre><code class="language-c">esp_err_t essl_init (
+    essl_handle_t handle,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: If success</li>
+<li>ESP_ERR_NOT_SUPPORTED: Current device does not support this function.</li>
+<li>Other value returned from lower layer <code>init</code>.</li>
+</ul>
+<h3 id="function-essl_read_reg"><a class="header" href="#function-essl_read_reg">function <code>essl_read_reg</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_read_reg (
+    essl_handle_t handle,
+    uint8_t add,
+    uint8_t *value_o,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Read general purpose R/W registers (8-bit) of ESSL slave.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of a <code>essl</code> device.</li>
+<li><code>add</code> Address of register to read. For SDIO, Valid address: 0-27, 32-63 (28-31 reserved, return interrupt bits on read). For SPI, see <code>essl_spi.h</code></li>
+<li><code>value_o</code> Output value read from the register.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK Success</li>
+<li>One of the error codes from SDMMC/SPI host controller</li>
+</ul>
+<h3 id="function-essl_reset_cnt"><a class="header" href="#function-essl_reset_cnt">function <code>essl_reset_cnt</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_reset_cnt (
+    essl_handle_t handle
+) 
+</code></pre>
+<p>Reset the counters of this component. Usually you don't need to do this unless you know the slave is reset.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: Success</li>
+<li>ESP_ERR_NOT_SUPPORTED: This API is not supported in this mode</li>
+<li>ESP_ERR_INVALID_ARG: Invalid argument, handle is not init.</li>
+</ul>
+<h3 id="function-essl_send_packet"><a class="header" href="#function-essl_send_packet">function <code>essl_send_packet</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_send_packet (
+    essl_handle_t handle,
+    const void *start,
+    size_t length,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Send a packet to the ESSL Slave. The Slave receives the packet into buffers whose size is <code>buffer_size</code> (configured during initialization).</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>start</code> Start address of the packet to send</li>
+<li><code>length</code> Length of data to send, if the packet is over-size, the it will be divided into blocks and hold into different buffers automatically.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK Success</li>
+<li>ESP_ERR_INVALID_ARG: Invalid argument, handle is not init or other argument is not valid.</li>
+<li>ESP_ERR_TIMEOUT: No buffer to use, or error ftrom SDMMC host controller.</li>
+<li>ESP_ERR_NOT_FOUND: Slave is not ready for receiving.</li>
+<li>ESP_ERR_NOT_SUPPORTED: This API is not supported in this mode</li>
+<li>One of the error codes from SDMMC/SPI host controller.</li>
+</ul>
+<h3 id="function-essl_send_slave_intr"><a class="header" href="#function-essl_send_slave_intr">function <code>essl_send_slave_intr</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_send_slave_intr (
+    essl_handle_t handle,
+    uint32_t intr_mask,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Send interrupts to slave. Each bit of the interrupt will be triggered.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>intr_mask</code> Mask of interrupt bits to send to slave.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: Success</li>
+<li>ESP_ERR_NOT_SUPPORTED: Current device does not support this function.</li>
+<li>One of the error codes from SDMMC host controller</li>
+</ul>
+<h3 id="function-essl_set_intr_ena"><a class="header" href="#function-essl_set_intr_ena">function <code>essl_set_intr_ena</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_set_intr_ena (
+    essl_handle_t handle,
+    uint32_t ena_mask,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Set interrupt enable bits of ESSL slave. The slave only sends interrupt on the line when there is a bit both the raw status and the enable are set.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>ena_mask</code> Mask of the interrupt bits to enable.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: Success</li>
+<li>ESP_ERR_NOT_SUPPORTED: Current device does not support this function.</li>
+<li>One of the error codes from SDMMC host controller</li>
+</ul>
+<h3 id="function-essl_wait_for_ready"><a class="header" href="#function-essl_wait_for_ready">function <code>essl_wait_for_ready</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_wait_for_ready (
+    essl_handle_t handle,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Wait for interrupt of an ESSL slave device.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: If success</li>
+<li>ESP_ERR_NOT_SUPPORTED: Current device does not support this function.</li>
+<li>One of the error codes from SDMMC host controller</li>
+</ul>
+<h3 id="function-essl_wait_int"><a class="header" href="#function-essl_wait_int">function <code>essl_wait_int</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_wait_int (
+    essl_handle_t handle,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>wait for an interrupt of the slave</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: If interrupt is triggered.</li>
+<li>ESP_ERR_NOT_SUPPORTED: Current device does not support this function.</li>
+<li>ESP_ERR_TIMEOUT: No interrupts before timeout.</li>
+</ul>
+<h3 id="function-essl_write_reg"><a class="header" href="#function-essl_write_reg">function <code>essl_write_reg</code></a></h3>
+<pre><code class="language-c">esp_err_t essl_write_reg (
+    essl_handle_t handle,
+    uint8_t addr,
+    uint8_t value,
+    uint8_t *value_o,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p>Write general purpose R/W registers (8-bit) of ESSL slave.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of an ESSL device.</li>
+<li><code>addr</code> Address of register to write. For SDIO, valid address: 0-59. For SPI, see <code>essl_spi.h</code></li>
+<li><code>value</code> Value to write to the register.</li>
+<li><code>value_o</code> Output of the returned written value.</li>
+<li><code>wait_ms</code> Millisecond to wait before timeout, will not wait at all if set to 0-9.</li>
+</ul>
+<p><strong>Note:</strong></p>
+<p>sdio 28-31 are reserved, the lower API helps to skip.</p>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK Success</li>
+<li>One of the error codes from SDMMC/SPI host controller</li>
+</ul>
+<h2 id="file-includeesp_serial_slave_linkessl_sdioh"><a class="header" href="#file-includeesp_serial_slave_linkessl_sdioh">File include/esp_serial_slave_link/essl_sdio.h</a></h2>
+<h2 id="structures-and-types-1"><a class="header" href="#structures-and-types-1">Structures and Types</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Type</th><th style="text-align: left">Name</th></tr></thead><tbody>
+<tr><td style="text-align: right">struct</td><td style="text-align: left"><a href="#struct-essl_sdio_config_t"><strong>essl_sdio_config_t</strong></a> <br><em>Configuration for the ESSL SDIO device.</em></td></tr>
+</tbody></table>
+</div>
+<h2 id="functions-1"><a class="header" href="#functions-1">Functions</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Type</th><th style="text-align: left">Name</th></tr></thead><tbody>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_sdio_deinit_dev"><strong>essl_sdio_deinit_dev</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle) <br><em>Deinitialize and free the space used by the ESSL SDIO device.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_sdio_init_dev"><strong>essl_sdio_init_dev</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> *out_handle, const <a href="#struct-essl_sdio_config_t"><strong>essl_sdio_config_t</strong></a> *config) <br><em>Initialize the ESSL SDIO device and get its handle.</em></td></tr>
+</tbody></table>
+</div>
+<h2 id="structures-and-types-documentation-1"><a class="header" href="#structures-and-types-documentation-1">Structures and Types Documentation</a></h2>
+<h3 id="struct-essl_sdio_config_t"><a class="header" href="#struct-essl_sdio_config_t">struct <code>essl_sdio_config_t</code></a></h3>
+<p><em>Configuration for the ESSL SDIO device.</em></p>
+<p>Variables:</p>
+<ul>
+<li>
+<p>sdmmc_card_t * card  <br><em>The initialized sdmmc card pointer of the slave.</em></p>
+</li>
+<li>
+<p>int recv_buffer_size  <br><em>The pre-negotiated recv buffer size used by both the host and the slave.</em></p>
+</li>
+</ul>
+<h2 id="functions-documentation-1"><a class="header" href="#functions-documentation-1">Functions Documentation</a></h2>
+<h3 id="function-essl_sdio_deinit_dev"><a class="header" href="#function-essl_sdio_deinit_dev">function <code>essl_sdio_deinit_dev</code></a></h3>
+<p><em>Deinitialize and free the space used by the ESSL SDIO device.</em></p>
+<pre><code class="language-c">esp_err_t essl_sdio_deinit_dev (
+    essl_handle_t handle
+) 
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of the ESSL SDIO device to deinit.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: on success</li>
+<li>ESP_ERR_INVALID_ARG: wrong handle passed</li>
+</ul>
+<h3 id="function-essl_sdio_init_dev"><a class="header" href="#function-essl_sdio_init_dev">function <code>essl_sdio_init_dev</code></a></h3>
+<p><em>Initialize the ESSL SDIO device and get its handle.</em></p>
+<pre><code class="language-c">esp_err_t essl_sdio_init_dev (
+    essl_handle_t *out_handle,
+    const essl_sdio_config_t *config
+) 
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>out_handle</code> Output of the handle.</li>
+<li><code>config</code> Configuration for the ESSL SDIO device.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: on success</li>
+<li>ESP_ERR_NO_MEM: memory exhausted.</li>
+</ul>
+<h2 id="file-includeesp_serial_slave_linkessl_sdio_defsh"><a class="header" href="#file-includeesp_serial_slave_linkessl_sdio_defsh">File include/esp_serial_slave_link/essl_sdio_defs.h</a></h2>
+<h2 id="structures-and-types-2"><a class="header" href="#structures-and-types-2">Structures and Types</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Type</th><th style="text-align: left">Name</th></tr></thead><tbody>
+<tr><td style="text-align: right">struct</td><td style="text-align: left"><a href="#struct-essl_sdio_def_t"><strong>essl_sdio_def_t</strong></a> <br></td></tr>
+</tbody></table>
+</div>
+<h2 id="structures-and-types-documentation-2"><a class="header" href="#structures-and-types-documentation-2">Structures and Types Documentation</a></h2>
+<h3 id="struct-essl_sdio_def_t"><a class="header" href="#struct-essl_sdio_def_t">struct <code>essl_sdio_def_t</code></a></h3>
+<p>This file contains SDIO Slave hardware specific requirements</p>
+<p>Variables:</p>
+<ul>
+<li>uint32_t new_packet_intr_mask</li>
+</ul>
+<h2 id="file-includeesp_serial_slave_linkessl_spih"><a class="header" href="#file-includeesp_serial_slave_linkessl_spih">File include/esp_serial_slave_link/essl_spi.h</a></h2>
+<h2 id="structures-and-types-3"><a class="header" href="#structures-and-types-3">Structures and Types</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Type</th><th style="text-align: left">Name</th></tr></thead><tbody>
+<tr><td style="text-align: right">struct</td><td style="text-align: left"><a href="#struct-essl_spi_config_t"><strong>essl_spi_config_t</strong></a> <br><em>Configuration of ESSL SPI device.</em></td></tr>
+</tbody></table>
+</div>
+<h2 id="functions-2"><a class="header" href="#functions-2">Functions</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Type</th><th style="text-align: left">Name</th></tr></thead><tbody>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_deinit_dev"><strong>essl_spi_deinit_dev</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> handle) <br><em>Deinitialize the ESSL SPI device and free the memory used by the device.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_get_packet"><strong>essl_spi_get_packet</strong></a> (void *arg, void *out_data, size_t size, uint32_t wait_ms) <br><em>Get a packet from Slave.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_init_dev"><strong>essl_spi_init_dev</strong></a> (<a href="#typedef-essl_handle_t"><strong>essl_handle_t</strong></a> *out_handle, const <a href="#struct-essl_spi_config_t"><strong>essl_spi_config_t</strong></a> *init_config) <br><em>Initialize the ESSL SPI device function list and get its handle.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_rdbuf"><strong>essl_spi_rdbuf</strong></a> (spi_device_handle_t spi, uint8_t *out_data, int addr, int len, uint32_t flags) <br><em>Read the shared buffer from the slave in ISR way.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_rdbuf_polling"><strong>essl_spi_rdbuf_polling</strong></a> (spi_device_handle_t spi, uint8_t *out_data, int addr, int len, uint32_t flags) <br><em>Read the shared buffer from the slave in polling way.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_rddma"><strong>essl_spi_rddma</strong></a> (spi_device_handle_t spi, uint8_t *out_data, int len, int seg_len, uint32_t flags) <br><em>Receive long buffer in segments from the slave through its DMA.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_rddma_done"><strong>essl_spi_rddma_done</strong></a> (spi_device_handle_t spi, uint32_t flags) <br><em>Send the</em> <code>rddma_done</code>_ command to the slave. Upon receiving this command, the slave will stop sending the current buffer even there are data unsent, and maybe prepare the next buffer to send._</td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_rddma_seg"><strong>essl_spi_rddma_seg</strong></a> (spi_device_handle_t spi, uint8_t *out_data, int seg_len, uint32_t flags) <br><em>Read one data segment from the slave through its DMA.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_read_reg"><strong>essl_spi_read_reg</strong></a> (void *arg, uint8_t addr, uint8_t *out_value, uint32_t wait_ms) <br><em>Read from the shared registers.</em></td></tr>
+<tr><td style="text-align: right">void</td><td style="text-align: left"><a href="#function-essl_spi_reset_cnt"><strong>essl_spi_reset_cnt</strong></a> (void *arg) <br><em>Reset the counter in Master context.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_send_packet"><strong>essl_spi_send_packet</strong></a> (void *arg, const void *data, size_t size, uint32_t wait_ms) <br><em>Send a packet to Slave.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_wrbuf"><strong>essl_spi_wrbuf</strong></a> (spi_device_handle_t spi, const uint8_t *data, int addr, int len, uint32_t flags) <br><em>Write the shared buffer of the slave in ISR way.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_wrbuf_polling"><strong>essl_spi_wrbuf_polling</strong></a> (spi_device_handle_t spi, const uint8_t *data, int addr, int len, uint32_t flags) <br><em>Write the shared buffer of the slave in polling way.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_wrdma"><strong>essl_spi_wrdma</strong></a> (spi_device_handle_t spi, const uint8_t *data, int len, int seg_len, uint32_t flags) <br><em>Send long buffer in segments to the slave through its DMA.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_wrdma_done"><strong>essl_spi_wrdma_done</strong></a> (spi_device_handle_t spi, uint32_t flags) <br><em>Send the</em> <code>wrdma_done</code>_ command to the slave. Upon receiving this command, the slave will stop receiving, process the received data, and maybe prepare the next buffer to receive._</td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_wrdma_seg"><strong>essl_spi_wrdma_seg</strong></a> (spi_device_handle_t spi, const uint8_t *data, int seg_len, uint32_t flags) <br><em>Send one data segment to the slave through its DMA.</em></td></tr>
+<tr><td style="text-align: right">esp_err_t</td><td style="text-align: left"><a href="#function-essl_spi_write_reg"><strong>essl_spi_write_reg</strong></a> (void *arg, uint8_t addr, uint8_t value, uint8_t *out_value, uint32_t wait_ms) <br><em>Write to the shared registers.</em></td></tr>
+</tbody></table>
+</div>
+<h2 id="structures-and-types-documentation-3"><a class="header" href="#structures-and-types-documentation-3">Structures and Types Documentation</a></h2>
+<h3 id="struct-essl_spi_config_t"><a class="header" href="#struct-essl_spi_config_t">struct <code>essl_spi_config_t</code></a></h3>
+<p><em>Configuration of ESSL SPI device.</em></p>
+<p>Variables:</p>
+<ul>
+<li>
+<p>uint8_t rx_sync_reg  <br><em>The pre-negotiated register ID for Master-RX-Slave-TX synchronization. 1 word (4 Bytes) will be reserved for the synchronization.</em></p>
+</li>
+<li>
+<p>spi_device_handle_t * spi  <br><em>Pointer to SPI device handle.</em></p>
+</li>
+<li>
+<p>uint32_t tx_buf_size  <br><em>The pre-negotiated Master TX buffer size used by both the host and the slave.</em></p>
+</li>
+<li>
+<p>uint8_t tx_sync_reg  <br><em>The pre-negotiated register ID for Master-TX-SLAVE-RX synchronization. 1 word (4 Bytes) will be reserved for the synchronization.</em></p>
+</li>
+</ul>
+<h2 id="functions-documentation-2"><a class="header" href="#functions-documentation-2">Functions Documentation</a></h2>
+<h3 id="function-essl_spi_deinit_dev"><a class="header" href="#function-essl_spi_deinit_dev">function <code>essl_spi_deinit_dev</code></a></h3>
+<p><em>Deinitialize the ESSL SPI device and free the memory used by the device.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_deinit_dev (
+    essl_handle_t handle
+) 
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>handle</code> Handle of the ESSL SPI device</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: On success</li>
+<li>ESP_ERR_INVALID_STATE: ESSL SPI is not in use</li>
+</ul>
+<h3 id="function-essl_spi_get_packet"><a class="header" href="#function-essl_spi_get_packet">function <code>essl_spi_get_packet</code></a></h3>
+<p><em>Get a packet from Slave.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_get_packet (
+    void *arg,
+    void *out_data,
+    size_t size,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>arg</code> Context of the component. (Member <code>arg</code> from<code>essl_handle_t</code>)</li>
+<li><code>out_data</code> Output data address</li>
+<li><code>size</code> The size of the output data.</li>
+<li><code>wait_ms</code> Time to wait before timeout (reserved for future use, user should set this to 0).</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: On Success</li>
+<li>ESP_ERR_INVALID_STATE: ESSL SPI has not been initialized.</li>
+<li>ESP_ERR_INVALID_ARG: The output data address is neither DMA capable nor 4 byte-aligned</li>
+<li>ESP_ERR_INVALID_SIZE: Master requires <code>size</code> bytes of data but Slave did not load enough bytes.</li>
+</ul>
+<h3 id="function-essl_spi_init_dev"><a class="header" href="#function-essl_spi_init_dev">function <code>essl_spi_init_dev</code></a></h3>
+<p><em>Initialize the ESSL SPI device function list and get its handle.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_init_dev (
+    essl_handle_t *out_handle,
+    const essl_spi_config_t *init_config
+) 
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>out_handle</code> Output of the handle</li>
+<li><code>init_config</code> Configuration for the ESSL SPI device</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: On success</li>
+<li>ESP_ERR_NO_MEM: Memory exhausted</li>
+<li>ESP_ERR_INVALID_STATE: SPI driver is not initialized</li>
+<li>ESP_ERR_INVALID_ARG: Wrong register ID</li>
+</ul>
+<h3 id="function-essl_spi_rdbuf"><a class="header" href="#function-essl_spi_rdbuf">function <code>essl_spi_rdbuf</code></a></h3>
+<p><em>Read the shared buffer from the slave in ISR way.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_rdbuf (
+    spi_device_handle_t spi,
+    uint8_t *out_data,
+    int addr,
+    int len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>The slave's HW doesn't guarantee the data in one SPI transaction is consistent. It sends data in unit of byte. In other words, if the slave SW attempts to update the shared register when a rdbuf SPI transaction is in-flight, the data got by the master will be the combination of bytes of different writes of slave SW.</p>
+<p><strong>Note:</strong></p>
+<p><code>out_data</code> should be prepared in words and in the DRAM. The buffer may be written in words by the DMA. When a byte is written, the remaining bytes in the same word will also be overwritten, even the<code>len</code> is shorter than a word.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>out_data</code> Buffer for read data, strongly suggested to be in the DRAM and aligned to 4</li>
+<li><code>addr</code> Address of the slave shared buffer</li>
+<li><code>len</code> Length to read</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: on success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_rdbuf_polling"><a class="header" href="#function-essl_spi_rdbuf_polling">function <code>essl_spi_rdbuf_polling</code></a></h3>
+<p><em>Read the shared buffer from the slave in polling way.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_rdbuf_polling (
+    spi_device_handle_t spi,
+    uint8_t *out_data,
+    int addr,
+    int len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p><code>out_data</code> should be prepared in words and in the DRAM. The buffer may be written in words by the DMA. When a byte is written, the remaining bytes in the same word will also be overwritten, even the<code>len</code> is shorter than a word.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>out_data</code> Buffer for read data, strongly suggested to be in the DRAM and aligned to 4</li>
+<li><code>addr</code> Address of the slave shared buffer</li>
+<li><code>len</code> Length to read</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: on success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_rddma"><a class="header" href="#function-essl_spi_rddma">function <code>essl_spi_rddma</code></a></h3>
+<p><em>Receive long buffer in segments from the slave through its DMA.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_rddma (
+    spi_device_handle_t spi,
+    uint8_t *out_data,
+    int len,
+    int seg_len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>This function combines several :cpp:func:<code>essl_spi_rddma_seg</code> and one :cpp:func:<code>essl_spi_rddma_done</code> at the end. Used when the slave is working in segment mode.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>out_data</code> Buffer to hold the received data, strongly suggested to be in the DRAM and aligned to 4</li>
+<li><code>len</code> Total length of data to receive.</li>
+<li><code>seg_len</code> Length of each segment, which is not larger than the maximum transaction length allowed for the spi device. Suggested to be multiples of 4. When set &lt; 0, means send all data in one segment (the <code>rddma_done</code> will still be sent.)</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_rddma_done"><a class="header" href="#function-essl_spi_rddma_done">function <code>essl_spi_rddma_done</code></a></h3>
+<p><em>Send the</em> <code>rddma_done</code>_ command to the slave. Upon receiving this command, the slave will stop sending the current buffer even there are data unsent, and maybe prepare the next buffer to send._</p>
+<pre><code class="language-c">esp_err_t essl_spi_rddma_done (
+    spi_device_handle_t spi,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>This is required only when the slave is working in segment mode.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_rddma_seg"><a class="header" href="#function-essl_spi_rddma_seg">function <code>essl_spi_rddma_seg</code></a></h3>
+<p><em>Read one data segment from the slave through its DMA.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_rddma_seg (
+    spi_device_handle_t spi,
+    uint8_t *out_data,
+    int seg_len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>To read long buffer, call :cpp:func:<code>essl_spi_rddma</code> instead.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>out_data</code> Buffer to hold the received data. strongly suggested to be in the DRAM and aligned to 4</li>
+<li><code>seg_len</code> Length of this segment</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_read_reg"><a class="header" href="#function-essl_spi_read_reg">function <code>essl_spi_read_reg</code></a></h3>
+<p><em>Read from the shared registers.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_read_reg (
+    void *arg,
+    uint8_t addr,
+    uint8_t *out_value,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>The registers for Master/Slave synchronization are reserved. Do not use them. (see <code>rx_sync_reg</code> in<code>essl_spi_config_t</code>)</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>arg</code> Context of the component. (Member <code>arg</code> from<code>essl_handle_t</code>)</li>
+<li><code>addr</code> Address of the shared registers. (Valid: 0 ~ SOC_SPI_MAXIMUM_BUFFER_SIZE, registers for M/S sync are reserved, see note1).</li>
+<li><code>out_value</code> Read buffer for the shared registers.</li>
+<li><code>wait_ms</code> Time to wait before timeout (reserved for future use, user should set this to 0).</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>ESP_ERR_INVALID_STATE: ESSL SPI has not been initialized.</li>
+<li>ESP_ERR_INVALID_ARG: The address argument is not valid. See note 1.</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_reset_cnt"><a class="header" href="#function-essl_spi_reset_cnt">function <code>essl_spi_reset_cnt</code></a></h3>
+<p><em>Reset the counter in Master context.</em></p>
+<pre><code class="language-c">void essl_spi_reset_cnt (
+    void *arg
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>Shall only be called if the slave has reset its counter. Else, Slave and Master would be desynchronized</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>arg</code> Context of the component. (Member <code>arg</code> from<code>essl_handle_t</code>)</li>
+</ul>
+<h3 id="function-essl_spi_send_packet"><a class="header" href="#function-essl_spi_send_packet">function <code>essl_spi_send_packet</code></a></h3>
+<p><em>Send a packet to Slave.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_send_packet (
+    void *arg,
+    const void *data,
+    size_t size,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>arg</code> Context of the component. (Member <code>arg</code> from<code>essl_handle_t</code>)</li>
+<li><code>data</code> Address of the data to send</li>
+<li><code>size</code> Size of the data to send.</li>
+<li><code>wait_ms</code> Time to wait before timeout (reserved for future use, user should set this to 0).</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: On success</li>
+<li>ESP_ERR_INVALID_STATE: ESSL SPI has not been initialized.</li>
+<li>ESP_ERR_INVALID_ARG: The data address is not DMA capable</li>
+<li>ESP_ERR_INVALID_SIZE: Master will send <code>size</code> bytes of data but Slave did not load enough RX buffer</li>
+</ul>
+<h3 id="function-essl_spi_wrbuf"><a class="header" href="#function-essl_spi_wrbuf">function <code>essl_spi_wrbuf</code></a></h3>
+<p><em>Write the shared buffer of the slave in ISR way.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_wrbuf (
+    spi_device_handle_t spi,
+    const uint8_t *data,
+    int addr,
+    int len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p><code>out_data</code> should be prepared in words and in the DRAM. The buffer may be written in words by the DMA. When a byte is written, the remaining bytes in the same word will also be overwritten, even the<code>len</code> is shorter than a word.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>data</code> Buffer for data to send, strongly suggested to be in the DRAM</li>
+<li><code>addr</code> Address of the slave shared buffer,</li>
+<li><code>len</code> Length to write</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_wrbuf_polling"><a class="header" href="#function-essl_spi_wrbuf_polling">function <code>essl_spi_wrbuf_polling</code></a></h3>
+<p><em>Write the shared buffer of the slave in polling way.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_wrbuf_polling (
+    spi_device_handle_t spi,
+    const uint8_t *data,
+    int addr,
+    int len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p><code>out_data</code> should be prepared in words and in the DRAM. The buffer may be written in words by the DMA. When a byte is written, the remaining bytes in the same word will also be overwritten, even the<code>len</code> is shorter than a word.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>data</code> Buffer for data to send, strongly suggested to be in the DRAM</li>
+<li><code>addr</code> Address of the slave shared buffer,</li>
+<li><code>len</code> Length to write</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_polling_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_wrdma"><a class="header" href="#function-essl_spi_wrdma">function <code>essl_spi_wrdma</code></a></h3>
+<p><em>Send long buffer in segments to the slave through its DMA.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_wrdma (
+    spi_device_handle_t spi,
+    const uint8_t *data,
+    int len,
+    int seg_len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>This function combines several :cpp:func:<code>essl_spi_wrdma_seg</code> and one :cpp:func:<code>essl_spi_wrdma_done</code> at the end. Used when the slave is working in segment mode.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>data</code> Buffer for data to send, strongly suggested to be in the DRAM</li>
+<li><code>len</code> Total length of data to send.</li>
+<li><code>seg_len</code> Length of each segment, which is not larger than the maximum transaction length allowed for the spi device. Suggested to be multiples of 4. When set &lt; 0, means send all data in one segment (the <code>wrdma_done</code> will still be sent.)</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_wrdma_done"><a class="header" href="#function-essl_spi_wrdma_done">function <code>essl_spi_wrdma_done</code></a></h3>
+<p><em>Send the</em> <code>wrdma_done</code>_ command to the slave. Upon receiving this command, the slave will stop receiving, process the received data, and maybe prepare the next buffer to receive._</p>
+<pre><code class="language-c">esp_err_t essl_spi_wrdma_done (
+    spi_device_handle_t spi,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>This is required only when the slave is working in segment mode.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_wrdma_seg"><a class="header" href="#function-essl_spi_wrdma_seg">function <code>essl_spi_wrdma_seg</code></a></h3>
+<p><em>Send one data segment to the slave through its DMA.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_wrdma_seg (
+    spi_device_handle_t spi,
+    const uint8_t *data,
+    int seg_len,
+    uint32_t flags
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>To send long buffer, call :cpp:func:<code>essl_spi_wrdma</code> instead.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>spi</code> SPI device handle representing the slave</li>
+<li><code>data</code> Buffer for data to send, strongly suggested to be in the DRAM</li>
+<li><code>seg_len</code> Length of this segment</li>
+<li><code>flags</code> <code>SPI_TRANS_*</code> flags to control the transaction mode of the transaction to send.</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+<h3 id="function-essl_spi_write_reg"><a class="header" href="#function-essl_spi_write_reg">function <code>essl_spi_write_reg</code></a></h3>
+<p><em>Write to the shared registers.</em></p>
+<pre><code class="language-c">esp_err_t essl_spi_write_reg (
+    void *arg,
+    uint8_t addr,
+    uint8_t value,
+    uint8_t *out_value,
+    uint32_t wait_ms
+) 
+</code></pre>
+<p><strong>Note:</strong></p>
+<p>The registers for Master/Slave synchronization are reserved. Do not use them. (see <code>tx_sync_reg</code> in<code>essl_spi_config_t</code>)</p>
+<p><strong>Note:</strong></p>
+<p>Feature of checking the actual written value (<code>out_value</code>) is not supported.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>arg</code> Context of the component. (Member <code>arg</code> from<code>essl_handle_t</code>)</li>
+<li><code>addr</code> Address of the shared registers. (Valid: 0 ~ SOC_SPI_MAXIMUM_BUFFER_SIZE, registers for M/S sync are reserved, see note1)</li>
+<li><code>value</code> Buffer for data to send, should be align to 4.</li>
+<li><code>out_value</code> Not supported, should be set to NULL.</li>
+<li><code>wait_ms</code> Time to wait before timeout (reserved for future use, user should set this to 0).</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>ESP_OK: success</li>
+<li>ESP_ERR_INVALID_STATE: ESSL SPI has not been initialized.</li>
+<li>ESP_ERR_INVALID_ARG: The address argument is not valid. See note 1.</li>
+<li>ESP_ERR_NOT_SUPPORTED: Should set <code>out_value</code> to NULL. See note 2.</li>
+<li>or other return value from :cpp:func:<code>spi_device_transmit</code>.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="spi_slave_hd_protocol.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="spi_slave_hd_protocol.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
