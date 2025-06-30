@@ -6,6 +6,9 @@ sdkconfig.old
 dependencies.lock
 **/managed_components/**
 .vscode/
-doxygen/
 .cache
 warnings.txt
+# Ignore artifacts for documentation build
+doxygen_output/
+**/docs/book/
+docs_build_output/

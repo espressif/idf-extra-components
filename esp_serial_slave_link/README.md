@@ -1,11 +1,11 @@
-# Espressif Serial Slave Link (ESSL) component
+# Espressif Serial Slave Link (ESSL) Library
 
 [![Component Registry](https://components.espressif.com/components/espressif/esp_serial_slave_link/badge.svg)](https://components.espressif.com/components/espressif/esp_serial_slave_link)
 
-This component used to reside in [esp-idf](https://github.com/espressif/esp-idf) project as its component.
+It's used on the HOST, to communicate with ESP chips as SLAVE via SDIO or SPI slave HD mode.
 
-It's used on the HOST, to communicate with ESP chips as SLAVE via SDIO/SPI slave HD mode.
+## Documentation
 
-The port layer (`essl_sdio.c/essl_spi.c`) are currently only written to run on ESP chips in master mode, but you may also modify them to work on more platforms.
+For detailed information about the Espressif Serial Slave Link component, including API reference and user guides, please visit:
 
-See more documentation: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_serial_slave_link.html
+-   **Programming Guide & API Reference**: [Espressif Serial Slave Link Documentation](https://espressif.github.io/idf-extra-components/latest/esp_serial_slave_link/index.html)
