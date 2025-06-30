@@ -1,17 +1,29 @@
 name: Build and Deploy Programming Guides
+
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  build-docs:
+  build:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@master
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -27,11 +39,11 @@ jobs:
 
       - name: Build docs 🔧
         run: |
+          version="latest"
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            python3 ./.github/build_docs.py --pr-number ${{ github.event.pull_request.number }}
-          else
-            python3 ./.github/build_docs.py
+          version="pr-preview-${{ github.event.pull_request.number }}"
           fi
+          python3 ./.github/build_docs.py --version "$version" --output-dir "docs_build_output"
 
       - name: Check Links 🔍
         uses: lycheeverse/lychee-action@v2
@@ -44,23 +56,30 @@ jobs:
           # Fail the action if broken links are found
           fail: true
 
-      # For merge events, prepare files for deployment by copying directly to docs_to_public/latest
+      # Create directory structure for GitHub Pages with "version prefix"
       - name: Prepare files for deployment 📁
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
-          # Create docs_to_public/latest directory
-          mkdir -p docs_to_public/latest
-          # Copy files from docs_build_output directly to docs_to_public/latest
-          cp -r docs_build_output/* docs_to_public/latest/
-          echo "Files ready for deployment in docs_to_public/latest directory"
+          version="latest"
+          mkdir -p "gh-pages/$version"
+          cp -r docs_build_output/* "gh-pages/$version/"
 
-      # Deploy to gh-pages branch only for master pushes
-      - name: Deploy to Github Pages 🚀
+      - name: Upload Pages artifact 📤
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: JamesIves/github-pages-deploy-action@releases/v3
+        uses: actions/upload-pages-artifact@v3
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: ./docs_to_public
-          # The following settings ensure we don't delete other content when deploying
-          CLEAN: false
+          path: gh-pages
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}latest/
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Pages 📥
+        uses: actions/configure-pages@v5
+      - name: Deploy to GitHub Pages 🚀
+        id: deployment
+        uses: actions/deploy-pages@v4

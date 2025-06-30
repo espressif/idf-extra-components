@@ -15,7 +15,7 @@ import subprocess
 import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import List, Union
 
 
 # Configure logging
@@ -32,7 +32,7 @@ class BuildConfig:
     """Configuration for the documentation build process."""
     repo_root: pathlib.Path
     output_dir: pathlib.Path
-    pr_number: Optional[str] = None
+    version: str = "latest"
     fail_fast: bool = True
 
 
@@ -131,11 +131,8 @@ def build_component_docs(component_name: str, config: BuildConfig) -> bool:
         # Build mdbook
         env = os.environ.copy()
 
-        # Set site-url based on whether this is a PR or merge event
-        if config.pr_number:
-            site_url = f"/idf-extra-components/pr-preview-{config.pr_number}/{component_name}/"
-        else:
-            site_url = f"/idf-extra-components/latest/{component_name}/"
+        # Set site-url based on version
+        site_url = f"/idf-extra-components/{config.version}/{component_name}/"
 
         logger.info(f"Setting site-url to: {site_url}")
         env["MDBOOK_OUTPUT__HTML__SITE_URL"] = site_url
@@ -244,9 +241,10 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--pr-number",
+        "--version",
         type=str,
-        help="PR number for preview builds"
+        default="latest",
+        help="Version identifier for the docs (e.g., 'latest', 'v1.0', 'pr-preview-123')"
     )
     parser.add_argument(
         "--output-dir",
@@ -279,13 +277,13 @@ def main():
     config = BuildConfig(
         repo_root=pathlib.Path.cwd(),
         output_dir=pathlib.Path.cwd() / args.output_dir,
-        pr_number=args.pr_number,
+        version=args.version,
         fail_fast=not args.no_fail_fast
     )
 
     logger.info("Building documentation with config:")
     logger.info(f"- Output directory: {config.output_dir}")
-    logger.info(f"- PR number: {config.pr_number or 'None'}")
+    logger.info(f"- Version: {config.version}")
     logger.info(f"- Fail fast: {config.fail_fast}")
 
     # Build all documentation
