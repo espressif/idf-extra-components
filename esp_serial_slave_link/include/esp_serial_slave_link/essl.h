@@ -29,7 +29,8 @@ typedef struct essl_dev_t *essl_handle_t;
  */
 esp_err_t essl_init(essl_handle_t handle, uint32_t wait_ms);
 
-/** Wait for interrupt of an ESSL slave device.
+/**
+ * @brief Wait for interrupt of an ESSL slave device.
  *
  * @param handle Handle of an ESSL device.
  * @param wait_ms Millisecond to wait before timeout, will not wait at all if set to 0-9.
@@ -41,7 +42,8 @@ esp_err_t essl_init(essl_handle_t handle, uint32_t wait_ms);
  */
 esp_err_t essl_wait_for_ready(essl_handle_t handle, uint32_t wait_ms);
 
-/** Get buffer num for the host to send data to the slave. The buffers are size of ``buffer_size``.
+/**
+ * @brief Get buffer num for the host to send data to the slave. The buffers are size of ``buffer_size``.
  *
  * @param handle Handle of a ESSL device.
  * @param out_tx_num Output of buffer num that host can send data to ESSL slave.
@@ -54,7 +56,8 @@ esp_err_t essl_wait_for_ready(essl_handle_t handle, uint32_t wait_ms);
  */
 esp_err_t essl_get_tx_buffer_num(essl_handle_t handle, uint32_t *out_tx_num, uint32_t wait_ms);
 
-/** Get the size, in bytes, of the data that the ESSL slave is ready to send
+/**
+ * @brief Get the size, in bytes, of the data that the ESSL slave is ready to send
  *
  * @param handle Handle of an ESSL device.
  * @param out_rx_size Output of data size to read from slave, in bytes
@@ -68,7 +71,8 @@ esp_err_t essl_get_tx_buffer_num(essl_handle_t handle, uint32_t *out_tx_num, uin
 esp_err_t essl_get_rx_data_size(essl_handle_t handle, uint32_t *out_rx_size, uint32_t wait_ms);
 
 
-/** Reset the counters of this component. Usually you don't need to do this unless you know the slave is reset.
+/**
+ * @brief Reset the counters of this component. Usually you don't need to do this unless you know the slave is reset.
  *
  * @param handle Handle of an ESSL device.
  *
@@ -79,7 +83,8 @@ esp_err_t essl_get_rx_data_size(essl_handle_t handle, uint32_t *out_rx_size, uin
  */
 esp_err_t essl_reset_cnt(essl_handle_t handle);
 
-/** Send a packet to the ESSL Slave. The Slave receives the packet into buffers whose size is ``buffer_size`` (configured during initialization).
+/**
+ * @brief Send a packet to the ESSL Slave. The Slave receives the packet into buffers whose size is ``buffer_size`` (configured during initialization).
  *
  * @param handle Handle of an ESSL device.
  * @param start Start address of the packet to send
@@ -96,7 +101,8 @@ esp_err_t essl_reset_cnt(essl_handle_t handle);
  */
 esp_err_t essl_send_packet(essl_handle_t handle, const void *start, size_t length, uint32_t wait_ms);
 
-/** Get a packet from ESSL slave.
+/**
+ * @brief Get a packet from ESSL slave.
  *
  * @param handle Handle of an ESSL device.
  * @param[out] out_data Data output address
@@ -114,7 +120,8 @@ esp_err_t essl_send_packet(essl_handle_t handle, const void *start, size_t lengt
  */
 esp_err_t essl_get_packet(essl_handle_t handle, void *out_data, size_t size, size_t *out_length, uint32_t wait_ms);
 
-/** Write general purpose R/W registers (8-bit) of ESSL slave.
+/**
+ * @brief Write general purpose R/W registers (8-bit) of ESSL slave.
  *
  * @param handle Handle of an ESSL device.
  * @param addr Address of register to write. For SDIO, valid address: 0-59. For SPI, see ``essl_spi.h``
@@ -130,7 +137,8 @@ esp_err_t essl_get_packet(essl_handle_t handle, void *out_data, size_t size, siz
  */
 esp_err_t essl_write_reg(essl_handle_t handle, uint8_t addr, uint8_t value, uint8_t *value_o, uint32_t wait_ms);
 
-/** Read general purpose R/W registers (8-bit) of ESSL slave.
+/**
+ * @brief Read general purpose R/W registers (8-bit) of ESSL slave.
  *
  * @param handle Handle of a ``essl`` device.
  * @param add Address of register to read. For SDIO, Valid address: 0-27, 32-63 (28-31 reserved, return interrupt bits on read). For SPI, see ``essl_spi.h``
@@ -143,7 +151,8 @@ esp_err_t essl_write_reg(essl_handle_t handle, uint8_t addr, uint8_t value, uint
  */
 esp_err_t essl_read_reg(essl_handle_t handle, uint8_t add, uint8_t *value_o, uint32_t wait_ms);
 
-/** wait for an interrupt of the slave
+/**
+ * @brief wait for an interrupt of the slave
  *
  * @param handle Handle of an ESSL device.
  * @param wait_ms Millisecond to wait before timeout, will not wait at all if set to 0-9.
@@ -155,7 +164,8 @@ esp_err_t essl_read_reg(essl_handle_t handle, uint8_t add, uint8_t *value_o, uin
  */
 esp_err_t essl_wait_int(essl_handle_t handle, uint32_t wait_ms);
 
-/** Clear interrupt bits of ESSL slave. All the bits set in the mask will be cleared, while other bits will stay the same.
+/**
+ * @brief Clear interrupt bits of ESSL slave. All the bits set in the mask will be cleared, while other bits will stay the same.
  *
  * @param handle Handle of an ESSL device.
  * @param intr_mask Mask of interrupt bits to clear.
@@ -168,7 +178,8 @@ esp_err_t essl_wait_int(essl_handle_t handle, uint32_t wait_ms);
  */
 esp_err_t essl_clear_intr(essl_handle_t handle, uint32_t intr_mask, uint32_t wait_ms);
 
-/** Get interrupt bits of ESSL slave.
+/**
+ * @brief Get interrupt bits of ESSL slave.
  *
  * @param handle Handle of an ESSL device.
  * @param intr_raw Output of the raw interrupt bits. Set to NULL if only masked bits are read.
@@ -183,7 +194,8 @@ esp_err_t essl_clear_intr(essl_handle_t handle, uint32_t intr_mask, uint32_t wai
  */
 esp_err_t essl_get_intr(essl_handle_t handle, uint32_t *intr_raw, uint32_t *intr_st, uint32_t wait_ms);
 
-/** Set interrupt enable bits of ESSL slave. The slave only sends interrupt on the line when there is a bit both the raw status and the enable are set.
+/**
+ * @brief Set interrupt enable bits of ESSL slave. The slave only sends interrupt on the line when there is a bit both the raw status and the enable are set.
  *
  * @param handle Handle of an ESSL device.
  * @param ena_mask Mask of the interrupt bits to enable.
@@ -196,7 +208,8 @@ esp_err_t essl_get_intr(essl_handle_t handle, uint32_t *intr_raw, uint32_t *intr
  */
 esp_err_t essl_set_intr_ena(essl_handle_t handle, uint32_t ena_mask, uint32_t wait_ms);
 
-/** Get interrupt enable bits of ESSL slave.
+/**
+ * @brief Get interrupt enable bits of ESSL slave.
  *
  * @param handle Handle of an ESSL device.
  * @param ena_mask_o Output of interrupt bit enable mask.
@@ -208,7 +221,8 @@ esp_err_t essl_set_intr_ena(essl_handle_t handle, uint32_t ena_mask, uint32_t wa
  */
 esp_err_t essl_get_intr_ena(essl_handle_t handle, uint32_t *ena_mask_o, uint32_t wait_ms);
 
-/** Send interrupts to slave. Each bit of the interrupt will be triggered.
+/**
+ * @brief Send interrupts to slave. Each bit of the interrupt will be triggered.
  *
  * @param handle Handle of an ESSL device.
  * @param intr_mask Mask of interrupt bits to send to slave.
