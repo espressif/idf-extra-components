@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "unity.h"
-#include "argtable3.h"
+#include "argtable3/argtable3.h"
 
 /* helper macros */
 #define ARG_TABLE_FREE(tbl) arg_freetable((tbl), sizeof(tbl)/sizeof(tbl[0]))
