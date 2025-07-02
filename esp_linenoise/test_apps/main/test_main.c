@@ -7,7 +7,6 @@
 #include "unity.h"
 #include "unity_test_runner.h"
 #include "esp_heap_caps.h"
-#include "esp_newlib.h"
 #include "unity_test_utils_memory.h"
 
 void setUp(void)
@@ -17,7 +16,6 @@ void setUp(void)
 
 void tearDown(void)
 {
-    esp_reent_cleanup();    //clean up some of the newlib's lazy allocations
     unity_utils_evaluate_leaks_direct(0);
 }
 
