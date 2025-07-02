@@ -4,12 +4,12 @@
 #include <string.h>
 #include "esp_linenoise.h"
 
-#define esp_LINENOISE_DEFAULT_PROMPT ">"
-#define esp_LINENOISE_DEFAULT_HISTORY_MAX_LENGTH 100
-#define esp_LINENOISE_DEFAULT_MAX_LINE 4096
-#define esp_LINENOISE_MINIMAL_MAX_LINE 64
-#define esp_LINENOISE_COMMAND_MAX_LEN 32
-#define esp_LINENOISE_PASTE_KEY_DELAY 30 /* Delay, in milliseconds, between two characters being pasted from clipboard */
+#define ESP_LINENOISE_DEFAULT_PROMPT ">"
+#define ESP_LINENOISE_DEFAULT_HISTORY_MAX_LENGTH 100
+#define ESP_LINENOISE_DEFAULT_MAX_LINE 4096
+#define ESP_LINENOISE_MINIMAL_MAX_LINE 64
+#define ESP_LINENOISE_COMMAND_MAX_LEN 32
+#define ESP_LINENOISE_PASTE_KEY_DELAY 30 /* Delay, in milliseconds, between two characters being pasted from clipboard */
 
 enum KEY_ACTION {
     KEY_NULL = 0,       /* NULL */

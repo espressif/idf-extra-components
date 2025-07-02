@@ -304,7 +304,7 @@ char *linenoise(const char *prompt)
     size_t cmd_line_length = 0;
     esp_err_t ret_val = esp_linenoise_get_max_cmd_line_length(instance, &cmd_line_length);
     if (ret_val != ESP_OK) {
-        cmd_line_length = esp_LINENOISE_COMMAND_MAX_LEN;
+        cmd_line_length = ESP_LINENOISE_COMMAND_MAX_LEN;
     }
     char *cmd_line = calloc(1, cmd_line_length);
     if (!cmd_line) {
@@ -398,7 +398,7 @@ int linenoiseHistoryLoad(const char *filename)
 }
 
 /* Set line maximum length. If len configeter is smaller than
- * esp_LINENOISE_MINIMAL_MAX_LINE, -1 is returned
+ * ESP_LINENOISE_MINIMAL_MAX_LINE, -1 is returned
  * otherwise 0 is returned. */
 int linenoiseSetMaxLineLen(size_t len)
 {
