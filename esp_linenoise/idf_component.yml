@@ -1,0 +1,9 @@
+version: "1.0.0"
+description: "ESP Linenoise - Line editing C library"
+url: https://github.com/espressif/idf-extra-components/tree/master/esp_linenoise
+dependencies:
+  idf: ">=6.0"
+sbom:
+  manifests:
+    - path: sbom_esp_linenoise.yml
+      dest: .
