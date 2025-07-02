@@ -49,6 +49,7 @@ body:
         - led_strip
         - libpng
         - libsodium
+        - esp_linenoise
         - network_provisioning
         - nghttp
         - onewire_bus
