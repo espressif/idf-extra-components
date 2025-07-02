@@ -137,17 +137,17 @@ typedef struct esp_linenoise_instance *esp_linenoise_handle_t;
 /**
  * @brief Returns the default parameters for creating a linenoise instance.
  *
- * @param config esp_linenoise_config_t structure to populate with default values.
+ * @param[out] config esp_linenoise_config_t structure to populate with default values.
  */
 void esp_linenoise_get_instance_config_default(esp_linenoise_config_t *config);
 
 /**
  * @brief Creates a new linenoise instance.
  *
- * @param param Pointer to the configuration parameters for the instance.
+ * @param config Pointer to the configuration parameters for the instance.
  * @return Handle to the created instance, or NULL on failure.
  */
-esp_linenoise_handle_t esp_linenoise_create_instance(esp_linenoise_config_t *param);
+esp_linenoise_handle_t esp_linenoise_create_instance(esp_linenoise_config_t *config);
 
 /**
  * @brief Destroys a linenoise instance and frees associated memory.
