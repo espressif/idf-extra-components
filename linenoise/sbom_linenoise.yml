@@ -1,0 +1,3 @@
+name: sbom_linenoise
+description: Line editing C library
+url: https://github.com/antirez/linenoise
