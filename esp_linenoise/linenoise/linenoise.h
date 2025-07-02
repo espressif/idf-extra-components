@@ -36,31 +36,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __LINENOISE_H
-#define __LINENOISE_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <sys/types.h>
-#include <unistd.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct linenoiseCompletions {
-  size_t len;
-  char **cvec;
-} linenoiseCompletions;
+typedef struct esp_linenoise_completions linenoiseCompletions;
 
 typedef void(linenoiseCompletionCallback)(const char *, linenoiseCompletions *);
-typedef char*(linenoiseHintsCallback)(const char *, int *color, int *bold);
+typedef char *(linenoiseHintsCallback)(const char *, int *color, int *bold);
 typedef void(linenoiseFreeHintsCallback)(void *);
+typedef ssize_t (*linenoiseReadBytesFn)(int fd, void *buf, size_t count);
+typedef ssize_t (*linenoiseWriteBytesFn)(int fd, const void *buf, size_t count);
+
 void linenoiseSetCompletionCallback(linenoiseCompletionCallback *);
 void linenoiseSetHintsCallback(linenoiseHintsCallback *);
 void linenoiseSetFreeHintsCallback(linenoiseFreeHintsCallback *);
 void linenoiseAddCompletion(linenoiseCompletions *, const char *);
+void linenoiseSetReadFunction(linenoiseReadBytesFn read_fn);
+void linenoiseSetWriteFunction(linenoiseWriteBytesFn write_fn);
+void linenoiseSetReadCharacteristics(void);
 
 int linenoiseProbe(void);
 char *linenoise(const char *prompt);
@@ -74,16 +74,9 @@ void linenoiseClearScreen(void);
 void linenoiseSetMultiLine(int ml);
 void linenoiseSetDumbMode(int set);
 bool linenoiseIsDumbMode(void);
-void linenoisePrintKeyCodes(void);
 void linenoiseAllowEmpty(bool);
 int linenoiseSetMaxLineLen(size_t len);
-
-typedef ssize_t (*linenoise_read_bytes_fn)(int, void*, size_t);
-void linenoiseSetReadFunction(linenoise_read_bytes_fn read_fn);
-void linenoiseSetReadCharacteristics(void);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __LINENOISE_H */
