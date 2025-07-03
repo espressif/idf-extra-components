@@ -12,7 +12,7 @@ set(includes "-I$<JOIN:${idf_include_directories}, -I>")
 
 set(c_flags "${includes} ${extra_defines} ")
 set(cxx_flags "${includes} ${extra_defines} ")
-set(common_flags "-ffunction-sections -fdata-sections -fpermissive -lm -Wno-error=enum-int-mismatch -Wno-error=format")
+set(common_flags "-ffunction-sections -fdata-sections -lm -Wno-error=enum-int-mismatch -Wno-error=format")
 
 if(CONFIG_IDF_TARGET_ARCH_XTENSA)
     set(assert_flags "${assert_flags} -mlongcalls ")
