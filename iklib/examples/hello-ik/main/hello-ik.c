@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <ik/ik.h>
 
-void app_main()
+void app_main(void);
+
+void app_main(void)
 {
     printf("Hello, IK!\n");
     /* Create a solver using the FABRIK algorithm */
