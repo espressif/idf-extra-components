@@ -1,0 +1,7 @@
+name: iklib
+version: 1.1.0
+cpe: cpe:1.1.0:a:iklib:iklib:{}:*:*:*:*:*:*:*
+supplier: 'Organization: iklib'
+description: IK is a inverse kinematic library
+url: https://github.com/TheComet/ik
+hash: c472230ecd6958f7a105d7188ebb1e871ef7a8b1
