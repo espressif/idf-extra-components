@@ -5,13 +5,13 @@ int app_main()
 {
     printf("Hello, IK!\n");
     /* Create a solver using the FABRIK algorithm */
-    struct ik_solver_t* solver = ik.solver.create(IK_FABRIK);
+    struct ik_solver_t *solver = ik.solver.create(IK_FABRIK);
 
     /* Create a simple 3-bone structure */
-    struct ik_node_t* root = solver->node->create(0);
-    struct ik_node_t* child1 = solver->node->create_child(root, 1);
-    struct ik_node_t* child2 = solver->node->create_child(child1, 2);
-    struct ik_node_t* child3 = solver->node->create_child(child2, 3);
+    struct ik_node_t *root = solver->node->create(0);
+    struct ik_node_t *child1 = solver->node->create_child(root, 1);
+    struct ik_node_t *child2 = solver->node->create_child(child1, 2);
+    struct ik_node_t *child3 = solver->node->create_child(child2, 3);
 
     /* Set node positions in local space so they form a straight line in the Y direction*/
     child1->position = ik.vec3.vec3(0, 10, 0);
@@ -19,7 +19,7 @@ int app_main()
     child3->position = ik.vec3.vec3(0, 10, 0);
 
     /* Attach an effector at the end */
-    struct ik_effector_t* eff = solver->effector->create();
+    struct ik_effector_t *eff = solver->effector->create();
     solver->effector->attach(eff, child3);
 
     /* set the target position of the effector to be somewhere within range */
