@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <ik/ik.h>
 
-int app_main()
+void app_main()
 {
     printf("Hello, IK!\n");
     /* Create a solver using the FABRIK algorithm */
@@ -43,5 +43,4 @@ int app_main()
     printf("child1 rotation: %f, %f, %f, %f\n", child1->rotation.x, child1->rotation.y, child1->rotation.z, child1->rotation.w);
     printf("child2 rotation: %f, %f, %f, %f\n", child2->rotation.x, child2->rotation.y, child2->rotation.z, child2->rotation.w);
     printf("child3 rotation: %f, %f, %f, %f\n", child3->rotation.x, child3->rotation.y, child3->rotation.z, child3->rotation.w);
-    return 0;
 }
