@@ -9,7 +9,8 @@
 #include "unity.h"
 #include "linenoise/linenoise.h"
 
-static linenoise_handle_t get_linenoise_default_instance_param(void) {
+static linenoise_handle_t get_linenoise_default_instance_param(void)
+{
     linenoise_instance_param_t param = linenoise_get_instance_param_default();
     linenoise_handle_t h = linenoise_create_instance(&param);
     TEST_ASSERT_NOT_NULL(h);
