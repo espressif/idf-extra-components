@@ -1,4 +1,4 @@
-# Jpeg-turbo for ESP-IDF
+# IK (Inverse Kinematic) library for ESP-IDF
 
 [![Component Registry](https://components.espressif.com/components/espressif/libjpeg-turbo/badge.svg)](https://components.espressif.com/components/espressif/libjpeg-turbo)
 
