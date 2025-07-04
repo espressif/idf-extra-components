@@ -1,0 +1,22 @@
+diff --git a/ik/CMakeLists.txt b/ik/CMakeLists.txt
+index faa98c4..f340e1f 100644
+--- a/ik/CMakeLists.txt
++++ b/ik/CMakeLists.txt
+@@ -289,13 +289,13 @@ target_compile_options (ik_obj
+     >
+     PRIVATE $<$<C_COMPILER_ID:GNU>:
+         -W -Wall -Wextra -Werror -Wshadow -Wconversion -Wno-unused-parameter -Wno-conversion -Wno-implicit-fallthrough
+-        -pedantic -pedantic-errors -fno-strict-aliasing -ffast-math
+-        $<$<BOOL:IK_PROFILING>:-pg -fno-omit-frame-pointer>
++        -fno-strict-aliasing -ffast-math
++        $<$<BOOL:IK_PROFILING>: -fno-omit-frame-pointer>
+     >
+     PRIVATE $<$<C_COMPILER_ID:Clang>:
+         -W -Wall -Wextra -Werror -Wshadow -Wconversion -Wno-unused-parameter -Wno-conversion -Wno-implicit-fallthrough
+-        -pedantic -pedantic-errors -fno-strict-aliasing -ffast-math
+-        $<$<BOOL:IK_PROFILING>:-pg -fno-omit-frame-pointer>
++        -fno-strict-aliasing -ffast-math
++        $<$<BOOL:IK_PROFILING>: -fno-omit-frame-pointer>
+     >
+ )
+ 

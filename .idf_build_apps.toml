@@ -23,6 +23,7 @@ manifest_file = [
     "quirc/.build-test-rules.yml",
     "zlib/.build-test-rules.yml",
     "libjpeg-turbo/.build-test-rules.yml",
+    "iklib/.build-test-rules.yml",
     ".build-test-rules.yml",
 ]
 check_warnings = true

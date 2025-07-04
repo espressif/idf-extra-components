@@ -56,6 +56,7 @@ body:
         - thorvg
         - zlib
         - libjpeg-turbo
+        - iklib
         - Other
     validations:
       required: true
