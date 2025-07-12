@@ -1,3 +1,8 @@
+## 2.5.1
+
+## Bugfixes:
+- Fixed the format of Kconfig file
+
 ## 2.5.0
 
 ### Enhancements:
