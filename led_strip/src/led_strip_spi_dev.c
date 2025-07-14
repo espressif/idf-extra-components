@@ -205,6 +205,10 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     ESP_GOTO_ON_FALSE((clock_resolution_khz < LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 + 300) && (clock_resolution_khz > LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
                       TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
 
+    if (led_config->led_model != LED_MODEL_WS2812) {
+        ESP_LOGW(TAG, "Only support WS2812. The timing requirements for other models may not be met");
+    }
+
     spi_strip->component_fmt = component_fmt;
     spi_strip->bytes_per_pixel = bytes_per_pixel;
     spi_strip->strip_len = led_config->max_leds;

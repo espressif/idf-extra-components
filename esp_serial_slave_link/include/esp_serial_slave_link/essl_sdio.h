@@ -47,10 +47,10 @@ esp_err_t essl_sdio_init_dev(essl_handle_t *out_handle, const essl_sdio_config_t
  */
 esp_err_t essl_sdio_deinit_dev(essl_handle_t handle);
 
-//Please call `essl_` functions witout `sdio` instead of calling these functions directly.
+// Please call `essl_` functions without `sdio` instead of calling these functions directly.
 /** @cond */
 /**
- * SDIO Initialize process of an ESSL SDIO slave device.
+ * @brief SDIO Initialize process of an ESSL SDIO slave device.
  *
  * @param arg Context of the ``essl`` component. Send to other functions later.
  * @param wait_ms Time to wait before operation is done, in ms.
@@ -62,7 +62,7 @@ esp_err_t essl_sdio_deinit_dev(essl_handle_t handle);
 esp_err_t essl_sdio_init(void *arg, uint32_t wait_ms);
 
 /**
- * Wait for interrupt of an ESSL SDIO slave device.
+ * @brief Wait for interrupt of an ESSL SDIO slave device.
  *
  * @param arg Context of the ``essl`` component.
  * @param wait_ms Time to wait before operation is done, in ms.
@@ -74,7 +74,7 @@ esp_err_t essl_sdio_init(void *arg, uint32_t wait_ms);
 esp_err_t essl_sdio_wait_for_ready(void *arg, uint32_t wait_ms);
 
 /**
- * Get buffer num for the host to send data to the slave. The buffers are size of ``buffer_size``.
+ * @brief Get buffer num for the host to send data to the slave. The buffers are size of ``buffer_size``.
  *
  * @param arg Context of the component.
  *
@@ -84,7 +84,8 @@ esp_err_t essl_sdio_wait_for_ready(void *arg, uint32_t wait_ms);
  */
 uint32_t essl_sdio_get_tx_buffer_num(void *arg);
 
-/** Get amount of data the ESSL SDIO slave preparing to send to host.
+/**
+ * @brief Get amount of data the ESSL SDIO slave preparing to send to host.
  *
  * @param arg Context of the component.
  *
@@ -95,7 +96,7 @@ uint32_t essl_sdio_get_tx_buffer_num(void *arg);
 uint32_t essl_sdio_get_rx_data_size(void *arg);
 
 /**
- * Send a packet to the ESSL SDIO slave. The slave receive the packet into buffers whose size is ``buffer_size`` in the arg.
+ * @brief Send a packet to the ESSL SDIO slave. The slave receive the packet into buffers whose size is ``buffer_size`` in the arg.
  *
  * @param arg Context of the component.
  * @param start Start address of the packet to send
@@ -110,7 +111,7 @@ uint32_t essl_sdio_get_rx_data_size(void *arg);
 esp_err_t essl_sdio_send_packet(void *arg, const void *start, size_t length, uint32_t wait_ms);
 
 /**
- * Get a packet from an ESSL SDIO slave.
+ * @brief Get a packet from an ESSL SDIO slave.
  *
  * @param arg Context of the component.
  * @param[out] out_data Data output address
@@ -125,7 +126,7 @@ esp_err_t essl_sdio_send_packet(void *arg, const void *start, size_t length, uin
 esp_err_t essl_sdio_get_packet(void *arg, void *out_data, size_t size, uint32_t wait_ms);
 
 /**
- * Wait for the interrupt from the SDIO slave.
+ * @brief Wait for the interrupt from the SDIO slave.
  *
  * @param arg Context of the component.
  * @param wait_ms Time to wait before timeout, in ms.
@@ -138,7 +139,7 @@ esp_err_t essl_sdio_get_packet(void *arg, void *out_data, size_t size, uint32_t 
 esp_err_t essl_sdio_wait_int(void *arg, uint32_t wait_ms);
 
 /**
- * Clear interrupt bits of an ESSL SDIO slave. All the bits set in the mask will be cleared, while other bits will stay the same.
+ * @brief Clear interrupt bits of an ESSL SDIO slave. All the bits set in the mask will be cleared, while other bits will stay the same.
  *
  * @param arg Context of the component.
  * @param intr_mask Mask of interrupt bits to clear.
@@ -151,7 +152,7 @@ esp_err_t essl_sdio_wait_int(void *arg, uint32_t wait_ms);
 esp_err_t essl_sdio_clear_intr(void *arg, uint32_t intr_mask, uint32_t wait_ms);
 
 /**
- * Get interrupt bits of an ESSL SDIO slave.
+ * @brief Get interrupt bits of an ESSL SDIO slave.
  *
  * @param arg Context of the component.
  * @param intr_raw Output of the raw interrupt bits. Set to NULL if only masked bits are read.
@@ -166,7 +167,7 @@ esp_err_t essl_sdio_clear_intr(void *arg, uint32_t intr_mask, uint32_t wait_ms);
 esp_err_t essl_sdio_get_intr(void *arg, uint32_t *intr_raw, uint32_t *intr_st, uint32_t wait_ms);
 
 /**
- * Set interrupt enable bits of an ESSL SDIO slave. The slave only sends interrupt on the line when there is a bit both the raw status and the enable are set.
+ * @brief Set interrupt enable bits of an ESSL SDIO slave. The slave only sends interrupt on the line when there is a bit both the raw status and the enable are set.
  *
  * @param arg Context of the component.
  * @param ena_mask Mask of the interrupt bits to enable.
@@ -179,7 +180,7 @@ esp_err_t essl_sdio_get_intr(void *arg, uint32_t *intr_raw, uint32_t *intr_st, u
 esp_err_t essl_sdio_set_intr_ena(void *arg, uint32_t ena_mask, uint32_t wait_ms);
 
 /**
- * Get interrupt enable bits of an ESSL SDIO slave.
+ * @brief Get interrupt enable bits of an ESSL SDIO slave.
  *
  * @param arg Context of the component.
  * @param ena_mask_o Output of interrupt bit enable mask.
@@ -192,7 +193,7 @@ esp_err_t essl_sdio_set_intr_ena(void *arg, uint32_t ena_mask, uint32_t wait_ms)
 esp_err_t essl_sdio_get_intr_ena(void *arg, uint32_t *ena_mask_o, uint32_t wait_ms);
 
 /**
- * Write general purpose R/W registers (8-bit) of an ESSL SDIO slave.
+ * @brief Write general purpose R/W registers (8-bit) of an ESSL SDIO slave.
  *
  * @param arg Context of the component.
  * @param addr Address of register to write. Valid address: 0-27, 32-63 (28-31 reserved).
@@ -207,7 +208,7 @@ esp_err_t essl_sdio_get_intr_ena(void *arg, uint32_t *ena_mask_o, uint32_t wait_
 esp_err_t essl_sdio_write_reg(void *arg, uint8_t addr, uint8_t value, uint8_t *value_o, uint32_t wait_ms);
 
 /**
- * Read general purpose R/W registers (8-bit) of an ESSL SDIO slave.
+ * @brief Read general purpose R/W registers (8-bit) of an ESSL SDIO slave.
  *
  * @param arg Context of the component.
  * @param add Address of register to read. Valid address: 0-27, 32-63 (28-31 reserved, return interrupt bits on read).
@@ -222,7 +223,7 @@ esp_err_t essl_sdio_write_reg(void *arg, uint8_t addr, uint8_t value, uint8_t *v
 esp_err_t essl_sdio_read_reg(void *arg, uint8_t add, uint8_t *value_o, uint32_t wait_ms);
 
 /**
- * Send interrupts to slave. Each bit of the interrupt will be triggered.
+ * @brief Send interrupts to slave. Each bit of the interrupt will be triggered.
  *
  * @param arg Context of the component.
  * @param intr_mask Mask of interrupt bits to send to slave.

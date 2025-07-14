@@ -15,7 +15,7 @@ uint8_t dummy_pbkdf2_output[32] = {
 bool esp_encrypted_is_hmac_key_burnt_in_efuse(hmac_key_id_t hmac_key_id)
 {
     // Simulate the behavior of checking if the HMAC key is burnt in efuse
-    // For this example, we'll assume that the key is always burnt
+    // For this example, we'll assume that the key is always burnt in for key ID 2
     if (hmac_key_id == 2) {
         return true;
     }

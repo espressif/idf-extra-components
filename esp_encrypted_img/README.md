@@ -216,11 +216,16 @@ When using an HMAC-derived device key for ECIES-P256, the device hmac key must b
 
     Replace `BLOCK_KEY<N>` with the actual eFuse block you intend to use (e.g., `BLOCK_KEY0`, `BLOCK_KEY1`, etc., up to `BLOCK_KEY5` typically).
 
-2. **Kconfig Configuration for eFuse Block:**
+2. **Code Configuration:**
 
-    The eFuse block chosen in the command above must match the configuration in your project. In the `pre_encrypted_ota` example, this is set using the Kconfig option:
+    The eFuse block chosen in the command above must match the HMAC key ID used in your application code. In the `pre_encrypted_ota` example, the HMAC key ID is defined in the source code and should be updated to match your chosen eFuse block.
 
-    * `PRE_ENC_OTA_HMAC_EFUSE_KEY_ID`: This integer value (e.g., 0 for `BLOCK_KEY0`, 1 for `BLOCK_KEY1`, etc.) specifies which eFuse key block holds the HMAC key. Ensure this matches the `<N>` used in the `efuse-burn-key` command.
+    ```c
+    #define HMAC_UP_KEY_ID 2
+    esp_decrypt_cfg_t cfg = {
+        .hmac_key_id = HMAC_UP_KEY_ID,
+    };
+    ```
 
 **Selecting OTA Scheme in Example:**
 
@@ -259,6 +264,42 @@ Make sure these configurations are set correctly in your project's configuration
     ```
 
     The public key of the ephemeral server key pair used for ECDH is embedded in the image but not saved to a separate file.
+
+## Per Device Unique Key Support
+
+The `esp_encrypted_img` component supports workflows where each device is provisioned with a unique key pair. This is essential for scenarios requiring per-device image encryption and secure provisioning. By exporting the public key from the device or key management system, you can automate image generation and ensure that only the intended device can decrypt its firmware or data.
+
+It is the application's responsibility to:
+- Generate the key using a good entropy source (the [ESP-IDF Random Number Generation APIs](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/random.html) provide suggested approach using ESP-IDF APIs).
+- Flash the generated key to the device securely (e.g., to eFuse or in Flash).
+- Retrieve the public key (using the API below), send it to the server, and use it to generate pre-encrypted OTA binaries for each device.
+
+<details>
+<summary>How to Export the Public Key</summary>
+
+### Exporting the Public Key Programmatically
+
+The component provides an API to retrieve the public key associated with the decryption context:
+
+```c
+/**
+ * @brief  Export the public key corresponding to the private key.
+ *         The application should free the memory pointed by `pub_key` after use.
+ *         For RSA, the public key is in DER format and corresponds to the private key passed with `esp_encrypted_img_decrypt_start()`.
+ *         For ECIES, the public key is in DER format and is derived from the HMAC key ID passed with `esp_encrypted_img_decrypt_start()`.
+ *
+ * @param ctx   esp_decrypt_handle_t handle
+ * @param pub_key   Pointer to store the public key
+ * @param pub_key_len   Pointer to store the length of the public key
+ * @return esp_err_t   Status of the operation
+ */
+esp_err_t esp_encrypted_img_export_public_key(esp_decrypt_handle_t ctx, uint8_t **pub_key, size_t *pub_key_len);
+```
+
+- **RSA-3072:** Returns the public key in DER format.
+- **ECIES-P256:** Returns the public key in DER format and is derived from the HMAC key ID.
+
+</details>
 
 ### Getting More Help
 

@@ -1,3 +1,7 @@
+## 1.3.1
+
+- Fixed the format of Kconfig file
+
 ## 1.3.0
 
 - Added option to get image size without decoding it

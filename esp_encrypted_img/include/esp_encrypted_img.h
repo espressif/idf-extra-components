@@ -181,6 +181,19 @@ esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx);
 */
 uint16_t esp_encrypted_img_get_header_size(void);
 
+/**
+ * @brief  Export the public key corresponding to the private key.
+ *         The application should free the memory pointed by `pub_key` after use.
+ *         For RSA, the public key is in DER format and corresponds to the private key passed with `esp_encrypted_img_decrypt_start()`.
+ *         For ECIES, the public key is in DER format and is derived from the HMAC key ID passed with `esp_encrypted_img_decrypt_start()`.
+ *
+ * @param ctx   esp_decrypt_handle_t handle
+ * @param pub_key   Pointer to store the public key
+ * @param pub_key_len   Pointer to store the length of the public key
+ * @return esp_err_t   Status of the operation
+ */
+esp_err_t esp_encrypted_img_export_public_key(esp_decrypt_handle_t ctx, uint8_t **pub_key, size_t *pub_key_len);
+
 #ifdef __cplusplus
 }
 #endif
