@@ -68,6 +68,7 @@ jobs:
             zlib;
             libpng;
             libjpeg-turbo;
+            iklib;
           namespace: "espressif"
           # API token will only be available in the master branch in the main repository.
           # However, dry-run doesn't require a valid token.

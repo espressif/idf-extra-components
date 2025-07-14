@@ -69,3 +69,6 @@
 [submodule "libjpeg-turbo/libjpeg-turbo"]
 	path = libjpeg-turbo/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
+[submodule "iklib/ik"]
+	path = iklib/ik
+	url = https://github.com/TheComet/ik.git
