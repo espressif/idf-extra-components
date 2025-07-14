@@ -1,0 +1,6 @@
+version: "1.0.0"
+description: Driver for UART emulator
+url: https://github.com/espressif/idf-extra-components/tree/master/uart_emu
+issues: "https://github.com/espressif/idf-extra-components/issues"
+dependencies:
+  idf: ">=5.1"

@@ -1,0 +1,8 @@
+[book]
+title = "UART EMU"
+language = "en"
+
+[output.html]
+default-theme = "light"
+git-repository-url = "https://github.com/espressif/idf-extra-components/tree/master/uart_emu"
+edit-url-template = "https://github.com/espressif/idf-extra-components/edit/master/uart_emu/docs/{path}"
