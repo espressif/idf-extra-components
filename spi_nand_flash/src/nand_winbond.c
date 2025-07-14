@@ -41,6 +41,9 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
     case WINBOND_DI_BC21:
         dev->chip.num_blocks = 1024;
         break;
+    case WINBOND_DI_AA22:
+        dev->chip.num_blocks = 2048;
+        break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
     }
