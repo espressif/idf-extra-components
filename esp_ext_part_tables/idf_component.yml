@@ -1,0 +1,8 @@
+version: "0.1.0"
+description: ESP External Partition Tables
+url: https://github.com/espressif/idf-extra-components/tree/master/esp_ext_part_tables
+issues: https://github.com/espressif/idf-extra-components/issues
+repository: https://github.com/espressif/idf-extra-components.git
+dependencies:
+  idf:
+    version: ">=5.1"

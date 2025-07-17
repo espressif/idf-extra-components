@@ -1,0 +1,4 @@
+esp_ext_part_tables/examples/basic:
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 2) or (IDF_VERSION_MAJOR >= 6)) and IDF_TARGET == "linux"
+      reason: Host test is enough, linux build support is from IDF v5.2
