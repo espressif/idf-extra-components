@@ -21,7 +21,7 @@ static char s_line_returned[CMD_LINE_LENGTH] = {0};
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 static bool completions_called = false;
-void custom_completion_cb(const char *str, esp_linenoise_completions_t *lc, void *user_ctx)
+static void custom_completion_cb(void *user_ctx, const char *str, esp_linenoise_completions_t *lc)
 {
     // we just want to see that the callback is indeed called
     // so flip the completions_called to true
@@ -31,7 +31,7 @@ void custom_completion_cb(const char *str, esp_linenoise_completions_t *lc, void
 }
 
 static bool hint_called = false;
-char *custom_hint_cb(const char *str, int *color, int *bold, void *user_ctx)
+static char *custom_hint_cb(void *user_ctx, const char *str, int *color, int *bold)
 {
     // we just want to see that the callback is indeed called
     // so flip the hint_called to true
@@ -39,11 +39,11 @@ char *custom_hint_cb(const char *str, int *color, int *bold, void *user_ctx)
         hint_called = true;
     }
 
-    return NULL;
+    return "something";
 }
 
 static bool free_hint_called = false;
-void custom_free_hint_cb(void *ptr, void *user_ctx)
+static void custom_free_hint_cb(void *user_ctx, void *ptr)
 {
     // we just want to see that the callback is indeed called
     // so flip the free_hint_called to true
@@ -52,7 +52,7 @@ void custom_free_hint_cb(void *ptr, void *user_ctx)
     }
 }
 
-static ssize_t custom_read(int fd, void *buf, size_t count, void *user_ctx)
+static ssize_t custom_read(void *user_ctx, int fd, void *buf, size_t count)
 {
     // otherwise just propagate the read
     (void)user_ctx;
@@ -67,7 +67,7 @@ static ssize_t custom_read(int fd, void *buf, size_t count, void *user_ctx)
     return nread;
 }
 
-ssize_t custom_write(int fd, const void *buf, size_t count, void *user_ctx)
+static ssize_t custom_write(void *user_ctx, int fd, const void *buf, size_t count)
 {
     // printf("writing : ");
     // for (size_t i = 0; i < count; i++) {
@@ -122,8 +122,8 @@ static void test_setup(esp_linenoise_config_t *config)
     // redirect read and write calls from linenoise to be able
     // to e.g., process sequences sent from linenoise and thus
     // simulate that the terminal supports escape sequences
-    config->read_bytes_fn = custom_read;
-    config->write_bytes_fn = custom_write;
+    config->read_bytes_cb = custom_read;
+    config->write_bytes_cb = custom_write;
 
     // take the semaphore
     pthread_mutex_lock(&lock);
@@ -171,7 +171,28 @@ static void *get_line_task(void *arg)
     return NULL;
 }
 
-TEST_CASE("linenoise: esp_linenoise_get_line() returns line read from in_fd", "[linenoise]")
+typedef struct get_line_task_args {
+    esp_err_t ret_val;
+    char *buf;
+    size_t buf_size;
+} get_line_task_args_t;
+
+static void *get_line_task_w_args(void *args)
+{
+    get_line_task_args_t *task_args = (get_line_task_args_t *)args;
+
+    // wait for the instance to properly initialize before unlocking
+    // the mutex so the test can run
+    usleep(100000);
+
+    // release the mutex so the test can start sending data
+    pthread_mutex_unlock(&lock);
+
+    task_args->ret_val = esp_linenoise_get_line(s_linenoise_hdl, task_args->buf, task_args->buf_size);
+    return NULL;
+}
+
+TEST_CASE("esp_linenoise_get_line() returns line read from in_fd", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -197,7 +218,7 @@ TEST_CASE("linenoise: esp_linenoise_get_line() returns line read from in_fd", "[
     test_teardown();
 }
 
-TEST_CASE("linenoise: custom prompt string appears on output", "[linenoise]")
+TEST_CASE("custom prompt string appears on output", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -227,7 +248,7 @@ TEST_CASE("linenoise: custom prompt string appears on output", "[linenoise]")
     test_teardown();
 }
 
-TEST_CASE("linenoise: cursor left/right and insert edits input correctly", "[linenoise][]")
+TEST_CASE("cursor left/right and insert edits input correctly", "[linenoise][]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -268,7 +289,7 @@ TEST_CASE("linenoise: cursor left/right and insert edits input correctly", "[lin
     test_teardown();
 }
 
-TEST_CASE("linenoise: CTRL-A moves cursor home, CTRL-E moves cursor end, inserts work correctly", "[edit][cursor][home][end]")
+TEST_CASE("CTRL-A moves cursor home, CTRL-E moves cursor end, inserts work correctly", "[edit][cursor][home][end]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -308,7 +329,7 @@ TEST_CASE("linenoise: CTRL-A moves cursor home, CTRL-E moves cursor end, inserts
     test_teardown();
 }
 
-TEST_CASE("linenoise: history navigation with CTRL-P / CTRL-N works correctly", "[edit][history]")
+TEST_CASE("history navigation with CTRL-P / CTRL-N works correctly", "[edit][history]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -358,7 +379,7 @@ TEST_CASE("linenoise: history navigation with CTRL-P / CTRL-N works correctly", 
     test_teardown();
 }
 
-TEST_CASE("linenoise: backspace erases the character before the cursor", "[edit][delete]")
+TEST_CASE("backspace erases the character before the cursor", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -394,7 +415,7 @@ TEST_CASE("linenoise: backspace erases the character before the cursor", "[edit]
     test_teardown();
 }
 
-TEST_CASE("linenoise: CTRL-D removes character at the right of the cursor", "[edit][delete]")
+TEST_CASE("CTRL-D removes character at the right of the cursor", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -436,7 +457,7 @@ TEST_CASE("linenoise: CTRL-D removes character at the right of the cursor", "[ed
     test_teardown();
 }
 
-TEST_CASE("linenoise: CTRL-T swaps character with previous", "[edit][delete]")
+TEST_CASE("CTRL-T swaps character with previous", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -469,7 +490,7 @@ TEST_CASE("linenoise: CTRL-T swaps character with previous", "[edit][delete]")
     test_teardown();
 }
 
-TEST_CASE("linenoise: CTRL-U deletes the whole line", "[edit][delete]")
+TEST_CASE("CTRL-U deletes the whole line", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -502,7 +523,7 @@ TEST_CASE("linenoise: CTRL-U deletes the whole line", "[edit][delete]")
     test_teardown();
 }
 
-TEST_CASE("linenoise: CTRL-K deletes from character to end of line", "[edit][delete]")
+TEST_CASE("CTRL-K deletes from character to end of line", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -544,7 +565,7 @@ TEST_CASE("linenoise: CTRL-K deletes from character to end of line", "[edit][del
     test_teardown();
 }
 
-TEST_CASE("linenoise: CTRL-L clears the screen", "[edit][delete]")
+TEST_CASE("CTRL-L clears the screen", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -579,7 +600,7 @@ TEST_CASE("linenoise: CTRL-L clears the screen", "[edit][delete]")
     test_teardown();
 }
 
-TEST_CASE("linenoise: CTRL-W removes the previous word", "[edit][delete]")
+TEST_CASE("CTRL-W removes the previous word", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -616,7 +637,7 @@ TEST_CASE("linenoise: CTRL-W removes the previous word", "[edit][delete]")
     test_teardown();
 }
 
-TEST_CASE("linenoise: check completion, hint and free hint callback", "[edit][delete]")
+TEST_CASE("check completion, hint and free hint callback", "[linenoise]")
 {
     esp_linenoise_config_t config;
     test_setup(&config);
@@ -647,6 +668,120 @@ TEST_CASE("linenoise: check completion, hint and free hint callback", "[edit][de
     TEST_ASSERT_EQUAL(true, hint_called);
     TEST_ASSERT_EQUAL(true, completions_called);
     TEST_ASSERT_EQUAL(true, free_hint_called);
+
+    test_teardown();
+}
+
+TEST_CASE("check esp_linenoise_get_line return values", "[linenoise]")
+{
+    esp_linenoise_config_t config;
+    test_setup(&config);
+
+    s_linenoise_hdl = esp_linenoise_create_instance(&config);
+    TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
+
+    const size_t buffer_size = 10;
+    char buffer[buffer_size];
+
+    // pass NULL buffer, expect invalid arg error
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_linenoise_get_line(s_linenoise_hdl, NULL, buffer_size));
+    // pass 0 buffer size, expect invalid arg error
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_linenoise_get_line(s_linenoise_hdl, buffer, 0));
+    // pass buffer size bigger than max cmd line length, expect invalid arg error
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_linenoise_get_line(s_linenoise_hdl, buffer, config.max_cmd_line_length + 1));
+
+    // update the value of allow_empty_line to false and send an empty
+    // line, expect esp_linenoise_get_line to return with ESP_FAIL
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_set_empty_line(s_linenoise_hdl, false));
+
+    pthread_t thread_id;
+    get_line_task_args_t args = {
+        .ret_val = ESP_OK,
+        .buf = buffer,
+        .buf_size = buffer_size
+    };
+    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task_w_args, &args));
+
+    // wait until the linenoise instance init is done, and the get line as started
+    // before sending test content
+    pthread_mutex_lock(&lock);
+
+    // Newline (accept)
+    test_send_characters("\n");
+
+    // Wait for loop to finish
+    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+
+    // check that esp_linenoise_get_line returned ESP_FAIL
+    TEST_ASSERT_EQUAL(ESP_FAIL, args.ret_val);
+
+    test_teardown();
+}
+
+TEST_CASE("check cmd line is bigger than the buffer", "[linenoise]")
+{
+    esp_linenoise_config_t config;
+    test_setup(&config);
+
+    s_linenoise_hdl = esp_linenoise_create_instance(&config);
+    TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
+
+    const size_t buffer_size = 10;
+    char buffer[buffer_size];
+
+    // update the value of allow_empty_line to false and send an empty
+    // line, expect esp_linenoise_get_line to return with ESP_FAIL
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_set_empty_line(s_linenoise_hdl, false));
+
+    pthread_t thread_id;
+    get_line_task_args_t args = {
+        .ret_val = ESP_OK,
+        .buf = buffer,
+        .buf_size = buffer_size
+    };
+    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task_w_args, &args));
+
+    // wait until the linenoise instance init is done, and the get line as started
+    // before sending test content
+    pthread_mutex_lock(&lock);
+
+    // send more characters than the size of the buffer when linenoise
+    // has dumb mode turned off
+    test_send_characters("aaaaaaaaaaa\n");
+
+    // Wait for loop to finish
+    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+
+    // check that esp_linenoise_get_line returned ESP_OK
+    TEST_ASSERT_EQUAL(ESP_OK, args.ret_val);
+    // linenoise should return when size of buffer - 1 is filled
+    TEST_ASSERT_EQUAL(buffer_size - 1, strlen(buffer));
+
+    // reset the buffer and release the mutex
+    pthread_mutex_unlock(&lock);
+    memset(buffer, 0, buffer_size);
+
+    // switch the dumb mode on
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_set_dumb_mode(s_linenoise_hdl, true));
+
+    // repeat the test
+    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task_w_args, &args));
+
+    // wait until the linenoise instance init is done, and the get line as started
+    // before sending test content
+    pthread_mutex_lock(&lock);
+
+    // send more characters than the size of the buffer when linenoise
+    // has dumb mode turned on
+    test_send_characters("aaaaaaaaaaa\n");
+
+    // Wait for loop to finish
+    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+
+    // check that esp_linenoise_get_line returned ESP_OK and the
+    // number of char is equal to buffer_size - 1
+    TEST_ASSERT_EQUAL(ESP_OK, args.ret_val);
+    TEST_ASSERT_EQUAL(buffer_size - 1, strlen(buffer));
 
     test_teardown();
 }

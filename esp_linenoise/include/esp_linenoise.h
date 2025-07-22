@@ -1,42 +1,14 @@
-/* linenoise.h -- VERSION 1.0
+/*
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
  *
- * Guerrilla line editing library against the idea that a line editing lib
- * needs to be 20,000 lines of C code.
- *
- * See linenoise.c for more information.
- *
- * ------------------------------------------------------------------------
- *
- * Copyright (c) 2010-2014, Salvatore Sanfilippo <antirez at gmail dot com>
- * Copyright (c) 2010-2013, Pieter Noordhuis <pcnoordhuis at gmail dot com>
- *
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- *  *  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *  *  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -60,52 +32,52 @@ typedef struct esp_linenoise_completions {
 /**
  * @brief Callback function for providing completions.
  *
+ * @param user_ctx User-defined context pointer passed from the configuration.
  * @param str Input string from the user.
  * @param lc Pointer to the completions object to be populated.
- * @param user_ctx User-defined context pointer passed from the configuration.
  */
-typedef void (*esp_linenoise_completion_callback)(const char *str, esp_linenoise_completions_t *lc, void *user_ctx);
+typedef void (*esp_linenoise_completion_t)(void *user_ctx, const char *str, esp_linenoise_completions_t *lc);
 
 /**
  * @brief Callback function for providing inline hints during input.
  *
+ * @param user_ctx User-defined context pointer passed from the configuration.
  * @param str Input string from the user.
  * @param color Pointer to an integer to set the hint text color (e.g., ANSI color code).
  * @param bold Pointer to an integer to set bold attribute (non-zero for bold).
- * @param user_ctx User-defined context pointer passed from the configuration.
  * @return A dynamically allocated hint string, or NULL if no hint is available.
  */
-typedef char *(*esp_linenoise_hints_callback)(const char *str, int *color, int *bold, void *user_ctx);
+typedef char *(*esp_linenoise_hints_t)(void *user_ctx, const char *str, int *color, int *bold);
 
 /**
  * @brief Callback function to free hint strings returned by the hints callback.
  *
- * @param ptr Pointer to the hint string to be freed.
  * @param user_ctx User-defined context pointer passed from the configuration.
+ * @param ptr Pointer to the hint string to be freed.
  */
-typedef void (*esp_linenoise_free_hints_callback)(void *ptr, void *user_ctx);
+typedef void (*esp_linenoise_free_hints_t)(void *user_ctx, void *ptr);
 
 /**
  * @brief Function pointer type for reading bytes.
  *
+ * @param user_ctx User-defined context pointer passed from the configuration.
  * @param fd File descriptor.
  * @param buf Buffer to store the read bytes.
  * @param count Number of bytes to read.
- * @param user_ctx User-defined context pointer passed from the configuration.
  * @return Number of bytes read, or -1 on error.
  */
-typedef ssize_t (*esp_linenoise_read_bytes_fn)(int fd, void *buf, size_t count, void *user_cx);
+typedef ssize_t (*esp_linenoise_read_bytes_t)(void *user_ctx, int fd, void *buf, size_t count);
 
 /**
  * @brief Function pointer type for writing bytes.
  *
+ * @param user_ctx User-defined context pointer passed from the configuration.
  * @param fd File descriptor.
  * @param buf Buffer containing bytes to write.
  * @param count Number of bytes to write.
- * @param user_ctx User-defined context pointer passed from the configuration.
  * @return Number of bytes written, or -1 on error.
  */
-typedef ssize_t (*esp_linenoise_write_bytes_fn)(int fd, const void *buf, size_t count, void *user_ctx);
+typedef ssize_t (*esp_linenoise_write_bytes_t)(void *user_ctx, int fd, const void *buf, size_t count);
 
 /**
  * @brief Structure defining the parameters needed by a linenoise
@@ -120,12 +92,12 @@ typedef struct esp_linenoise_config {
     bool allow_multi_line; /*!< Whether to allow multi-line input (true to enable) */
     bool allow_empty_line; /*!< Whether to allow accepting an empty line as valid input */
     bool allow_dumb_mode; /*!< Whether to allow running in dumb terminal mode (without advanced features) */
-    esp_linenoise_completion_callback completion_cb; /*!< Callback function for handling input completions */
-    esp_linenoise_hints_callback hints_cb; /*!< Callback function to provide input hints (e.g., usage suggestions) */
-    esp_linenoise_free_hints_callback free_hints_cb; /*!< Callback function to free hints returned by `hints_cb` */
+    esp_linenoise_completion_t completion_cb; /*!< Callback function for handling input completions */
+    esp_linenoise_hints_t hints_cb; /*!< Callback function to provide input hints (e.g., usage suggestions) */
+    esp_linenoise_free_hints_t free_hints_cb; /*!< Callback function to free hints returned by `hints_cb` */
+    esp_linenoise_read_bytes_t read_bytes_cb; /*!< Function used to read bytes from the input stream */
+    esp_linenoise_write_bytes_t write_bytes_cb; /*!< Function used to write bytes to the output stream */
     void *user_ctx; /*!< User context information passed to the callbacks */
-    esp_linenoise_read_bytes_fn read_bytes_fn; /*!< Function used to read bytes from the input stream */
-    esp_linenoise_write_bytes_fn write_bytes_fn; /*!< Function used to write bytes to the output stream */
     char **history; /*!< Pointer to the history buffer (used internally; typically initialized to NULL) */
 } esp_linenoise_config_t;
 
@@ -147,7 +119,7 @@ void esp_linenoise_get_instance_config_default(esp_linenoise_config_t *config);
  * @param config Pointer to the configuration parameters for the instance.
  * @return Handle to the created instance, or NULL on failure.
  */
-esp_linenoise_handle_t esp_linenoise_create_instance(esp_linenoise_config_t *config);
+esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_t *config);
 
 /**
  * @brief Destroys a linenoise instance and frees associated memory.
@@ -171,10 +143,20 @@ void esp_linenoise_add_completion(esp_linenoise_completions_t *lc, const char *s
 /**
  * @brief Reads a line of input from the user into a buffer.
  *
+ * @note In the event where the input line matches or exceeds
+ * the size of the buffer passed in parameter, the function
+ * will stop registering newly received characters until new line
+ * is received. Then, the function will return cmd_line_length - 1
+ * characters (the last character being the nullterm '\0')
+ * This behavior applies whether the dumb mode is on or off.
+ *
  * @param handle Handle to the linenoise instance.
  * @param cmd_line_buffer Buffer to store the input line.
  * @param cmd_line_length Length of the command line buffer.
- * @return ESP_OK on success, or error code on failure.
+ * @return ESP_OK on success.
+ *         ESP_FAIL if empty line returned and allow_empty_line is set to false.
+ *         ESP_ERR_INVALID_ARG if cmd_line_buffer is NULL or cmd_line_length
+ *         is equal to 0 or superior to the value of max_cmd_line_length.
  */
 esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_buffer, size_t cmd_line_length);
 
@@ -301,3 +283,7 @@ esp_err_t esp_linenoise_set_max_cmd_line_length(esp_linenoise_handle_t handle, s
  * @return ESP_OK on success, or error code on failure.
  */
 esp_err_t esp_linenoise_get_max_cmd_line_length(esp_linenoise_handle_t handle, size_t *max_cmd_line_length);
+
+#ifdef __cplusplus
+}
+#endif

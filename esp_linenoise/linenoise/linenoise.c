@@ -116,7 +116,7 @@ static linenoiseFreeHintsCallback *s_free_hints_cb = NULL;
 static linenoiseReadBytesFn s_read_cb = NULL;
 static linenoiseWriteBytesFn s_write_cb = NULL;
 
-static void completion_default_cb(const char *str, esp_linenoise_completions_t *lc, void *user_ctx)
+static void completion_default_cb(void *user_ctx, const char *str, esp_linenoise_completions_t *lc)
 {
     (void)user_ctx; /* used because incompatible with legacy code */
 
@@ -126,7 +126,7 @@ static void completion_default_cb(const char *str, esp_linenoise_completions_t *
     s_completion_cb(str, lc);
 }
 
-static char *hints_default_cb(const char *str, int *color, int *bold, void *user_ctx)
+static char *hints_default_cb(void *user_ctx, const char *str, int *color, int *bold)
 {
     (void)user_ctx; /* used because incompatible with legacy code */
 
@@ -136,7 +136,7 @@ static char *hints_default_cb(const char *str, int *color, int *bold, void *user
     return s_hints_cb(str, color, bold);
 }
 
-static void free_hints_default_cb(void *ptr, void *user_ctx)
+static void free_hints_default_cb(void *user_ctx, void *ptr)
 {
     (void)user_ctx; /* used because incompatible with legacy code */
 
@@ -146,7 +146,7 @@ static void free_hints_default_cb(void *ptr, void *user_ctx)
     s_free_hints_cb(ptr);
 }
 
-ssize_t read_bytes_default_cb(int fd, void *buf, size_t count, void *user_ctx)
+ssize_t read_bytes_default_cb(void *user_ctx, int fd, void *buf, size_t count)
 {
     (void)user_ctx;
 
@@ -156,7 +156,7 @@ ssize_t read_bytes_default_cb(int fd, void *buf, size_t count, void *user_ctx)
     return s_read_cb(fd, buf, count);
 }
 
-ssize_t write_bytes_default_cb(int fd, const void *buf, size_t count, void *user_ctx)
+ssize_t write_bytes_default_cb(void *user_ctx, int fd, const void *buf, size_t count)
 {
     (void)user_ctx;
 
@@ -183,7 +183,7 @@ __attribute__((weak)) void linenoiseSetReadCharacteristics(void)
     flags &= ~O_NONBLOCK;
     (void)fcntl(fd_in, F_SETFL, flags);
 
-    s_linenoise_instance->config.read_bytes_fn = read_bytes_default_cb;
+    s_linenoise_instance->config.read_bytes_cb = read_bytes_default_cb;
 }
 
 void linenoiseAddCompletion(linenoiseCompletions *lc, const char *str)
@@ -230,7 +230,7 @@ void linenoiseSetWriteFunction(linenoiseWriteBytesFn write_fn)
     esp_linenoise_instance_t *instance = linenoise_get_static_instance();
     if (write_fn != NULL) {
         s_write_cb = write_fn;
-        instance->config.write_bytes_fn = write_bytes_default_cb;
+        instance->config.write_bytes_cb = write_bytes_default_cb;
     }
 }
 
@@ -239,7 +239,7 @@ void linenoiseSetReadFunction(linenoiseReadBytesFn read_fn)
     esp_linenoise_instance_t *instance = linenoise_get_static_instance();
     if (read_fn != NULL) {
         s_read_cb = read_fn;
-        instance->config.read_bytes_fn = read_bytes_default_cb;
+        instance->config.read_bytes_cb = read_bytes_default_cb;
     }
 }
 

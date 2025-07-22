@@ -1,4 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -75,3 +85,7 @@ esp_linenoise_instance_t *esp_linenoise_create_instance_static(void)
  * @return int 0 if the terminal supports escape sequences
  */
 int esp_linenoise_probe(esp_linenoise_instance_t *instance);
+
+#ifdef __cplusplus
+}
+#endif
