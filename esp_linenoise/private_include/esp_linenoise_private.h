@@ -1,4 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +63,15 @@ typedef struct esp_linenoise_instance {
     esp_linenoise_state_t state;
 } esp_linenoise_instance_t;
 
+/**
+ * @brief Stores a list of completion strings.
+ */
+typedef struct esp_linenoise_completions {
+    size_t len;   /**< Number of completions. */
+    char **cvec;  /**< Array of completion strings. */
+} esp_linenoise_completions_t;
+
+
 inline __attribute__((always_inline))
 esp_linenoise_instance_t *esp_linenoise_create_instance_static(void)
 {
@@ -75,3 +94,19 @@ esp_linenoise_instance_t *esp_linenoise_create_instance_static(void)
  * @return int 0 if the terminal supports escape sequences
  */
 int esp_linenoise_probe(esp_linenoise_instance_t *instance);
+
+/**
+ * @brief This function is used by the callback function registered by the user
+ * in order to add completion options given the input string when the
+ * user typed <tab>. See the example.c source code for a very easy to
+ * understand example.
+ *
+ * @param ctx opaque pointer interpreted in line completion structure being
+ * filled by the function
+ * @param str completed command to add to lc
+ */
+void esp_linenoise_add_completion(void *ctx, const char *str);
+
+#ifdef __cplusplus
+}
+#endif

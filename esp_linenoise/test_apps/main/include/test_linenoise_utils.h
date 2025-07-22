@@ -6,6 +6,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <sys/time.h>
 
 #define CMD_LINE_LENGTH 32 /* set to the value of ESP_LINENOISE_COMMAND_MAX_LEN */
@@ -66,3 +70,7 @@ void wait_ms(int ms)
         cur_time = get_millis();
     } while (cur_time < timeout);
 }
+
+#ifdef __cplusplus
+}
+#endif
