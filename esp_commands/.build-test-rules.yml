@@ -1,0 +1,6 @@
+esp_commands/test_apps:
+  disable:
+    - if: IDF_VERSION_MAJOR < 6
+      reason: "esp_commands is created based on commands.c in esp-idf version < 6.0"
+    - if: IDF_TARGET not in ["esp32", "esp32c3"]
+      reason: "Sufficient to test on one Xtensa and one RISC-V target"
