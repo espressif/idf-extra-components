@@ -3,27 +3,13 @@
 #include "esp_heap_caps.h"
 #include "esp_err.h"
 
-#define ANSI_COLOR_DEFAULT      39      /** Default foreground color */
+/* Default foreground color */
+#define ANSI_COLOR_DEFAULT 39
 
 /* Pointers to the first and last command in the dedicated section.
  * See linker.lf for detailed information about the section */
 extern esp_command_t _esp_commands_start;
 extern esp_command_t _esp_commands_end;
-
-/**
- * @brief go through all commands registered in the
- * memory section starting at _esp_commands_start
- * and ending at _esp_commands_end
- */
-#define FOR_EACH_COMMAND_IN_SECTION(cmd) \
-    for ((cmd) = &_esp_commands_start; \
-        (cmd) < &_esp_commands_end; \
-        (esp_command_t*)(cmd)++)
-
-#define FOR_EACH_COMMAND_IN_SET(cmd, cmd_set) \
-    for ((cmd) = cmd_set->cmd_ptr_set[0]; \
-        (cmd) < cmd_set->cmd_ptr_set[cmd_set->cmd_prt_set_size - 1]; \
-        (esp_command_t*)(cmd)++)
 
 /**
  * @brief Array of pointers to command defining
@@ -36,46 +22,44 @@ typedef struct esp_command_set {
 } esp_command_set_t;
 
 /**
- * @brief find a command by its name in the list of registered
- * commands
- *
- * @param name name of the command to find
- * @return esp_command_t* pointer to the command matching the command
- * name, NULL if the command is not found
+ * @brief returns the number of commands registered
+ * in the .esp_commands section
  */
-static esp_command_t *find_command_by_name(const char *name)
-{
-    esp_command_t *cmd = NULL;
-    FOR_EACH_COMMAND_IN_SECTION(cmd) {
-        if (strcmp(cmd->command, name) == 0) {
-            return cmd;
-        }
-    }
-    return NULL;
-}
+#define ESP_COMMANDS_COUNT (size_t)(&_esp_commands_end - &_esp_commands_start)
+
+/**
+ * @brief go through all commands registered in the
+ * memory section starting at _esp_commands_start
+ * and ending at _esp_commands_end OR go through all
+ * the commands listed in cmd_set if not NULL
+ */
+#define FOR_EACH_COMMAND(cmd_set, cmd) \
+    for ((cmd) = ((cmd_set) != NULL ? (esp_command_t *)((cmd_set)->cmd_ptr_set) : &_esp_commands_start); \
+         (cmd) < ((cmd_set) != NULL ? (esp_command_t *)((cmd_set)->cmd_ptr_set) + (cmd_set)->cmd_set_size : &_esp_commands_end); \
+         (cmd)++)
 
 /**
  * @brief find a command by its name in the list of registered
- * commands
+ * commands or in a command set if the parameter cmd_set is set.
  *
+ * @note If cmd_set is set to NULL by the caller, then the function
+ * will try to find a command by name from the list of registered
+ * commands in the .esp_commands section
+ *
+ * @param cmd_set command set to find a command from
  * @param name name of the command to find
  * @return esp_command_t* pointer to the command matching the command
  * name, NULL if the command is not found
  */
-static esp_command_t *find_command_by_name_in_set(esp_command_set_t *cmd_set, const char *name)
+static esp_command_t *find_command_by_name(esp_command_set_t *cmd_set, const char *name)
 {
-    if (!cmd_set || !name) {
+    if (!name) {
         return NULL;
     }
 
     esp_command_t *cmd = NULL;
-    FOR_EACH_COMMAND_IN_SET(cmd, cmd_set) {
-        if (!cmd) {
-            /* this happens if a command name passed in a set was not found,
-             * the pointer to command is set to NULL */
-            continue;
-        }
-        if (strcmp(cmd->command, name) == 0) {
+    FOR_EACH_COMMAND(cmd_set, cmd) {
+        if (strcmp(cmd->name, name) == 0) {
             return cmd;
         }
     }
@@ -83,14 +67,14 @@ static esp_command_t *find_command_by_name_in_set(esp_command_set_t *cmd_set, co
 }
 
 /** run-time configuration options */
-static esp_console_config_t s_config = {
+static esp_commands_config_t s_config = {
     .heap_alloc_caps = MALLOC_CAP_DEFAULT
 };
 
 /** temporary buffer used for command line parsing */
 static char *s_tmp_line_buf;
 
-esp_err_t esp_console_init(const esp_console_config_t *config)
+esp_err_t esp_commands_init(const esp_commands_config_t *config)
 {
     if (!config) {
         return ESP_ERR_INVALID_ARG;
@@ -112,7 +96,7 @@ esp_err_t esp_console_init(const esp_console_config_t *config)
     return ESP_OK;
 }
 
-esp_err_t esp_console_deinit(void)
+esp_err_t esp_commands_deinit(void)
 {
     if (!s_tmp_line_buf) {
         return ESP_ERR_INVALID_STATE;
@@ -134,18 +118,15 @@ esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, const char *cmd
     }
     strlcpy(s_tmp_line_buf, cmdline, s_config.max_cmdline_length);
 
-    size_t argc = esp_console_split_argv(s_tmp_line_buf, argv,
-                                         s_config.max_cmdline_args);
+    size_t argc = esp_commands_split_argv(s_tmp_line_buf, argv,
+                                          s_config.max_cmdline_args);
     if (argc == 0) {
         free(argv);
         return ESP_ERR_INVALID_ARG;
     }
     const esp_command_t *cmd = NULL;
-    if (cmd_set) {
-        cmd = find_command_by_name_in_set(cmd_set, argv[0]);
-    } else {
-        cmd = find_command_by_name(argv[0]);
-    }
+    cmd = find_command_by_name(cmd_set, argv[0]);
+
     if (cmd == NULL) {
         free(argv);
         return ESP_ERR_NOT_FOUND;
@@ -153,52 +134,105 @@ esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, const char *cmd
     if (cmd->func) {
         *cmd_ret = (*cmd->func)(argc, argv);
     }
-    if (cmd->func_w_context) {
-        if (strcmp(cmd->command, "help") == 0) {
+    if (cmd->func_w_ctx) {
+        if (strcmp(cmd->name, "help") == 0) {
             // this one is tricky, we have to pass a custom context
-            *cmd_ret = (*cmd->func_w_context)(cmd_set, argc, argv);
+            *cmd_ret = (*cmd->func_w_ctx)(cmd_set, argc, argv);
         } else {
-            *cmd_ret = (*cmd->func_w_context)(cmd->context, argc, argv);
+            *cmd_ret = (*cmd->func_w_ctx)(cmd->func_ctx, argc, argv);
         }
     }
     free(argv);
     return ESP_OK;
 }
 
-esp_command_set_handle_t esp_commands_create_cmd_set(const char **cmd_name_set, const size_t cmd_name_set_size, esp_commands_get_field_t get_field)
+esp_command_set_handle_t esp_commands_create_cmd_set(const char **cmd_set, const size_t cmd_set_size, esp_commands_get_field_t get_field)
 {
-    esp_command_set_t *cmd_set = heap_caps_malloc(sizeof(esp_command_set_t), s_config.heap_alloc_caps);
-    if (!cmd_set) {
+    esp_command_set_t *cmd_ptr_set = heap_caps_malloc(sizeof(esp_command_set_t), s_config.heap_alloc_caps);
+    if (!cmd_ptr_set) {
         return NULL;
     }
 
-    esp_command_t **cmd_ptrs = heap_caps_calloc(cmd_name_set_size, sizeof(esp_command_t *), s_config.heap_alloc_caps);
-    if (!cmd_ptrs) {
-        heap_caps_free(cmd_set);
+    esp_command_t **cmd_ptrs_temp = heap_caps_calloc(ESP_COMMANDS_COUNT, sizeof(esp_command_t *), s_config.heap_alloc_caps);
+    if (!cmd_ptrs_temp) {
+        heap_caps_free(cmd_ptr_set);
         return NULL;
     }
 
     /* populate the cmd pointer set */
-    esp_command_t *it = NULL;
-    for (size_t i = 0; i < cmd_name_set_size; i++) {
-        bool command_found = false;
-        FOR_EACH_COMMAND(it) {
-            if (strcmp(field_getter(it), cmd_name_set[i]) == 0) {
+    size_t cmd_ptr_count = 0;
+    for (size_t i = 0; i < cmd_set_size; i++) {
+        esp_command_t *it = NULL;
+        esp_command_set_t *dummy_cmd_set = NULL;
+        FOR_EACH_COMMAND(dummy_cmd_set, it) {
+            if (strcmp(get_field(it), cmd_set[i]) == 0) {
                 // it's a match, add the pointer to command to the cmd ptr set
-                cmd_ptrs[i] = it;
-                command_found = true;
+                cmd_ptrs_temp[cmd_ptr_count] = it;
+                cmd_ptr_count++;
                 continue;
             }
         }
-        if (!command_found) {
-            cmd_ptrs[i] = NULL;
-        }
     }
 
-    cmd_set->cmd_ptr_set = cmd_ptrs;
-    cmd_set->cmd_set_size = cmd_name_set_size;
+    esp_command_t **cmd_ptrs = heap_caps_calloc(cmd_ptr_count, sizeof(esp_command_t *), s_config.heap_alloc_caps);
+    if (!cmd_ptrs) {
+        heap_caps_free(cmd_ptrs_temp);
+        heap_caps_free(cmd_ptr_set);
+        return NULL;
+    }
 
-    return (esp_command_set_t)cmd_set;
+    /* copy the temp set of pointer in to the final destination */
+    memcpy(cmd_ptrs, cmd_ptrs_temp, sizeof(esp_command_t *) * cmd_ptr_count);
+
+    cmd_ptr_set->cmd_ptr_set = cmd_ptrs;
+    cmd_ptr_set->cmd_set_size = cmd_set_size;
+
+    return (esp_command_set_handle_t)cmd_set;
+}
+
+esp_command_set_handle_t esp_commands_concat_cmd_set(esp_command_set_handle_t cmd_set_a, esp_command_set_handle_t cmd_set_b)
+{
+    if (!cmd_set_a && !cmd_set_b) {
+        return NULL;
+    } else if (cmd_set_a && !cmd_set_b) {
+        return cmd_set_a;
+    } else if (!cmd_set_a && cmd_set_b) {
+        return cmd_set_b;
+    }
+
+    /* Reaching this point, both cmd_set_a and cmd_set_b are set.
+     * Create a new cmd_set that can host the items from both sets,
+     * assign the items to the new set and free the input sets */
+    const size_t new_set_size = cmd_set_a->cmd_set_size + cmd_set_b->cmd_set_size;
+    esp_command_set_t *concat_cmd_set = heap_caps_malloc(sizeof(esp_command_set_t), s_config.heap_alloc_caps);
+    if (!concat_cmd_set) {
+        return NULL;
+    }
+    esp_command_t **concat_cmd_ptr_set = heap_caps_calloc(new_set_size, sizeof(esp_command_t *), s_config.heap_alloc_caps);
+    if (!concat_cmd_ptr_set) {
+        heap_caps_free(concat_cmd_set);
+        return NULL;
+    }
+
+    /* update the new cmd set size */
+    concat_cmd_set->cmd_set_size = new_set_size;
+
+    /* fill the list of command pointers */
+    esp_command_t *it = NULL;
+    size_t counter = 0;
+    FOR_EACH_COMMAND(concat_cmd_set, it) {
+        if (counter < cmd_set_a->cmd_set_size) {
+            it = cmd_set_a->cmd_ptr_set[counter];
+        } else {
+            it = cmd_set_b->cmd_ptr_set[counter];
+        }
+        counter++;
+    }
+
+    esp_commands_destroy_cmd_set(cmd_set_a);
+    esp_commands_destroy_cmd_set(cmd_set_b);
+
+    return concat_cmd_set;
 }
 
 void esp_commands_destroy_cmd_set(esp_command_set_handle_t cmd_set)
@@ -212,6 +246,7 @@ void esp_commands_destroy_cmd_set(esp_command_set_handle_t cmd_set)
     }
 
     heap_caps_free(cmd_set);
+    cmd_set = NULL;
 }
 
 void esp_commands_get_completion(const char *buf, esp_command_get_completion_t completion_cb)
@@ -221,10 +256,11 @@ void esp_commands_get_completion(const char *buf, esp_command_get_completion_t c
         return;
     }
     esp_command_t *it;
-    FOR_EACH_COMMAND_IN_SECTION(it) {
+    esp_command_set_t *cmd_set = NULL;
+    FOR_EACH_COMMAND(cmd_set, it) {
         /* Check if command starts with buf */
-        if (strncmp(buf, it->command, len) == 0) {
-            completion_cb(it->command);
+        if (strncmp(buf, it->name, len) == 0) {
+            completion_cb(it->name);
         }
     }
 }
@@ -233,15 +269,16 @@ const char *esp_commands_get_hint(const char *buf, int *color, int *bold)
 {
     size_t len = strlen(buf);
     esp_command_t *it;
-    FOR_EACH_COMMAND_IN_SECTION(it) {
-        if (strlen(it->command) == len &&
-                strncmp(buf, it->command, len) == 0) {
-            if (it->get_hint_cb == NULL) {
+    esp_command_set_t *cmd_set = NULL;
+    FOR_EACH_COMMAND(cmd_set, it) {
+        if (strlen(it->name) == len &&
+                strncmp(buf, it->name, len) == 0) {
+            if (it->hint_cb == NULL) {
                 return NULL;
             }
             *color = s_config.hint_color;
             *bold = s_config.hint_bold;
-            return it->get_hint_cb();
+            return it->hint_cb();
         }
     }
     return NULL;
@@ -257,9 +294,9 @@ static void print_arg_help(esp_command_t *it)
     /* First line: command name and hint
      * Pad all the hints to the same column
      */
-    printf("%-s",  it->command);
-    if (it->get_hint_cb) {
-        printf(" %s\n", it->get_hint_cb());
+    printf("%-s",  it->name);
+    if (it->hint_cb) {
+        printf(" %s\n", it->hint_cb());
     } else {
         printf("\n");
     }
@@ -267,15 +304,15 @@ static void print_arg_help(esp_command_t *it)
     /* Second line: print help */
     /* TODO: replace the simple print with a function that
      * replaces arg_print_formatted */
-    if (it->get_help_cb) {
-        printf("  %s\n", it->get_help_cb());
+    if (it->help) {
+        printf("  %s\n", it->help);
     } else {
         printf("  -\n");
     }
 
     /* Third line: print the glossary*/
-    if (it->get_glossary_cb) {
-        printf("%s\n", it->get_glossary_cb());
+    if (it->glossary_cb) {
+        printf("%s\n", it->glossary_cb());
     } else {
         printf("  -\n");
     }
@@ -285,9 +322,9 @@ static void print_arg_help(esp_command_t *it)
 
 static void print_arg_command(esp_command_t *it)
 {
-    printf("%-s",  it->command);
-    if (it->get_hint_cb) {
-        printf(" %s\n", it->get_hint_cb());
+    printf("%-s",  it->name);
+    if (it->hint_cb) {
+        printf(" %s\n", it->hint_cb());
     }
 }
 
@@ -357,9 +394,9 @@ static int help_command(void *context, int argc, char **argv)
      * is not NULL, find the command and only print the help for this command. if the
      * command is not found, return with error */
     bool command_found = false;
-    for (size_t i = 0; i < cmd_set->cmd_set_size; i++) {
-
-        if (!cmd_set->cmd_ptr_set[i]) {
+    esp_command_t *it = NULL;
+    FOR_EACH_COMMAND(cmd_set, it) {
+        if (!it) {
             /* this happens if a command name passed in a set was not found,
              * the pointer to command is set to NULL */
             continue;
@@ -367,11 +404,11 @@ static int help_command(void *context, int argc, char **argv)
 
         if (!command_name) {
             /* command_name is empty, print all commands */
-            print_verbose_level_arr[verbose_level](cmd_set->cmd_ptr_set[i]);
+            print_verbose_level_arr[verbose_level](it);
         } else if (command_name &&
-                   (strcmp(command_name, cmd_set->cmd_ptr_set[i]->command) == 0)) {
+                   (strcmp(command_name, it->name) == 0)) {
             /* we found the command name, print the help and return */
-            print_verbose_level_arr[verbose_level](cmd_set->cmd_ptr_set[i]);
+            print_verbose_level_arr[verbose_level](it);
             command_found = true;
             break;
         }
@@ -396,11 +433,14 @@ static const char *get_help_glossary(void)
            "  -v, --verbose <0|1>  If specified, list console commands with given verbose level";;
 }
 
-ESP_COMMAND_REGISTER(help,
-                     NULL, /* the help should be a part of all set, it does not need a group name */
-                     "Print the summary of all registered commands if no arguments "
-                     "are given, otherwise print summary of given command.",
-                     &help_command,
+static const char help_str[] = "Print the summary of all registered commands if no arguments "
+                               "are given, otherwise print summary of given command.";
+
+ESP_COMMAND_REGISTER(help, /* name of the heap command */
+                     help, /* group of the help command */
+                     help_str, /* help string of the help command */
+                     NULL, /* func (null since func with context is used) */
+                     help_command, /* func_w_ctx */
                      NULL, /* the context is null here, it will provided by the exec function */
-                     get_help_hint,
-                     get_help_glossary);
+                     get_help_hint, /* hint callback */
+                     get_help_glossary); /* glossary callback */

@@ -12,7 +12,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-size_t esp_console_split_argv(char *line, char **argv, size_t argv_size);
+size_t esp_commands_split_argv(char *line, char **argv, size_t argv_size);
 
 #ifdef __cplusplus
 }

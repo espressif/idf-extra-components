@@ -32,7 +32,7 @@ typedef enum {
     state = SS_SPACE; \
 } while(0)
 
-size_t esp_console_split_argv(char *line, char **argv, size_t argv_size)
+size_t esp_commands_split_argv(char *line, char **argv, size_t argv_size)
 {
     const int QUOTE = '"';
     const int ESCAPE = '\\';
