@@ -35,7 +35,7 @@ typedef enum {
 } esp_ext_part_align_t;
 
 typedef enum {
-    ESP_EXT_PART_TYPE_UNKNOWN = 0,
+    ESP_EXT_PART_TYPE_NONE = 0x00,
     ESP_EXT_PART_TYPE_FAT_ANY, /*!< FAT partition (any type) */
     ESP_EXT_PART_TYPE_FAT12,
     ESP_EXT_PART_TYPE_FAT16, /*!< FAT16 with LBA addressing */

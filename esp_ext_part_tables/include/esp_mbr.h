@@ -117,15 +117,53 @@ esp_err_t esp_mbr_parse(void* mbr_buf,
  * @param[in]  extra_args  Optional extra arguments for generation (can be NULL for defaults).
  *
  * @return
- *     - ESP_OK:              Generation was successful.
- *     - ESP_ERR_INVALID_ARG: Invalid arguments were provided.
+ *     - ESP_OK:                Generation was successful.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided.
  *     - ESP_ERR_INVALID_STATE: Error filling partition entry.
  *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.
- *     - Other error codes from `esp_ext_part_list_insert` or related routines.
+ *     - Other error codes from `esp_ext_part_list_signature_get` or `esp_mbr_partition_set`.
  */
 esp_err_t esp_mbr_generate(mbr_t* mbr,
                            esp_ext_part_list_t* part_list,
                            esp_mbr_generate_extra_args_t* extra_args);
+
+/**
+ * @brief Sets a partition entry in the MBR (Master Boot Record).
+ *
+ * This function updates the specified partition entry in the provided MBR structure
+ * with the information from the given partition list item. Additional arguments for
+ * partition generation must be supplied via the extra_args parameter.
+ * 
+ * @note This function is not thread-safe.
+ *
+ * @warning If the partition entry is empty (i.e., `item->info.type` is `ESP_EXT_PART_TYPE_NONE`), it will be cleared in the MBR.
+ *          If there is an empty gap between partition entries, partition entries after the gap will most likely be ignored when the MBR is parsed (MBR does not allow gaps in the partition table).
+ *          To avoid this, you can use `esp_mbr_remove_gaps_between_partiton_entries()` function to remove gaps in the MBR partition table.
+ * 
+ * @param[in,out] mbr               Pointer to the MBR structure to be updated.
+ * @param[in]     partition_index   Index of the partition entry to set (0-3).
+ * @param[in]     item              Pointer to the partition list item structure containing partition information.
+ * @param[in]     extra_args        Extra arguments for partiton entry setting (required).
+ *
+ * @return
+ *     - ESP_OK:                Success.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided.
+ *     - ESP_ERR_INVALID_STATE: Error filling partition entry.
+ *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.
+ */
+esp_err_t esp_mbr_partition_set(mbr_t* mbr, uint8_t partition_index, esp_ext_part_list_item_t* item, esp_mbr_generate_extra_args_t* extra_args);
+
+/**
+ * @brief Removes gaps in the MBR partition table by shifting partitions.
+ * 
+ * @note This function is not thread-safe.
+ * 
+ * @param[in,out] mbr Pointer to the MBR structure to be updated.
+ * @return
+ *     - ESP_OK: Success. 
+ *     - ESP_ERR_INVALID_ARG: Invalid pointer to MBR structure.
+ */
+esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t* mbr);
 
 #ifdef __cplusplus
 }
