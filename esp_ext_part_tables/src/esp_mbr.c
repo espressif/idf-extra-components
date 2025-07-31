@@ -117,7 +117,7 @@ static uint8_t ext_part_type_known_to_mbr_type(esp_ext_part_type_known_t type)
 static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_type_known_t* out_type_parsed)
 {
     bool supported = true;
-    esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_UNKNOWN;
+    esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_NONE;
     switch (type) {
     // Supported types:
     case 0x01: // FAT12
@@ -162,9 +162,9 @@ static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_t
     return supported;
 }
 
-bool esp_mbr_default_supported_partition_types(uint8_t type, esp_ext_part_type_known_t* out_type_parsed)
+static bool esp_mbr_default_supported_partition_types(uint8_t type, esp_ext_part_type_known_t* out_type_parsed)
 {
-    esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_UNKNOWN;
+    esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_NONE;
     bool is_supported = default_known_supported_partition_types(type, &parsed_type);
 
     if (out_type_parsed != NULL) {
@@ -234,7 +234,7 @@ esp_err_t esp_mbr_parse(void* mbr_buf,
         }
 
         // If the partition entry is not supported, skip it as well
-        esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_UNKNOWN;
+        esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_NONE;
         bool is_supported = esp_mbr_default_supported_partition_types(partition->type, &parsed_type);
         if (!is_supported) {
             continue;
@@ -303,6 +303,45 @@ static bool mbr_partition_fill(mbr_partition_t* partition, esp_ext_part_list_ite
     return true; // OK
 }
 
+esp_err_t esp_mbr_partition_set(mbr_t* mbr, uint8_t partition_index, esp_ext_part_list_item_t* item, esp_mbr_generate_extra_args_t* extra_args)
+{
+    if (mbr == NULL || partition_index >= 4 || item == NULL || extra_args == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    mbr_partition_t* partition = &mbr->partition_table[partition_index];
+
+    // Check if the partition entry is empty and if so, skip it
+    if (item->info.type == ESP_EXT_PART_TYPE_NONE) {
+        memset(partition, 0, sizeof(mbr_partition_t));
+        return ESP_OK; // No partition to set
+    }
+
+    // Check if we have enough space in the MBR partition table
+    uint64_t first_sector_address = esp_ext_part_bytes_to_sector_count(item->info.address, extra_args->sector_size);
+    uint64_t sector_count = esp_ext_part_bytes_to_sector_count(item->info.size, extra_args->sector_size);
+    if (first_sector_address > UINT32_MAX || sector_count > UINT32_MAX) {
+        ESP_LOGE(TAG, "Partition address or size exceeds 32-bit limit of MBR");
+        return ESP_ERR_NOT_SUPPORTED; // Address or size too large for MBR
+    }
+
+    // Set the partition info
+    if (item->info.flags & ESP_EXT_PART_FLAG_ACTIVE) {
+        partition->status = MBR_PARTITION_STATUS_ACTIVE;
+    }
+    partition->lba_start = esp_mbr_lba_align((uint32_t) first_sector_address, extra_args->sector_size, extra_args->alignment);
+    partition->sector_count = (uint32_t) sector_count;
+    partition->type = ext_part_type_known_to_mbr_type(item->info.type);
+
+
+    if (mbr_partition_fill(partition, item) == false) {
+        return ESP_ERR_INVALID_STATE; // Error filling partition
+    }
+
+    return ESP_OK;
+}
+
+
 esp_err_t esp_mbr_generate(mbr_t* mbr,
                            esp_ext_part_list_t* part_list,
                            esp_mbr_generate_extra_args_t* extra_args)
@@ -310,6 +349,7 @@ esp_err_t esp_mbr_generate(mbr_t* mbr,
     if (mbr == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
+    esp_err_t err = ESP_OK;
 
     // Set default arguments for MBR generation
     esp_mbr_generate_extra_args_t args = {
@@ -332,7 +372,7 @@ esp_err_t esp_mbr_generate(mbr_t* mbr,
     mbr->boot_signature = MBR_SIGNATURE;
     if (args.keep_signature) {
         // Use the disk signature from the partition list
-        esp_err_t err = esp_ext_part_list_signature_get(part_list, &mbr->disk_signature);
+        err = esp_ext_part_list_signature_get(part_list, &mbr->disk_signature);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to get disk signature from partition list");
             return err;
@@ -345,32 +385,40 @@ esp_err_t esp_mbr_generate(mbr_t* mbr,
         mbr->copy_protected = MBR_COPY_PROTECTED;
     }
 
-    mbr_partition_t* partition = NULL;
     esp_ext_part_list_item_t *it = NULL;
     int i = 0;
-    uint64_t first_sector_address, sector_count;
     SLIST_FOREACH(it, &part_list->head, next) {
-        // Check if we have enough space in the MBR partition table
-        first_sector_address = esp_ext_part_bytes_to_sector_count(it->info.address, args.sector_size);
-        sector_count = esp_ext_part_bytes_to_sector_count(it->info.size, args.sector_size);
-        if (first_sector_address > UINT32_MAX || sector_count > UINT32_MAX) {
-            ESP_LOGE(TAG, "Partition address or size exceeds 32-bit limit of MBR");
-            return ESP_ERR_NOT_SUPPORTED; // Address or size too large for MBR
+        err = esp_mbr_partition_set(mbr, i, it, &args);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to set partition %d: %s", i, esp_err_to_name(err));
+            return err; // Error setting partition
         }
-
-        partition = (mbr_partition_t*) &mbr->partition_table[i];
         i += 1;
+    }
 
-        if (it->info.flags & ESP_EXT_PART_FLAG_ACTIVE) {
-            partition->status = MBR_PARTITION_STATUS_ACTIVE;
-        }
-        partition->lba_start = esp_mbr_lba_align((uint32_t) first_sector_address, args.sector_size, args.alignment);
-        partition->sector_count = (uint32_t) sector_count;
-        partition->type = ext_part_type_known_to_mbr_type(it->info.type);
+    return ESP_OK;
+}
 
-        if (mbr_partition_fill(partition, it) == false) {
-            return ESP_ERR_INVALID_STATE; // Error filling partition
+esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t* mbr)
+{
+    if (mbr == NULL) {
+        return ESP_ERR_INVALID_ARG; // Invalid MBR pointer
+    }
+
+    // Iterate through the partition table and remove gaps
+    mbr_partition_t* partition;
+    uint8_t gap_index = 0; // Next index to fill
+    for (int i = 0; i < 4; i++) {
+        partition = &mbr->partition_table[i];
+        if (partition->type == 0x00) {
+            continue; // Skip empty entries
         }
+        if (gap_index != i) {
+            // Move the partition to the next available index
+            memcpy(&mbr->partition_table[gap_index], partition, sizeof(mbr_partition_t));
+            memset(partition, 0, sizeof(mbr_partition_t)); // Clear the old entry
+        }
+        gap_index++;
     }
 
     return ESP_OK;
