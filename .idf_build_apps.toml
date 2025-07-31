@@ -3,6 +3,7 @@ exclude = [
     ".github",
 ]
 manifest_file = [
+    "argtable3/.build-test-rules.yml",
     "bdc_motor/.build-test-rules.yml",
     "ccomp_timer/.build-test-rules.yml",
     "coremark/.build-test-rules.yml",
