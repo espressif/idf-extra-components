@@ -54,6 +54,7 @@ body:
         - spi_nand_flash
         - supertinycron
         - thorvg
+        - unit-test-app
         - zlib
         - libjpeg-turbo
         - Other
