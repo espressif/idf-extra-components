@@ -1,6 +1,6 @@
 # Unit Test App
 
-ESP-IDF unit tests are run using Unit Test App. The app can be built with the unit tests for a specific component. Unit tests are in `test` subdirectories of respective components.
+This app can be built with the unit tests for a specific component. Unit tests are in `test` subdirectories of respective components.
 
 # Building Unit Test App
 
@@ -8,7 +8,7 @@ ESP-IDF unit tests are run using Unit Test App. The app can be built with the un
 
 * Follow the setup instructions in the top-level esp-idf README.
 * Set IDF_PATH environment variable to point to the path to the esp-idf top-level directory.
-* Change into `tools/unit-test-app` directory
+* Change into `unit-test-app` directory
 * `idf.py menuconfig` to configure the Unit Test App.
 * `idf.py -T <component> -T <component> ... build` with `component` set to names of the components to be included in the test app. Or `idf.py -T all build` to build the test app with all the tests for components having `test` subdirectory.
 * Follow the printed instructions to flash, or run `idf.py -p PORT flash`.
@@ -30,7 +30,3 @@ The unit test loader will prompt by showing a menu of available tests to run:
 * `[tagname]` to run tests with "tag"
 * `![tagname]` to run tests without "tag" (`![ignore]` is very useful as it runs all CI-enabled tests.)
 * `"test name here"` to run test with given name
-
-# Testing Unit Tests with CI
-
-For now we prefer to use component-based unit test to test in CI. Running unit-test-app in CI is being deprecated.
