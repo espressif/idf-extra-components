@@ -1,0 +1,13 @@
+diff --git a/isotp_config.h b/isotp_config.h
+index 7f4223d..7e78745 100644
+--- a/isotp_config.h
++++ b/isotp_config.h
+@@ -23,7 +23,7 @@
+ 
+ /* Private: Determines if by default, padding is added to ISO-TP message frames.
+  */
+-#define ISO_TP_FRAME_PADDING
++// #define ISO_TP_FRAME_PADDING
+ 
+ #endif
+ 
