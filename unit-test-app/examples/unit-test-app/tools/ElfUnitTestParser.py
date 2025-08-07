@@ -23,7 +23,7 @@ def get_target_objdump(idf_target: str) -> str:
         'esp32c2': 'riscv32-esp-elf-',
         'esp32c3': 'riscv32-esp-elf-',
     }
-    return toolchain_for_target.get(idf_target, '') + 'objdump'
+    return toolchain_for_target.get(idf_target, 'riscv32-esp-elf-') + 'objdump'
 
 
 def parse_elf_test_cases(elf_file: str, idf_target: str) -> List[Dict]:
