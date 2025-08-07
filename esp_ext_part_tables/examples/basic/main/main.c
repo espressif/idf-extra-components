@@ -21,9 +21,9 @@
 
 static const char *TAG = "esp_ext_part_tables_example_basic";
 
-void print_loaded_ext_partitions(esp_ext_part_list_item_t* head)
+void print_loaded_ext_partitions(esp_ext_part_list_item_t *head)
 {
-    esp_ext_part_list_item_t* it = head;
+    esp_ext_part_list_item_t *it = head;
     int i = 0;
     do {
         printf("Partition %d:\n\tLBA start sector: %" PRIu64 ", address: %" PRIu64 ",\n\tsector count: %" PRIu64 ", size: %" PRIu64 ",\n\ttype: %" PRIu32 "\n\n",
@@ -36,13 +36,13 @@ void print_loaded_ext_partitions(esp_ext_part_list_item_t* head)
     fflush(stdout);
 }
 
-void esp_ext_part_tables_mbr_parse_example_task(void* pvParameters)
+void esp_ext_part_tables_mbr_parse_example_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "Starting MBR parsing example task");
     esp_err_t err;
 
     // Allocate memory for the MBR
-    mbr_t* mbr = (mbr_t*) heap_caps_malloc(sizeof(mbr_t), (MALLOC_CAP_DMA | MALLOC_CAP_8BIT));
+    mbr_t *mbr = (mbr_t *) heap_caps_malloc(sizeof(mbr_t), (MALLOC_CAP_DMA | MALLOC_CAP_8BIT));
     if (mbr == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for MBR");
         goto end_task;
@@ -59,7 +59,7 @@ void esp_ext_part_tables_mbr_parse_example_task(void* pvParameters)
 
     // Parse the MBR to get the partition list
     esp_ext_part_list_t part_list = {0};
-    err = esp_mbr_parse((void*) mbr, &part_list, NULL);
+    err = esp_mbr_parse((void *) mbr, &part_list, NULL);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to parse MBR: %s", esp_err_to_name(err));
         free(mbr);
@@ -70,7 +70,7 @@ void esp_ext_part_tables_mbr_parse_example_task(void* pvParameters)
     ESP_LOGI(TAG, "MBR parsed successfully");
 
     // Get the first partition
-    esp_ext_part_list_item_t* it = esp_ext_part_list_item_head(&part_list);
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
     if (it == NULL) {
         ESP_LOGE(TAG, "No partitions found in the MBR");
         esp_ext_part_list_deinit(&part_list);
@@ -92,7 +92,7 @@ end_task:
     vTaskDelete(NULL); // Delete the current task
 }
 
-void esp_ext_part_tables_mbr_generate_example_task(void* pvParameters)
+void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "Starting MBR generation example task");
     esp_err_t err;
@@ -133,7 +133,7 @@ void esp_ext_part_tables_mbr_generate_example_task(void* pvParameters)
         goto end_task;
     }
 
-    mbr_t* mbr = (mbr_t*) calloc(1, sizeof(mbr_t));
+    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
     if (mbr == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for MBR");
         esp_ext_part_list_deinit(&part_list);
@@ -154,7 +154,7 @@ void esp_ext_part_tables_mbr_generate_example_task(void* pvParameters)
 
     esp_ext_part_list_t part_list_from_gen_mbr = {0};
     // Parse the generated MBR to get the partition list
-    err = esp_mbr_parse((void*) mbr, &part_list_from_gen_mbr, NULL);
+    err = esp_mbr_parse((void *) mbr, &part_list_from_gen_mbr, NULL);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to parse generated MBR: %s", esp_err_to_name(err));
         free(mbr);
@@ -163,7 +163,7 @@ void esp_ext_part_tables_mbr_generate_example_task(void* pvParameters)
     free(mbr); // Free the MBR buffer after parsing as it is no longer needed
 
     // Get the first partition
-    esp_ext_part_list_item_t* it = esp_ext_part_list_item_head(&part_list_from_gen_mbr);
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list_from_gen_mbr);
     if (it == NULL) {
         ESP_LOGE(TAG, "No partitions found in the MBR");
         esp_ext_part_list_deinit(&part_list_from_gen_mbr);

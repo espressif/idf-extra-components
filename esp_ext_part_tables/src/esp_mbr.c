@@ -22,7 +22,7 @@
 #include "sys/queue.h"
 #endif
 
-static const char* TAG = "esp_mbr";
+static const char *TAG = "esp_mbr";
 
 void esp_mbr_chs_arr_val_set(uint8_t chs[3], uint32_t val)
 {
@@ -89,14 +89,14 @@ static uint8_t ext_part_type_known_to_mbr_type(esp_ext_part_type_known_t type)
         return 0x06; // FAT16B with LBA addressing
     case ESP_EXT_PART_TYPE_FAT32:
         return 0x0C; // FAT32 with LBA addressing
-    /* 
+    /*
     LittleFS is not a standard MBR partition type, but we can use a custom type `0xC3`, which is not usually used nowadays.
     This allows us to identify LittleFS partitions in the MBR.
 
     Explanation why `0xC3` was chosen:
     0xC    3
       1100 0011
-      ↑↑ ↑ ↑↑↑↑ 
+      ↑↑ ↑ ↑↑↑↑
       └│─│─┴┴┴┴── 0x83 => a modern filesystem (e.g. Linux)
        └─│─────── 0x40 => CHS used as LittleFS block size
          └─────── 0x10 => a hidden filesystem
@@ -114,7 +114,7 @@ static uint8_t ext_part_type_known_to_mbr_type(esp_ext_part_type_known_t type)
     }
 }
 
-static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_type_known_t* out_type_parsed)
+static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_type_known_t *out_type_parsed)
 {
     bool supported = true;
     esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_NONE;
@@ -162,7 +162,7 @@ static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_t
     return supported;
 }
 
-static bool esp_mbr_default_supported_partition_types(uint8_t type, esp_ext_part_type_known_t* out_type_parsed)
+static bool esp_mbr_default_supported_partition_types(uint8_t type, esp_ext_part_type_known_t *out_type_parsed)
 {
     esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_NONE;
     bool is_supported = default_known_supported_partition_types(type, &parsed_type);
@@ -173,7 +173,7 @@ static bool esp_mbr_default_supported_partition_types(uint8_t type, esp_ext_part
     return is_supported;
 }
 
-static void ext_part_list_item_do_extra(esp_ext_part_list_item_t* item, mbr_partition_t* partition)
+static void ext_part_list_item_do_extra(esp_ext_part_list_item_t *item, mbr_partition_t *partition)
 {
     // This function is for any extra actions that might be needed for specific partition types.
     // It can be used to set flags, perform additional operations or checks if needed.
@@ -188,15 +188,15 @@ static void ext_part_list_item_do_extra(esp_ext_part_list_item_t* item, mbr_part
     }
 }
 
-esp_err_t esp_mbr_parse(void* mbr_buf,
-                        esp_ext_part_list_t* part_list,
-                        esp_mbr_parse_extra_args_t* extra_args)
+esp_err_t esp_mbr_parse(void *mbr_buf,
+                        esp_ext_part_list_t *part_list,
+                        esp_mbr_parse_extra_args_t *extra_args)
 {
     if (mbr_buf == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    mbr_t* mbr = (mbr_t*) mbr_buf;
+    mbr_t *mbr = (mbr_t *) mbr_buf;
     // Check MBR signature
     if (mbr->boot_signature != MBR_SIGNATURE) {
         ESP_LOGE(TAG, "MBR signature not found");
@@ -224,9 +224,9 @@ esp_err_t esp_mbr_parse(void* mbr_buf,
         return err;
     }
 
-    mbr_partition_t* partition;
+    mbr_partition_t *partition;
     for (int i = 0; i < 4; i++) {
-        partition = (mbr_partition_t*) &mbr->partition_table[i];
+        partition = (mbr_partition_t *) &mbr->partition_table[i];
 
         // Check if the partition entry is empty and if so, skip it
         if (partition->type == 0x00) {
@@ -269,7 +269,7 @@ esp_err_t esp_mbr_parse(void* mbr_buf,
     return ESP_OK;
 }
 
-static bool mbr_partition_fill(mbr_partition_t* partition, esp_ext_part_list_item_t* item)
+static bool mbr_partition_fill(mbr_partition_t *partition, esp_ext_part_list_item_t *item)
 {
     uint32_t lba_start = partition->lba_start;
     uint32_t lba_end = lba_start - 1 + partition->sector_count;
@@ -303,13 +303,13 @@ static bool mbr_partition_fill(mbr_partition_t* partition, esp_ext_part_list_ite
     return true; // OK
 }
 
-esp_err_t esp_mbr_partition_set(mbr_t* mbr, uint8_t partition_index, esp_ext_part_list_item_t* item, esp_mbr_generate_extra_args_t* extra_args)
+esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_part_list_item_t *item, esp_mbr_generate_extra_args_t *extra_args)
 {
     if (mbr == NULL || partition_index >= 4 || item == NULL || extra_args == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    mbr_partition_t* partition = &mbr->partition_table[partition_index];
+    mbr_partition_t *partition = &mbr->partition_table[partition_index];
 
     // Check if the partition entry is empty and if so, skip it
     if (item->info.type == ESP_EXT_PART_TYPE_NONE) {
@@ -342,9 +342,9 @@ esp_err_t esp_mbr_partition_set(mbr_t* mbr, uint8_t partition_index, esp_ext_par
 }
 
 
-esp_err_t esp_mbr_generate(mbr_t* mbr,
-                           esp_ext_part_list_t* part_list,
-                           esp_mbr_generate_extra_args_t* extra_args)
+esp_err_t esp_mbr_generate(mbr_t *mbr,
+                           esp_ext_part_list_t *part_list,
+                           esp_mbr_generate_extra_args_t *extra_args)
 {
     if (mbr == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -399,14 +399,14 @@ esp_err_t esp_mbr_generate(mbr_t* mbr,
     return ESP_OK;
 }
 
-esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t* mbr)
+esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t *mbr)
 {
     if (mbr == NULL) {
         return ESP_ERR_INVALID_ARG; // Invalid MBR pointer
     }
 
     // Iterate through the partition table and remove gaps
-    mbr_partition_t* partition;
+    mbr_partition_t *partition;
     uint8_t gap_index = 0; // Next index to fill
     for (int i = 0; i < 4; i++) {
         partition = &mbr->partition_table[i];

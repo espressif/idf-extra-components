@@ -29,9 +29,9 @@ uint8_t mbr_bin[512] = {
 
 unsigned int mbr_bin_len = 512;
 
-static void print_esp_ext_part_list_items(esp_ext_part_list_item_t* head)
+static void print_esp_ext_part_list_items(esp_ext_part_list_item_t *head)
 {
-    esp_ext_part_list_item_t* it = head;
+    esp_ext_part_list_item_t *it = head;
     int i = 0;
     do {
         printf("Partition %d:\n\tLBA start sector: %" PRIu64 ", address: %" PRIu64 ",\n\tsector count: %" PRIu64 ", size: %" PRIu64 ",\n\ttype: %" PRIu32 "\n\n",
@@ -45,7 +45,7 @@ static void print_esp_ext_part_list_items(esp_ext_part_list_item_t* head)
 
 TEST_CASE("Test mbr_bin struct", "[esp_ext_part_table]")
 {
-    mbr_t* mbr = (mbr_t*) mbr_bin;
+    mbr_t *mbr = (mbr_t *) mbr_bin;
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ASSERT_EQUAL(MBR_SIGNATURE, mbr->boot_signature);
     printf("MBR boot signature: 0x%" PRIX16 "\n", mbr->boot_signature);
@@ -55,8 +55,8 @@ TEST_CASE("Test mbr_bin struct", "[esp_ext_part_table]")
 TEST_CASE("Test esp_mbr_parse", "[esp_ext_part_table]")
 {
     esp_ext_part_list_t part_list = {0};
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr_bin, &part_list, NULL));
-    esp_ext_part_list_item_t* it = esp_ext_part_list_item_head(&part_list);
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
     TEST_ASSERT_NOT_NULL(it);
 
     print_esp_ext_part_list_items(it);
@@ -71,7 +71,7 @@ TEST_CASE("Test esp_mbr_parse", "[esp_ext_part_table]")
     TEST_ASSERT_EQUAL(0, part_list.head.slh_first);
 }
 
-void generate_original_mbr(mbr_t* mbr)
+void generate_original_mbr(mbr_t *mbr)
 {
     esp_mbr_generate_extra_args_t mbr_args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
@@ -111,26 +111,26 @@ void generate_original_mbr(mbr_t* mbr)
 
 TEST_CASE("Test esp_mbr_generate generates the (almost) same MBR as the original", "[esp_ext_part_table]")
 {
-    mbr_t* mbr = (mbr_t*) calloc(1, sizeof(mbr_t));
+    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_original_mbr(mbr);
 
     esp_ext_part_list_t part_list1 = {0};
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr, &part_list1, NULL));
-    esp_ext_part_list_item_t* it1 = esp_ext_part_list_item_head(&part_list1);
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr, &part_list1, NULL));
+    esp_ext_part_list_item_t *it1 = esp_ext_part_list_item_head(&part_list1);
     TEST_ASSERT_NOT_NULL(it1);
 
     esp_ext_part_list_t part_list2 = {0};
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr_bin, &part_list2, NULL));
-    esp_ext_part_list_item_t* it2 = esp_ext_part_list_item_head(&part_list2);
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list2, NULL));
+    esp_ext_part_list_item_t *it2 = esp_ext_part_list_item_head(&part_list2);
     TEST_ASSERT_NOT_NULL(it2);
 
     print_esp_ext_part_list_items(it1);
     print_esp_ext_part_list_items(it2);
     fflush(stdout);
 
-    uint8_t* mbr_bin_from_part_table = (uint8_t*) mbr_bin + MBR_PARTITION_TABLE_OFFSET;
-    uint8_t* mbr_from_part_table = (uint8_t*) mbr + MBR_PARTITION_TABLE_OFFSET;
+    uint8_t *mbr_bin_from_part_table = (uint8_t *) mbr_bin + MBR_PARTITION_TABLE_OFFSET;
+    uint8_t *mbr_from_part_table = (uint8_t *) mbr + MBR_PARTITION_TABLE_OFFSET;
     uint8_t compare_size = mbr_bin_len - MBR_PARTITION_TABLE_OFFSET;
     // Test if the generated MBR is the same as the original MBR - only from partition table part
     // Disk signature is randomly generated, so we don't compare it
@@ -142,16 +142,16 @@ TEST_CASE("Test esp_mbr_generate generates the (almost) same MBR as the original
 
 TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
 {
-    mbr_t* mbr;
-    mbr = (mbr_t*) calloc(1, sizeof(mbr_t));
+    mbr_t *mbr;
+    mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_original_mbr(mbr);
 
     esp_ext_part_list_t part_list = {0};
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr, &part_list, NULL));
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr, &part_list, NULL));
     free(mbr);
 
-    esp_ext_part_list_item_t* it;
+    esp_ext_part_list_item_t *it;
     it = esp_ext_part_list_item_head(&part_list);
     TEST_ASSERT_NOT_NULL(it);
 
@@ -171,7 +171,7 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
 
     // Another MBR
 
-    mbr = (mbr_t*) calloc(1, sizeof(mbr_t));
+    mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     esp_mbr_generate_extra_args_t mbr_args = {
@@ -208,7 +208,7 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
     esp_ext_part_list_deinit(&part_list);
 
     // Parse the MBR
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr, &part_list, NULL));
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr, &part_list, NULL));
     free(mbr);
 
     // Print the partition list
@@ -225,7 +225,7 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
 TEST_CASE("Test esp_ext_part_list_signature_t get and set", "[esp_ext_part_table]")
 {
     esp_ext_part_list_t part_list = {0};
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr_bin, &part_list, NULL));
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
     TEST_ASSERT_EQUAL(part_list.signature.type, ESP_EXT_PART_LIST_SIGNATURE_MBR);
 
     uint32_t disk_signature = 0;
@@ -264,13 +264,13 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_e
     }
 
     printf("Partition list after creation:\n");
-    esp_ext_part_list_item_t* it = esp_ext_part_list_item_head(&part_list);
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
     TEST_ASSERT_NOT_NULL(it);
     print_esp_ext_part_list_items(it);
     fflush(stdout);
 
     // Generate the MBR
-    mbr_t* mbr = (mbr_t*) calloc(1, sizeof(mbr_t));
+    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, &mbr_args));
@@ -290,7 +290,7 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_e
 
     // Parse the MBR to get the partition list without removing the gaps
     esp_ext_part_list_t part_list_from_mbr = {0};
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr, &part_list_from_mbr, NULL));
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr, &part_list_from_mbr, NULL));
 
     it = esp_ext_part_list_item_head(&part_list_from_mbr);
     TEST_ASSERT_NOT_NULL(it);
@@ -314,7 +314,7 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_e
     esp_mbr_remove_gaps_between_partiton_entries(mbr);
     // Parse the MBR to get the partition list with gaps removed
     esp_ext_part_list_t part_list_from_mbr_correct = {0};
-    TEST_ESP_OK(esp_mbr_parse((void*) mbr, &part_list_from_mbr_correct, NULL));
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr, &part_list_from_mbr_correct, NULL));
     free(mbr);
 
     // Now the partition list should contain 2 partitions (originally partition 0 and 3, now partition 0 and 1)

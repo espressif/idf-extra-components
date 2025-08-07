@@ -71,7 +71,7 @@ typedef struct {
     uint64_t address; /*!< Start address in bytes */
     uint64_t size; /*!< Size in bytes */
     uint32_t extra; /*!< Extra information (e.g. LittleFS block size stored in CHS hack, etc.) */
-    char* label;
+    char *label;
     esp_ext_part_flags_t flags; /*!< Flags for the partition */
     esp_ext_part_type_known_t type; /*!< Known partition type for this component */
 } esp_ext_part_t;
@@ -115,7 +115,7 @@ uint64_t esp_ext_part_sector_count_to_bytes(uint64_t sector_count, esp_ext_part_
  * @brief Deinitialize an external partition list structure and free all resources.
  *
  * This function releases all the memory and resources associated with the partition list referenced by 'part_list' parameter.
- * 
+ *
  * @note This function is not thread-safe.
  *
  * @param[in] part_list Pointer to the partition list structure to deinitialize.
@@ -124,13 +124,13 @@ uint64_t esp_ext_part_sector_count_to_bytes(uint64_t sector_count, esp_ext_part_
  *     - ESP_OK: Deinitialization was successful.
  *     - ESP_ERR_INVALID_ARG: `part_list` is NULL.
  */
-esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t* part_list);
+esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t *part_list);
 
 /**
  * @brief Insert a partition item into an external partition list.
  *
  * This function inserts a copy of the given partition item into the partition list.
- * 
+ *
  * @note This function is not thread-safe.
  *
  * @param[in] part_list Pointer to the partition list structure.
@@ -141,7 +141,7 @@ esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t* part_list);
  *     - ESP_ERR_INVALID_ARG: `part_list` or `item` is NULL.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
  */
-esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t* part_list, esp_ext_part_list_item_t* item);
+esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_list_item_t *item);
 
 /**
  * @brief Deep copy an external partition list.
@@ -159,7 +159,7 @@ esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t* part_list, esp_ext_part_
  *     - ESP_ERR_INVALID_ARG: `dst` or `src` is NULL.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
  */
-esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t* dst, esp_ext_part_list_t* src);
+esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, esp_ext_part_list_t *src);
 
 /**
  * @brief Get the head (first item) of an external partition list.
@@ -168,7 +168,7 @@ esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t* dst, esp_ext_part_lis
  *
  * @return Pointer to the first partition list item, or NULL if the list is empty or uninitialized.
  */
-esp_ext_part_list_item_t* esp_ext_part_list_item_head(esp_ext_part_list_t* part_list);
+esp_ext_part_list_item_t *esp_ext_part_list_item_head(esp_ext_part_list_t *part_list);
 
 /**
  * @brief Get the next item in an external partition list.
@@ -177,7 +177,7 @@ esp_ext_part_list_item_t* esp_ext_part_list_item_head(esp_ext_part_list_t* part_
  *
  * @return Pointer to the next partition list item, or NULL if there are no more items.
  */
-esp_ext_part_list_item_t* esp_ext_part_list_item_next(esp_ext_part_list_item_t* item);
+esp_ext_part_list_item_t *esp_ext_part_list_item_next(esp_ext_part_list_item_t *item);
 
 /**
  * @brief Get the signature of an external partition list.
@@ -191,7 +191,7 @@ esp_ext_part_list_item_t* esp_ext_part_list_item_next(esp_ext_part_list_item_t* 
  *     - ESP_OK: Signature retrieval was successful.
  *     - ESP_ERR_INVALID_ARG: `part_list` or signature is NULL.
  */
-esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t* part_list, void* signature);
+esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *signature);
 
 /**
  * @brief Set the signature of an external partition list.
@@ -207,7 +207,7 @@ esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t* part_list, void* 
  *     - ESP_ERR_INVALID_ARG: `part_list` or `signature` is NULL.
  *     - ESP_ERR_NOT_SUPPORTED: Unsupported signature type.
  */
-esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t* part_list, const void* signature, esp_ext_part_signature_type_t type);
+esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const void *signature, esp_ext_part_signature_type_t type);
 
 #ifdef __cplusplus
 }

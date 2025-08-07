@@ -35,14 +35,14 @@ uint64_t esp_ext_part_sector_count_to_bytes(uint64_t sector_count, esp_ext_part_
     return sector_count * (uint64_t) sector_size;
 }
 
-esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t* part_list)
+esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t *part_list)
 {
     if (part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_ext_part_list_item_t* it = NULL;
-    esp_ext_part_list_item_t* tmp = NULL;
+    esp_ext_part_list_item_t *it = NULL;
+    esp_ext_part_list_item_t *tmp = NULL;
     SLIST_FOREACH_SAFE(it, &part_list->head, next, tmp) {
         SLIST_REMOVE(&part_list->head, it, esp_ext_part_list_item_, next);
         free(it->info.label); // Deep free the label if it was allocated
@@ -52,13 +52,13 @@ esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t* part_list)
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t* part_list, esp_ext_part_list_item_t* item)
+esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_list_item_t *item)
 {
     if (part_list == NULL || item == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_ext_part_list_item_t* _item = (esp_ext_part_list_item_t*) malloc(sizeof(esp_ext_part_list_item_t));
+    esp_ext_part_list_item_t *_item = (esp_ext_part_list_item_t *) malloc(sizeof(esp_ext_part_list_item_t));
     if (_item == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -85,17 +85,17 @@ esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t* part_list, esp_ext_part_
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t* dst, esp_ext_part_list_t* src)
+esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, esp_ext_part_list_t *src)
 {
     if (dst == NULL || src == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    
+
     memcpy(dst, src, sizeof(esp_ext_part_list_t)); // Copy the structure
     memset(&dst->head, 0, sizeof(dst->head)); // Reset the head of the destination list
-    
+
     esp_err_t err;
-    esp_ext_part_list_item_t* it = NULL;
+    esp_ext_part_list_item_t *it = NULL;
     SLIST_FOREACH(it, &src->head, next) {
         err = esp_ext_part_list_insert(dst, it); // Insert copies the item from src to dst
         if (err != ESP_OK) {
@@ -106,7 +106,7 @@ esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t* dst, esp_ext_part_lis
     return ESP_OK;
 }
 
-esp_ext_part_list_item_t* esp_ext_part_list_item_head(esp_ext_part_list_t* part_list)
+esp_ext_part_list_item_t *esp_ext_part_list_item_head(esp_ext_part_list_t *part_list)
 {
     if (part_list == NULL) {
         return NULL;
@@ -114,7 +114,7 @@ esp_ext_part_list_item_t* esp_ext_part_list_item_head(esp_ext_part_list_t* part_
     return SLIST_FIRST(&part_list->head);
 }
 
-esp_ext_part_list_item_t* esp_ext_part_list_item_next(esp_ext_part_list_item_t* item)
+esp_ext_part_list_item_t *esp_ext_part_list_item_next(esp_ext_part_list_item_t *item)
 {
     if (item == NULL) {
         return NULL;
@@ -122,7 +122,7 @@ esp_ext_part_list_item_t* esp_ext_part_list_item_next(esp_ext_part_list_item_t* 
     return SLIST_NEXT(item, next);
 }
 
-esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t* part_list, void* signature)
+esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *signature)
 {
     if (part_list == NULL || signature == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -139,7 +139,7 @@ esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t* part_list, void* 
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t* part_list, const void* signature, esp_ext_part_signature_type_t type)
+esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const void *signature, esp_ext_part_signature_type_t type)
 {
     if (part_list == NULL || signature == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -148,7 +148,7 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t* part_list, const 
     part_list->signature.type = type;
     switch (type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        part_list->signature.data[0] = *((const uint32_t*) signature);
+        part_list->signature.data[0] = *((const uint32_t *) signature);
         break;
     default:
         return ESP_ERR_NOT_SUPPORTED; // Unsupported signature type

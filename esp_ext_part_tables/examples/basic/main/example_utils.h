@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-esp_err_t load_first_sector_from_sd_card(void* mbr_buffer);
+esp_err_t load_first_sector_from_sd_card(void *mbr_buffer);
 
 #ifdef __cplusplus
 }

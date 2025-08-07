@@ -22,11 +22,11 @@ static const char *TAG = "esp_ext_part_tables_example_basic_utils";
 #define PIN_NUM_CLK   CONFIG_EXAMPLE_PIN_CLK
 #define PIN_NUM_CS    CONFIG_EXAMPLE_PIN_CS
 
-esp_err_t load_first_sector_from_sd_card(void* mbr_buffer)
+esp_err_t load_first_sector_from_sd_card(void *mbr_buffer)
 {
     // This function loads the first sector (MBR) from the SD card into the provided buffer
     // It uses SDSPI but can be adapted for SDMMC as well
-    esp_err_t ret = ESP_OK; 
+    esp_err_t ret = ESP_OK;
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
 
     // For SoCs where the SD power can be supplied both via an internal or external (e.g. on-board LDO) power supply.
@@ -73,7 +73,7 @@ esp_err_t load_first_sector_from_sd_card(void* mbr_buffer)
     }
 
     int slot = -1;
-    ret = sdspi_host_init_device((const sdspi_device_config_t*)&slot_config, &slot);
+    ret = sdspi_host_init_device((const sdspi_device_config_t *)&slot_config, &slot);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize SPI device.");
         spi_bus_free(host.slot);

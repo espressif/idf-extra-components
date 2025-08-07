@@ -84,7 +84,7 @@ typedef struct {
  * This function reads the provided MBR buffer, validates its signature, and populates
  * the given partition list structure with the partition entries found in the MBR.
  * Additional parsing options can be provided via the extra_args parameter.
- * 
+ *
  * @note This function is not thread-safe.
  *
  * @param[in]  mbr_buf    Pointer to a buffer containing the raw MBR data (must be at least `MBR_SIZE` bytes and start of the MBR must align with start of the buffer).
@@ -98,9 +98,9 @@ typedef struct {
  *     - ESP_ERR_NO_MEM:      Memory allocation failed during parsing.
  *     - Other error codes from `esp_ext_part_list_insert`.
  */
-esp_err_t esp_mbr_parse(void* mbr_buf,
-                        esp_ext_part_list_t* part_list,
-                        esp_mbr_parse_extra_args_t* extra_args);
+esp_err_t esp_mbr_parse(void *mbr_buf,
+                        esp_ext_part_list_t *part_list,
+                        esp_mbr_parse_extra_args_t *extra_args);
 
 /**
  * @brief Generates a Master Boot Record (MBR) from a partition list.
@@ -109,7 +109,7 @@ esp_err_t esp_mbr_parse(void* mbr_buf,
  * It sets up the partition table, disk signature, and other MBR fields. Generation
  * options such as sector size, alignment, and signature preservation can be specified
  * via the extra_args parameter.
- * 
+ *
  * @note This function is not thread-safe.
  *
  * @param[out] mbr         Pointer to the blank MBR structure to be filled (must already be allocated and be at least `MBR_SIZE` bytes).
@@ -123,9 +123,9 @@ esp_err_t esp_mbr_parse(void* mbr_buf,
  *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.
  *     - Other error codes from `esp_ext_part_list_signature_get` or `esp_mbr_partition_set`.
  */
-esp_err_t esp_mbr_generate(mbr_t* mbr,
-                           esp_ext_part_list_t* part_list,
-                           esp_mbr_generate_extra_args_t* extra_args);
+esp_err_t esp_mbr_generate(mbr_t *mbr,
+                           esp_ext_part_list_t *part_list,
+                           esp_mbr_generate_extra_args_t *extra_args);
 
 /**
  * @brief Sets a partition entry in the MBR (Master Boot Record).
@@ -133,13 +133,13 @@ esp_err_t esp_mbr_generate(mbr_t* mbr,
  * This function updates the specified partition entry in the provided MBR structure
  * with the information from the given partition list item. Additional arguments for
  * partition generation must be supplied via the extra_args parameter.
- * 
+ *
  * @note This function is not thread-safe.
  *
  * @warning If the partition entry is empty (i.e., `item->info.type` is `ESP_EXT_PART_TYPE_NONE`), it will be cleared in the MBR.
  *          If there is an empty gap between partition entries, partition entries after the gap will most likely be ignored when the MBR is parsed (MBR does not allow gaps in the partition table).
  *          To avoid this, you can use `esp_mbr_remove_gaps_between_partiton_entries()` function to remove gaps in the MBR partition table.
- * 
+ *
  * @param[in,out] mbr               Pointer to the MBR structure to be updated.
  * @param[in]     partition_index   Index of the partition entry to set (0-3).
  * @param[in]     item              Pointer to the partition list item structure containing partition information.
@@ -151,19 +151,19 @@ esp_err_t esp_mbr_generate(mbr_t* mbr,
  *     - ESP_ERR_INVALID_STATE: Error filling partition entry.
  *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.
  */
-esp_err_t esp_mbr_partition_set(mbr_t* mbr, uint8_t partition_index, esp_ext_part_list_item_t* item, esp_mbr_generate_extra_args_t* extra_args);
+esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_part_list_item_t *item, esp_mbr_generate_extra_args_t *extra_args);
 
 /**
  * @brief Removes gaps in the MBR partition table by shifting partitions.
- * 
+ *
  * @note This function is not thread-safe.
- * 
+ *
  * @param[in,out] mbr Pointer to the MBR structure to be updated.
  * @return
- *     - ESP_OK: Success. 
+ *     - ESP_OK: Success.
  *     - ESP_ERR_INVALID_ARG: Invalid pointer to MBR structure.
  */
-esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t* mbr);
+esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t *mbr);
 
 #ifdef __cplusplus
 }
