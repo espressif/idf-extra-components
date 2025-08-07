@@ -1,0 +1,13 @@
+# The following lines of boilerplate have to be in your project's
+# CMakeLists in this exact order for cmake to work correctly
+cmake_minimum_required(VERSION 3.16)
+
+if(EXISTS "$ENV{IDF_PATH}/tools/test_apps/components")
+    list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/test_apps/components")
+else()
+    # Backwards compatibility for building with older IDF versions
+    list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/unit-test-app/components")
+endif()
+
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(unit-test-app)
