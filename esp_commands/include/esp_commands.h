@@ -223,7 +223,7 @@ esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, const char *cmd
  *
  * @param cmd_set Handle to the command set to search in. Must be a valid
  * `esp_command_set_handle_t` or `NULL` if the search should be performed
- * on all statically adn dynamically registered commands.
+ * on all statically and dynamically registered commands.
  * @param name String containing the name of the command to search for.
  *
  * @return pointer to the matching command or NULL if no command is found.
