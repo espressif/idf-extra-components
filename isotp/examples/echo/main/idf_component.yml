@@ -1,0 +1,5 @@
+## IDF Component Manager Manifest File
+dependencies:
+  espressif/isotp:
+    version: '*'
+    override_path: '../../../'

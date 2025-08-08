@@ -39,6 +39,7 @@ body:
         - fmt
         - freetype
         - iqmath
+        - isotp
         - jsmn
         - json_generator
         - json_parser
