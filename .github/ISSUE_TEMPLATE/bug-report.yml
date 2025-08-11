@@ -20,6 +20,7 @@ body:
       label: Which component are you using? If you choose Other, provide details in More Information.
       multiple: false
       options:
+        - argtable3
         - bdc_motor
         - catch2
         - cbor
@@ -30,6 +31,7 @@ body:
         - eigen
         - esp_delta_ota
         - esp_encrypted_img
+        - esp_gcov
         - esp_jpeg
         - esp_lcd_qemu_rgb
         - esp_serial_slave_link
