@@ -67,6 +67,7 @@ jobs:
             spi_nand_flash;
             supertinycron;
             thorvg;
+            unit-test-app;
             zlib;
             libpng;
             libjpeg-turbo;
