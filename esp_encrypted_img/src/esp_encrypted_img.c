@@ -87,11 +87,14 @@ static uint32_t esp_enc_img_magic = 0x0788b6cf;
 #define HMAC_OUTPUT_SIZE    32
 #define PBKDF2_ITERATIONS   2048
 #define HKDF_INFO_SIZE      16
+#define DER_ASN1_OVERHEAD 30
+#define SECP256R1_COORD_SIZE 32
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
 
 typedef struct esp_encrypted_img_handle esp_encrypted_img_t;
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#define RSA_MPI_ASN1_HEADER_SIZE 11
 static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
 {
     int ret = 1;
@@ -143,6 +146,91 @@ exit:
     handle->rsa_pem = NULL;
 
     return (ret);
+}
+
+static esp_err_t esp_encrypted_img_export_rsa_pub_key(const char *rsa_pem, size_t rsa_len, uint8_t **pub_key, size_t *pub_key_len)
+{
+    int ret = 0;
+    if (rsa_pem == NULL) {
+        ESP_LOGE(TAG, "RSA private key is not set");
+        return ESP_ERR_INVALID_ARG;
+    }
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+
+    mbedtls_ctr_drbg_init( &ctr_drbg );
+    mbedtls_entropy_init( &entropy );
+
+#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
+    if ( (ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) rsa_pem, rsa_len, NULL, 0)) != 0) {
+#else
+    if ( (ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) rsa_pem, rsa_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
+#endif
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_key returned -0x%04x\n", (unsigned int) - ret );
+        goto exit;
+    }
+
+    if (mbedtls_pk_get_type(&pk) != MBEDTLS_PK_RSA) {
+        ESP_LOGE(TAG, "Public key is not RSA");
+        goto exit;
+    }
+
+    const mbedtls_rsa_context *rsa_ctx = mbedtls_pk_rsa(pk);
+    if (rsa_ctx == NULL) {
+        ESP_LOGE(TAG, "Failed to get RSA context from public key");
+        goto exit;
+    }
+
+    size_t max_pub_key_size = MBEDTLS_MPI_MAX_SIZE + RSA_MPI_ASN1_HEADER_SIZE;
+    *pub_key = calloc(1, max_pub_key_size + 1);
+    if (*pub_key == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for public key");
+        goto exit;
+    }
+
+    unsigned char *c = *pub_key + max_pub_key_size;
+
+    ret = mbedtls_pk_write_pubkey(&c, *pub_key, &pk);
+    if (ret < 0) {
+        ESP_LOGE(TAG, "Failed to write public key: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+    if (c - *pub_key < 0) {
+        ESP_LOGE(TAG, "Public key buffer is too small");
+        goto exit;
+    }
+    // Adjust the length of the public key
+    *pub_key_len = ret;
+    // Move the memory to the start of the buffer
+    // This is necessary because mbedtls_pk_write_pubkey writes the key in reverse order
+    // and we need to adjust the pointer to point to the start of the key.
+    memmove(*pub_key, c, *pub_key_len);
+    // Resize the public key buffer to the actual length
+    unsigned char *temp_pub_key = realloc(*pub_key, *pub_key_len);
+    if (temp_pub_key == NULL) {
+        ESP_LOGE(TAG, "Failed to resize public key buffer");
+        goto exit;
+    }
+    *pub_key = temp_pub_key;
+
+    // Free the resources
+    mbedtls_pk_free(&pk);
+    mbedtls_entropy_free(&entropy);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    return ESP_OK;
+exit:
+    if (*pub_key) {
+        free(*pub_key);
+        *pub_key = NULL;
+        *pub_key_len = 0;
+    }
+    mbedtls_entropy_free(&entropy);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_pk_free(&pk);
+    return ESP_FAIL;
 }
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
 
@@ -355,7 +443,7 @@ static int derive_gcm_key(const char *data, esp_encrypted_img_t *handle)
         ret = ESP_ERR_NO_MEM;
         goto exit;
     }
-    memcpy(hkdf_info, "_esp_enc_img_ecc", HKDF_INFO_SIZE);;
+    memcpy(hkdf_info, "_esp_enc_img_ecc", HKDF_INFO_SIZE);
 
     ret = mbedtls_hkdf(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), kdf_salt, KDF_SALT_SIZE,
                        (const unsigned char *)shared_secret_bytes, sizeof(shared_secret_bytes),
@@ -393,7 +481,138 @@ exit:
     return ret;
 }
 
+static esp_err_t esp_encrypted_img_export_ecies_pub_key(hmac_key_id_t hmac_key, uint8_t **pub_key, size_t *pub_key_len)
+{
+    esp_err_t err = ESP_FAIL;
+
+    mbedtls_mpi ecc_priv_key;
+    mbedtls_pk_context pk_ctx;
+    mbedtls_ecp_keypair *ecp_keypair;
+
+    mbedtls_mpi_init(&ecc_priv_key);
+    mbedtls_pk_init(&pk_ctx);
+
+    int ret = derive_ota_ecc_device_key(hmac_key, &ecc_priv_key);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to derive ECC device key: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    // Setup PK context for ECKEY
+    ret = mbedtls_pk_setup(&pk_ctx, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to setup PK context: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    ecp_keypair = mbedtls_pk_ec(pk_ctx);
+    if (ecp_keypair == NULL) {
+        ESP_LOGE(TAG, "Failed to get ECP keypair from PK context");
+        goto exit;
+    }
+
+    // Load the curve
+    ret = mbedtls_ecp_group_load(&ecp_keypair->MBEDTLS_PRIVATE(grp), MBEDTLS_ECP_DP_SECP256R1);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to load ECP group: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    // Set the private key
+    ret = mbedtls_mpi_copy(&ecp_keypair->MBEDTLS_PRIVATE(d), &ecc_priv_key);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to copy private key: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    // Compute the public key from private key
+    ret = mbedtls_ecp_keypair_calc_public(ecp_keypair, mbedtls_esp_random, NULL);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to compute public key: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    // Public key will be stored in DER format, which includes ASN.1 headers.
+    // For SECP256R1, the maximum DER public key size is:
+    // 30 bytes (ASN.1 overhead) + 2 * 32 bytes (uncompressed coordinates) = 94 bytes
+    size_t max_pubkey_len = DER_ASN1_OVERHEAD + (2 * SECP256R1_COORD_SIZE);
+    *pub_key = calloc(1, max_pubkey_len);
+    if (*pub_key == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for public key");
+        err = ESP_ERR_NO_MEM;
+        goto exit;
+    }
+
+    ret = mbedtls_pk_write_pubkey_der(&pk_ctx, *pub_key, max_pubkey_len);
+    if (ret < 0) {
+        ESP_LOGE(TAG, "Failed to write public key DER: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    *pub_key_len = ret;
+    if (*pub_key_len > max_pubkey_len) {
+        ESP_LOGE(TAG, "Public key length exceeds allocated buffer size");
+        err = ESP_ERR_INVALID_SIZE;
+        goto exit;
+    }
+
+    // Move the memory to the start of the buffer
+    // mbedtls_pk_write_pubkey_der writes the key in reverse order, so we need to adjust the pointer
+    // to point to the start of the key.
+    memmove(*pub_key, *pub_key + (max_pubkey_len - ret), ret);
+
+    // Resize buffer to actual size
+    unsigned char *temp_pub_key = realloc(*pub_key, *pub_key_len);
+    if (temp_pub_key == NULL) {
+        ESP_LOGE(TAG, "Failed to resize public key buffer");
+        err = ESP_ERR_NO_MEM;
+        goto exit;
+    }
+    *pub_key = temp_pub_key;
+
+    ESP_LOGI(TAG, "ECC public key derived successfully");
+    err = ESP_OK;
+
+exit:
+    mbedtls_pk_free(&pk_ctx);
+    mbedtls_mpi_free(&ecc_priv_key);
+    if (err != ESP_OK && *pub_key) {
+        free(*pub_key);
+        *pub_key = NULL;
+        *pub_key_len = 0;
+    }
+    return err;
+}
+
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
+
+esp_err_t esp_encrypted_img_export_public_key(esp_decrypt_handle_t ctx, uint8_t **pub_key, size_t *pub_key_len)
+{
+    if (ctx == NULL) {
+        ESP_LOGE(TAG, "esp_encrypted_img_export_public_key : Invalid argument");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (pub_key == NULL || pub_key_len == NULL) {
+        ESP_LOGE(TAG, "esp_encrypted_img_export_public_key : Invalid argument");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_encrypted_img_t *handle = (esp_encrypted_img_t *)ctx;
+
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+    // In case of RSA, we return the public key corresponding to the private key
+    // passed with esp_encrypted_img_decrypt_start()
+    return esp_encrypted_img_export_rsa_pub_key(handle->rsa_pem, handle->rsa_len, pub_key, pub_key_len);
+#elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+    // In case of ECIES, we return the public key corresponding to the private key
+    // derived from the HMAC key ID passed with esp_encrypted_img_decrypt_start()
+    return esp_encrypted_img_export_ecies_pub_key(handle->hmac_key, pub_key, pub_key_len);
+#else
+    ESP_LOGE(TAG, "No public key available for the current encryption scheme");
+    return ESP_ERR_NOT_FOUND;
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
+}
 
 esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cfg)
 {
@@ -638,12 +857,18 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
     /* falls through */
     case ESP_PRE_ENC_IMG_READ_GCM:
         if (handle->cache_buf_len == 0 && args->data_in_len - curr_index >= ENC_GCM_KEY_SIZE) {
-            process_gcm_key(handle, args->data_in + curr_index, ENC_GCM_KEY_SIZE);
+            if (process_gcm_key(handle, args->data_in + curr_index, ENC_GCM_KEY_SIZE) != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to process GCM key");
+                return ESP_FAIL;
+            }
             curr_index += ENC_GCM_KEY_SIZE;
         } else {
             read_and_cache_data(handle, args, &curr_index, ENC_GCM_KEY_SIZE);
             if (handle->cache_buf_len == ENC_GCM_KEY_SIZE) {
-                process_gcm_key(handle, handle->cache_buf, ENC_GCM_KEY_SIZE);
+                if (process_gcm_key(handle, handle->cache_buf, ENC_GCM_KEY_SIZE) != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to process GCM key");
+                    return ESP_FAIL;
+                }
             } else {
                 return ESP_ERR_NOT_FINISHED;
             }

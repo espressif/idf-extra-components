@@ -32,6 +32,7 @@ jobs:
           # or if the 2nd component depends on the exact (new) version of the first one.
           #
           directories: >
+            argtable3;
             bdc_motor;
             catch2;
             cbor;
@@ -42,6 +43,7 @@ jobs:
             eigen;
             esp_delta_ota;
             esp_encrypted_img;
+            esp_gcov;
             esp_lcd_qemu_rgb;
             esp_jpeg;
             esp_serial_slave_link;
@@ -65,8 +67,10 @@ jobs:
             spi_nand_flash;
             supertinycron;
             thorvg;
+            unit-test-app;
             zlib;
             libpng;
+            libjpeg-turbo;
           namespace: "espressif"
           # API token will only be available in the master branch in the main repository.
           # However, dry-run doesn't require a valid token.

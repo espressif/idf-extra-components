@@ -1,7 +1,8 @@
-version: "3.0.1"
+version: "3.0.1~1"
 description: Driver for Addressable LED Strip (WS2812, etc)
 url: https://github.com/espressif/idf-extra-components/tree/master/led_strip
-issues: https://github.com/espressif/idf-extra-components/issues
 repository: https://github.com/espressif/idf-extra-components.git
+documentation: https://espressif.github.io/idf-extra-components/latest/led_strip/index.html
+issues: https://github.com/espressif/idf-extra-components/issues
 dependencies:
   idf: ">=5.0"

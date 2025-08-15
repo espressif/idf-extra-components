@@ -65,3 +65,11 @@
 [submodule "thorvg/thorvg"]
 	path = thorvg/thorvg
 	url = https://github.com/thorvg/thorvg
+
+[submodule "libjpeg-turbo/libjpeg-turbo"]
+	path = libjpeg-turbo/libjpeg-turbo
+	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
+
+[submodule "argtable3/argtable3"]
+	path = argtable3/argtable3
+	url = https://github.com/argtable/argtable3.git

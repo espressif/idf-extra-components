@@ -1,3 +1,13 @@
+## 2.5.1
+
+## Bugfixes:
+- Fixed the format of Kconfig file
+
+## 2.5.0
+
+### Enhancements:
+- Added an API to export the public key from the private key: `esp_encrypted_img_export_public_key`
+
 ## 2.4.0
 
 ### Enhancements:

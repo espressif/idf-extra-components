@@ -50,7 +50,7 @@ menu "Example Configuration"
         default n
         help
             This enables the CI test code i.e. https local server code.
-    
+
     config EXAMPLE_USE_CERT_BUNDLE
         bool "Enable certificate bundle"
         default y
