@@ -1,3 +1,7 @@
+## [0.13.0]
+- feat: added support for Zetta (ZD35Q1GC) NAND flash
+        and Winbond (W25N02KVxxIR/U, W25N04KVxxIR/U) NAND flash chips.
+
 ## [0.12.0]
 - feat: added micron dual-plane nand flash chip (MT29F2G) support
 - fix: fixed build failure in host tests

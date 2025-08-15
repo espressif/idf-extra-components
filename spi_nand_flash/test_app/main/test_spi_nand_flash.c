@@ -307,7 +307,7 @@ static void test_nand_operations(spi_nand_flash_io_mode_t mode, uint8_t flags)
     spi_device_handle_t spi;
     uint32_t sector_num, sector_size, block_size;
 
-    setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_SIO, flags);
+    setup_nand_flash(&nand_flash_device_handle, &spi, mode, flags);
 
     TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
     TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
