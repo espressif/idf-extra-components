@@ -1,0 +1,6 @@
+esp_repl/test_apps:
+  disable:
+    - if: IDF_VERSION_MAJOR < 6
+      reason: "esp_repl is created based on the console component in esp-idf version < 6.0"
+    - if: IDF_TARGET not in ["esp32", "esp32c3"]
+      reason: "Sufficient to test on one Xtensa and one RISC-V target"
