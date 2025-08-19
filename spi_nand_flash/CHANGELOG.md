@@ -1,3 +1,6 @@
+## [0.14.0]
+- feat: added support for XTX (XT26G08D) and Gigadevice (GD5F4GM8) NAND flash
+
 ## [0.13.0]
 - feat: added support for Zetta (ZD35Q1GC) NAND flash
         and Winbond (W25N02KVxxIR/U, W25N04KVxxIR/U) NAND flash chips.
