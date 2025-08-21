@@ -1,0 +1,4 @@
+dependencies:
+  espressif/uart_emu:
+    version: "*"
+    override_path: "../../../"
