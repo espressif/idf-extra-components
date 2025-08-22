@@ -34,6 +34,7 @@ body:
         - esp_gcov
         - esp_jpeg
         - esp_lcd_qemu_rgb
+        - esp_repl
         - esp_serial_slave_link
         - expat
         - fmt
