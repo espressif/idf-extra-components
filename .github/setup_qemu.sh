@@ -3,7 +3,7 @@ set -e
 
 # QEMU version and date string for easy maintenance
 QEMU_VERSION="9.2.2"
-QEMU_DATE="20250228"
+QEMU_DATE="20250817"
 QEMU_RELEASE="esp-develop-${QEMU_VERSION}-${QEMU_DATE}"
 
 # 1. Detect host architecture
