@@ -1,17 +1,17 @@
 #ifndef ISOTPC_CONFIG_H
 #define ISOTPC_CONFIG_H
 
-/* Max number of messages the receiver can receive at one time, this value 
+/* Max number of messages the receiver can receive at one time, this value
  * is affected by can driver queue length
  */
 #define ISO_TP_DEFAULT_BLOCK_SIZE   8
 
-/* The STmin parameter value specifies the minimum time gap allowed between 
+/* The STmin parameter value specifies the minimum time gap allowed between
  * the transmission of consecutive frame network protocol data units
  */
-#define ISO_TP_DEFAULT_ST_MIN_US    0
+#define ISO_TP_DEFAULT_ST_MIN_US    1000
 
-/* This parameter indicate how many FC N_PDU WTs can be transmitted by the 
+/* This parameter indicate how many FC N_PDU WTs can be transmitted by the
  * receiver in a row.
  */
 #define ISO_TP_MAX_WFT_NUMBER       1
@@ -32,8 +32,14 @@
 #endif
 
 /* Private: Determines if by default, an additional argument is present in the
- * definition of isotp_user_send_can. 
+ * definition of isotp_user_send_can.
  */
-//#define ISO_TP_USER_SEND_CAN_ARG
+#define ISO_TP_USER_SEND_CAN_ARG
+
+/* Enable support for transmission complete callback */
+#define ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+
+/* Enable support for receive complete callback */
+#define ISO_TP_RECEIVE_COMPLETE_CALLBACK
 
 #endif // ISOTPC_CONFIG_H

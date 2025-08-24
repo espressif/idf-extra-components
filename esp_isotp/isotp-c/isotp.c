@@ -2,12 +2,14 @@
 #include "assert.h"
 #include "isotp.h"
 
+
 ///////////////////////////////////////////////////////
 ///                 STATIC FUNCTIONS                ///
 ///////////////////////////////////////////////////////
 
 /* st_min to microsecond */
-static uint8_t isotp_us_to_st_min(uint32_t us) {
+static uint8_t isotp_us_to_st_min(uint32_t us)
+{
     if (us <= 127000) {
         if (us >= 100 && us <= 900) {
             return (uint8_t)(0xF0 + (us / 100));
@@ -20,7 +22,8 @@ static uint8_t isotp_us_to_st_min(uint32_t us) {
 }
 
 /* st_min to usec  */
-static uint32_t isotp_st_min_to_us(uint8_t st_min) {
+static uint32_t isotp_st_min_to_us(uint8_t st_min)
+{
     if (st_min <= 0x7F) {
         return st_min * 1000;
     } else if (st_min >= 0xF1 && st_min <= 0xF9) {
@@ -29,7 +32,8 @@ static uint32_t isotp_st_min_to_us(uint8_t st_min) {
     return 0;
 }
 
-static int isotp_send_flow_control(const IsoTpLink* link, uint8_t flow_status, uint8_t block_size, uint32_t st_min_us) {
+static int isotp_send_flow_control(const IsoTpLink *link, uint8_t flow_status, uint8_t block_size, uint32_t st_min_us)
+{
 
     IsoTpCanMessage message;
     int ret;
@@ -50,15 +54,16 @@ static int isotp_send_flow_control(const IsoTpLink* link, uint8_t flow_status, u
 #endif
 
     ret = isotp_user_send_can(link->send_arbitration_id, message.as.data_array.ptr, size
-    #if defined (ISO_TP_USER_SEND_CAN_ARG)
-    ,link->user_send_can_arg
-    #endif
-    );
+#if defined (ISO_TP_USER_SEND_CAN_ARG)
+                              , link->user_send_can_arg
+#endif
+                             );
 
     return ret;
 }
 
-static int isotp_send_single_frame(const IsoTpLink* link, uint32_t id) {
+static int isotp_send_single_frame(const IsoTpLink *link, uint32_t id)
+{
     (void) id; // Prevent unused variable warning
 
     IsoTpCanMessage message;
@@ -82,17 +87,18 @@ static int isotp_send_single_frame(const IsoTpLink* link, uint32_t id) {
 #endif
 
     ret = isotp_user_send_can(
-        link->send_arbitration_id, message.as.data_array.ptr, size
-        #if defined (ISO_TP_USER_SEND_CAN_ARG)
-        ,link->user_send_can_arg
-        #endif
-    );
+              link->send_arbitration_id, message.as.data_array.ptr, size
+#if defined (ISO_TP_USER_SEND_CAN_ARG)
+              , link->user_send_can_arg
+#endif
+          );
 
     return ret;
 }
 
-static int isotp_send_first_frame(IsoTpLink* link, uint32_t id) {
-    
+static int isotp_send_first_frame(IsoTpLink *link, uint32_t id)
+{
+
     IsoTpCanMessage message = {0};
     int ret = 0;
 
@@ -108,11 +114,11 @@ static int isotp_send_first_frame(IsoTpLink* link, uint32_t id) {
 
         /* send 'short' message */
         ret = isotp_user_send_can(
-            id, message.as.data_array.ptr, sizeof(message) 
-            #if defined (ISO_TP_USER_SEND_CAN_ARG)
-            ,link->user_send_can_arg
-            #endif
-        );
+                  id, message.as.data_array.ptr, sizeof(message)
+#if defined (ISO_TP_USER_SEND_CAN_ARG)
+                  , link->user_send_can_arg
+#endif
+              );
 
         if (ISOTP_RET_OK == ret) {
             link->send_offset += sizeof(message.as.first_frame_short.data);
@@ -127,11 +133,11 @@ static int isotp_send_first_frame(IsoTpLink* link, uint32_t id) {
 
         /* send 'long' message */
         ret = isotp_user_send_can(
-            id, message.as.data_array.ptr, sizeof(message) 
-            #if defined (ISO_TP_USER_SEND_CAN_ARG)
-            ,link->user_send_can_arg
-            #endif
-        );
+                  id, message.as.data_array.ptr, sizeof(message)
+#if defined (ISO_TP_USER_SEND_CAN_ARG)
+                  , link->user_send_can_arg
+#endif
+              );
 
         if (ISOTP_RET_OK == ret) {
             link->send_offset += sizeof(message.as.first_frame_long.data);
@@ -143,8 +149,9 @@ static int isotp_send_first_frame(IsoTpLink* link, uint32_t id) {
     return ret;
 }
 
-static int isotp_send_consecutive_frame(IsoTpLink* link) {
-    
+static int isotp_send_consecutive_frame(IsoTpLink *link)
+{
+
     IsoTpCanMessage message;
     uint32_t data_length;
     int ret;
@@ -171,12 +178,12 @@ static int isotp_send_consecutive_frame(IsoTpLink* link) {
 #endif
 
     ret = isotp_user_send_can(
-        link->send_arbitration_id,
-        message.as.data_array.ptr, size
-        #if defined (ISO_TP_USER_SEND_CAN_ARG)
-            ,link->user_send_can_arg
-        #endif
-    );
+              link->send_arbitration_id,
+              message.as.data_array.ptr, size
+#if defined (ISO_TP_USER_SEND_CAN_ARG)
+              , link->user_send_can_arg
+#endif
+          );
 
     if (ISOTP_RET_OK == ret) {
         link->send_offset += data_length;
@@ -184,11 +191,12 @@ static int isotp_send_consecutive_frame(IsoTpLink* link) {
             link->send_sn = 0;
         }
     }
-    
+
     return ret;
 }
 
-static int isotp_receive_single_frame(IsoTpLink* link, const IsoTpCanMessage* message, uint8_t len) {
+static int isotp_receive_single_frame(IsoTpLink *link, const IsoTpCanMessage *message, uint8_t len)
+{
     /* check data length */
     if ((0 == message->as.single_frame.SF_DL) || (message->as.single_frame.SF_DL > (len - 1))) {
         isotp_user_debug("Single-frame length too small.");
@@ -198,11 +206,12 @@ static int isotp_receive_single_frame(IsoTpLink* link, const IsoTpCanMessage* me
     /* copying data */
     (void) memcpy(link->receive_buffer, message->as.single_frame.data, message->as.single_frame.SF_DL);
     link->receive_size = message->as.single_frame.SF_DL;
-    
+
     return ISOTP_RET_OK;
 }
 
-static int isotp_receive_first_frame(IsoTpLink *link, IsoTpCanMessage *message, uint8_t len) {
+static int isotp_receive_first_frame(IsoTpLink *link, IsoTpCanMessage *message, uint8_t len)
+{
     uint8_t is_long_packet = 0;
     uint32_t payload_length;
 
@@ -226,18 +235,17 @@ static int isotp_receive_first_frame(IsoTpLink *link, IsoTpCanMessage *message, 
         isotp_user_debug("Should not use multiple frame transmission.");
         return ISOTP_RET_LENGTH;
     }
-    
+
     if (payload_length > link->receive_buf_size) {
         isotp_user_debug("Multi-frame response too large for receiving buffer.");
         return ISOTP_RET_OVERFLOW;
     }
-    
+
     /* copying data */
     if (is_long_packet) {
         (void)memcpy(link->receive_buffer, message->as.first_frame_long.data, sizeof(message->as.first_frame_long.data));
         link->receive_offset = sizeof(message->as.first_frame_long.data);
-    }
-    else {
+    } else {
         (void)memcpy(link->receive_buffer, message->as.first_frame_short.data, sizeof(message->as.first_frame_short.data));
         link->receive_offset = sizeof(message->as.first_frame_short.data);
     }
@@ -248,9 +256,10 @@ static int isotp_receive_first_frame(IsoTpLink *link, IsoTpCanMessage *message, 
     return ISOTP_RET_OK;
 }
 
-static int isotp_receive_consecutive_frame(IsoTpLink *link, IsoTpCanMessage *message, uint8_t len) {
+static int isotp_receive_consecutive_frame(IsoTpLink *link, IsoTpCanMessage *message, uint8_t len)
+{
     uint32_t remaining_bytes;
-    
+
     /* check sn */
     if (link->receive_sn != message->as.consecutive_frame.SN) {
         return ISOTP_RET_WRONG_SN;
@@ -277,7 +286,8 @@ static int isotp_receive_consecutive_frame(IsoTpLink *link, IsoTpCanMessage *mes
     return ISOTP_RET_OK;
 }
 
-static int isotp_receive_flow_control_frame(IsoTpLink *link, IsoTpCanMessage *message, uint8_t len) {
+static int isotp_receive_flow_control_frame(IsoTpLink *link, IsoTpCanMessage *message, uint8_t len)
+{
     /* unused args */
     (void) link;
     (void) message;
@@ -295,11 +305,13 @@ static int isotp_receive_flow_control_frame(IsoTpLink *link, IsoTpCanMessage *me
 ///                 PUBLIC FUNCTIONS                ///
 ///////////////////////////////////////////////////////
 
-int isotp_send(IsoTpLink *link, const uint8_t payload[], uint32_t size) {
+int isotp_send(IsoTpLink *link, const uint8_t payload[], uint32_t size)
+{
     return isotp_send_with_id(link, link->send_arbitration_id, payload, size);
 }
 
-int isotp_send_with_id(IsoTpLink *link, uint32_t id, const uint8_t payload[], uint32_t size) {
+int isotp_send_with_id(IsoTpLink *link, uint32_t id, const uint8_t payload[], uint32_t size)
+{
     int ret;
 
     if (link == 0x0) {
@@ -309,13 +321,13 @@ int isotp_send_with_id(IsoTpLink *link, uint32_t id, const uint8_t payload[], ui
 
     if (size > link->send_buf_size) {
         isotp_user_debug("Message size too large. Increase ISO_TP_MAX_MESSAGE_SIZE to set a larger buffer\n");
-        
+
         char message[ISOTP_MAX_ERROR_MSG_SIZE] = {0};
         int32_t writtenChars = snprintf(&message[0], ISOTP_MAX_ERROR_MSG_SIZE, "Attempted to send %u bytes; max size is %u!\n", (unsigned int)size, (unsigned int)link->send_buf_size);
 
         assert(writtenChars <= ISOTP_MAX_ERROR_MSG_SIZE);
         (void) writtenChars;
-        
+
         isotp_user_debug(message);
         return ISOTP_RET_OVERFLOW;
     }
@@ -329,10 +341,15 @@ int isotp_send_with_id(IsoTpLink *link, uint32_t id, const uint8_t payload[], ui
     link->send_size = size;
     link->send_offset = 0;
     (void) memcpy(link->send_buffer, payload, size);
- 
+
     if (link->send_size < 8) {
         /* send single frame */
         ret = isotp_send_single_frame(link, id);
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+        if (ret == ISOTP_RET_OK && link->tx_done_cb) {
+            link->tx_done_cb(link, link->send_size, link->tx_done_cb_arg);
+        }
+#endif
     } else {
         /* send multi-frame */
         ret = isotp_send_first_frame(link, id);
@@ -352,10 +369,11 @@ int isotp_send_with_id(IsoTpLink *link, uint32_t id, const uint8_t payload[], ui
     return ret;
 }
 
-void isotp_on_can_message(IsoTpLink* link, const uint8_t* data, uint8_t len) {
+void isotp_on_can_message(IsoTpLink *link, const uint8_t *data, uint8_t len)
+{
     IsoTpCanMessage message;
     int ret;
-    
+
     if (len < 2 || len > 8) {
         return;
     }
@@ -364,146 +382,161 @@ void isotp_on_can_message(IsoTpLink* link, const uint8_t* data, uint8_t len) {
     memset(message.as.data_array.ptr + len, 0, sizeof(message.as.data_array.ptr) - len);
 
     switch (message.as.common.type) {
-        case ISOTP_PCI_TYPE_SINGLE: {
-            /* update protocol result */
-            if (ISOTP_RECEIVE_STATUS_INPROGRESS == link->receive_status) {
-                link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_UNEXP_PDU;
-            } else {
-                link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_OK;
-            }
+    case ISOTP_PCI_TYPE_SINGLE: {
+        /* update protocol result */
+        if (ISOTP_RECEIVE_STATUS_INPROGRESS == link->receive_status) {
+            link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_UNEXP_PDU;
+        } else {
+            link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_OK;
+        }
 
-            /* handle message */
-            ret = isotp_receive_single_frame(link, &message, len);
-            
-            if (ISOTP_RET_OK == ret) {
-                /* change status */
+        /* handle message */
+        ret = isotp_receive_single_frame(link, &message, len);
+
+        if (ISOTP_RET_OK == ret) {
+            /* change status */
+            link->receive_status = ISOTP_RECEIVE_STATUS_FULL;
+        }
+        break;
+    }
+    case ISOTP_PCI_TYPE_FIRST_FRAME: {
+        /* update protocol result */
+        if (ISOTP_RECEIVE_STATUS_INPROGRESS == link->receive_status) {
+            link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_UNEXP_PDU;
+        } else {
+            link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_OK;
+        }
+
+        /* handle message */
+        ret = isotp_receive_first_frame(link, &message, len);
+
+        /* if overflow happened */
+        if (ISOTP_RET_OVERFLOW == ret) {
+            /* update protocol result */
+            link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_BUFFER_OVFLW;
+            /* change status */
+            link->receive_status = ISOTP_RECEIVE_STATUS_IDLE;
+            /* send error message */
+            isotp_send_flow_control(link, PCI_FLOW_STATUS_OVERFLOW, 0, 0);
+            break;
+        }
+
+        /* if receive successful */
+        if (ISOTP_RET_OK == ret) {
+            /* change status */
+            link->receive_status = ISOTP_RECEIVE_STATUS_INPROGRESS;
+            /* send fc frame */
+            link->receive_bs_count = ISO_TP_DEFAULT_BLOCK_SIZE;
+            isotp_send_flow_control(link, PCI_FLOW_STATUS_CONTINUE, link->receive_bs_count, ISO_TP_DEFAULT_ST_MIN_US);
+            /* refresh timer cs */
+            link->receive_timer_cr = isotp_user_get_us() + ISO_TP_DEFAULT_RESPONSE_TIMEOUT_US;
+        }
+
+        break;
+    }
+    case ISOTP_PCI_TYPE_CONSECUTIVE_FRAME: {
+        /* check if in receiving status */
+        if (ISOTP_RECEIVE_STATUS_INPROGRESS != link->receive_status) {
+            link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_UNEXP_PDU;
+            break;
+        }
+
+        /* handle message */
+        ret = isotp_receive_consecutive_frame(link, &message, len);
+
+        /* if wrong sn */
+        if (ISOTP_RET_WRONG_SN == ret) {
+            link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_WRONG_SN;
+            link->receive_status = ISOTP_RECEIVE_STATUS_IDLE;
+            break;
+        }
+
+        /* if success */
+        if (ISOTP_RET_OK == ret) {
+            /* refresh timer cs */
+            link->receive_timer_cr = isotp_user_get_us() + ISO_TP_DEFAULT_RESPONSE_TIMEOUT_US;
+
+            /* receive finished */
+            if (link->receive_offset >= link->receive_size) {
                 link->receive_status = ISOTP_RECEIVE_STATUS_FULL;
-            }
-            break;
-        }
-        case ISOTP_PCI_TYPE_FIRST_FRAME: {
-            /* update protocol result */
-            if (ISOTP_RECEIVE_STATUS_INPROGRESS == link->receive_status) {
-                link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_UNEXP_PDU;
             } else {
-                link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_OK;
-            }
-
-            /* handle message */
-            ret = isotp_receive_first_frame(link, &message, len);
-
-            /* if overflow happened */
-            if (ISOTP_RET_OVERFLOW == ret) {
-                /* update protocol result */
-                link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_BUFFER_OVFLW;
-                /* change status */
-                link->receive_status = ISOTP_RECEIVE_STATUS_IDLE;
-                /* send error message */
-                isotp_send_flow_control(link, PCI_FLOW_STATUS_OVERFLOW, 0, 0);
-                break;
-            }
-
-            /* if receive successful */
-            if (ISOTP_RET_OK == ret) {
-                /* change status */
-                link->receive_status = ISOTP_RECEIVE_STATUS_INPROGRESS;
-                /* send fc frame */
-                link->receive_bs_count = ISO_TP_DEFAULT_BLOCK_SIZE;
-                isotp_send_flow_control(link, PCI_FLOW_STATUS_CONTINUE, link->receive_bs_count, ISO_TP_DEFAULT_ST_MIN_US);
-                /* refresh timer cs */
-                link->receive_timer_cr = isotp_user_get_us() + ISO_TP_DEFAULT_RESPONSE_TIMEOUT_US;
-            }
-            
-            break;
-        }
-        case ISOTP_PCI_TYPE_CONSECUTIVE_FRAME: {
-            /* check if in receiving status */
-            if (ISOTP_RECEIVE_STATUS_INPROGRESS != link->receive_status) {
-                link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_UNEXP_PDU;
-                break;
-            }
-
-            /* handle message */
-            ret = isotp_receive_consecutive_frame(link, &message, len);
-
-            /* if wrong sn */
-            if (ISOTP_RET_WRONG_SN == ret) {
-                link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_WRONG_SN;
-                link->receive_status = ISOTP_RECEIVE_STATUS_IDLE;
-                break;
-            }
-
-            /* if success */
-            if (ISOTP_RET_OK == ret) {
-                /* refresh timer cs */
-                link->receive_timer_cr = isotp_user_get_us() + ISO_TP_DEFAULT_RESPONSE_TIMEOUT_US;
-                
-                /* receive finished */
-                if (link->receive_offset >= link->receive_size) {
-                    link->receive_status = ISOTP_RECEIVE_STATUS_FULL;
-                } else {
-                    /* send fc when bs reaches limit */
-                    if (0 == --link->receive_bs_count) {
-                        link->receive_bs_count = ISO_TP_DEFAULT_BLOCK_SIZE;
-                        isotp_send_flow_control(link, PCI_FLOW_STATUS_CONTINUE, link->receive_bs_count, ISO_TP_DEFAULT_ST_MIN_US);
-                    }
+                /* send fc when bs reaches limit */
+                if (0 == --link->receive_bs_count) {
+                    link->receive_bs_count = ISO_TP_DEFAULT_BLOCK_SIZE;
+                    isotp_send_flow_control(link, PCI_FLOW_STATUS_CONTINUE, link->receive_bs_count, ISO_TP_DEFAULT_ST_MIN_US);
                 }
             }
-            
+        }
+
+        break;
+    }
+    case ISOTP_PCI_TYPE_FLOW_CONTROL_FRAME:
+        /* handle fc frame only when sending in progress  */
+        if (ISOTP_SEND_STATUS_INPROGRESS != link->send_status) {
             break;
         }
-        case ISOTP_PCI_TYPE_FLOW_CONTROL_FRAME:
-            /* handle fc frame only when sending in progress  */
-            if (ISOTP_SEND_STATUS_INPROGRESS != link->send_status) {
-                break;
+
+        /* handle message */
+        ret = isotp_receive_flow_control_frame(link, &message, len);
+
+        if (ISOTP_RET_OK == ret) {
+            /* refresh bs timer */
+            link->send_timer_bs = isotp_user_get_us() + ISO_TP_DEFAULT_RESPONSE_TIMEOUT_US;
+
+            /* overflow */
+            if (PCI_FLOW_STATUS_OVERFLOW == message.as.flow_control.FS) {
+                link->send_protocol_result = ISOTP_PROTOCOL_RESULT_BUFFER_OVFLW;
+                link->send_status = ISOTP_SEND_STATUS_ERROR;
             }
 
-            /* handle message */
-            ret = isotp_receive_flow_control_frame(link, &message, len);
-            
-            if (ISOTP_RET_OK == ret) {
-                /* refresh bs timer */
-                link->send_timer_bs = isotp_user_get_us() + ISO_TP_DEFAULT_RESPONSE_TIMEOUT_US;
-
-                /* overflow */
-                if (PCI_FLOW_STATUS_OVERFLOW == message.as.flow_control.FS) {
-                    link->send_protocol_result = ISOTP_PROTOCOL_RESULT_BUFFER_OVFLW;
+            /* wait */
+            else if (PCI_FLOW_STATUS_WAIT == message.as.flow_control.FS) {
+                link->send_wtf_count += 1;
+                /* wait exceed allowed count */
+                if (link->send_wtf_count > ISO_TP_MAX_WFT_NUMBER) {
+                    link->send_protocol_result = ISOTP_PROTOCOL_RESULT_WFT_OVRN;
                     link->send_status = ISOTP_SEND_STATUS_ERROR;
                 }
-
-                /* wait */
-                else if (PCI_FLOW_STATUS_WAIT == message.as.flow_control.FS) {
-                    link->send_wtf_count += 1;
-                    /* wait exceed allowed count */
-                    if (link->send_wtf_count > ISO_TP_MAX_WFT_NUMBER) {
-                        link->send_protocol_result = ISOTP_PROTOCOL_RESULT_WFT_OVRN;
-                        link->send_status = ISOTP_SEND_STATUS_ERROR;
-                    }
-                }
-
-                /* permit send */
-                else if (PCI_FLOW_STATUS_CONTINUE == message.as.flow_control.FS) {
-                    if (0 == message.as.flow_control.BS) {
-                        link->send_bs_remain = ISOTP_INVALID_BS;
-                    } else {
-                        link->send_bs_remain = message.as.flow_control.BS;
-                    }
-                    uint32_t message_st_min_us = isotp_st_min_to_us(message.as.flow_control.STmin);
-                    link->send_st_min_us = message_st_min_us > ISO_TP_DEFAULT_ST_MIN_US ? message_st_min_us : ISO_TP_DEFAULT_ST_MIN_US; // prefer as much st_min as possible for stability?
-                    link->send_wtf_count = 0;
-                }
             }
-            break;
-        default:
-            break;
+
+            /* permit send */
+            else if (PCI_FLOW_STATUS_CONTINUE == message.as.flow_control.FS) {
+                if (0 == message.as.flow_control.BS) {
+                    link->send_bs_remain = ISOTP_INVALID_BS;
+                } else {
+                    link->send_bs_remain = message.as.flow_control.BS;
+                }
+                uint32_t message_st_min_us = isotp_st_min_to_us(message.as.flow_control.STmin);
+                link->send_st_min_us = message_st_min_us > ISO_TP_DEFAULT_ST_MIN_US ? message_st_min_us : ISO_TP_DEFAULT_ST_MIN_US; // prefer as much st_min as possible for stability?
+                link->send_wtf_count = 0;
+            }
+        }
+        break;
+    default:
+        break;
     };
-    
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+    /* Notify user via callback if registered */
+    if (link->receive_status == ISOTP_RECEIVE_STATUS_FULL && link->rx_done_cb != NULL) {
+        link->rx_done_cb(link, link->receive_buffer, link->receive_size, link->rx_done_cb_arg);
+        link->receive_status = ISOTP_RECEIVE_STATUS_IDLE;
+    }
+#endif
     return;
 }
 
-int isotp_receive(IsoTpLink *link, uint8_t *payload, const uint32_t payload_size, uint32_t *out_size) {
+int isotp_receive(IsoTpLink *link, uint8_t *payload, const uint32_t payload_size, uint32_t *out_size)
+{
     uint32_t copylen;
-    
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+    /* If callback is registered, isotp_receive should not be used */
+    if (link->rx_done_cb != NULL) {
+        return ISOTP_RET_ERROR; /* Callback mode active, use callback instead */
+    }
+#endif
+
     if (ISOTP_RECEIVE_STATUS_FULL != link->receive_status) {
         return ISOTP_RET_NO_DATA;
     }
@@ -521,7 +554,8 @@ int isotp_receive(IsoTpLink *link, uint8_t *payload, const uint32_t payload_size
     return ISOTP_RET_OK;
 }
 
-void isotp_init_link(IsoTpLink *link, uint32_t sendid, uint8_t *sendbuf, uint32_t sendbufsize, uint8_t *recvbuf, uint32_t recvbufsize) {
+void isotp_init_link(IsoTpLink *link, uint32_t sendid, uint8_t *sendbuf, uint32_t sendbufsize, uint8_t *recvbuf, uint32_t recvbufsize)
+{
     memset(link, 0, sizeof(*link));
     link->receive_status = ISOTP_RECEIVE_STATUS_IDLE;
     link->send_status = ISOTP_SEND_STATUS_IDLE;
@@ -530,11 +564,43 @@ void isotp_init_link(IsoTpLink *link, uint32_t sendid, uint8_t *sendbuf, uint32_
     link->send_buf_size = sendbufsize;
     link->receive_buffer = recvbuf;
     link->receive_buf_size = recvbufsize;
-    
+
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+    link->tx_done_cb = NULL;
+    link->tx_done_cb_arg = NULL;
+#endif
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+    link->rx_done_cb = NULL;
+    link->rx_done_cb_arg = NULL;
+#endif
+
     return;
 }
 
-void isotp_poll(IsoTpLink *link) {
+void isotp_destroy_link(IsoTpLink *link)
+{
+    if (link == NULL) {
+        return;
+    }
+
+    // Clear callbacks
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+    link->tx_done_cb = NULL;
+    link->tx_done_cb_arg = NULL;
+#endif
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+    link->rx_done_cb = NULL;
+    link->rx_done_cb_arg = NULL;
+#endif
+
+    // Reset link state (optional, but good practice)
+    memset(link, 0, sizeof(IsoTpLink));
+}
+
+void isotp_poll(IsoTpLink *link)
+{
     int ret = 0;
 
     /* only polling when operation in progress */
@@ -546,7 +612,7 @@ void isotp_poll(IsoTpLink *link) {
             /* and if st_min is zero or go beyond interval time */
             (0 == link->send_st_min_us || IsoTpTimeAfter(isotp_user_get_us(), link->send_timer_st))
         ) {
-            
+
             ret = isotp_send_consecutive_frame(link);
             if (ISOTP_RET_OK == ret) {
                 if (ISOTP_INVALID_BS != link->send_bs_remain) {
@@ -558,6 +624,11 @@ void isotp_poll(IsoTpLink *link) {
                 /* check if send finish */
                 if (link->send_offset >= link->send_size) {
                     link->send_status = ISOTP_SEND_STATUS_IDLE;
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+                    if (link->tx_done_cb != NULL) {
+                        link->tx_done_cb(link, link->send_size, link->tx_done_cb_arg);
+                    }
+#endif
                 }
             } else if (ISOTP_RET_NOSPACE == ret) {
                 /* shim reported that it isn't able to send a frame at present, retry on next call */
@@ -575,7 +646,7 @@ void isotp_poll(IsoTpLink *link) {
 
     /* only polling when operation in progress */
     if (ISOTP_RECEIVE_STATUS_INPROGRESS == link->receive_status) {
-        
+
         /* check timeout */
         if ((link->receive_timer_cr > 0) && IsoTpTimeAfter(isotp_user_get_us(), link->receive_timer_cr)) {
             link->receive_protocol_result = ISOTP_PROTOCOL_RESULT_TIMEOUT_CR;
@@ -585,3 +656,23 @@ void isotp_poll(IsoTpLink *link) {
 
     return;
 }
+
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+void isotp_set_tx_done_cb(IsoTpLink *link, isotp_tx_done_cb cb, void *arg)
+{
+    if (link != NULL) {
+        link->tx_done_cb = cb;
+        link->tx_done_cb_arg = arg;
+    }
+}
+#endif
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+void isotp_set_rx_done_cb(IsoTpLink *link, isotp_rx_done_cb cb, void *arg)
+{
+    if (link != NULL) {
+        link->rx_done_cb = cb;
+        link->rx_done_cb_arg = arg;
+    }
+}
+#endif

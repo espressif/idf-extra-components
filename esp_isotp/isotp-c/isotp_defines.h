@@ -7,30 +7,30 @@
  * compiler specific defines
  *************************************************************/
 #ifdef __GNUC__
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-        #define ISOTP_BYTE_ORDER_LITTLE_ENDIAN
-    #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    #else
-        #error "unsupported byte ordering"
-    #endif
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define ISOTP_BYTE_ORDER_LITTLE_ENDIAN
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#else
+#error "unsupported byte ordering"
+#endif
 
-    #define ISOTP_PACKED_STRUCT(content) typedef struct __attribute__((packed)) content
+#define ISOTP_PACKED_STRUCT(content) typedef struct __attribute__((packed)) content
 #endif
 
 /**************************************************************
  * OS specific defines
  *************************************************************/
 #ifdef _WIN32
-    #define ISOTP_PACKED_STRUCT(content) __pragma(pack(push, 1)) typedef struct content __pragma(pack(pop))
+#define ISOTP_PACKED_STRUCT(content) __pragma(pack(push, 1)) typedef struct content __pragma(pack(pop))
 
-    #define snprintf _snprintf
+#define snprintf _snprintf
 
-    #include <windows.h>
-    #define ISOTP_BYTE_ORDER_LITTLE_ENDIAN
-    #define __builtin_bswap8  _byteswap_uint8
-    #define __builtin_bswap16 _byteswap_uint16
-    #define __builtin_bswap32 _byteswap_uint32
-    #define __builtin_bswap64 _byteswap_uint64
+#include <windows.h>
+#define ISOTP_BYTE_ORDER_LITTLE_ENDIAN
+#define __builtin_bswap8  _byteswap_uint8
+#define __builtin_bswap16 _byteswap_uint16
+#define __builtin_bswap32 _byteswap_uint32
+#define __builtin_bswap64 _byteswap_uint64
 #endif
 
 #define LE32TOH(le) ((uint32_t)(((le) << 24) | (((le) & 0x0000FF00) << 8) | (((le) & 0x00FF0000) >> 8) | ((le) >> 24)))
@@ -74,20 +74,20 @@ typedef enum {
 /* can fram defination */
 #if defined(ISOTP_BYTE_ORDER_LITTLE_ENDIAN)
 typedef struct {
-    uint8_t reserve_1:4;
-    uint8_t type:4;
+    uint8_t reserve_1: 4;
+    uint8_t type: 4;
     uint8_t reserve_2[7];
 } IsoTpPciType;
 
 typedef struct {
-    uint8_t SF_DL:4;
-    uint8_t type:4;
+    uint8_t SF_DL: 4;
+    uint8_t type: 4;
     uint8_t data[7];
 } IsoTpSingleFrame;
 
 typedef struct {
-    uint8_t FF_DL_high:4;
-    uint8_t type:4;
+    uint8_t FF_DL_high: 4;
+    uint8_t type: 4;
     uint8_t FF_DL_low;
     uint8_t data[6];
 } IsoTpFirstFrameShort;
@@ -101,14 +101,14 @@ ISOTP_PACKED_STRUCT({
 } IsoTpFirstFrameLong);
 
 typedef struct {
-    uint8_t SN:4;
-    uint8_t type:4;
+    uint8_t SN: 4;
+    uint8_t type: 4;
     uint8_t data[7];
 } IsoTpConsecutiveFrame;
 
 typedef struct {
-    uint8_t FS:4;
-    uint8_t type:4;
+    uint8_t FS: 4;
+    uint8_t type: 4;
     uint8_t BS;
     uint8_t STmin;
     uint8_t reserve[5];
@@ -117,8 +117,8 @@ typedef struct {
 #else
 
 typedef struct {
-    uint8_t type:4;
-    uint8_t reserve_1:4;
+    uint8_t type: 4;
+    uint8_t reserve_1: 4;
     uint8_t reserve_2[7];
 } IsoTpPciType;
 
@@ -133,8 +133,8 @@ typedef struct {
 * +-------------+-----------+-----+
 */
 typedef struct {
-    uint8_t type:4;
-    uint8_t SF_DL:4;
+    uint8_t type: 4;
+    uint8_t SF_DL: 4;
     uint8_t data[7];
 } IsoTpSingleFrame;
 
@@ -149,8 +149,8 @@ typedef struct {
 * +-------------+-----------+-----------------------+-----+
 */
 typedef struct {
-    uint8_t FF_DL_high:4;
-    uint8_t type:4;
+    uint8_t FF_DL_high: 4;
+    uint8_t type: 4;
     uint8_t FF_DL_low;
     uint8_t data[6];
 } IsoTpFirstFrameShort;
@@ -166,8 +166,8 @@ typedef struct {
 * +-------------+-----------+-----------------------+---------------------------------------+
 */
 ISOTP_PACKED_STRUCT({
-    uint8_t set_to_zero_high:4;
-    uint8_t type:4;
+    uint8_t set_to_zero_high: 4;
+    uint8_t type: 4;
     uint8_t set_to_zero_low;
     uint32_t FF_DL;
     uint8_t data[2];
@@ -184,8 +184,8 @@ ISOTP_PACKED_STRUCT({
 * +-------------+-----------+-----+
 */
 typedef struct {
-    uint8_t type:4;
-    uint8_t SN:4;
+    uint8_t type: 4;
+    uint8_t SN: 4;
     uint8_t data[7];
 } IsoTpConsecutiveFrame;
 
@@ -200,8 +200,8 @@ typedef struct {
 * +-------------+-----------+-----------------------+-----------------------+-----+
 */
 typedef struct {
-    uint8_t type:4;
-    uint8_t FS:4;
+    uint8_t type: 4;
+    uint8_t FS: 4;
     uint8_t BS;
     uint8_t STmin;
     uint8_t reserve[5];
@@ -228,6 +228,20 @@ typedef struct {
 /**************************************************************
  * protocol specific defines
  *************************************************************/
+
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+/* Private: Function pointer type for transmission done callback
+ * Called when any transmission (single-frame or multi-frame) is completed successfully
+ */
+typedef void (*isotp_tx_done_cb)(void *link, uint32_t tx_size, void *user_arg);
+#endif
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+/* Private: Function pointer type for receive done callback
+ * Called when a complete message (single-frame or multi-frame) has been received successfully
+ */
+typedef void (*isotp_rx_done_cb)(void *link, const uint8_t *data, uint32_t size, void *user_arg);
+#endif
 
 /* Private: Protocol Control Information (PCI) types, for identifying each frame of an ISO-TP message.
  */

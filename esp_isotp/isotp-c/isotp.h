@@ -10,8 +10,8 @@
 extern "C" {
 #endif
 
-#include "isotp_defines.h"
 #include "isotp_config.h"
+#include "isotp_defines.h"
 #include "isotp_user.h"
 
 /**
@@ -23,7 +23,7 @@ typedef struct IsoTpLink {
     /* sender paramters */
     uint32_t                    send_arbitration_id; /* used to reply consecutive frame */
     /* message buffer */
-    uint8_t*                    send_buffer;
+    uint8_t                    *send_buffer;
     uint32_t                    send_buf_size;
     uint32_t                    send_size;
     uint32_t                    send_offset;
@@ -32,7 +32,7 @@ typedef struct IsoTpLink {
     uint32_t                    send_bs_remain; /* Remaining block size */
     uint32_t                    send_st_min_us; /* Separation Time between consecutive frames */
     uint8_t                     send_wtf_count; /* Maximum number of FC.Wait frame transmissions  */
-    uint32_t                    send_timer_st;  /* Last time send consecutive frame */    
+    uint32_t                    send_timer_st;  /* Last time send consecutive frame */
     uint32_t                    send_timer_bs;  /* Time until reception of the next FlowControl N_PDU
                                                    start at sending FF, CF, receive FC
                                                    end at receive FC */
@@ -41,7 +41,7 @@ typedef struct IsoTpLink {
     /* receiver paramters */
     uint32_t                    receive_arbitration_id;
     /* message buffer */
-    uint8_t*                    receive_buffer;
+    uint8_t                    *receive_buffer;
     uint32_t                    receive_buf_size;
     uint32_t                    receive_size;
     uint32_t                    receive_offset;
@@ -49,14 +49,25 @@ typedef struct IsoTpLink {
     uint8_t                     receive_sn;
     uint8_t                     receive_bs_count; /* Maximum number of FC.Wait frame transmissions  */
     uint32_t                    receive_timer_cr; /* Time until transmission of the next ConsecutiveFrame N_PDU
-                                                     start at sending FC, receive CF 
+                                                     start at sending FC, receive CF
                                                      end at receive FC */
     int                         receive_protocol_result;
-    uint8_t                     receive_status;                                                     
+    uint8_t                     receive_status;
 
 #if defined(ISO_TP_USER_SEND_CAN_ARG)
-    void*                       user_send_can_arg;
+    void                       *user_send_can_arg;
 #endif
+
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+    isotp_tx_done_cb              tx_done_cb;        /* User callback for transmission complete */
+    void                      *tx_done_cb_arg;    /* User argument for callback */
+#endif
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+    isotp_rx_done_cb           rx_done_cb;     /* User callback for receive complete */
+    void                      *rx_done_cb_arg; /* User argument for callback */
+#endif
+
 } IsoTpLink;
 
 /**
@@ -69,9 +80,16 @@ typedef struct IsoTpLink {
  * @param recvbuf A pointer to an area in memory which can be used as a buffer for data to be received.
  * @param recvbufsize The size of the buffer area.
  */
-void isotp_init_link(IsoTpLink *link, uint32_t sendid, 
+void isotp_init_link(IsoTpLink *link, uint32_t sendid,
                      uint8_t *sendbuf, uint32_t sendbufsize,
                      uint8_t *recvbuf, uint32_t recvbufsize);
+
+/**
+ * @brief Destroys the ISO-TP link and releases associated resources.
+ *
+ * @param link The @code IsoTpLink @endcode instance to destroy.
+ */
+void isotp_destroy_link(IsoTpLink *link);
 
 /**
  * @brief Polling function; call this function periodically to handle timeouts, send consecutive frames, etc.
@@ -125,6 +143,28 @@ int isotp_send_with_id(IsoTpLink *link, uint32_t id, const uint8_t payload[], ui
  *      - @link ISOTP_RET_NO_DATA @endlink
  */
 int isotp_receive(IsoTpLink *link, uint8_t *payload, const uint32_t payload_size, uint32_t *out_size);
+
+#ifdef ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+/**
+ * @brief Sets the callback function for transmission complete notification.
+ *
+ * @param link The @code IsoTpLink @endcode instance used for transceiving data.
+ * @param cb The callback function to be called when transmission is complete.
+ * @param arg A pointer that will be passed to the callback function.
+ */
+void isotp_set_tx_done_cb(IsoTpLink *link, isotp_tx_done_cb cb, void *arg);
+#endif
+
+#ifdef ISO_TP_RECEIVE_COMPLETE_CALLBACK
+/**
+ * @brief Sets the callback function for receive complete notification.
+ *
+ * @param link The @code IsoTpLink @endcode instance used for transceiving data.
+ * @param cb The callback function to be called when a message is received.
+ * @param arg A pointer that will be passed to the callback function.
+ */
+void isotp_set_rx_done_cb(IsoTpLink *link, isotp_rx_done_cb cb, void *arg);
+#endif
 
 #ifdef __cplusplus
 }
