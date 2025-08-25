@@ -51,7 +51,7 @@ jobs:
           echo "build_only=$build_only" >> $GITHUB_OUTPUT
           echo "test_all_apps=$test_all_apps"
           echo "build_only=$build_only"
-          
+
       - name: Find changed files and components
         id: find_changes
         if: github.event_name == 'pull_request' && steps.get_labels.outputs.test_all_apps == '0'
@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: 
+        idf_ver:
           - "release-v5.0"
           - "release-v5.1"
           - "release-v5.2"
