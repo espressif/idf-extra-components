@@ -11,6 +11,8 @@
 #define SPI_NAND_FLASH_ALLIANCE_MI    0x52
 #define SPI_NAND_FLASH_WINBOND_MI     0xEF
 #define SPI_NAND_FLASH_MICRON_MI      0x2C
+#define SPI_NAND_FLASH_ZETTA_MI       0xBA
+#define SPI_NAND_FLASH_XTX_MI         0x0B
 
 //Device ID (DI) for supported nand flash devices
 
@@ -26,6 +28,8 @@
 #define GIGADEVICE_DI_45              0x45
 #define GIGADEVICE_DI_35              0x35
 #define GIGADEVICE_DI_25              0x25
+#define GIGADEVICE_DI_95              0x95
+#define GIGADEVICE_DI_85              0x85
 
 #define ALLIANCE_DI_25                0x25   //AS5F31G04SND-08LIN
 #define ALLIANCE_DI_2E                0x2E   //AS5F32G04SND-08LIN
@@ -40,8 +44,14 @@
 #define WINBOND_DI_AA21               0xAA21
 #define WINBOND_DI_BA21               0xBA21
 #define WINBOND_DI_BC21               0xBC21
+#define WINBOND_DI_AA22               0xAA22
+#define WINBOND_DI_AA23               0xAA23
 
 #define MICRON_DI_34                  0x34
 #define MICRON_DI_14                  0x14
 #define MICRON_DI_15                  0x15
 #define MICRON_DI_24                  0x24   // MT29F2G
+
+#define ZETTA_DI_71                   0x71
+
+#define XTX_DI_37                     0x37

@@ -16,6 +16,8 @@ else()
                  "src/nand_gigadevice.c"
                  "src/nand_alliance.c"
                  "src/nand_micron.c"
+                 "src/nand_zetta.c"
+                 "src/nand_xtx.c"
                  "src/nand_impl.c"
                  "src/nand_impl_wrap.c"
                  "src/nand_diag_api.c"
