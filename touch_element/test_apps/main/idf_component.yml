@@ -1,0 +1,4 @@
+dependencies:
+  espressif/touch_element:
+    version: '*'
+    override_path: '../../'

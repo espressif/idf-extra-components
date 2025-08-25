@@ -9,6 +9,7 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
+@pytest.mark.parametrize('target', ['esp32'], indirect=True)
 def test_examples_cbor(dut: Dut) -> None:
 
     dut.expect(r'example: encoded buffer size \d+')

@@ -1,3 +1,8 @@
+.:
+  disable:
+    - if: (IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 5) and IDF_TARGET in ["esp32c61", "esp32c5"]
+      reason: Not support C61 and C5 before IDF v5.5
+
 led_strip/examples/led_strip_rmt_ws2812:
   disable:
     - if: CONFIG_SOC_RMT_SUPPORTED != 1
@@ -18,6 +23,8 @@ esp_delta_ota:
   disable:
     - if: SOC_WIFI_SUPPORTED != 1
       reason: Relevant only for WiFi enabled targets
+    - if: (IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 5) and IDF_TARGET in ["esp32c61", "esp32c5"]
+      reason: Not support C61 and C5 before IDF v5.5
 
 esp_encrypted_img/examples/pre_encrypted_ota:
   enable:

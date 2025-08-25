@@ -6,5 +6,6 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
+@pytest.mark.parametrize('target', ['esp32'], indirect=True)
 def test_fmt_example(dut: Dut) -> None:
     dut.expect_exact('Hello, fmt!')

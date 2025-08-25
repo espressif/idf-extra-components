@@ -6,6 +6,7 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
+@pytest.mark.parametrize('target', ['esp32'], indirect=True)
 def test_catch2_console_example(dut: Dut) -> None:
     dut.expect_exact('Type \'help\' to get the list of commands.')
     dut.write('test -?\n')
