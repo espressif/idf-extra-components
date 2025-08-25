@@ -35,7 +35,7 @@ esp_err_t decode_image(uint16_t **pixels)
     *pixels = NULL;
     esp_err_t ret = ESP_OK;
 
-    //Alocate pixel memory. Each line is an array of IMAGE_W 16-bit pixels; the `*pixels` array itself contains pointers to these lines.
+    //Allocate pixel memory. Each line is an array of IMAGE_W 16-bit pixels; the `*pixels` array itself contains pointers to these lines.
     *pixels = calloc(IMAGE_H * IMAGE_W, sizeof(uint16_t));
     ESP_GOTO_ON_FALSE((*pixels), ESP_ERR_NO_MEM, err, TAG, "Error allocating memory for lines");
 

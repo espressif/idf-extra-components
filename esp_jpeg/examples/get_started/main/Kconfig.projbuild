@@ -1,4 +1,5 @@
 menu "Example Configuration"
+
     config EXAMPLE_LCD_FLUSH_PARALLEL_LINES
         int "LCD flush parallel lines"
         default 12 if IDF_TARGET_ESP32C2
