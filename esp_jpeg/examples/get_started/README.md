@@ -1,8 +1,10 @@
 # LCD tjpgd example
 
+## Overview
+
 This example shows how to decode a jpeg image and display it on an SPI-interfaced LCD, and rotates the image periodically.
 
-Example using initialization of the LCD from [ESP-BSP](https://github.com/espressif/esp-bsp) project. For change the Espressif's board, go to [idf_component.yml](main/idf_component.yml) and change `esp-box` to another board from BSP.
+If you want to adapt this example to another type of display or pinout, check [lcd_tjpgd_example_main.c](main/lcd_tjpgd_example_main.c) for comments with some implementation details.
 
 ## How to Use Example
 
@@ -39,7 +41,18 @@ The connection between ESP Board and the LCD is as follows:
       +---------+              +---------------------------------+
 ```
 
-The GPIO numbers used by this example is taken from BSP.
+The GPIO number used by this example can be changed in [lcd_tjpgd_example_main.c](main/lcd_tjpgd_example_main.c), where:
+
+| GPIO number              | LCD pin |
+| ------------------------ | ------- |
+| EXAMPLE_PIN_NUM_PCLK     | SCK     |
+| EXAMPLE_PIN_NUM_CS       | CS      |
+| EXAMPLE_PIN_NUM_DC       | DC      |
+| EXAMPLE_PIN_NUM_RST      | RST     |
+| EXAMPLE_PIN_NUM_DATA0    | MOSI    |
+| EXAMPLE_PIN_NUM_BK_LIGHT | BCKL    |
+
+Especially, please pay attention to the level used to turn on the LCD backlight, some LCD module needs a low level to turn it on, while others take a high level. You can change the backlight level macro `EXAMPLE_LCD_BK_LIGHT_ON_LEVEL` in [lcd_tjpgd_example_main.c](main/lcd_tjpgd_example_main.c).
 
 ### Build and Flash
 
