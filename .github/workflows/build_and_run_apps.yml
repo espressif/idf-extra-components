@@ -34,7 +34,7 @@ jobs:
           git config --global --add safe.directory $build_dir
           cd -
       - name: Install dependencies
-        run: pip install 'idf-build-apps>=2.4,<2.5'
+        run: pip install 'idf-build-apps~=2.12'
       - name: Get labels
         id: get_labels
         if: github.event_name == 'pull_request'
@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --upgrade idf-component-manager 'idf-build-apps>=2.4,<2.5'
+          pip install --upgrade idf-component-manager 'idf-build-apps~=2.12'
       - name: Build apps
         shell: bash
         run: |
