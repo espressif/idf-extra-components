@@ -103,7 +103,7 @@ typedef struct network_prov_scan_handlers {
      * mode is SoftAP, where scanning all channels in one go may not
      * give the Wi-Fi driver enough time to send out beacons, and
      * hence may cause disconnection with any connected stations.
-     * When scanning in groups, the manager will wait for atleast
+     * When scanning in groups, the manager will wait for at least
      * 120ms after completing scan on a group of channels, and thus
      * allow the driver to send out the beacons. For example, given
      * that the total number of Wi-Fi channels is 14, then setting

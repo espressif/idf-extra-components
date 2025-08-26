@@ -309,7 +309,7 @@ TEST_CASE("Sending random size data at once", "[encrypted_img]")
     free(args);
 }
 
-TEST_CASE("Sending imcomplete data", "[encrypted_img]")
+TEST_CASE("Sending incomplete data", "[encrypted_img]")
 {
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {

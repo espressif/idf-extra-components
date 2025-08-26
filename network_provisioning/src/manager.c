@@ -187,7 +187,7 @@ static struct network_prov_mgr_ctx *prov_ctx;
 
 /* This executes registered app_event_callback for a particular event
  *
- * NOTE : By the time this fucntion returns, it is possible that
+ * NOTE : By the time this function returns, it is possible that
  * the manager got de-initialized due to a call to network_prov_mgr_deinit()
  * either inside the event callbacks or from another thread. Therefore
  * post execution of execute_event_cb(), the validity of prov_ctx must
@@ -1469,7 +1469,7 @@ esp_err_t network_prov_mgr_thread_scan_start(bool blocking, uint32_t channel_mas
 
     esp_openthread_lock_acquire(portMAX_DELAY);
     otInstance *instance = esp_openthread_get_instance();
-    // Make netif enabled before start scaning
+    // Make netif enabled before start scanning
     if (!otIp6IsEnabled(instance)) {
         if (otIp6SetEnabled(instance, true) != OT_ERROR_NONE) {
             ESP_LOGE(TAG, "Failed to enable netif");

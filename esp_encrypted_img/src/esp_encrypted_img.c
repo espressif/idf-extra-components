@@ -297,7 +297,7 @@ cleanup:
 static int derive_ota_ecc_device_key(hmac_key_id_t hmac_key, mbedtls_mpi *ecc_priv_key)
 {
     // Although we have checked this during the esp_encrypted_img_decrypt_start() call,
-    // we wil check again here to ensure that the HMAC key is valid.
+    // we will check again here to ensure that the HMAC key is valid.
     if (!esp_encrypted_is_hmac_key_burnt_in_efuse(hmac_key)) {
         ESP_LOGE(TAG, "Could not find HMAC key in configured eFuse block!");
         return ESP_ERR_ENCRYPTED_IMAGE_HMAC_KEY_NOT_FOUND;

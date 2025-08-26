@@ -51,7 +51,7 @@ extern int_fast32_t _IQ31sqrt(int_fast32_t iq31Input);
  *
  *     (5) t = 2*asin(sqrt((1 - cos(t))/2))
  *
- * Substituing identities (3) and (4) into equation (5) gives equation (6):
+ * Substituting identities (3) and (4) into equation (5) gives equation (6):
  *
  *     (6) acos(x) = 2*asin(sqrt((1 - x)/2))
  *

@@ -57,9 +57,9 @@ void network_prov_scheme_ble_event_cb_free_bt  (void *user_data, network_prov_cb
  * the default UUID will be used.
  *
  * @note    The data being pointed to by the argument must be valid
- *          atleast till provisioning is started. Upon start, the
+ *          at least till provisioning is started. Upon start, the
  *          manager will store an internal copy of this UUID, and
- *          this data can be freed or invalidated afterwords.
+ *          this data can be freed or invalidated afterwards.
  *
  * @param[in] uuid128  A custom 128 bit UUID
  *

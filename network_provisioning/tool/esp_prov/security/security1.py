@@ -127,7 +127,7 @@ class Security1(Security):
             self._print_verbose(f'Device Proof:\t0x{device_verify.hex()}')
             # Decrypt the device verify string
             enc_client_pubkey = self.cipher.update(setup_resp.sec1.sr1.device_verify_data)
-            # Match decryped string with client public key
+            # Match decrypted string with client public key
             if enc_client_pubkey != self.client_public_key:
                 raise RuntimeError('Failed to verify device!')
         else:

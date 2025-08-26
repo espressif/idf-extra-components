@@ -114,7 +114,7 @@ esp_err_t pcap_write_header(pcap_file_handle_t pcap, pcap_link_type_t link_type)
 
 esp_err_t pcap_capture_packet(pcap_file_handle_t pcap, void *payload, uint32_t length, uint32_t seconds, uint32_t microseconds)
 {
-    ESP_RETURN_ON_FALSE(pcap && payload, ESP_ERR_INVALID_ARG, TAG, "invalid argumnet");
+    ESP_RETURN_ON_FALSE(pcap && payload, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     size_t real_write = 0;
     pcap_packet_header_t header = {
         .seconds = seconds,

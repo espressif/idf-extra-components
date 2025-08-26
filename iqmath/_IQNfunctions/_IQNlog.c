@@ -100,7 +100,7 @@ __STATIC_INLINE int_fast32_t __IQNlog(int_fast32_t iqNInput, const int_fast32_t 
     /*
      * Add i16Exp * ln(2) to the iqN result. This will never saturate since we
      * check for the minimum value at the start of the function. Negative
-     * exponents require seperate handling to allow for an extra bit with the
+     * exponents require separate handling to allow for an extra bit with the
      * unsigned data type.
      */
     if (i16Exp > 0) {

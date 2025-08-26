@@ -55,7 +55,7 @@ typedef struct {
     unsigned int minor_version; /*!< Pcap version: minor */
     unsigned int time_zone;     /*!< Pcap timezone code */
     struct {
-        unsigned int little_endian: 1; /*!< Whether the pcap file is recored in little endian format */
+        unsigned int little_endian: 1; /*!< Whether the pcap file is recorded in little endian format */
     } flags;
 } pcap_config_t;
 

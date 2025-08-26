@@ -312,7 +312,7 @@ __STATIC_INLINE int_fast32_t __IQNsqrt_MathACL(int_fast32_t iqNInputX, const int
     uint8_t n = 0;
 
     input = iqNInputX;
-    /* check input is withing 32-bit boundaries */
+    /* check input is within 32-bit boundaries */
     if (input & 0x80000000) {
         scale_factor = 0;
         output = input;

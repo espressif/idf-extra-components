@@ -19,7 +19,7 @@ extern "C" {
  * @brief Decode the jpeg ``image.jpg`` embedded into the program file into pixel data and measure the performance.
  *
  * @param pixels A pointer to a pointer for an array of rows, which themselves are an array of pixels.
- * @return - ESP_OK on succesful decode
+ * @return - ESP_OK on successful decode
  */
 esp_err_t decode_image(uint16_t **pixels);
 
