@@ -115,10 +115,59 @@ jobs:
             */test_app*/**/build_esp*/config/sdkconfig.json
             build_info*.json
 
+  build-linux:
+    name: Build Apps for Linux
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver:
+          - "release-v5.1"
+          - "release-v5.2"
+          - "release-v5.3"
+          - "release-v5.4"
+          - "release-v5.5"
+          - "latest"
+    runs-on: ubuntu-22.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Install dependencies
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          pip install --upgrade idf-component-manager 'idf-build-apps~=2.12'
+      - name: Build apps for Linux
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          idf-build-apps build --target linux --collect-app-info build_info_linux_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
+      - uses: actions/upload-artifact@v4
+        if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
+        with:
+          name: app_binaries_${{ matrix.idf_ver }}_linux
+          path: |
+            */examples/*/build_linux*/bootloader/bootloader.bin
+            */examples/*/build_linux*/partition_table/partition-table.bin
+            */examples/*/build_linux*/*.bin
+            */examples/*/build_linux*/flasher_args.json
+            */examples/*/build_linux*/config/sdkconfig.json
+            */test_app*/**/build_linux*/bootloader/bootloader.bin
+            */test_app*/**/build_linux*/partition_table/partition-table.bin
+            */test_app*/**/build_linux*/*.bin
+            */test_app*/**/build_linux*/flasher_args.json
+            */test_app*/**/build_linux*/config/sdkconfig.json
+            build_info*.json
+
   run-target:
     name: Run apps on target
     if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
-    needs: build
+    needs: [build, build-linux]
     strategy:
       fail-fast: false
       matrix:
@@ -150,6 +199,11 @@ jobs:
             target: "esp32s3"
             runner-labels: [self-hosted, linux, docker]
             pytest_args: "--embedded-services idf,qemu"
+          - runs-on: "linux"
+            marker: "host_test"
+            target: "linux"
+            runner-labels: [self-hosted, linux, docker]
+            pytest_args: "--embedded-services idf"
     env:
       TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
       TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
