@@ -44,7 +44,7 @@ static void dumpbytes(const uint8_t *buf, size_t len)
 }
 
 /**
- * Decode CBOR data manuallly
+ * Decode CBOR data manually
  */
 static CborError example_dump_cbor_buffer(CborValue *it, int nestingLevel)
 {
@@ -215,7 +215,7 @@ void app_main(void)
     cbor_encode_undefined(&array_encoder);
     cbor_encoder_close_container(&root_encoder, &array_encoder); // ]
 
-    // If error happend when encoding, then this value should be meaningless
+    // If error happened when encoding, then this value should be meaningless
     ESP_LOGI(TAG, "encoded buffer size %d", cbor_encoder_get_buffer_size(&root_encoder, buf));
 
     // Initialize the cbor parser and the value iterator
@@ -227,6 +227,6 @@ void app_main(void)
     puts("");
 
     ESP_LOGI(TAG, "decode CBOR manually");
-    // Decode CBOR data manully
+    // Decode CBOR data manually
     example_dump_cbor_buffer(&it, 0);
 }

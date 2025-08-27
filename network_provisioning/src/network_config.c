@@ -253,7 +253,7 @@ static esp_err_t cmd_set_config_handler(NetworkConfigPayload *req,
         } else {
             /* The received SSID and Passphrase are not NULL terminated so
              * we memcpy over zeroed out arrays. Above length checks ensure
-             * that there is atleast 1 extra byte for null termination */
+             * that there is at least 1 extra byte for null termination */
             memcpy(req_data.ssid, req->cmd_set_wifi_config->ssid.data,
                    req->cmd_set_wifi_config->ssid.len);
             memcpy(req_data.password, req->cmd_set_wifi_config->passphrase.data,

@@ -46,7 +46,7 @@ menu "Example Configuration"
             in this option will be downloaded in single HTTP request.
 
     config EXAMPLE_ENABLE_CI_TEST
-        bool "Enbale the CI test code"
+        bool "Enable the CI test code"
         default n
         help
             This enables the CI test code i.e. https local server code.

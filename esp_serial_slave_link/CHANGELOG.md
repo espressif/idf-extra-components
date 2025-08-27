@@ -9,4 +9,4 @@
 
 ## 1.0.0
 
-- Inititial version
+- Initial version

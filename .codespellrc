@@ -1,0 +1,4 @@
+[codespell]
+skip = build,COPYING.*,LICENSE
+ignore-words-list = ser,DOUT,dout,ans,nd,Dettached
+write-changes = true

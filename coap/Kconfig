@@ -150,7 +150,7 @@ menu "CoAP Configuration"
 
             If this option is disabled, redundant CoAP client only code is removed.
             If both this option and COAP_SERVER_SUPPORT are disabled, then both
-            are automatically enabled for backwards compatability.
+            are automatically enabled for backwards compatibility.
 
     config COAP_SERVER_SUPPORT
         bool "Enable Server functionality within CoAP"
@@ -161,7 +161,7 @@ menu "CoAP Configuration"
 
             If this option is disabled, redundant CoAP server only code is removed.
             If both this option and COAP_CLIENT_SUPPORT are disabled, then both
-            are automatically enabled for backwards compatability.
+            are automatically enabled for backwards compatibility.
 
     config COAP_PROXY_SUPPORT
         bool "Enable Proxy functionality within CoAP"

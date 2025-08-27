@@ -19,7 +19,7 @@ Compressed Delta OTA Updates aims at enabling Over-the-Air firmware update with 
 
 * **ESP-IDF v4.3 and above**
 
-  You can visit the [ESP-IDF Programmming Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#installation-step-by-step) for the installation steps.
+  You can visit the [ESP-IDF Programming Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#installation-step-by-step) for the installation steps.
 
 * **detools v0.49.0 and above**
 

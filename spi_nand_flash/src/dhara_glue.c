@@ -31,7 +31,7 @@ static esp_err_t dhara_init(spi_nand_flash_device_t *handle)
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = calloc(1, sizeof(spi_nand_flash_dhara_priv_data_t));
     // save the holder inside the device structure
     handle->ops_priv_data = dhara_priv_data;
-    // store the pointer back to device structure in the holder stucture
+    // store the pointer back to device structure in the holder structure
     dhara_priv_data->parent_handle = handle;
 
     dhara_priv_data->dhara_nand.log2_page_size = handle->chip.log2_page_size;

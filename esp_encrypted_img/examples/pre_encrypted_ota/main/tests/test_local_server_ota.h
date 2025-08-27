@@ -9,7 +9,7 @@
  * @brief starts the https server
  *
  * @param bin_size the size of binary image which will be exposed
- *                 by the server. NOTE - bin_size connot be 0.
+ *                 by the server. NOTE - bin_size cannot be 0.
  */
 esp_err_t example_test_start_webserver(void);
 

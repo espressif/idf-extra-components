@@ -236,7 +236,7 @@ static bool s_need_data_refresh(spi_nand_flash_device_t *handle)
         min_bits_corrected = 7;
     }
 
-    // if number of corrected bits is greater than refresh threshold then rewite the sector
+    // if number of corrected bits is greater than refresh threshold then rewrite the sector
     if (min_bits_corrected >= handle->chip.ecc_data.ecc_data_refresh_threshold) {
         ret = true;
     }

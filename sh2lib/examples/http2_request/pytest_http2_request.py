@@ -42,7 +42,7 @@ def test_examples_protocol_http2_request(dut: Dut) -> None:
     bin_size = os.path.getsize(binary_file)
     logging.info('http2_request_bin_size : {}KB'.format(bin_size // 1024))
     # start the test
-    # check if test server is avilable
+    # check if test server is available
     test_server_available = is_test_server_available()
     # Skip the test if the server test server (http2.github.io) is not available at the moment.
     if test_server_available:

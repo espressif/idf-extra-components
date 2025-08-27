@@ -96,7 +96,7 @@ esp_err_t onewire_device_iter_get_next(onewire_device_iter_handle_t iter, onewir
             }
         }
 
-        if (search_direction == 1) { // set corrsponding rom bit by search direction
+        if (search_direction == 1) { // set corresponding rom bit by search direction
             iter->rom_number[rom_byte_index] |= rom_bit_mask;
         } else {
             iter->rom_number[rom_byte_index] &= ~rom_bit_mask;

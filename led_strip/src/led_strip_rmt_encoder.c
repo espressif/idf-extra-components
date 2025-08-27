@@ -83,7 +83,7 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
     led_encoder->base.del = rmt_del_led_strip_encoder;
     led_encoder->base.reset = rmt_led_strip_encoder_reset;
     rmt_bytes_encoder_config_t bytes_encoder_config;
-    uint32_t reset_ticks = config->resolution / 1000000 * 280 / 2; // reset code duration defaults to 280us to accomodate WS2812B-V5
+    uint32_t reset_ticks = config->resolution / 1000000 * 280 / 2; // reset code duration defaults to 280us to accommodate WS2812B-V5
     if (config->led_model == LED_MODEL_SK6812) {
         bytes_encoder_config = (rmt_bytes_encoder_config_t) {
             .bit0 = {

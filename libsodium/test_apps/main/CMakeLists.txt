@@ -16,7 +16,7 @@ idf_component_register(SRCS "${TEST_CASES_FILES}" "test_sodium.c" "test_main.c"
                     WHOLE_ARCHIVE)
 
 # The libsodium test suite is designed to be run each test case as an executable on a desktop computer and uses
-# filesytem to write & then compare contents of each file.
+# filesystem to write & then compare contents of each file.
 #
 # For now, use their "BROWSER_TEST" mode with these hacks so that
 # multiple test cases can be combined into one ELF file.

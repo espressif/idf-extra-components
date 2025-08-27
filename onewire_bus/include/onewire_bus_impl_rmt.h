@@ -18,7 +18,7 @@ extern "C" {
  */
 typedef struct {
     uint32_t max_rx_bytes; /*!< Set the largest possible single receive size,
-                                which determins the size of the internal buffer that used to save the receiving RMT symbols */
+                                which determines the size of the internal buffer that used to save the receiving RMT symbols */
 } onewire_bus_rmt_config_t;
 
 /**

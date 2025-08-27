@@ -17,6 +17,6 @@ menu "jsmn"
         bool "Declare JSMN API as static"
         default node
         help
-            Declar JSMN API as static (instead of extern)
+            Declare JSMN API as static (instead of extern)
 
 endmenu

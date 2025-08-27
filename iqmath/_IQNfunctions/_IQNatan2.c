@@ -105,8 +105,8 @@ __STATIC_INLINE int_fast32_t __IQNatan2(int_fast32_t iqNInputY, int_fast32_t iqN
     uiqNInputY = (uint_fast32_t)iqNInputY;
 
     /*
-     * Calcualte the ratio of the inputs in iq31. When using the iq31 div
-     * fucntions with inputs of matching type the result will be iq31:
+     * Calculate the ratio of the inputs in iq31. When using the iq31 div
+     * functions with inputs of matching type the result will be iq31:
      *
      *     iq31 = _IQ31div(iqN, iqN);
      */

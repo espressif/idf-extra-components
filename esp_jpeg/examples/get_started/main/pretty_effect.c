@@ -20,7 +20,7 @@ static inline uint16_t get_bgnd_pixel(int x, int y)
 //This variable is used to detect the next frame.
 static int prev_frame = -1;
 
-//Instead of calculating the offsets for each pixel we grab, we pre-calculate the valueswhenever a frame changes, then re-use
+//Instead of calculating the offsets for each pixel we grab, we pre-calculate the valueswhenever a frame changes, then reuse
 //these as we go through all the pixels in the frame. This is much, much faster.
 static int8_t xofs[320], yofs[240];
 static int8_t xcomp[320], ycomp[240];

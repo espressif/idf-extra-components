@@ -41,7 +41,7 @@
 #define COAP_RESOURCES_NOHASH
 
 /* Note: If neither of COAP_CLIENT_SUPPORT or COAP_SERVER_SUPPORT is set,
-   then libcoap sets both for backward compatability */
+   then libcoap sets both for backward compatibility */
 #ifdef CONFIG_COAP_CLIENT_SUPPORT
 #define COAP_CLIENT_SUPPORT 1
 #endif /* CONFIG_COAP_CLIENT_SUPPORT */

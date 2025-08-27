@@ -48,7 +48,7 @@ struct spi_nand_flash_config_t {
     uint8_t gc_factor;                       ///< The gc factor controls the number of blocks to spare block ratio.
     ///< Lower values will reduce the available space but increase performance
     spi_nand_flash_io_mode_t io_mode;        ///< set io mode for SPI NAND communication
-    uint8_t flags;                           ///< set flag with SPI_DEVICE_HALFDUPLEX for half duplex communcation, 0 for full-duplex.
+    uint8_t flags;                           ///< set flag with SPI_DEVICE_HALFDUPLEX for half duplex communication, 0 for full-duplex.
     ///< This flag value must match the flag value in the spi_device_interface_config_t structure.
 };
 
