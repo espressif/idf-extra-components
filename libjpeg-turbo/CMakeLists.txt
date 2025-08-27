@@ -12,34 +12,30 @@ set(includes "-I$<JOIN:${idf_include_directories}, -I>")
 
 set(c_flags "${includes} ${extra_defines} ")
 set(cxx_flags "${includes} ${extra_defines} ")
-set(common_flags "-ggdb  -ffunction-sections -fdata-sections -fpermissive -lm")
+set(common_flags "-ggdb -ffunction-sections -fdata-sections -lm")
 
 if(CONFIG_IDF_TARGET_ARCH_XTENSA)
     set(assert_flags "${assert_flags} -mlongcalls")
 endif()
 
-# We redefine the flags to apply common flags, 
+# We redefine the flags to apply common flags,
 # like -ffunction-sections -fdata-sections.
 if(CONFIG_COMPILER_OPTIMIZATION_DEFAULT)
     set(opt_flags "-Og ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_C_FLAGS_RELEASE=${opt_flags}
-    -DCMAKE_CXX_FLAGS_RELEASE=${opt_flags})
+                 -DCMAKE_C_FLAGS_RELEASE=${opt_flags})
 elseif(CONFIG_COMPILER_OPTIMIZATION_SIZE)
     set(opt_flags "-Os ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=MinSizeRel
-                 -DCMAKE_C_FLAGS_RELEASE=${opt_flags}
-                 -DCMAKE_CXX_FLAGS_RELEASE=${opt_flags})
-elseif(CONFIG_COMPILER_OPTIMIZATION_PERF)   
+                 -DCMAKE_C_FLAGS_MINSIZEREL=${opt_flags})
+elseif(CONFIG_COMPILER_OPTIMIZATION_PERF)
     set(opt_flags "-O3 ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=Release
-                 -DCMAKE_C_FLAGS_RELEASE=${opt_flags}
-                 -DCMAKE_CXX_FLAGS_RELEASE=${opt_flags})
+                 -DCMAKE_C_FLAGS_RELEASE=${opt_flags})
 elseif(COMPILER_OPTIMIZATION_NONE)
     set(opt_flags "-O0 ${common_flags} ${assert_flags}")
     set(opt_args -DCMAKE_BUILD_TYPE=Debug
-                 -DCMAKE_C_FLAGS_DEBUG=${opt_flags}
-                 -DCMAKE_CXX_FLAGS_DEBUG=${opt_flags})
+                 -DCMAKE_C_FLAGS_DEBUG=${opt_flags})
 else()
     message(FATAL_ERROR "Unsupported optimization level")
 endif()
@@ -70,15 +66,17 @@ ExternalProject_Add(jpegturbo_proj
         ${opt_args}
         -DCMAKE_INSTALL_PREFIX=${BINARY_DIR}/install
         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-        -DWITH_TURBOJPEG=NO
-        -DWITH_SIMD=NO
+        -DWITH_TURBOJPEG=FALSE
+        -DWITH_SIMD=FALSE
         -DCMAKE_SYSTEM_PROCESSOR=esp32 # Without this parameter the lib make an error
-        -DWITH_ARITH_DEC=YES
-        -DWITH_ARITH_ENC=YES
-        -DWITH_JPEG8=YES
-        -DWITH_JPEG7=YES
-        -DENABLE_SHARED=NO
-        -DENABLE_STATIC=YES        
+        -DWITH_ARITH_DEC=TRUE
+        -DWITH_ARITH_ENC=TRUE
+        -DWITH_JPEG8=TRUE
+        -DWITH_JPEG7=TRUE
+        -DENABLE_SHARED=FALSE
+        -DENABLE_STATIC=TRUE
+        -DWITH_TOOLS=FALSE
+        -DWITH_TESTS=FALSE
 )
 
 # Attach header files to the component library:
@@ -88,7 +86,7 @@ set_target_properties(${COMPONENT_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES 
 add_dependencies(${COMPONENT_LIB} jpegturbo_proj)
 
 # Finally, link the interface library to the component library:
-# Attach IDF compoenent dependencies to jpeg libraries
+# Attach IDF component dependencies to jpeg libraries
 foreach(dep ${deps})
     target_link_libraries(libjpeg-turbo INTERFACE idf::${dep})
 endforeach()
