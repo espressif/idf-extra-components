@@ -81,10 +81,13 @@ spi_nand_flash/test_app:
 
 spi_nand_flash/host_test:
   enable:
-    - if: (IDF_VERSION_MAJOR >= 5 and IDF_VERSION_MINOR >= 3) and (IDF_TARGET == linux)
+    - if: IDF_TARGET == "linux"
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+  disable:
+    - if: IDF_VERSION_MAJOR == 5 and (IDF_VERSION_MINOR < 3)
+      reason: Fails to build on older versions of IDF
 
 thorvg/examples/thorvg-example:
   enable:

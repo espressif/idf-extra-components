@@ -203,7 +203,7 @@ jobs:
             marker: "host_test"
             target: "linux"
             runner-labels: [self-hosted, linux, docker]
-            pytest_args: "--embedded-services idf"
+            pytest_args: ""
     env:
       TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
       TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
