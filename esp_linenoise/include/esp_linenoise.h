@@ -152,6 +152,19 @@ esp_err_t esp_linenoise_delete_instance(esp_linenoise_handle_t handle);
 esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_buffer, size_t cmd_line_length);
 
 /**
+ * @brief Triggers an internal mechanism to return from esp_linenoise_get_line.
+ *
+ * @note This function has no effect if the field read_bytes_cb of
+ * esp_linenoise_config_t is populate with a custom read function.
+ * In that case, it is the user responsibility to handle the way to
+ * return from the custom read it provided to linenoise.
+ *
+ * @param handle Handle to the linenoise instance.
+ * @return esp_err_t ESP_OK on success, other on failures.
+ */
+esp_err_t esp_linenoise_abort(esp_linenoise_handle_t handle);
+
+/**
  * @brief Adds a line to the instance's history.
  *
  * @param handle Handle to the linenoise instance.
