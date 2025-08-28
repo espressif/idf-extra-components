@@ -15,7 +15,6 @@
 #include <sys/time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
@@ -44,7 +43,7 @@
 int handle_get_response(struct sh2lib_handle *handle, const char *data, size_t len, int flags)
 {
     if (len) {
-        printf("[get-response] %.*s\n", len, data);
+        printf("[get-response] %.*s\n", (int)len, data);
     }
     if (flags == DATA_RECV_FRAME_COMPLETE) {
         printf("[get-response] Frame fully received\n");
@@ -58,7 +57,7 @@ int handle_get_response(struct sh2lib_handle *handle, const char *data, size_t l
 int handle_echo_response(struct sh2lib_handle *handle, const char *data, size_t len, int flags)
 {
     if (len) {
-        printf("[echo-response] %.*s\n", len, data);
+        printf("[echo-response] %.*s\n", (int)len, data);
     }
     if (flags == DATA_RECV_FRAME_COMPLETE) {
         printf("[echo-response] Frame fully received\n");
@@ -133,8 +132,14 @@ static void http2_task(void *args)
     }
     printf("Connection done\n");
 
-    /* HTTP GET  */
-    sh2lib_do_get(&hd, HTTP2_STREAMING_GET_PATH, handle_get_response);
+    /* HTTP GET with proper error handling */
+    int stream_id = sh2lib_do_get(&hd, HTTP2_STREAMING_GET_PATH, handle_get_response);
+    if (stream_id < 0) {
+        printf("Failed to setup GET request, error code: %d\n", stream_id);
+        goto end;
+    }
+
+    printf("GET request setup successful, stream ID: %d\n", stream_id);
     while (1) {
         /* Process HTTP2 send/receive */
         if (sh2lib_execute(&hd) < 0) {
@@ -144,13 +149,15 @@ static void http2_task(void *args)
         vTaskDelay(2);
     }
 
+end:
     sh2lib_free(&hd);
     vTaskDelete(NULL);
+    return;
 }
 
 void app_main(void)
 {
-    ESP_ERROR_CHECK( nvs_flash_init() );
+    ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 

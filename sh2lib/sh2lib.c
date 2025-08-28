@@ -15,6 +15,7 @@
 #include <netdb.h>
 #include <esp_log.h>
 #include <http_parser.h>
+#include <esp_idf_version.h>
 
 #include "sh2lib.h"
 
