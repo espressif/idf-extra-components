@@ -1,0 +1,75 @@
+menu "ISO-TP Protocol Configuration"
+
+    config ISO_TP_DEFAULT_BLOCK_SIZE
+        int "Default Block Size"
+        default 8
+        range 1 32
+        help
+            Maximum number of consecutive frames the receiver can receive at one time.
+            This value is affected by CAN driver queue length.
+            Higher values improve throughput but require more buffer space.
+
+    config ISO_TP_DEFAULT_ST_MIN_US
+        int "Default STmin (microseconds)"
+        default 1000
+        range 0 50000
+        help
+            The STmin parameter specifies the minimum time gap allowed between
+            the transmission of consecutive frame network protocol data units.
+            0 = no delay, 1-50000 microseconds for timing control.
+
+    config ISO_TP_MAX_WFT_NUMBER
+        int "Maximum Wait Frame Number"
+        default 1
+        range 1 10
+        help
+            This parameter indicates how many FC N_PDU WTs (Wait frames) can be
+            transmitted by the receiver in a row before giving up.
+
+    config ISO_TP_DEFAULT_RESPONSE_TIMEOUT_US
+        int "Default Response Timeout (microseconds)"
+        default 100000
+        range 10000 5000000
+        help
+            The default timeout to use when waiting for a response during a
+            multi-frame send or receive operation.
+            Common values: 100000 (100ms), 1000000 (1s).
+
+    config ISO_TP_FRAME_PADDING
+        bool "Enable Frame Padding"
+        default n
+        help
+            Enable padding of ISO-TP message frames to full CAN frame size.
+            When enabled, frames are padded with ISO_TP_FRAME_PADDING_VALUE.
+
+    config ISO_TP_FRAME_PADDING_VALUE
+        hex "Frame Padding Value"
+        default 0xAA
+        range 0x00 0xFF
+        depends on ISO_TP_FRAME_PADDING
+        help
+            Value used for padding when ISO_TP_FRAME_PADDING is enabled.
+            Common values: 0x00, 0xAA, 0xCC, 0xFF.
+
+    config ISO_TP_USER_SEND_CAN_ARG
+        bool "Enable User Send CAN Argument"
+        default y
+        help
+            Determines if an additional argument is present in the
+            definition of isotp_user_send_can function.
+
+    config ISO_TP_TRANSMIT_COMPLETE_CALLBACK
+        bool "Enable Transmit Complete Callback"
+        default y
+        help
+            Enable support for transmission complete callback functions.
+            Allows applications to be notified when transmission is finished.
+
+    config ISO_TP_RECEIVE_COMPLETE_CALLBACK
+        bool "Enable Receive Complete Callback"
+        default y
+        help
+            Enable support for receive complete callback functions.
+            Allows applications to be notified when a message is received.
+
+endmenu
