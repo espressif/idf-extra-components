@@ -23,9 +23,11 @@
 #include <sys/fcntl.h>
 #include <sys/time.h>
 #include <assert.h>
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_linenoise.h"
 #include "esp_linenoise_private.h"
-#include "esp_err.h"
 
 static ssize_t esp_linenoise_default_write_bytes(void *user_ctx, int fd, const void *buf, size_t count)
 {
@@ -38,7 +40,7 @@ static ssize_t esp_linenoise_default_write_bytes(void *user_ctx, int fd, const v
     return nb_bytes_written;
 }
 
-static ssize_t esp_linenoise_default_read_bytes(void *user_ctx, int fd, void *buf, size_t count)
+__attribute__((weak)) ssize_t esp_linenoise_default_read_bytes(void *user_ctx, int fd, void *buf, size_t count)
 {
     (void)user_ctx;
     return read(fd, buf, count);
@@ -1137,6 +1139,10 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
 
     instance->config = *config;
 
+    /* set the state part of the esp_linenoise_instance_t to 0 to
+     * init all values to 0 (or NULL) */
+    memset(&instance->state, 0x00, sizeof(esp_linenoise_state_t));
+
     if (instance->config.in_fd == -1) {
         instance->config.in_fd = STDIN_FILENO;
     }
@@ -1152,11 +1158,32 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
     if (!instance->config.history_max_length) {
         instance->config.history_max_length = ESP_LINENOISE_DEFAULT_HISTORY_MAX_LENGTH;
     }
-    if (instance->config.read_bytes_cb == NULL) {
-        instance->config.read_bytes_cb = esp_linenoise_default_read_bytes;
-    }
     if (instance->config.write_bytes_cb == NULL) {
         instance->config.write_bytes_cb = esp_linenoise_default_write_bytes;
+    }
+    if (instance->config.read_bytes_cb == NULL) {
+        /*  since we are using the default read function, make sure
+         * blocking read are set */
+        int flags = fcntl(instance->config.in_fd, F_GETFL, 0);
+        flags &= ~O_NONBLOCK;
+        fcntl(instance->config.in_fd, F_SETFL, flags);
+        instance->config.read_bytes_cb = esp_linenoise_default_read_bytes;
+
+        /* since we are using the default read function provided by linenoise,
+         * set the user_ctx to point to the esp_linenoise instance state field
+         * so we can retrieve the necessary information for the default read
+         * to execute properly */
+        if (esp_linenoise_set_event_fd != NULL) {
+            const esp_err_t ret_val = esp_linenoise_set_event_fd(&instance->state);
+            if (ret_val != ESP_OK) {
+                free(instance);
+                return NULL;
+            }
+            instance->config.user_ctx = &instance->state;
+        } else {
+            /* make sure the state->mux is set to NULL */
+            instance->state.mux = NULL;
+        }
     }
 
     const int probe_status = esp_linenoise_probe(instance);
@@ -1175,15 +1202,10 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
                            "On Windows, try using Windows Terminal or Putty instead.\r\n");
 
         instance->config.write_bytes_cb(instance->config.user_ctx, instance->config.out_fd, buf, len);
-
     }
-
-    /* set the state part of the esp_linenoise_instance_t to 0 to init all values to 0 (or NULL) */
-    memset(&instance->state, 0x00, sizeof(esp_linenoise_state_t));
 
     /* set the self value to the handle of instance */
     instance->self = instance;
-
     return (esp_linenoise_handle_t)instance;
 }
 
@@ -1218,9 +1240,16 @@ esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_b
 
     esp_linenoise_instance_t *instance = (esp_linenoise_instance_t *)handle;
     esp_linenoise_config_t *config = &instance->config;
+    esp_linenoise_state_t *state = &instance->state;
 
     if ((cmd_line_length == 0) || (cmd_line_length > config->max_cmd_line_length)) {
         return ESP_ERR_INVALID_ARG;
+    }
+
+    /* take the mutex, it will be released only when esp_linenoise_raw
+     * or esp_linenoise_dumb returns */
+    if (state->mux != NULL) {
+        (void)xSemaphoreTake(state->mux, portMAX_DELAY);
     }
 
     int count = 0;
@@ -1230,16 +1259,22 @@ esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_b
         count = esp_linenoise_dumb(instance, cmd_line_buffer, cmd_line_length);
     }
 
+    esp_err_t ret_val = ESP_OK;
     if (count > 0) {
         esp_linenoise_sanitize(cmd_line_buffer);
         count = strlen(cmd_line_buffer);
     } else if (count == 0 && config->allow_empty_line) {
         /* will return an empty (0-length) string */
     } else {
-        return ESP_FAIL;
+        ret_val = ESP_FAIL;
     }
 
-    return ESP_OK;
+    /* release the mutex, signaling that esp_linenoise_get_line returned */
+    if (state->mux != NULL) {
+        xSemaphoreGive(state->mux);
+    }
+
+    return ret_val;
 }
 
 void esp_linenoise_add_completion(void *ctx, const char *str)
