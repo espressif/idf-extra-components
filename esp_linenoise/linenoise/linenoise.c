@@ -111,61 +111,16 @@
 
 static esp_linenoise_instance_t *s_linenoise_instance = NULL;
 static linenoiseCompletionCallback *s_completion_cb = NULL;
-static linenoiseHintsCallback *s_hints_cb = NULL;
-static linenoiseFreeHintsCallback *s_free_hints_cb = NULL;
-static linenoiseReadBytesFn s_read_cb = NULL;
-static linenoiseWriteBytesFn s_write_cb = NULL;
 
-static void completion_default_cb(void *user_ctx, const char *str, void *cb_ctx, esp_linenoise_completion_cb_t cb)
+static void completion_default_cb(const char *str, void *cb_ctx, esp_linenoise_completion_cb_t cb)
 {
     /* unused because incompatible with legacy code */
-    (void)user_ctx;
     (void)cb;
 
     if (!s_completion_cb) {
         return;
     }
     s_completion_cb(str, (linenoiseCompletions *)cb_ctx);
-}
-
-static char *hints_default_cb(void *user_ctx, const char *str, int *color, int *bold)
-{
-    (void)user_ctx; /* used because incompatible with legacy code */
-
-    if (!s_hints_cb) {
-        return NULL;
-    }
-    return s_hints_cb(str, color, bold);
-}
-
-static void free_hints_default_cb(void *user_ctx, void *ptr)
-{
-    (void)user_ctx; /* used because incompatible with legacy code */
-
-    if (!s_free_hints_cb) {
-        return;
-    }
-    s_free_hints_cb(ptr);
-}
-
-ssize_t read_bytes_default_cb(void *user_ctx, int fd, void *buf, size_t count)
-{
-    (void)user_ctx;
-
-    if (!s_read_cb) {
-        return -1;
-    }
-    return s_read_cb(fd, buf, count);
-}
-
-ssize_t write_bytes_default_cb(void *user_ctx, int fd, const void *buf, size_t count)
-{
-    (void)user_ctx;
-
-    if (!s_write_cb) {
-        return -1;
-    }
-    return s_write_cb(fd, buf, count);
 }
 
 static inline __attribute__((always_inline))
@@ -231,8 +186,7 @@ void linenoiseSetWriteFunction(linenoiseWriteBytesFn write_fn)
 {
     esp_linenoise_instance_t *instance = linenoise_get_static_instance();
     if (write_fn != NULL) {
-        s_write_cb = write_fn;
-        instance->config.write_bytes_cb = write_bytes_default_cb;
+        instance->config.write_bytes_cb = write_fn;
     }
 }
 
@@ -240,8 +194,7 @@ void linenoiseSetReadFunction(linenoiseReadBytesFn read_fn)
 {
     esp_linenoise_instance_t *instance = linenoise_get_static_instance();
     if (read_fn != NULL) {
-        s_read_cb = read_fn;
-        instance->config.read_bytes_cb = read_bytes_default_cb;
+        instance->config.read_bytes_cb = read_fn;
     }
 }
 
@@ -261,8 +214,7 @@ void linenoiseSetHintsCallback(linenoiseHintsCallback *fn)
 {
     esp_linenoise_instance_t *instance = linenoise_get_static_instance();
     if (fn != NULL) {
-        s_hints_cb = fn;
-        instance->config.hints_cb = hints_default_cb;
+        instance->config.hints_cb = fn;
     }
 }
 
@@ -272,8 +224,7 @@ void linenoiseSetFreeHintsCallback(linenoiseFreeHintsCallback *fn)
 {
     esp_linenoise_instance_t *instance = linenoise_get_static_instance();
     if (fn != NULL) {
-        s_free_hints_cb = fn;
-        instance->config.free_hints_cb = free_hints_default_cb;
+        instance->config.free_hints_cb = fn;
     }
 }
 
