@@ -26,60 +26,79 @@ extern "C" {
  */
 
 /**
- * @brief
+ * @brief Callback type used to report a completion candidate to esp_linenoise
  *
+ * This callback is invoked by `esp_linenoise_completion_t` for each possible
+ * completion string.
+ *
+ * @note When esp_linenoise calls `esp_linenoise_completion_t`, it provides
+ * `esp_linenoise_add_completion` as the `esp_linenoise_completion_cb_t`.
+ * This allows user code to return completion candidates back into
+ * esp_linenoise.
+ *
+ * @note esp_linenoise also passes an opaque pointer of type
+ * `esp_linenoise_completions_t` as the `cb_ctx`. User code must forward
+ * this `cb_ctx` unchanged when invoking the callback. This design hides
+ * the internal structure of esp_linenoise from the user.
+ *
+ * @param cb_ctx Opaque context pointer provided by esp_linenoise. Must be
+ *               passed unchanged when calling the callback.
+ * @param str A candidate completion string.
  */
 typedef void (*esp_linenoise_completion_cb_t)(void *cb_ctx, const char *str);
 
 /**
- * @brief Callback function for providing completions.
+ * @brief User-provided callback type for generating command completions.
  *
- * @param user_ctx User-defined context pointer passed from the configuration.
- * @param str Input string from the user.
- * @param lc Pointer to the completions object to be populated.
+ * This function is called by esp_linenoise when the user requests tab
+ * completion. The implementation should analyze the input string and invoke
+ * the provided completion callback (`cb`) for each possible completion.
+ *
+ * configuration. Allows the completion function to access application-specific state.
+ * @param str The current input string typed by the user.
+ * @param cb_ctx Opaque pointer provided by esp_linenoise. This must be
+ * forwarded unchanged when calling the completion callback.
+ * @param cb Callback function to be invoked once for each candidate
+ * completion string discovered by this function.
  */
-typedef void (*esp_linenoise_completion_t)(void *user_ctx, const char *str, void *cb_ctx, esp_linenoise_completion_cb_t cb);
+typedef void (*esp_linenoise_completion_t)(const char *str, void *cb_ctx, esp_linenoise_completion_cb_t cb);
 
 /**
  * @brief Callback function for providing inline hints during input.
  *
- * @param user_ctx User-defined context pointer passed from the configuration.
  * @param str Input string from the user.
  * @param color Pointer to an integer to set the hint text color (e.g., ANSI color code).
  * @param bold Pointer to an integer to set bold attribute (non-zero for bold).
  * @return A dynamically allocated hint string, or NULL if no hint is available.
  */
-typedef char *(*esp_linenoise_hints_t)(void *user_ctx, const char *str, int *color, int *bold);
+typedef char *(*esp_linenoise_hints_t)(const char *str, int *color, int *bold);
 
 /**
  * @brief Callback function to free hint strings returned by the hints callback.
  *
- * @param user_ctx User-defined context pointer passed from the configuration.
  * @param ptr Pointer to the hint string to be freed.
  */
-typedef void (*esp_linenoise_free_hints_t)(void *user_ctx, void *ptr);
+typedef void (*esp_linenoise_free_hints_t)( void *ptr);
 
 /**
  * @brief Function pointer type for reading bytes.
  *
- * @param user_ctx User-defined context pointer passed from the configuration.
  * @param fd File descriptor.
  * @param buf Buffer to store the read bytes.
  * @param count Number of bytes to read.
  * @return Number of bytes read, or -1 on error.
  */
-typedef ssize_t (*esp_linenoise_read_bytes_t)(void *user_ctx, int fd, void *buf, size_t count);
+typedef ssize_t (*esp_linenoise_read_bytes_t)(int fd, void *buf, size_t count);
 
 /**
  * @brief Function pointer type for writing bytes.
  *
- * @param user_ctx User-defined context pointer passed from the configuration.
  * @param fd File descriptor.
  * @param buf Buffer containing bytes to write.
  * @param count Number of bytes to write.
  * @return Number of bytes written, or -1 on error.
  */
-typedef ssize_t (*esp_linenoise_write_bytes_t)(void *user_ctx, int fd, const void *buf, size_t count);
+typedef ssize_t (*esp_linenoise_write_bytes_t)(int fd, const void *buf, size_t count);
 
 /**
  * @brief Structure defining the parameters needed by a linenoise
@@ -99,7 +118,6 @@ typedef struct esp_linenoise_config {
     esp_linenoise_free_hints_t free_hints_cb; /*!< Callback function to free hints returned by `hints_cb` */
     esp_linenoise_read_bytes_t read_bytes_cb; /*!< Function used to read bytes from the input stream */
     esp_linenoise_write_bytes_t write_bytes_cb; /*!< Function used to write bytes to the output stream */
-    void *user_ctx; /*!< User context information passed to the callbacks */
     char **history; /*!< Pointer to the history buffer (used internally; typically initialized to NULL) */
 } esp_linenoise_config_t;
 
@@ -150,6 +168,19 @@ esp_err_t esp_linenoise_delete_instance(esp_linenoise_handle_t handle);
  *         is equal to 0 or superior to the value of max_cmd_line_length.
  */
 esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_buffer, size_t cmd_line_length);
+
+/**
+ * @brief Triggers an internal mechanism to return from esp_linenoise_get_line.
+ *
+ * @note This function has no effect if the field read_bytes_cb of
+ * esp_linenoise_config_t is populate with a custom read function.
+ * In that case, it is the user responsibility to handle the way to
+ * return from the custom read it provided to linenoise.
+ *
+ * @param handle Handle to the linenoise instance.
+ * @return esp_err_t ESP_OK on success, other on failures.
+ */
+esp_err_t esp_linenoise_abort(esp_linenoise_handle_t handle);
 
 /**
  * @brief Adds a line to the instance's history.

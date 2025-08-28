@@ -10,6 +10,8 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <errno.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "fcntl.h"
 #include "unity.h"
 #include "esp_linenoise.h"
@@ -19,14 +21,12 @@ static int s_socket_fd_a[2];
 static int s_socket_fd_b[2];
 static esp_linenoise_handle_t s_linenoise_hdl;
 static char s_line_returned[CMD_LINE_LENGTH] = {0};
-static pthread_mutex_t lock_a = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t lock_b = PTHREAD_MUTEX_INITIALIZER;
 
 static bool s_completions_called = false;
 static bool s_hint_called = false;
 static bool s_free_hint_called = false;
 
-static void custom_completion_cb(void *user_ctx, const char *str, void *cb_ctx, esp_linenoise_completion_cb_t cb)
+static void custom_completion_cb(const char *str, void *cb_ctx, esp_linenoise_completion_cb_t cb)
 {
     // we just want to see that the callback is indeed called
     // so flip the s_completions_called to true
@@ -35,7 +35,7 @@ static void custom_completion_cb(void *user_ctx, const char *str, void *cb_ctx, 
     }
 }
 
-static char *custom_hint_cb(void *user_ctx, const char *str, int *color, int *bold)
+static char *custom_hint_cb(const char *str, int *color, int *bold)
 {
     // we just want to see that the callback is indeed called
     // so flip the s_hint_called to true
@@ -46,7 +46,7 @@ static char *custom_hint_cb(void *user_ctx, const char *str, int *color, int *bo
     return "something";
 }
 
-static void custom_free_hint_cb(void *user_ctx, void *ptr)
+static void custom_free_hint_cb(void *ptr)
 {
     // we just want to see that the callback is indeed called
     // so flip the s_free_hint_called to true
@@ -55,29 +55,22 @@ static void custom_free_hint_cb(void *user_ctx, void *ptr)
     }
 }
 
-static ssize_t custom_read(void *user_ctx, int fd, void *buf, size_t count)
+static ssize_t custom_read(int fd, void *buf, size_t count)
 {
-    // otherwise just propagate the read
-    (void)user_ctx;
-    int nread = read(fd, buf, count);
-
-    // printf("reading : ");
-    // for (size_t i = 0; i < nread; i++) {
-    //     printf("(%x, %c) ", *((char*)buf + i), *((char*)buf + i));
-    // }
-    // printf("\n");
+    int nread = -1;
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(fd, &rfds);
+    int ret = select(fd + 1, &rfds, NULL, NULL, NULL);
+    if (ret > 0 && FD_ISSET(fd, &rfds)) {
+        nread = read(fd, buf, count);
+    }
 
     return nread;
 }
 
-static ssize_t custom_write(void *user_ctx, int fd, const void *buf, size_t count)
+static ssize_t custom_write(int fd, const void *buf, size_t count)
 {
-    // printf("writing : ");
-    // for (size_t i = 0; i < count; i++) {
-    //     printf("(%x, %c) ", *((char*)buf + i), *((char*)buf + i));
-    // }
-    // printf("\n");
-
     // find the request in the list of commands and send the response
     for (size_t i = 0; i < commands_count; i++) {
         if (strstr(commands[i].request, buf) != NULL) {
@@ -87,7 +80,9 @@ static ssize_t custom_write(void *user_ctx, int fd, const void *buf, size_t coun
 
                 // write the expected response to the socket, so linenoise
                 // can read the response
-                const ssize_t nwrite = write(s_socket_fd_a[1], response, size);
+                // conveniently, the socketpair FDs are following each other so
+                // to simulate a write from the device, call write on fd + 1
+                const ssize_t nwrite = write(fd + 1, response, size);
                 TEST_ASSERT_EQUAL(size, nwrite);
             }
 
@@ -102,14 +97,18 @@ static ssize_t custom_write(void *user_ctx, int fd, const void *buf, size_t coun
     return write(fd, buf, count);
 }
 
-static void test_setup(int socket_fd[2], pthread_mutex_t *lock, esp_linenoise_config_t *config)
+static void test_instance_setup(int socket_fd[2], pthread_mutex_t *lock, esp_linenoise_config_t *config)
 {
     // 2 fd are generated, simulating the full-duplex
     // communication between linenoise and the terminal
-    socketpair(AF_UNIX, SOCK_STREAM, 0, socket_fd);
+    TEST_ASSERT_EQUAL(0, socketpair(AF_UNIX, SOCK_STREAM, 0, socket_fd));
 
     // assure that the read will be blocking
     int flags = fcntl(socket_fd[0], F_GETFL, 0);
+    flags &= ~O_NONBLOCK;
+    fcntl(socket_fd[0], F_SETFL, flags);
+
+    flags = fcntl(socket_fd[1], F_GETFL, 0);
     flags &= ~O_NONBLOCK;
     fcntl(socket_fd[0], F_SETFL, flags);
 
@@ -132,7 +131,7 @@ static void test_setup(int socket_fd[2], pthread_mutex_t *lock, esp_linenoise_co
     pthread_mutex_lock(lock);
 }
 
-static void test_teardown(int socket_fd[2], esp_linenoise_handle_t handle)
+static void test_instance_teardown(int socket_fd[2], esp_linenoise_handle_t handle, pthread_mutex_t *lock)
 {
     memset(s_line_returned, 0, CMD_LINE_LENGTH);
 
@@ -141,13 +140,20 @@ static void test_teardown(int socket_fd[2], esp_linenoise_handle_t handle)
     close(socket_fd[1]);
 
     // unlock the mutex for the next test
-    pthread_mutex_unlock(&lock_a);
+    pthread_mutex_destroy(lock);
 }
 
-static void *get_line_task(void *arg)
+typedef struct get_line_args {
+    pthread_mutex_t *lock;
+    TaskHandle_t parent_task;
+    esp_linenoise_config_t *config;
+} get_line_args_t;
+
+static void get_line_task(void *args)
 {
-    esp_linenoise_config_t *config = (esp_linenoise_config_t *)arg;
-    s_linenoise_hdl = esp_linenoise_create_instance(config);
+    get_line_args_t *task_args = (get_line_args_t *)args;
+
+    s_linenoise_hdl = esp_linenoise_create_instance(task_args->config);
     TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
 
     // wait for the instance to properly initialize before unlocking
@@ -155,22 +161,26 @@ static void *get_line_task(void *arg)
     usleep(100000);
 
     // release the mutex so the test can start sending data
-    pthread_mutex_unlock(&lock_a);
+    pthread_mutex_unlock(task_args->lock);
 
     esp_err_t ret_val = esp_linenoise_get_line(s_linenoise_hdl, s_line_returned, CMD_LINE_LENGTH);
     TEST_ASSERT_EQUAL(ESP_OK, ret_val);
-    return NULL;
+
+    xTaskNotifyGive(task_args->parent_task);
+
+    vTaskDelete(NULL);
 }
 
 typedef struct get_line_task_args {
     esp_linenoise_handle_t handle;
+    TaskHandle_t parent_task;
     pthread_mutex_t *lock;
     esp_err_t ret_val;
     char *buf;
     size_t buf_size;
 } get_line_task_args_t;
 
-static void *get_line_task_w_args(void *args)
+static void get_line_task_w_args(void *args)
 {
     get_line_task_args_t *task_args = (get_line_task_args_t *)args;
 
@@ -182,20 +192,24 @@ static void *get_line_task_w_args(void *args)
     pthread_mutex_unlock(task_args->lock);
 
     task_args->ret_val = esp_linenoise_get_line(task_args->handle, task_args->buf, task_args->buf_size);
-    return NULL;
+
+    xTaskNotifyGive(task_args->parent_task);
+    vTaskDelete(NULL);
 }
 
 TEST_CASE("esp_linenoise_get_line() returns line read from in_fd", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     const char *input_line = "unit test input";
     test_send_characters(s_socket_fd_a[1], input_line);
@@ -203,33 +217,37 @@ TEST_CASE("esp_linenoise_get_line() returns line read from in_fd", "[esp_linenoi
     // Write newline to trigger prompt output + return from loop
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
-    TEST_ASSERT_NOT_NULL(strstr(input_line, s_line_returned));
+    TEST_ASSERT_EQUAL_STRING(input_line, s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("custom prompt string appears on output", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+    test_instance_setup(s_socket_fd_a, &lock, &config);
 
     const char *custom_prompt = ">>> ";
     config.prompt = (char *)custom_prompt;  // cast away const as config expects char*
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Write newline to trigger prompt output + return from loop
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     // Verify prompt string is found in output
     char full_cmd_line[32] = {0};
@@ -238,20 +256,22 @@ TEST_CASE("custom prompt string appears on output", "[esp_linenoise]")
 
     TEST_ASSERT_NOT_NULL(strstr(full_cmd_line, custom_prompt));
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("cursor left/right and insert edits input correctly", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Send chars and control sequences:
     // Step 1: insert 'a', 'b', 'c' => buffer: "abc", cursor at end
@@ -272,27 +292,29 @@ TEST_CASE("cursor left/right and insert edits input correctly", "[esp_linenoise]
     // Step 6: send newline to finish input
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     // The line returned should be "abXcY"
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("abXcY", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("CTRL-A moves cursor home, CTRL-E moves cursor end, inserts work correctly", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // ----- Test CTRL-A: move home -----
     // Insert 'bcd'
@@ -313,26 +335,28 @@ TEST_CASE("CTRL-A moves cursor home, CTRL-E moves cursor end, inserts work corre
     // send new line character
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("abcde", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("history navigation with CTRL-P / CTRL-N works correctly", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     wait_ms(100);
 
@@ -362,27 +386,29 @@ TEST_CASE("history navigation with CTRL-P / CTRL-N works correctly", "[esp_linen
     // Send newline to accept current line
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     // Expect "third" as final returned line after navigation
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("secondsecond", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("backspace erases the character before the cursor", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Insert "abc"
     test_send_characters(s_socket_fd_a[1], "abc");
@@ -399,26 +425,28 @@ TEST_CASE("backspace erases the character before the cursor", "[esp_linenoise]")
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("aaa", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("CTRL-D removes character at the right of the cursor", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Insert "abcde"
     test_send_characters(s_socket_fd_a[1], "abcde");
@@ -441,26 +469,28 @@ TEST_CASE("CTRL-D removes character at the right of the cursor", "[esp_linenoise
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("abe", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("CTRL-T swaps character with previous", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Insert "abcde"
     test_send_characters(s_socket_fd_a[1], "abcde");
@@ -474,26 +504,28 @@ TEST_CASE("CTRL-T swaps character with previous", "[esp_linenoise]")
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("abced", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("CTRL-U deletes the whole line", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Insert "abcde"
     test_send_characters(s_socket_fd_a[1], "abcde");
@@ -507,26 +539,28 @@ TEST_CASE("CTRL-U deletes the whole line", "[esp_linenoise]")
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("fghij", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("CTRL-K deletes from character to end of line", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Insert "abcde"
     test_send_characters(s_socket_fd_a[1], "abcde");
@@ -549,26 +583,28 @@ TEST_CASE("CTRL-K deletes from character to end of line", "[esp_linenoise]")
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("ababab", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("CTRL-L clears the screen", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // CTRL-L (clear screen)
     test_send_characters(s_socket_fd_a[1], COMPOUND_LITERAL(CTRL_L));
@@ -587,23 +623,25 @@ TEST_CASE("CTRL-L clears the screen", "[esp_linenoise]")
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("CTRL-W removes the previous word", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Insert "word_a "
     test_send_characters(s_socket_fd_a[1], "word_a");
@@ -621,30 +659,32 @@ TEST_CASE("CTRL-W removes the previous word", "[esp_linenoise]")
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("word_a word_c", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("check completion, hint and free hint callback", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+    test_instance_setup(s_socket_fd_a, &lock, &config);
 
     config.completion_cb = custom_completion_cb;
     config.hints_cb = custom_hint_cb;
     config.free_hints_cb = custom_free_hint_cb;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Insert "word_a" this should trigger the hint cb and free hints cb
     test_send_characters(s_socket_fd_a[1], "word_a");
@@ -655,20 +695,22 @@ TEST_CASE("check completion, hint and free hint callback", "[esp_linenoise]")
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_EQUAL(true, s_hint_called);
     TEST_ASSERT_EQUAL(true, s_completions_called);
     TEST_ASSERT_EQUAL(true, s_free_hint_called);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("check esp_linenoise_get_line return values", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+    test_instance_setup(s_socket_fd_a, &lock, &config);
 
     s_linenoise_hdl = esp_linenoise_create_instance(&config);
     TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
@@ -687,36 +729,38 @@ TEST_CASE("check esp_linenoise_get_line return values", "[esp_linenoise]")
     // line, expect esp_linenoise_get_line to return with ESP_FAIL
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_set_empty_line(s_linenoise_hdl, false));
 
-    pthread_t thread_id;
     get_line_task_args_t args = {
         .handle = s_linenoise_hdl,
-        .lock = &lock_a,
+        .parent_task = xTaskGetCurrentTaskHandle(),
+        .lock = &lock,
         .ret_val = ESP_OK,
         .buf = buffer,
         .buf_size = buffer_size
     };
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task_w_args, &args));
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // Newline (accept)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     // check that esp_linenoise_get_line returned ESP_FAIL
     TEST_ASSERT_EQUAL(ESP_FAIL, args.ret_val);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 TEST_CASE("check cmd line is bigger than the buffer", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+    test_instance_setup(s_socket_fd_a, &lock, &config);
 
     s_linenoise_hdl = esp_linenoise_create_instance(&config);
     TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
@@ -728,26 +772,26 @@ TEST_CASE("check cmd line is bigger than the buffer", "[esp_linenoise]")
     // line, expect esp_linenoise_get_line to return with ESP_FAIL
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_set_empty_line(s_linenoise_hdl, false));
 
-    pthread_t thread_id;
     get_line_task_args_t args = {
         .handle = s_linenoise_hdl,
-        .lock = &lock_a,
+        .parent_task = xTaskGetCurrentTaskHandle(),
+        .lock = &lock,
         .ret_val = ESP_OK,
         .buf = buffer,
         .buf_size = buffer_size
     };
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task_w_args, &args));
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // send more characters than the size of the buffer when linenoise
     // has dumb mode turned off
     test_send_characters(s_socket_fd_a[1], "aaaaaaaaaaa\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     // check that esp_linenoise_get_line returned ESP_OK
     TEST_ASSERT_EQUAL(ESP_OK, args.ret_val);
@@ -755,32 +799,32 @@ TEST_CASE("check cmd line is bigger than the buffer", "[esp_linenoise]")
     TEST_ASSERT_EQUAL(buffer_size - 1, strlen(buffer));
 
     // reset the buffer and release the mutex
-    pthread_mutex_unlock(&lock_a);
+    pthread_mutex_unlock(&lock);
     memset(buffer, 0, buffer_size);
 
     // switch the dumb mode on
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_set_dumb_mode(s_linenoise_hdl, true));
 
     // repeat the test
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task_w_args, &args));
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args, 5, NULL);
 
     // wait until the linenoise instance init is done, and the get line as started
     // before sending test content
-    pthread_mutex_lock(&lock_a);
+    pthread_mutex_lock(&lock);
 
     // send more characters than the size of the buffer when linenoise
     // has dumb mode turned on
     test_send_characters(s_socket_fd_a[1], "aaaaaaaaaaa\n");
 
-    // Wait for loop to finish
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     // check that esp_linenoise_get_line returned ESP_OK and the
     // number of char is equal to buffer_size - 1
     TEST_ASSERT_EQUAL(ESP_OK, args.ret_val);
     TEST_ASSERT_EQUAL(buffer_size - 1, strlen(buffer));
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 /* Mappings from shortkey actions to escape sequences:
@@ -793,15 +837,16 @@ TEST_CASE("check cmd line is bigger than the buffer", "[esp_linenoise]")
    - Delete key   : "\x1b[3~"
 */
 
-/* Cursor left/right and insert edits input correctly */
 TEST_CASE("cursor left/right edits work via escape sequences", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
-    pthread_mutex_lock(&lock_a);
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
+    pthread_mutex_lock(&lock);
 
     test_send_characters(s_socket_fd_a[1], "abc");       // step 1: insert abc
     test_send_characters(s_socket_fd_a[1], "\x1b[D");    // step 2: left arrow (cursor between b and c)
@@ -810,21 +855,24 @@ TEST_CASE("cursor left/right edits work via escape sequences", "[esp_linenoise]"
     test_send_characters(s_socket_fd_a[1], "Y");         // step 5: insert Y
     test_send_characters(s_socket_fd_a[1], "\n");        // finish input
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     TEST_ASSERT_EQUAL_STRING("abXcY", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 /* Home and End via escape sequences */
 TEST_CASE("Home and End keys work via escape sequences", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
-    pthread_mutex_lock(&lock_a);
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
+    pthread_mutex_lock(&lock);
 
     test_send_characters(s_socket_fd_a[1], "bcd");       // buffer: bcd
     test_send_characters(s_socket_fd_a[1], "\x1b[H");    // Home key
@@ -833,21 +881,24 @@ TEST_CASE("Home and End keys work via escape sequences", "[esp_linenoise]")
     test_send_characters(s_socket_fd_a[1], "e");         // -> abcde
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     TEST_ASSERT_EQUAL_STRING("abcde", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 /* History navigation with Up/Down arrows */
 TEST_CASE("history navigation works via arrow keys", "[esp_linenoise][history]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
-    pthread_mutex_lock(&lock_a);
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
+    pthread_mutex_lock(&lock);
 
     // add history
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_history_add(s_linenoise_hdl, "first"));
@@ -862,21 +913,24 @@ TEST_CASE("history navigation works via arrow keys", "[esp_linenoise][history]")
     test_send_characters(s_socket_fd_a[1], "\x1b[B");    // down -> secondsecond
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     TEST_ASSERT_EQUAL_STRING("secondsecond", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 /* Delete key via escape sequence */
 TEST_CASE("Delete key works via escape sequence", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
-    pthread_mutex_lock(&lock_a);
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
+    pthread_mutex_lock(&lock);
 
     test_send_characters(s_socket_fd_a[1], "abcde");
     test_send_characters(s_socket_fd_a[1], "\x1b[D");    // left
@@ -886,21 +940,24 @@ TEST_CASE("Delete key works via escape sequence", "[esp_linenoise]")
     test_send_characters(s_socket_fd_a[1], "\x1b[3~");   // delete (removes d)
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    // wait for the task to terminate to continue
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     TEST_ASSERT_EQUAL_STRING("abe", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 /* Alternate Home/End sequences using ESC O form */
 TEST_CASE("Home and End via ESC O form", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
-    test_setup(s_socket_fd_a, &lock_a, &config);
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-    pthread_t thread_id;
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id, NULL, get_line_task, &config));
-    pthread_mutex_lock(&lock_a);
+    test_instance_setup(s_socket_fd_a, &lock, &config);
+
+    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
+    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
+    pthread_mutex_lock(&lock);
 
     test_send_characters(s_socket_fd_a[1], "bcd");
     test_send_characters(s_socket_fd_a[1], "\x1bOH");    // ESC O H for home
@@ -909,53 +966,57 @@ TEST_CASE("Home and End via ESC O form", "[esp_linenoise]")
     test_send_characters(s_socket_fd_a[1], "e");
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id, NULL));
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     TEST_ASSERT_EQUAL_STRING("abcde", s_line_returned);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
 }
 
 /* test multi instances */
 TEST_CASE("Create and use 2 esp_linenoise instances", "[esp_linenoise]")
 {
     esp_linenoise_config_t config_a;
-    test_setup(s_socket_fd_a, &lock_a, &config_a);
+    pthread_mutex_t lock_a = PTHREAD_MUTEX_INITIALIZER;
+
+    test_instance_setup(s_socket_fd_a, &lock_a, &config_a);
     esp_linenoise_handle_t linenoise_handle_a = esp_linenoise_create_instance(&config_a);
     TEST_ASSERT_NOT_NULL(linenoise_handle_a);
-
-    esp_linenoise_config_t config_b;
-    test_setup(s_socket_fd_b, &lock_b, &config_b);
-    esp_linenoise_handle_t linenoise_handle_b = esp_linenoise_create_instance(&config_b);
-    TEST_ASSERT_NOT_NULL(linenoise_handle_b);
 
     const size_t buffer_a_size = 32;
     char buffer_a[buffer_a_size];
     memset(buffer_a, 0, buffer_a_size);
 
-    pthread_t thread_id_a;
     get_line_task_args_t args_a = {
         .handle = linenoise_handle_a,
+        .parent_task = xTaskGetCurrentTaskHandle(),
         .lock = &lock_a,
         .ret_val = ESP_OK,
         .buf = buffer_a,
         .buf_size = buffer_a_size
     };
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id_a, NULL, get_line_task_w_args, &args_a));
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args_a, 5, NULL);
     pthread_mutex_lock(&lock_a);
+
+    esp_linenoise_config_t config_b;
+    pthread_mutex_t lock_b = PTHREAD_MUTEX_INITIALIZER;
+
+    test_instance_setup(s_socket_fd_b, &lock_b, &config_b);
+    esp_linenoise_handle_t linenoise_handle_b = esp_linenoise_create_instance(&config_b);
+    TEST_ASSERT_NOT_NULL(linenoise_handle_b);
 
     const size_t buffer_b_size = 32;
     char buffer_b[buffer_b_size];
     memset(buffer_b, 0, buffer_b_size);
 
-    pthread_t thread_id_b;
     get_line_task_args_t args_b = {
         .handle = linenoise_handle_b,
+        .parent_task = xTaskGetCurrentTaskHandle(),
         .lock = &lock_b,
         .ret_val = ESP_OK,
         .buf = buffer_b,
         .buf_size = buffer_b_size
     };
-    TEST_ASSERT_EQUAL(0, pthread_create(&thread_id_b, NULL, get_line_task_w_args, &args_b));
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args_b, 5, NULL);
     pthread_mutex_lock(&lock_b);
 
     /* send different string to the instances and make sure each instances
@@ -967,12 +1028,113 @@ TEST_CASE("Create and use 2 esp_linenoise instances", "[esp_linenoise]")
     test_send_characters(s_socket_fd_b[1], test_msg_b);
     test_send_characters(s_socket_fd_b[1], "\n");
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id_a, NULL));
 
-    TEST_ASSERT_EQUAL(0, pthread_join(thread_id_b, NULL));
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     TEST_ASSERT_EQUAL_STRING(test_msg_a, args_a.buf);
     TEST_ASSERT_EQUAL_STRING(test_msg_b, args_b.buf);
 
-    test_teardown(s_socket_fd_a, s_linenoise_hdl);
+    test_instance_teardown(s_socket_fd_a, linenoise_handle_a, &lock_a);
+    test_instance_teardown(s_socket_fd_b, linenoise_handle_b, &lock_b);
+}
+
+TEST_CASE("tests that esp_linenoise_abort actually forces esp_linenoise_get_line to return", "[esp_linenoise]")
+{
+    esp_linenoise_config_t config_a, config_b;
+    pthread_mutex_t lock_a = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_t lock_b = PTHREAD_MUTEX_INITIALIZER;
+
+    test_instance_setup(s_socket_fd_a, &lock_a, &config_a);
+    test_instance_setup(s_socket_fd_b, &lock_b, &config_b);
+
+    /* make sure to use the default read function */
+    config_a.read_bytes_cb = NULL;
+    config_b.read_bytes_cb = NULL;
+
+    esp_linenoise_handle_t linenoise_handle_a = esp_linenoise_create_instance(&config_a);
+    TEST_ASSERT_NOT_NULL(linenoise_handle_a);
+
+    const size_t buffer_a_size = 32;
+    char buffer_a[buffer_a_size];
+    memset(buffer_a, 0, buffer_a_size);
+
+    get_line_task_args_t args_a = {
+        .handle = linenoise_handle_a,
+        .parent_task = xTaskGetCurrentTaskHandle(),
+        .lock = &lock_a,
+        .ret_val = ESP_OK,
+        .buf = buffer_a,
+        .buf_size = buffer_a_size
+    };
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args_a, 5, NULL);
+    pthread_mutex_lock(&lock_a);
+
+    esp_linenoise_handle_t linenoise_handle_b = esp_linenoise_create_instance(&config_b);
+    TEST_ASSERT_NOT_NULL(linenoise_handle_b);
+
+    const size_t buffer_b_size = 32;
+    char buffer_b[buffer_b_size];
+    memset(buffer_b, 0, buffer_b_size);
+
+    get_line_task_args_t args_b = {
+        .handle = linenoise_handle_b,
+        .parent_task = xTaskGetCurrentTaskHandle(),
+        .lock = &lock_b,
+        .ret_val = ESP_OK,
+        .buf = buffer_b,
+        .buf_size = buffer_b_size
+    };
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args_b, 5, NULL);
+    pthread_mutex_lock(&lock_b);
+
+
+
+    /* send test message to instance */
+    const char dummy_message[] = "dummy_message";
+    test_send_characters(s_socket_fd_a[1], dummy_message);
+
+    /* for the esp_linenoise to process the message */
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    /* call the esp_linenoise_abort on linenoise_handle_a to return from esp_linenoise_get_line */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_abort(linenoise_handle_a));
+
+    /* wait for the task running the linenoise instance A to return */
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    /* check that the message was processed by the instance A */
+    TEST_ASSERT_EQUAL_STRING(dummy_message, args_a.buf);
+
+
+
+    /* send dummy message to instance B, that should still be running */
+    test_send_characters(s_socket_fd_b[1], dummy_message);
+
+    /* for the esp_linenoise to process the message */
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    /* call the esp_linenoise_abort on linenoise_handle_a to return from esp_linenoise_get_line */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_abort(linenoise_handle_b));
+
+    /* wait for the task running the linenoise instance A to return */
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    /* check that the message was processed by the instance B */
+    TEST_ASSERT_EQUAL_STRING(dummy_message, args_b.buf);
+
+
+
+    /* start instance A and repeat test to make sure it is possible to restart an instance
+     * even after aborting it */
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args_a, 5, NULL);
+    pthread_mutex_lock(&lock_a);
+    test_send_characters(s_socket_fd_a[1], dummy_message);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_abort(linenoise_handle_a));
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    test_instance_teardown(s_socket_fd_a, linenoise_handle_a, &lock_a);
+    test_instance_teardown(s_socket_fd_b, linenoise_handle_b, &lock_b);
 }

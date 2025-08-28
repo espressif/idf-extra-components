@@ -23,14 +23,14 @@
 #include <sys/fcntl.h>
 #include <sys/time.h>
 #include <assert.h>
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_linenoise.h"
 #include "esp_linenoise_private.h"
-#include "esp_err.h"
 
-static ssize_t esp_linenoise_default_write_bytes(void *user_ctx, int fd, const void *buf, size_t count)
+static ssize_t esp_linenoise_default_write_bytes(int fd, const void *buf, size_t count)
 {
-    (void)user_ctx;
-
     const int nb_bytes_written = write(fd, buf, count);
     if (nb_bytes_written == count) {
         fsync(fd);
@@ -38,9 +38,8 @@ static ssize_t esp_linenoise_default_write_bytes(void *user_ctx, int fd, const v
     return nb_bytes_written;
 }
 
-static ssize_t esp_linenoise_default_read_bytes(void *user_ctx, int fd, void *buf, size_t count)
+__attribute__((weak)) ssize_t esp_linenoise_default_read_bytes(int fd, void *buf, size_t count)
 {
-    (void)user_ctx;
     return read(fd, buf, count);
 }
 
@@ -107,7 +106,7 @@ static void esp_linenoise_refresh_show_hints(append_buffer_t *ab, esp_linenoise_
     if (config.hints_cb && state.prompt_length + state.len < state.columns) {
 
         int color = -1, bold = 0;
-        char *hint = config.hints_cb(config.user_ctx, state.buffer, &color, &bold);
+        char *hint = config.hints_cb(state.buffer, &color, &bold);
         if (hint) {
             int hintlen = strlen(hint);
             int hintmaxlen = state.columns - (state.prompt_length + state.len);
@@ -133,7 +132,7 @@ static void esp_linenoise_refresh_show_hints(append_buffer_t *ab, esp_linenoise_
 
             /* Call the function to free the hint returned. */
             if (config.free_hints_cb) {
-                config.free_hints_cb(config.user_ctx, hint);
+                config.free_hints_cb(hint);
             }
         }
     }
@@ -180,7 +179,7 @@ static void esp_linenoise_refresh_single_line(esp_linenoise_instance_t *instance
     /* Move cursor to original position. */
     snprintf(seq, 64, "\r\x1b[%dC", (int)(cur_cursor_position + prompt_length));
     esp_linenoise_append_buffer_append(&ab, seq, strlen(seq));
-    if (config->write_bytes_cb(config->user_ctx, fd, ab.b, ab.len) == -1) {} /* Can't recover from write error. */
+    if (config->write_bytes_cb(fd, ab.b, ab.len) == -1) {} /* Can't recover from write error. */
     esp_linenoise_append_buffer_free(&ab);
 }
 
@@ -276,7 +275,7 @@ static void esp_linenoise_refresh_multi_line(esp_linenoise_instance_t *instance)
     lndebug("\n");
     state->old_cursor_position = state->cur_cursor_position;
 
-    if (config->write_bytes_cb(config->user_ctx, fd, ab.b, ab.len) == -1) {} /* Can't recover from write error. */
+    if (config->write_bytes_cb(fd, ab.b, ab.len) == -1) {} /* Can't recover from write error. */
     esp_linenoise_append_buffer_free(&ab);
 }
 
@@ -311,7 +310,7 @@ static int esp_linenoise_get_cursor_position(esp_linenoise_instance_t *instance)
     /* Send the command to the TTY on the other end of the UART.
      * Let's use unistd's write function. Thus, data sent through it are raw
      * reducing the overhead compared to using fputs, fprintf, etc... */
-    const int num_written = config->write_bytes_cb(config->user_ctx, out_fd, get_cursor_cmd, sizeof(get_cursor_cmd));
+    const int num_written = config->write_bytes_cb(out_fd, get_cursor_cmd, sizeof(get_cursor_cmd));
     if (num_written != sizeof(get_cursor_cmd)) {
         return -1;
     }
@@ -325,7 +324,7 @@ static int esp_linenoise_get_cursor_position(esp_linenoise_instance_t *instance)
         /* Keep using unistd's functions. Here, using `read` instead of `fgets`
          * or `fgets` guarantees us that we we can read a byte regardless on
          * whether the sender sent end of line character(s) (CR, CRLF, LF). */
-        if (config->read_bytes_cb(config->user_ctx, in_fd, buf + i, 1) != 1 || buf[i] == 'R') {
+        if (config->read_bytes_cb(in_fd, buf + i, 1) != 1 || buf[i] == 'R') {
             /* If we couldn't read a byte from in_fd or if 'R' was received,
              * the transmission is finished. */
             break;
@@ -377,7 +376,7 @@ static int esp_linenoise_get_columns(esp_linenoise_instance_t *instance)
 
     /* Send the command to go to right margin. Use `write` function instead of
      * `fwrite` for the same reasons explained in `esp_linenoise_get_cursor_position()` */
-    if (config->write_bytes_cb(config->user_ctx, fd, move_cursor_right, cmd_len) != cmd_len) {
+    if (config->write_bytes_cb(fd, move_cursor_right, cmd_len) != cmd_len) {
         goto failed;
     }
 
@@ -399,7 +398,7 @@ static int esp_linenoise_get_columns(esp_linenoise_instance_t *instance)
         assert (written < ESP_LINENOISE_COMMAND_MAX_LEN);
 
         /* Send the command with `write`, which is not buffered. */
-        if (config->write_bytes_cb(config->user_ctx, fd, seq, written) == -1) {
+        if (config->write_bytes_cb(fd, seq, written) == -1) {
             /* Can't recover... */
         }
     }
@@ -416,7 +415,7 @@ static void esp_linenoise_make_beep_sound(esp_linenoise_instance_t *instance)
     esp_linenoise_config_t *config = &instance->config;
 
     char bip_screen_str[] = "\x7";
-    (void)config->write_bytes_cb(config->user_ctx, instance->config.out_fd, bip_screen_str, sizeof(bip_screen_str));
+    (void)config->write_bytes_cb(instance->config.out_fd, bip_screen_str, sizeof(bip_screen_str));
 }
 
 /* Free a list of completion option populated by linenoiseAddCompletion(). */
@@ -447,7 +446,7 @@ static int esp_linenoise_complete_line(esp_linenoise_instance_t *instance)
     char c = 0;
     int in_fd = instance->config.in_fd;
 
-    config->completion_cb(config->user_ctx, state->buffer, &lc, esp_linenoise_add_completion);
+    config->completion_cb(state->buffer, &lc, esp_linenoise_add_completion);
     if (lc.len == 0) {
         esp_linenoise_make_beep_sound(instance);
     } else {
@@ -468,7 +467,7 @@ static int esp_linenoise_complete_line(esp_linenoise_instance_t *instance)
                 esp_linenoise_refresh_line(instance);
             }
 
-            nread = config->read_bytes_cb(config->user_ctx, in_fd, &c, 1);
+            nread = config->read_bytes_cb(in_fd, &c, 1);
             if (nread <= 0) {
                 free_completions(&lc);
                 return -1;
@@ -524,7 +523,7 @@ static int esp_linenoise_edit_insert(esp_linenoise_instance_t *instance, char c)
             if ((!config->allow_multi_line && state->prompt_length + state->len < state->columns && !config->hints_cb)) {
                 /* Avoid a full update of the line in the
                  * trivial case. */
-                if (config->write_bytes_cb(config->user_ctx, fd, &c, 1) == -1) {
+                if (config->write_bytes_cb(fd, &c, 1) == -1) {
                     return -1;
                 }
             } else {
@@ -553,7 +552,7 @@ static int esp_linenoise_insert_pasted_char(esp_linenoise_instance_t *instance, 
         state->cur_cursor_position++;
         state->len++;
         state->buffer[state->len] = '\0';
-        if (config->write_bytes_cb(config->user_ctx, fd, &c, 1) == -1) {
+        if (config->write_bytes_cb(fd, &c, 1) == -1) {
             return -1;
         }
     }
@@ -747,7 +746,7 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
         return -1;
     }
 
-    if (config->write_bytes_cb(config->user_ctx, out_fd, config->prompt, state->prompt_length) == -1) {
+    if (config->write_bytes_cb(out_fd, config->prompt, state->prompt_length) == -1) {
         return -1;
     }
 
@@ -769,7 +768,7 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
          * about 40ms (or even more)
          */
         t1 = get_millis();
-        int nread = config->read_bytes_cb(config->user_ctx, in_fd, &c, 1);
+        int nread = config->read_bytes_cb(in_fd, &c, 1);
         if (nread <= 0) {
             return state->len;
         }
@@ -882,18 +881,18 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
         case ESC: {     /* escape sequence */
             /* ESC [ sequences. */
             char seq[3];
-            int r = config->read_bytes_cb(config->user_ctx, in_fd, seq, 1);
+            int r = config->read_bytes_cb(in_fd, seq, 1);
             if (r != 1) {
                 return -1;
             }
             if (seq[0] == '[') {
-                int r = config->read_bytes_cb(config->user_ctx, in_fd, seq + 1, 1);
+                int r = config->read_bytes_cb(in_fd, seq + 1, 1);
                 if (r != 1) {
                     return -1;
                 }
                 if (seq[1] >= '0' && seq[1] <= '9') {
                     /* Extended escape, read additional byte. */
-                    r = config->read_bytes_cb(config->user_ctx, in_fd, seq + 2, 1);
+                    r = config->read_bytes_cb(in_fd, seq + 2, 1);
                     if (r != 1) {
                         return -1;
                     }
@@ -929,7 +928,7 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
             }
             /* ESC O sequences. */
             else if (seq[0] == 'O') {
-                int r = config->read_bytes_cb(config->user_ctx, in_fd, seq + 1, 1);
+                int r = config->read_bytes_cb(in_fd, seq + 1, 1);
                 if (r != 1) {
                     return -1;
                 }
@@ -967,7 +966,7 @@ static int esp_linenoise_raw(esp_linenoise_instance_t *instance, char *buffer, s
     }
 
     count = esp_linenoise_edit(instance, buffer, buffer_length);
-    config->write_bytes_cb(config->user_ctx, config->out_fd, "\n", 1);
+    config->write_bytes_cb(config->out_fd, "\n", 1);
     return count;
 }
 
@@ -975,7 +974,7 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
 {
     esp_linenoise_config_t *config = &instance->config;
 
-    config->write_bytes_cb(config->user_ctx, instance->config.out_fd, config->prompt, sizeof(config->prompt));
+    config->write_bytes_cb(instance->config.out_fd, config->prompt, sizeof(config->prompt));
 
     size_t count = 0;
     const int in_fd = instance->config.in_fd;
@@ -985,7 +984,7 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
     // also, this is to be consistent with esp_linenoise_edit()
     bool exit_loop = false;
     while (!exit_loop) {
-        int nread = config->read_bytes_cb(config->user_ctx, in_fd, &c, 1);
+        int nread = config->read_bytes_cb(in_fd, &c, 1);
         if (nread < 0) {
             exit_loop = true;
             count = nread;
@@ -1006,7 +1005,7 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
 
                 /* Only erase symbol echoed from in_fd. */
                 char erase_symbol_str[] = "\x08";
-                config->write_bytes_cb(config->user_ctx, instance->config.out_fd, erase_symbol_str, sizeof(erase_symbol_str)); /* Windows CMD: erase symbol under cursor */
+                config->write_bytes_cb(instance->config.out_fd, erase_symbol_str, sizeof(erase_symbol_str)); /* Windows CMD: erase symbol under cursor */
             } else {
                 /* Consume backspace if the command line is empty to avoid erasing the prompt */
                 continue;
@@ -1020,9 +1019,9 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
             buffer[count] = c;
             ++count;
         }
-        config->write_bytes_cb(config->user_ctx, instance->config.out_fd, &c, 1); /* echo */
+        config->write_bytes_cb(instance->config.out_fd, &c, 1); /* echo */
     }
-    config->write_bytes_cb(config->user_ctx, instance->config.out_fd, "\n", 1);
+    config->write_bytes_cb(instance->config.out_fd, "\n", 1);
 
     // null terminate the string
     buffer[count + 1] = '\0';
@@ -1058,7 +1057,7 @@ int esp_linenoise_probe(esp_linenoise_instance_t *instance)
 
     /* Device status request */
     char status_request_str[] = "\x1b[5n";
-    config->write_bytes_cb(config->user_ctx, out_fd, status_request_str, sizeof(status_request_str));
+    config->write_bytes_cb(out_fd, status_request_str, sizeof(status_request_str));
 
     /* Try to read response */
     int timeout_ms = 500;
@@ -1068,7 +1067,7 @@ int esp_linenoise_probe(esp_linenoise_instance_t *instance)
         usleep(retry_ms * 1000);
         timeout_ms -= retry_ms;
         char c;
-        int cb = config->read_bytes_cb(config->user_ctx, fd_in, &c, 1);
+        int cb = config->read_bytes_cb(fd_in, &c, 1);
         if (cb < 0) {
             continue;
         }
@@ -1111,7 +1110,6 @@ void esp_linenoise_get_instance_config_default(esp_linenoise_config_t *config)
         .completion_cb = NULL,
         .hints_cb = NULL,
         .free_hints_cb = NULL,
-        .user_ctx = NULL,
         .write_bytes_cb = esp_linenoise_default_write_bytes,
         .read_bytes_cb = esp_linenoise_default_read_bytes,
         .history = NULL,
@@ -1137,6 +1135,10 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
 
     instance->config = *config;
 
+    /* set the state part of the esp_linenoise_instance_t to 0 to
+     * init all values to 0 (or NULL) */
+    memset(&instance->state, 0x00, sizeof(esp_linenoise_state_t));
+
     if (instance->config.in_fd == -1) {
         instance->config.in_fd = STDIN_FILENO;
     }
@@ -1152,11 +1154,28 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
     if (!instance->config.history_max_length) {
         instance->config.history_max_length = ESP_LINENOISE_DEFAULT_HISTORY_MAX_LENGTH;
     }
-    if (instance->config.read_bytes_cb == NULL) {
-        instance->config.read_bytes_cb = esp_linenoise_default_read_bytes;
-    }
     if (instance->config.write_bytes_cb == NULL) {
         instance->config.write_bytes_cb = esp_linenoise_default_write_bytes;
+    }
+    if ((instance->config.read_bytes_cb == NULL) ||
+            (instance->config.read_bytes_cb == esp_linenoise_default_read_bytes)) {
+        /*  since we are using the default read function, make sure
+         * blocking read are set */
+        int flags = fcntl(instance->config.in_fd, F_GETFL, 0);
+        flags &= ~O_NONBLOCK;
+        fcntl(instance->config.in_fd, F_SETFL, flags);
+        instance->config.read_bytes_cb = esp_linenoise_default_read_bytes;
+
+        if (esp_linenoise_set_event_fd != NULL) {
+            const esp_err_t ret_val = esp_linenoise_set_event_fd(instance);
+            if (ret_val != ESP_OK) {
+                free(instance);
+                return NULL;
+            }
+        } else {
+            /* make sure the state->mux is set to NULL */
+            instance->state.mux = NULL;
+        }
     }
 
     const int probe_status = esp_linenoise_probe(instance);
@@ -1174,16 +1193,11 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
                            "Line editing and history features are disabled.\n\n"
                            "On Windows, try using Windows Terminal or Putty instead.\r\n");
 
-        instance->config.write_bytes_cb(instance->config.user_ctx, instance->config.out_fd, buf, len);
-
+        instance->config.write_bytes_cb(instance->config.out_fd, buf, len);
     }
-
-    /* set the state part of the esp_linenoise_instance_t to 0 to init all values to 0 (or NULL) */
-    memset(&instance->state, 0x00, sizeof(esp_linenoise_state_t));
 
     /* set the self value to the handle of instance */
     instance->self = instance;
-
     return (esp_linenoise_handle_t)instance;
 }
 
@@ -1194,9 +1208,18 @@ esp_err_t esp_linenoise_delete_instance(esp_linenoise_handle_t handle)
     esp_linenoise_instance_t *instance = (esp_linenoise_instance_t *)handle;
 
     // free the history first since it was allocated by linenoise
-    const esp_err_t ret_val = esp_linenoise_history_free(handle);
+    esp_err_t ret_val = esp_linenoise_history_free(handle);
     if (ret_val != ESP_OK) {
         return ret_val;
+    }
+
+    // delete the mutex in the state and close the eventfd
+    // if it was created
+    if (esp_linenoise_remove_event_fd != NULL) {
+        ret_val = esp_linenoise_remove_event_fd(instance);
+        if (ret_val != ESP_OK) {
+            return ret_val;
+        }
     }
 
     // reset the memory
@@ -1218,9 +1241,16 @@ esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_b
 
     esp_linenoise_instance_t *instance = (esp_linenoise_instance_t *)handle;
     esp_linenoise_config_t *config = &instance->config;
+    esp_linenoise_state_t *state = &instance->state;
 
     if ((cmd_line_length == 0) || (cmd_line_length > config->max_cmd_line_length)) {
         return ESP_ERR_INVALID_ARG;
+    }
+
+    /* take the mutex, it will be released only when esp_linenoise_raw
+     * or esp_linenoise_dumb returns */
+    if (state->mux != NULL) {
+        (void)xSemaphoreTake(state->mux, portMAX_DELAY);
     }
 
     int count = 0;
@@ -1230,16 +1260,22 @@ esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_b
         count = esp_linenoise_dumb(instance, cmd_line_buffer, cmd_line_length);
     }
 
+    esp_err_t ret_val = ESP_OK;
     if (count > 0) {
         esp_linenoise_sanitize(cmd_line_buffer);
         count = strlen(cmd_line_buffer);
     } else if (count == 0 && config->allow_empty_line) {
         /* will return an empty (0-length) string */
     } else {
-        return ESP_FAIL;
+        ret_val = ESP_FAIL;
     }
 
-    return ESP_OK;
+    /* release the mutex, signaling that esp_linenoise_get_line returned */
+    if (state->mux != NULL) {
+        xSemaphoreGive(state->mux);
+    }
+
+    return ret_val;
 }
 
 void esp_linenoise_add_completion(void *ctx, const char *str)
@@ -1441,7 +1477,7 @@ esp_err_t esp_linenoise_clear_screen(esp_linenoise_handle_t handle)
 
     char erase_screen_str[] = "\x1b[H\x1b[2J";
     size_t msg_size = sizeof(erase_screen_str);
-    ssize_t nb_bytes = config->write_bytes_cb(config->user_ctx, config->out_fd, erase_screen_str, msg_size);
+    ssize_t nb_bytes = config->write_bytes_cb(config->out_fd, erase_screen_str, msg_size);
     if (nb_bytes < 0 || nb_bytes != msg_size) {
         return ESP_FAIL;
     }

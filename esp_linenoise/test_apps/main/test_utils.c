@@ -27,7 +27,7 @@ void test_send_characters(int socket_fd, const char *msg)
     // wait to simulate that the user is doing the input
     // and prevent linenoise to detect the incoming character(s)
     // as pasted
-    wait_ms(50);
+    wait_ms(100);
 
     const size_t msg_len = strlen(msg);
     const int nwrite = write(socket_fd, msg, msg_len);
