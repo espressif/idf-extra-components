@@ -12,6 +12,8 @@ extern "C" {
 
 #include <stdlib.h>
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_linenoise.h"
 
 #define ESP_LINENOISE_DEFAULT_PROMPT ">"
@@ -55,6 +57,8 @@ typedef struct esp_linenoise_state {
     size_t max_rows_used; /* Maximum num of rows used so far (multiline mode) */
     int history_index; /* The history index we are currently editing. */
     int history_length; /* The current length of the history*/
+    SemaphoreHandle_t mux;
+    int abort_read_fd;
 } esp_linenoise_state_t;
 
 typedef struct esp_linenoise_instance {
@@ -106,6 +110,42 @@ int esp_linenoise_probe(esp_linenoise_instance_t *instance);
  * @param str completed command to add to lc
  */
 void esp_linenoise_add_completion(void *ctx, const char *str);
+
+/**
+ * @brief esp_linenoise default read function.
+ *
+ * @note This function waits for available data on the file descriptor
+ * provided as parameter on on the eventfd using select. It either returns
+ * the data read from the file descriptor or a new line character if data was
+ * read from the eventfd first. This new line will trigger the esp_linenoise_get_line
+ * to return.
+ *
+ * @param fd file descriptor from which to read
+ * @param buf buffer used to store the read data
+ * @param count size of the buffer
+ * @return ssize_t size of the data read
+ */
+ssize_t esp_linenoise_default_read_bytes(int fd, void *buf, size_t count);
+
+/**
+ * @brief Sets the eventfd used to return from esp_linenoise_default_read_bytes.
+ *
+ * @note This function is only implemented if esp_linenoise_abort is used.
+ *
+ * @param instance linenoise instance associated with the eventfd to create
+ * @return esp_err_t ESP_OK on success, other errors on failures
+ */
+__attribute__((weak)) esp_err_t esp_linenoise_set_event_fd(esp_linenoise_instance_t *instance);
+
+/**
+ * @brief Remove the eventfd used to return from esp_linenoise_default_read_bytes.
+ *
+ * @note This function is only implemented if esp_linenoise_abort is used.
+ *
+ * @param instance linenoise instance associated with the eventfd to create
+ * @return esp_err_t ESP_OK on success, other errors on failures
+ */
+__attribute__((weak)) esp_err_t esp_linenoise_remove_event_fd(esp_linenoise_instance_t *instance);
 
 #ifdef __cplusplus
 }

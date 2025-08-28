@@ -65,6 +65,7 @@ void wait_ms(int ms)
 }
 
 void test_send_characters(int socket_fd, const char *msg);
+
 #ifdef __cplusplus
 }
 #endif
