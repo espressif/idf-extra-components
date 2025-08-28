@@ -99,8 +99,8 @@ typedef int (*sh2lib_putpost_data_cb_t)(struct sh2lib_handle *handle, char *data
  * @param[in]  cfg     Pointer to the sh2lib configurations of the type 'struct sh2lib_config_t'.
  * @param[out] hd      Pointer to a variable of the type 'struct sh2lib_handle'.
  * @return
- *             - ESP_OK if the connection was successful
- *             - ESP_FAIL if the connection fails
+ *             - 0 if the connection was successful
+ *             - -1 if the connection fails
  */
 int sh2lib_connect(struct sh2lib_config_t *cfg, struct sh2lib_handle *hd);
 
@@ -130,8 +130,8 @@ void sh2lib_free(struct sh2lib_handle *hd);
  *                      processing the request's response
  *
  * @return
- *             - ESP_OK if request setup is successful
- *             - ESP_FAIL if the request setup fails
+ *             - Stream ID (positive integer) if request setup is successful
+ *             - Negative error code if the request setup fails
  */
 int sh2lib_do_get(struct sh2lib_handle *hd, const char *path, sh2lib_frame_data_recv_cb_t recv_cb);
 
@@ -152,8 +152,8 @@ int sh2lib_do_get(struct sh2lib_handle *hd, const char *path, sh2lib_frame_data_
  *                      processing the request's response
  *
  * @return
- *             - ESP_OK if request setup is successful
- *             - ESP_FAIL if the request setup fails
+ *             - Stream ID (positive integer) if request setup is successful
+ *             - Negative error code if the request setup fails
  */
 int sh2lib_do_post(struct sh2lib_handle *hd, const char *path,
                    sh2lib_putpost_data_cb_t send_cb,
@@ -176,8 +176,8 @@ int sh2lib_do_post(struct sh2lib_handle *hd, const char *path,
  *                      processing the request's response
  *
  * @return
- *             - ESP_OK if request setup is successful
- *             - ESP_FAIL if the request setup fails
+ *             - Stream ID (positive integer) if request setup is successful
+ *             - Negative error code if the request setup fails
  */
 int sh2lib_do_put(struct sh2lib_handle *hd, const char *path,
                   sh2lib_putpost_data_cb_t send_cb,
@@ -194,8 +194,8 @@ int sh2lib_do_put(struct sh2lib_handle *hd, const char *path,
  * @param[in] hd      Pointer to a variable of the type 'struct sh2lib_handle'
  *
  * @return
- *             - ESP_OK if the connection was successful
- *             - ESP_FAIL if the connection fails
+ *             - 0 if the connection was successful
+ *             - -1 if the connection fails
  */
 int sh2lib_execute(struct sh2lib_handle *hd);
 
@@ -228,8 +228,8 @@ int sh2lib_execute(struct sh2lib_handle *hd);
  *                      processing the request's response
  *
  * @return
- *             - ESP_OK if request setup is successful
- *             - ESP_FAIL if the request setup fails
+ *             - Stream ID (positive integer) if request setup is successful
+ *             - Negative error code if the request setup fails
  */
 int sh2lib_do_get_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, size_t nvlen, sh2lib_frame_data_recv_cb_t recv_cb);
 
@@ -259,8 +259,8 @@ int sh2lib_do_get_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, size_
  *                      processing the request's response
  *
  * @return
- *             - ESP_OK if request setup is successful
- *             - ESP_FAIL if the request setup fails
+ *             - Stream ID (positive integer) if request setup is successful
+ *             - Negative error code if the request setup fails
  */
 int sh2lib_do_putpost_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, size_t nvlen,
                               sh2lib_putpost_data_cb_t send_cb,
