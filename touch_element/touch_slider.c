@@ -9,7 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
-#include "touch_element_private.h"
+#include "esp_private/touch_element_private.h"
 
 #define TE_SLD_DEFAULT_QTF_THR(obj)                       ((obj)->global_config->quantify_lower_threshold)
 #define TE_SLD_DEFAULT_POS_FILTER_FACTOR(obj)             ((obj)->global_config->position_filter_factor)

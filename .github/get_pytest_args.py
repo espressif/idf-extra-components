@@ -14,6 +14,7 @@ def main():
 
     args = parser.parse_args()
     pytest_args = []
+    app_ignore_status = {}
     app_json_files = glob.glob(args.build_info_json)
     if args.verbose:
         print(f'Found {len(app_json_files)} app_json files')
@@ -25,19 +26,23 @@ def main():
                 print(f'Processing {app_json_file}')
             for app_json_line in build_info_json.readlines():
                 app_json = json.loads(app_json_line)
-                skip = False
-                if app_json['target'] != args.target:
-                    continue
-                if app_json['build_status'] == 'skipped':
-                    if args.verbose:
-                        print(f'Skipping {app_json["app_dir"]})')
-                    pytest_args += [
-                        '--ignore',
-                        app_json['app_dir']
-                    ]
-                else:
-                    if args.verbose:
-                        print(f'Not skipping {app_json["app_dir"]})')
+                app_dir = app_json['app_dir']
+                if app_dir not in app_ignore_status.keys():
+                    app_ignore_status[app_dir] = True
+                if app_json['target'] == args.target and app_json['build_status'] != 'skipped':
+                    app_ignore_status[app_dir] = False
+
+    for app_dir, ignore in app_ignore_status.items():
+        if ignore:
+            if args.verbose:
+                print(f'Skipping {app_dir}')
+            pytest_args += [
+                '--ignore',
+                app_dir
+            ]
+        else:
+            if args.verbose:
+                print(f'Not skipping {app_dir}')
 
 
     args.pytest_args.write(' '.join(pytest_args))

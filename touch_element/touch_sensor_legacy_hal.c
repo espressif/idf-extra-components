@@ -6,8 +6,8 @@
 
 #include "soc/soc_caps.h"
 #include "soc/touch_sensor_pins.h"
-#include "touch_sensor_legacy_ll.h"
-#include "touch_sensor_legacy_hal.h"
+#include "esp_private/touch_sensor_legacy_ll.h"
+#include "esp_private/touch_sensor_legacy_hal.h"
 #include "touch_element/touch_sensor_legacy_types.h"
 
 static int s_sleep_cycle = -1;

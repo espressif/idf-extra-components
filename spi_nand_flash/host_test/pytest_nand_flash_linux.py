@@ -3,10 +3,15 @@
 import pytest
 from pytest_embedded import Dut
 from pytest_embedded_idf.utils import idf_parametrize
+import glob
+from pathlib import Path
 
 
 @pytest.mark.host_test
+@pytest.mark.skipif(
+    not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
+    reason="Skip the idf version that not build"
+)
 @idf_parametrize('target', ['linux'], indirect=['target'])
-@pytest.mark.skip_if_soc("IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3") # Linux apps not built for 5.1~5.2
 def test_nand_flash_linux(dut: Dut) -> None:
     dut.expect_exact('All tests passed', timeout=120)

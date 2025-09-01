@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "touch_sensor_legacy_ll.h"
+#include "esp_private/touch_sensor_legacy_ll.h"
 #include "touch_element/touch_sensor_legacy_types.h"
 
 #ifdef __cplusplus
