@@ -18,8 +18,8 @@
 #include "esp_private/gpio.h"
 #include "soc/touch_sensor_periph.h"
 #include "soc/rtc_cntl_reg.h"
-#include "touch_sensor_legacy_hal.h"
-#include "touch_element_private.h"
+#include "esp_private/touch_sensor_legacy_hal.h"
+#include "esp_private/touch_element_private.h"
 #include "esp_rom_sys.h"
 
 

@@ -1,0 +1,9 @@
+[book]
+title = "Touch Element Documentation"
+language = "en"
+
+[output.html]
+default-theme = "light"
+git-repository-url = "https://github.com/espressif/idf-extra-components/tree/master/touch_element"
+edit-url-template = "https://github.com/espressif/idf-extra-components/edit/master/touch_element/docs/{path}"
+mathjax-support = true

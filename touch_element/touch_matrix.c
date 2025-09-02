@@ -10,7 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
-#include "touch_element_private.h"
+#include "esp_private/touch_element_private.h"
 
 #define TE_MAT_POS_MAX  (0xff)      //!< Matrix button startup position
 

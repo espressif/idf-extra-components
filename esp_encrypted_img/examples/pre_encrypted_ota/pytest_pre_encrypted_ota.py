@@ -98,7 +98,7 @@ def test_examples_protocol_pre_encrypted_ota_example(dut: Dut) -> None:
     bin_size = os.path.getsize(bin_path)
     # Construct the URI
     uri = f'https://{host_ip}:{server_port}/'
-    
+
     try:
         dut.expect('Loaded app from partition at offset', timeout=30)
         dut.expect('Starting Pre Encrypted OTA example', timeout=30)

@@ -184,6 +184,16 @@ jobs:
             target: "esp32"
             runner-labels: [self-hosted, linux, docker, "esp32"]
             pytest_args: ""
+          - runs-on: "esp32s2"
+            marker: "generic"
+            target: "esp32s2"
+            runner-labels: [self-hosted, linux, docker, "esp32s2"]
+            pytest_args: ""
+          - runs-on: "esp32s3"
+            marker: "generic"
+            target: "esp32s3"
+            runner-labels: [self-hosted, linux, docker, "esp32s3"]
+            pytest_args: ""
           - runs-on: "ESP32-ETHERNET-KIT"
             marker: "ethernet"
             target: "esp32"

@@ -10,7 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
-#include "touch_element_private.h"
+#include "esp_private/touch_element_private.h"
 
 typedef struct te_button_handle_list {
     te_button_handle_t button_handle;               //Button handle
