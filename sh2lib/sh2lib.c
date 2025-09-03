@@ -43,6 +43,13 @@ static ssize_t callback_send_inner(struct sh2lib_handle *hd, const uint8_t *data
     return rv;
 }
 
+static ssize_t callback_error(nghttp2_session *session, int lib_error_code,
+                              const char *msg, size_t len, void *user_data)
+{
+    ESP_LOGE(TAG, "[error] code %i msg:%.*s", lib_error_code, len, msg);
+    return 0;
+}
+
 static ssize_t callback_send(nghttp2_session *session, const uint8_t *data,
                              size_t length, int flags, void *user_data)
 {
@@ -146,6 +153,13 @@ static int callback_on_frame_send(nghttp2_session *session,
     return 0;
 }
 
+static int callback_on_frame_not_send(nghttp2_session *session,
+                                      const nghttp2_frame *frame, int lib_error_code, void *user_data)
+{
+    ESP_LOGW(TAG, "[frame-not-send] code %i frame type %s", lib_error_code, sh2lib_frame_type_str(frame->hd.type));
+    return 0;
+}
+
 static int callback_on_frame_recv(nghttp2_session *session,
                                   const nghttp2_frame *frame, void *user_data)
 {
@@ -200,15 +214,26 @@ static int callback_on_header(nghttp2_session *session, const nghttp2_frame *fra
     return 0;
 }
 
+static int callback_on_invalid_header(nghttp2_session *session, const nghttp2_frame *frame,
+                                      const uint8_t *name, size_t namelen, const uint8_t *value,
+                                      size_t valuelen, uint8_t flags, void *user_data)
+{
+    ESP_LOGW(TAG, "[inv-hdr][sid: %" PRIi32 "] %s : %s", frame->hd.stream_id, name, value);
+    return 0;
+}
+
 static int do_http2_connect(struct sh2lib_handle *hd)
 {
     int ret;
     nghttp2_session_callbacks *callbacks;
     nghttp2_session_callbacks_new(&callbacks);
+    nghttp2_session_callbacks_set_error_callback2(callbacks, callback_error);
     nghttp2_session_callbacks_set_send_callback(callbacks, callback_send);
     nghttp2_session_callbacks_set_recv_callback(callbacks, callback_recv);
     nghttp2_session_callbacks_set_on_frame_send_callback(callbacks, callback_on_frame_send);
+    nghttp2_session_callbacks_set_on_frame_not_send_callback(callbacks, callback_on_frame_not_send);
     nghttp2_session_callbacks_set_on_frame_recv_callback(callbacks, callback_on_frame_recv);
+    nghttp2_session_callbacks_set_on_invalid_header_callback(callbacks, callback_on_invalid_header);
     nghttp2_session_callbacks_set_on_stream_close_callback(callbacks, callback_on_stream_close);
     nghttp2_session_callbacks_set_on_data_chunk_recv_callback(callbacks, callback_on_data_chunk_recv);
     nghttp2_session_callbacks_set_on_header_callback(callbacks, callback_on_header);
