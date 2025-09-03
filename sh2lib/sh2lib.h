@@ -32,6 +32,7 @@ struct sh2lib_handle {
     nghttp2_session *http2_sess;   /*!< Pointer to the HTTP2 session handle */
     char            *hostname;     /*!< The hostname we are connected to */
     struct esp_tls  *http2_tls;    /*!< Pointer to the TLS session handle */
+    int             http2_tls_rc;  /*!< Error code from http2_tls */
 };
 
 /**
