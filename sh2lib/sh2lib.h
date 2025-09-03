@@ -194,8 +194,8 @@ int sh2lib_do_put(struct sh2lib_handle *hd, const char *path,
  * @param[in] hd      Pointer to a variable of the type 'struct sh2lib_handle'
  *
  * @return
- *             - 0 if the connection was successful
- *             - -1 if the connection fails
+ *             - 0 if it succeeds
+ *             - Negative error code from nghttp2 on failure
  */
 int sh2lib_execute(struct sh2lib_handle *hd);
 

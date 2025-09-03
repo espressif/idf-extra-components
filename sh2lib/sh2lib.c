@@ -303,13 +303,13 @@ int sh2lib_execute(struct sh2lib_handle *hd)
     ret = nghttp2_session_send(hd->http2_sess);
     if (ret != 0) {
         ESP_LOGE(TAG, "[sh2-execute] HTTP2 session send failed %d", ret);
-        return -1;
+        return ret;
     }
 
     ret = nghttp2_session_recv(hd->http2_sess);
     if (ret != 0) {
         ESP_LOGE(TAG, "[sh2-execute] HTTP2 session recv failed %d", ret);
-        return -1;
+        return ret;
     }
 
     return 0;
