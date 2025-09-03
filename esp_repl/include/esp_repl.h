@@ -11,30 +11,13 @@ extern "C" {
 
 #include <stdbool.h>
 #include "esp_err.h"
+#include "esp_linenoise.h"
+#include "esp_commands.h"
 
 /**
  * @brief Handle to a REPL instance.
  */
 typedef struct esp_repl_instance *esp_repl_instance_handle_t;
-
-/**
- * @brief Function prototype for reading input for the REPL.
- *
- * @param ctx User-defined context pointer.
- * @param buf Buffer to store the read data.
- * @param buf_size Size of the buffer in bytes.
- *
- * @return ESP_OK on success, error code otherwise.
- */
-typedef esp_err_t (*esp_repl_reader_fn)(void *ctx, char *buf, size_t buf_size);
-
-/**
- * @brief Reader configuration structure for the REPL.
- */
-typedef struct esp_repl_reader {
-    esp_repl_reader_fn func; /**!< Function to read input */
-    void *ctx;               /**!< Context passed to the reader function */
-} esp_repl_reader_t;
 
 /**
  * @brief Function prototype called before executing a command.
@@ -54,25 +37,6 @@ typedef struct esp_repl_pre_executor {
     esp_repl_pre_executor_fn func; /**!< Function to run before command execution */
     void *ctx;                      /**!< Context passed to the pre-executor function */
 } esp_repl_pre_executor_t;
-
-/**
- * @brief Function prototype to execute a REPL command.
- *
- * @param ctx User-defined context pointer.
- * @param buf Null-terminated command string.
- * @param ret_val Pointer to store the command return value.
- *
- * @return ESP_OK on success, error code otherwise.
- */
-typedef esp_err_t (*esp_repl_executor_fn)(void *ctx, const char *buf, int *ret_val);
-
-/**
- * @brief Executor configuration structure for the REPL.
- */
-typedef struct esp_repl_executor {
-    esp_repl_executor_fn func; /**!< Function to execute commands */
-    void *ctx;                  /**!< Context passed to the executor function */
-} esp_repl_executor_t;
 
 /**
  * @brief Function prototype called after executing a command.
@@ -133,13 +97,14 @@ typedef struct esp_repl_on_exit {
  * @brief Configuration structure to initialize a REPL instance.
  */
 typedef struct esp_repl_config {
-    size_t max_cmd_line_size;        /**!< Maximum allowed command line size */
-    esp_repl_reader_t reader;        /**!< Reader callback and context */
-    esp_repl_pre_executor_t pre_executor;   /**!< Pre-executor callback and context */
-    esp_repl_executor_t executor;           /**!< Executor callback and context */
-    esp_repl_post_executor_t post_executor; /**!< Post-executor callback and context */
-    esp_repl_on_stop_t on_stop;             /**!< Stop callback and context */
-    esp_repl_on_exit_t on_exit;             /**!< Exit callback and context */
+    esp_linenoise_handle_t linenoise_handle;    /**!< Handle to the esp_linenoise instance */
+    esp_command_set_handle_t command_set_handle;   /**!< Handle to a set of commands */
+    size_t max_cmd_line_size;                   /**!< Maximum allowed command line size */
+    const char *history_save_path;              /**!< Path to file to save the history */
+    esp_repl_pre_executor_t pre_executor;       /**!< Pre-executor callback and context */
+    esp_repl_post_executor_t post_executor;     /**!< Post-executor callback and context */
+    esp_repl_on_stop_t on_stop;                 /**!< Stop callback and context */
+    esp_repl_on_exit_t on_exit;                 /**!< Exit callback and context */
 } esp_repl_config_t;
 
 /**
