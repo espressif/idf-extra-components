@@ -44,6 +44,7 @@ struct sh2lib_config_t {
     esp_err_t (*crt_bundle_attach)(void *conf);
     /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification
          bundle for server verification, must be enabled in menuconfig */
+    tls_keep_alive_cfg_t *keep_alive_cfg;/*!< Enable TCP keep-alive timeout for SSL connection */
 };
 
 /** Flag indicating receive stream is reset */
