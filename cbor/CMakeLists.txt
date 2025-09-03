@@ -20,4 +20,4 @@ set_source_files_properties(tinycbor/src/open_memstream.c PROPERTIES
 # Fix unreachable macro redefinition issue between ESP-IDF toolchain and tinycbor
 # by force-including a header that resolves the conflict
 target_compile_options(${COMPONENT_LIB} PRIVATE
-                       "-include" "${CMAKE_CURRENT_SOURCE_DIR}/port/include/unreachable_fix.h")
+                       "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/port/include/unreachable_fix.h")
