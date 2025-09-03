@@ -18,26 +18,6 @@
  * **Large packets (>7 bytes)**: Split into multiple frames - first frame sent immediately,
  * remaining frames sent during esp_isotp_poll() calls.
  *
- * ## Basic Usage
- * ```c
- * esp_isotp_handle_t handle;
- * esp_isotp_new_transport(twai_node, &config, &handle);
- *
- * while (1) {
- *     esp_isotp_poll(handle);  // MUST call regularly!
- *
- *     // Send data (non-blocking)
- *     esp_isotp_send(handle, data, size);
- *
- *     // Check for received data (non-blocking)
- *     uint16_t received_size;
- *     if (esp_isotp_receive(handle, buffer, sizeof(buffer), &received_size) == ESP_OK) {
- *         // Complete message received
- *     }
- *
- *     vTaskDelay(pdMS_TO_TICKS(5));
- * }
- * ```
  */
 
 #include "esp_err.h"
@@ -57,10 +37,11 @@ typedef struct esp_isotp_link_t *esp_isotp_handle_t;
  * @brief Configuration structure for creating a new ISO-TP link
  */
 typedef struct {
-    uint32_t tx_id;                  /*!< TWAI ID for transmitting ISO-TP frames */
-    uint32_t rx_id;                  /*!< TWAI ID for receiving ISO-TP frames */
+    uint32_t tx_id;                  /*!< TWAI ID for transmitting ISO-TP frames (11-bit or 29-bit) */
+    uint32_t rx_id;                  /*!< TWAI ID for receiving ISO-TP frames (11-bit or 29-bit) */
     uint32_t tx_buffer_size;         /*!< Size of the transmit buffer (max message size to send) */
     uint32_t rx_buffer_size;         /*!< Size of the receive buffer (max message size to receive) */
+    bool use_extended_id;            /*!< true: use 29-bit extended ID, false: use 11-bit standard ID */
 } esp_isotp_config_t;
 
 /**
@@ -72,6 +53,7 @@ typedef struct {
  * @return esp_err_t
  *     - ESP_OK: Success
  *     - ESP_ERR_INVALID_ARG: Invalid argument
+ *     - ESP_ERR_INVALID_SIZE: Invalid buffer size
  *     - ESP_ERR_NO_MEM: Out of memory
  */
 esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_config_t *config, esp_isotp_handle_t *out_handle);
@@ -88,8 +70,11 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
  * @return
  *     - ESP_OK: Send initiated successfully
  *     - ESP_ERR_NOT_FINISHED: Previous send still in progress
- *     - ESP_ERR_NO_MEM: Data too large for buffer
+ *     - ESP_ERR_NO_MEM: Data too large for buffer or no space available
+ *     - ESP_ERR_INVALID_SIZE: Invalid data size
+ *     - ESP_ERR_TIMEOUT: Send operation timed out
  *     - ESP_ERR_INVALID_ARG: Invalid parameters
+ *     - ESP_FAIL: Other send errors
  */
 esp_err_t esp_isotp_send(esp_isotp_handle_t handle, const uint8_t *data, uint32_t size);
 
@@ -108,7 +93,11 @@ esp_err_t esp_isotp_send(esp_isotp_handle_t handle, const uint8_t *data, uint32_
  * @return
  *     - ESP_OK: Complete message extracted and internal buffer cleared
  *     - ESP_ERR_NOT_FOUND: No complete message ready for extraction
+ *     - ESP_ERR_INVALID_SIZE: Receive buffer overflow or invalid size
+ *     - ESP_ERR_INVALID_RESPONSE: Invalid sequence number or protocol error
+ *     - ESP_ERR_TIMEOUT: Receive operation timed out
  *     - ESP_ERR_INVALID_ARG: Invalid parameters
+ *     - ESP_FAIL: Other receive errors
  */
 esp_err_t esp_isotp_receive(esp_isotp_handle_t handle, uint8_t *data, uint32_t size, uint32_t *received_size);
 
@@ -137,8 +126,9 @@ esp_err_t esp_isotp_poll(esp_isotp_handle_t handle);
  *
  * @param handle The handle of the ISO-TP link to delete
  * @return
- *     - ESP_OK: Success
+ *     - ESP_OK: Success (or TWAI disable warning logged)
  *     - ESP_ERR_INVALID_ARG: Invalid argument
+ *     - Other ESP error codes: TWAI node disable failed
  */
 esp_err_t esp_isotp_delete(esp_isotp_handle_t handle);
 

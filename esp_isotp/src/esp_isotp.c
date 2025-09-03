@@ -25,11 +25,19 @@ typedef struct esp_isotp_link_t {
     twai_node_handle_t twai_node;
     uint8_t *tx_buffer;
     uint8_t *rx_buffer;
+    bool use_extended_id;
 } esp_isotp_link_t;
 
 /**
- * @brief TWAI receive callback function
- * @note This function runs in ISR context
+ * @brief TWAI receive callback function.
+ *
+ * Processes a received TWAI frame and feeds it to the ISO-TP state machine.
+ *
+ * @note Runs in ISR context.
+ * @param handle TWAI node handle invoking the callback.
+ * @param edata  Receive event data from TWAI driver (unused here).
+ * @param user_ctx User context pointer; expected to be an esp_isotp_handle_t.
+ * @return true to request a context switch to a higher-priority task, false otherwise.
  */
 static IRAM_ATTR bool esp_isotp_rx_callback(twai_node_handle_t handle, const twai_rx_done_event_data_t *edata, void *user_ctx)
 {
@@ -50,13 +58,32 @@ static IRAM_ATTR bool esp_isotp_rx_callback(twai_node_handle_t handle, const twa
     return false;
 }
 
-/// isotp-c library stub function: gets the amount of time passed since the last call in microseconds
+/**
+ * @brief Get monotonic timestamp in microseconds.
+ *
+ * Returns the current time in microseconds as a 32-bit, monotonically
+ * increasing value. Wrap-around is expected; the library compares
+ * timestamps using IsoTpTimeAfter().
+ *
+ * @return 32-bit timestamp in microseconds.
+ */
 uint32_t isotp_user_get_us(void)
 {
     return (uint32_t)esp_timer_get_time();
 }
 
-/// isotp-c library stub function: send twai message
+/**
+ * @brief Send a TWAI frame for ISO-TP.
+ *
+ * Queues a TWAI frame for transmission using the configured TWAI node.
+ *
+ * @param arbitration_id CAN identifier (11-bit or 29-bit).
+ * @param data Pointer to frame payload.
+ * @param size Payload length in bytes (0–8).
+ * @param user_data Optional ISO-TP link handle (enabled when ISO_TP_USER_SEND_CAN_ARG is defined).
+ * @retval ISOTP_RET_OK Frame queued successfully.
+ * @retval ISOTP_RET_ERROR Transmission failed or invalid context.
+ */
 int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, const uint8_t size
 #ifdef ISO_TP_USER_SEND_CAN_ARG
                         , void *user_data
@@ -64,8 +91,9 @@ int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, cons
                        )
 {
 #ifdef ISO_TP_USER_SEND_CAN_ARG
-    twai_node_handle_t twai_node = (twai_node_handle_t) user_data;
-    ESP_RETURN_ON_FALSE(twai_node != NULL, ISOTP_RET_ERROR, TAG, "Invalid TWAI node");
+    esp_isotp_handle_t isotp_handle = (esp_isotp_handle_t) user_data;
+    ESP_RETURN_ON_FALSE(isotp_handle != NULL, ISOTP_RET_ERROR, TAG, "Invalid ISO-TP handle");
+    twai_node_handle_t twai_node = isotp_handle->twai_node;
 #else
     // Without user_data, we need to get TWAI node from somewhere else
     // This shouldn't happen with current design
@@ -75,7 +103,7 @@ int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, cons
 
     twai_frame_t tx_msg = {0};
     tx_msg.header.id = arbitration_id;
-    tx_msg.header.ide = false;
+    tx_msg.header.ide = isotp_handle->use_extended_id;
     tx_msg.header.rtr = false;
     tx_msg.buffer = (uint8_t *)data;
     tx_msg.buffer_len = size;
@@ -85,7 +113,12 @@ int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, cons
     return ISOTP_RET_OK;
 }
 
-/// isotp-c library stub function: print debug message
+/**
+ * @brief Print a formatted debug message from isotp-c.
+ *
+ * @param message Format string.
+ * @param ... Variadic arguments for the format string.
+ */
 void isotp_user_debug(const char *message, ...)
 {
     va_list args;
@@ -99,6 +132,13 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
     esp_err_t ret = ESP_OK;
     esp_isotp_handle_t isotp = NULL;
     ESP_RETURN_ON_FALSE(twai_node && config && out_handle, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
+    ESP_RETURN_ON_FALSE(config->tx_buffer_size > 0 && config->rx_buffer_size > 0, ESP_ERR_INVALID_SIZE, TAG, "Buffer sizes must be greater than 0");
+    ESP_RETURN_ON_FALSE(config->tx_id != config->rx_id, ESP_ERR_INVALID_ARG, TAG, "TX and RX IDs must be different");
+
+    // Validate ID ranges based on type
+    uint32_t mask = config->use_extended_id ? TWAI_EXT_ID_MASK : TWAI_STD_ID_MASK;
+    ESP_RETURN_ON_FALSE(((config->tx_id & ~mask) == 0) && ((config->rx_id & ~mask) == 0),
+                        ESP_ERR_INVALID_ARG, TAG, "ID exceeds mask for selected format");
 
     // Allocate memory for handle
     isotp = calloc(1, sizeof(esp_isotp_link_t));
@@ -113,10 +153,11 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
     isotp_init_link(&isotp->link, config->tx_id, isotp->tx_buffer,
                     config->tx_buffer_size, isotp->rx_buffer, config->rx_buffer_size);
     isotp->link.receive_arbitration_id = config->rx_id;
+    isotp->use_extended_id = config->use_extended_id;
 
     // Set user argument for TWAI operations
 #ifdef ISO_TP_USER_SEND_CAN_ARG
-    isotp->link.user_send_can_arg = twai_node;
+    isotp->link.user_send_can_arg = isotp;
 #endif
 
     // Register TWAI callback
@@ -136,13 +177,15 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
     return ESP_OK;
 
 err:
-    if (isotp->rx_buffer) {
-        free(isotp->rx_buffer);
+    if (isotp) {
+        if (isotp->rx_buffer) {
+            free(isotp->rx_buffer);
+        }
+        if (isotp->tx_buffer) {
+            free(isotp->tx_buffer);
+        }
+        free(isotp);
     }
-    if (isotp->tx_buffer) {
-        free(isotp->tx_buffer);
-    }
-    free(isotp);
     return ret;
 }
 
@@ -161,13 +204,21 @@ esp_err_t esp_isotp_send(esp_isotp_handle_t handle, const uint8_t *data, uint32_
     ESP_RETURN_ON_FALSE(handle && data && size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
 
     int ret = isotp_send(&handle->link, data, size);
-    if (ret == ISOTP_RET_OK) {
+    switch (ret) {
+    case ISOTP_RET_OK:
         return ESP_OK;
-    } else if (ret == ISOTP_RET_INPROGRESS) {
+    case ISOTP_RET_INPROGRESS:
         return ESP_ERR_NOT_FINISHED;
-    } else if (ret == ISOTP_RET_OVERFLOW) {
+    case ISOTP_RET_OVERFLOW:
+    case ISOTP_RET_NOSPACE:
         return ESP_ERR_NO_MEM;
-    } else {
+    case ISOTP_RET_LENGTH:
+        return ESP_ERR_INVALID_SIZE;
+    case ISOTP_RET_TIMEOUT:
+        return ESP_ERR_TIMEOUT;
+    case ISOTP_RET_ERROR:
+    default:
+        ESP_LOGE(TAG, "ISO-TP send failed with error code: %d", ret);
         return ESP_FAIL;
     }
 }
@@ -176,10 +227,24 @@ esp_err_t esp_isotp_receive(esp_isotp_handle_t handle, uint8_t *data, uint32_t s
 {
     ESP_RETURN_ON_FALSE(handle && data && size && received_size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
 
+    *received_size = 0;
     int ret = isotp_receive(&handle->link, data, size, received_size);
-    if (ret == ISOTP_RET_OK) {
+    switch (ret) {
+    case ISOTP_RET_OK:
         return ESP_OK;
-    } else {
+    case ISOTP_RET_NO_DATA:
+        return ESP_ERR_NOT_FOUND;
+    case ISOTP_RET_OVERFLOW:
+        return ESP_ERR_INVALID_SIZE;
+    case ISOTP_RET_WRONG_SN:
+        return ESP_ERR_INVALID_RESPONSE;
+    case ISOTP_RET_TIMEOUT:
+        return ESP_ERR_TIMEOUT;
+    case ISOTP_RET_LENGTH:
+        return ESP_ERR_INVALID_SIZE;
+    case ISOTP_RET_ERROR:
+    default:
+        ESP_LOGE(TAG, "ISO-TP receive failed with error code: %d", ret);
         return ESP_FAIL;
     }
 }
@@ -188,12 +253,26 @@ esp_err_t esp_isotp_delete(esp_isotp_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
 
-    // Disable TWAI node
-    ESP_RETURN_ON_ERROR(twai_node_disable(handle->twai_node), TAG, "Failed to disable TWAI node");
+    esp_err_t ret = ESP_OK;
 
+    // Disable TWAI node (continue cleanup even if this fails)
+    esp_err_t twai_ret = twai_node_disable(handle->twai_node);
+    if (twai_ret != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to disable TWAI node: %s", esp_err_to_name(twai_ret));
+        ret = twai_ret;
+    }
+
+    // Clean up ISO-TP link
     isotp_destroy_link(&handle->link);
-    free(handle->tx_buffer);
-    free(handle->rx_buffer);
+
+    // Free allocated memory
+    if (handle->tx_buffer) {
+        free(handle->tx_buffer);
+    }
+    if (handle->rx_buffer) {
+        free(handle->rx_buffer);
+    }
     free(handle);
-    return ESP_OK;
+
+    return ret;
 }
