@@ -209,6 +209,34 @@ esp_err_t esp_isotp_send(esp_isotp_handle_t handle, const uint8_t *data, uint32_
     }
 }
 
+esp_err_t esp_isotp_send_with_id(esp_isotp_handle_t handle, uint32_t id, const uint8_t *data, uint32_t size)
+{
+    ESP_RETURN_ON_FALSE(handle && data && size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
+
+    // Validate ID range based on configured format
+    uint32_t mask = handle->use_extended_id ? TWAI_EXT_ID_MASK : TWAI_STD_ID_MASK;
+    ESP_RETURN_ON_FALSE((id & ~mask) == 0, ESP_ERR_INVALID_ARG, TAG, "ID exceeds mask for selected format");
+
+    int ret = isotp_send_with_id(&handle->link, id, data, size);
+    switch (ret) {
+    case ISOTP_RET_OK:
+        return ESP_OK;
+    case ISOTP_RET_INPROGRESS:
+        return ESP_ERR_NOT_FINISHED;
+    case ISOTP_RET_OVERFLOW:
+    case ISOTP_RET_NOSPACE:
+        return ESP_ERR_NO_MEM;
+    case ISOTP_RET_LENGTH:
+        return ESP_ERR_INVALID_SIZE;
+    case ISOTP_RET_TIMEOUT:
+        return ESP_ERR_TIMEOUT;
+    case ISOTP_RET_ERROR:
+    default:
+        ESP_LOGE(TAG, "ISO-TP send with ID failed with error code: %d", ret);
+        return ESP_FAIL;
+    }
+}
+
 esp_err_t esp_isotp_receive(esp_isotp_handle_t handle, uint8_t *data, uint32_t size, uint32_t *received_size)
 {
     ESP_RETURN_ON_FALSE(handle && data && size && received_size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
