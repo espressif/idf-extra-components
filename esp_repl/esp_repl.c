@@ -1,15 +1,17 @@
+
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+* SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+*
+* SPDX-License-Identifier: Apache-2.0
+*/
 #include <stdbool.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_repl.h"
 #include "esp_err.h"
-
+#include "esp_commands.h"
+#include "esp_linenoise.h"
 typedef enum {
     ESP_REPL_STATE_RUNNING,
     ESP_REPL_STATE_STOPPED
@@ -27,15 +29,18 @@ typedef struct esp_repl_instance {
 } esp_repl_instance_t;
 
 #define ESP_REPL_CHECK_INSTANCE(handle) do {                                                          \
-    if((handle == NULL) || ((esp_repl_instance_t*)handle->self != (esp_repl_instance_t*)handle)) {    \
-        return ESP_ERR_INVALID_ARG;                                                                   \
-    }                                                                                                 \
-} while(0)
+        if((handle == NULL) || ((esp_repl_instance_t*)handle->self != (esp_repl_instance_t*)handle)) {    \
+            return ESP_ERR_INVALID_ARG;                                                                   \
+        }                                                                                                 \
+    } while(0)
 
-esp_err_t   esp_repl_create(esp_repl_handle_t *handle, const esp_repl_config_t *config)
+esp_err_t esp_repl_create(const esp_repl_config_t *config, esp_repl_handle_t *out_handle)
 {
-    if ((config->executor.func == NULL) ||
-            (config->reader.func == NULL) ||
+    if (!config || !out_handle) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if ((config->linenoise_handle == NULL) ||
             (config->max_cmd_line_size == 0)) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -55,10 +60,10 @@ esp_err_t   esp_repl_create(esp_repl_handle_t *handle, const esp_repl_config_t *
     }
 
     /* take the mutex right away to prevent the task to start running until
-     * the user explicitly calls esp_repl_start */
+    * the user explicitly calls esp_repl_start */
     xSemaphoreTake(instance->state.mux, portMAX_DELAY);
 
-    *handle = instance;
+    *out_handle = instance;
     return ESP_OK;
 }
 
@@ -106,7 +111,21 @@ esp_err_t esp_repl_stop(esp_repl_handle_t handle)
     /* update the state to force the while loop in esp_repl to return */
     state->state = ESP_REPL_STATE_STOPPED;
 
-    /* Call the on_stop callback to let the user unblock reader.func, if provided */
+    /* Call the abort function from esp_linenoise to force esp_linenoise_get_line to return.
+    * This function is expected to return ESP_OK only if the user has registered a custom
+    * read to the esp_linenoise instance and if the abort function succeeds.
+    * ESP_ERR_INVALID_STATE is expected to be returned by esp_linenoise_abort if it is called
+    * when the user has registered a custom read to the esp_linenoise instance. From the point
+    * of view of esp_repl_stop, this return value if indicating that the user will have to take
+    * care of returning from its own custom read by himself through the call of the on_stop callback,
+    * therefore set the return value of esp_repl_stop to ESP_OK. */
+    esp_err_t ret_val = esp_linenoise_abort(config->linenoise_handle);
+    if (ret_val == ESP_ERR_INVALID_STATE) {
+        ret_val = ESP_OK;
+    }
+
+    /* Call the on_stop callback to let the user unblock esp_linenoise
+    * if a custom read is provided */
     if (config->on_stop.func != NULL) {
         config->on_stop.func(config->on_stop.ctx, handle);
     }
@@ -117,7 +136,7 @@ esp_err_t esp_repl_stop(esp_repl_handle_t handle)
     /* give it back so destroy can also take/give symmetrically */
     xSemaphoreGive(state->mux);
 
-    return ESP_OK;
+    return ret_val;
 }
 
 void esp_repl(esp_repl_handle_t handle)
@@ -137,17 +156,28 @@ void esp_repl(esp_repl_handle_t handle)
     }
 
     /* Waiting for task notify. This happens when `esp_repl_start`
-     * function is called. */
+    * function is called. */
     xSemaphoreTake(state->mux, portMAX_DELAY);
+
+    esp_linenoise_handle_t l_hdl = config->linenoise_handle;
+    esp_command_set_handle_t c_set = config->command_set_handle;
 
     /* REPL loop */
     while (state->state == ESP_REPL_STATE_RUNNING) {
 
         /* try to read a command line */
-        const esp_err_t read_ret = config->reader.func(config->reader.ctx, cmd_line, cmd_line_size);
+        const esp_err_t read_ret = esp_linenoise_get_line(l_hdl, cmd_line, cmd_line_size);
+
+        /* Add the command to the history */
+        esp_linenoise_history_add(l_hdl, cmd_line);
+
+        /* Save command history to filesystem */
+        if (config->history_save_path) {
+            esp_linenoise_history_save(l_hdl, config->history_save_path);
+        }
 
         /* forward the raw command line to the pre executor callback (e.g., save in history).
-         * this callback is not necessary for the user to register, continue if it isn't */
+        * this callback is not necessary for the user to register, continue if it isn't */
         if (config->pre_executor.func != NULL) {
             config->pre_executor.func(config->pre_executor.ctx, cmd_line, read_ret);
         }
@@ -159,10 +189,10 @@ void esp_repl(esp_repl_handle_t handle)
 
         /* try to run the command */
         int cmd_func_ret;
-        const esp_err_t exec_ret = config->executor.func(config->executor.ctx, cmd_line, &cmd_func_ret);
+        const esp_err_t exec_ret = esp_commands_execute(c_set, -1, cmd_line, &cmd_func_ret);
 
         /* forward the raw command line to the post executor callback (e.g., save in history).
-         * this callback is not necessary for the user to register, continue if it isn't */
+        * this callback is not necessary for the user to register, continue if it isn't */
         if (config->post_executor.func != NULL) {
             config->post_executor.func(config->post_executor.ctx, cmd_line, exec_ret, cmd_func_ret);
         }
