@@ -79,6 +79,28 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
 esp_err_t esp_isotp_send(esp_isotp_handle_t handle, const uint8_t *data, uint32_t size);
 
 /**
+ * @brief Send data over an ISO-TP link with specified TWAI ID (non-blocking)
+ *
+ * Similar to esp_isotp_send(), but allows specifying a different TWAI ID for transmission.
+ * This function is primarily used for functional addressing where multiple nodes
+ * may respond to the same request.
+ *
+ * @param handle ISO-TP handle
+ * @param id TWAI identifier to use for transmission (overrides configured tx_id)
+ * @param data Data to send
+ * @param size Data length in bytes
+ * @return
+ *     - ESP_OK: Send initiated successfully
+ *     - ESP_ERR_NOT_FINISHED: Previous send still in progress
+ *     - ESP_ERR_NO_MEM: Data too large for buffer or no space available
+ *     - ESP_ERR_INVALID_SIZE: Invalid data size
+ *     - ESP_ERR_TIMEOUT: Send operation timed out
+ *     - ESP_ERR_INVALID_ARG: Invalid parameters
+ *     - ESP_FAIL: Other send errors
+ */
+esp_err_t esp_isotp_send_with_id(esp_isotp_handle_t handle, uint32_t id, const uint8_t *data, uint32_t size);
+
+/**
  * @brief Extract a complete received message (non-blocking)
  *
  * This function only extracts data that has already been assembled by esp_isotp_poll().
