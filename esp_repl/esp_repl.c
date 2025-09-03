@@ -9,7 +9,8 @@
 #include "freertos/semphr.h"
 #include "esp_repl.h"
 #include "esp_err.h"
-
+#include "esp_commands.h"
+#include "esp_linenoise.h"
 typedef enum {
     ESP_REPL_STATE_RUNNING,
     ESP_REPL_STATE_STOPPED
@@ -34,8 +35,8 @@ typedef struct esp_repl_instance {
 
 esp_err_t esp_repl_create(esp_repl_instance_handle_t *handle, const esp_repl_config_t *config)
 {
-    if ((config->executor.func == NULL) ||
-            (config->reader.func == NULL) ||
+    if ((config->linenoise_handle == NULL) ||
+            (config->commands_handle == NULL) ||
             (config->max_cmd_line_size == 0)) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -140,11 +141,22 @@ void esp_repl(esp_repl_instance_handle_t handle)
      * function is called. */
     xSemaphoreTake(state->mux, portMAX_DELAY);
 
+    esp_linenoise_handle_t l_hdl = config->linenoise_handle;
+    esp_command_set_handle_t c_set = config->command_set_handle;
+
     /* REPL loop */
     while (state->state == ESP_REPL_STATE_RUNNING) {
 
         /* try to read a command line */
-        const esp_err_t read_ret = config->reader.func(config->reader.ctx, cmd_line, cmd_line_size);
+        const esp_err_t read_ret = esp_linenoise_get_line(l_hdl, cmd_line, cmd_line_size);
+
+        /* Add the command to the history */
+        esp_linenoise_history_add(l_hdl, cmd_line);
+
+        /* Save command history to filesystem */
+        if (config->history_save_path) {
+            esp_linenoise_history_save(l_hdl, config->history_save_path);
+        }
 
         /* forward the raw command line to the pre executor callback (e.g., save in history).
          * this callback is not necessary for the user to register, continue if it isn't */
@@ -159,7 +171,7 @@ void esp_repl(esp_repl_instance_handle_t handle)
 
         /* try to run the command */
         int cmd_func_ret;
-        const esp_err_t exec_ret = config->executor.func(config->executor.ctx, cmd_line, &cmd_func_ret);
+        const esp_err_t exec_ret = esp_commands_execute(c_set, cmd_line, &cmd_func_ret);
 
         /* forward the raw command line to the post executor callback (e.g., save in history).
          * this callback is not necessary for the user to register, continue if it isn't */
