@@ -11,30 +11,13 @@ extern "C" {
 
 #include <stdbool.h>
 #include "esp_err.h"
+#include "esp_linenoise.h"
+#include "esp_commands.h"
 
 /**
  * @brief Handle to a REPL instance.
  */
 typedef struct esp_repl_instance *esp_repl_handle_t;
-
-/**
- * @brief Function prototype for reading input for the REPL.
- *
- * @param ctx User-defined context pointer.
- * @param buf Buffer to store the read data.
- * @param buf_size Size of the buffer in bytes.
- *
- * @return ESP_OK on success, error code otherwise.
- */
-typedef esp_err_t (*esp_repl_reader_fn)(void *ctx, char *buf, size_t buf_size);
-
-/**
- * @brief Reader configuration structure for the REPL.
- */
-typedef struct esp_repl_reader {
-    esp_repl_reader_fn func; /**!< Function to read input */
-    void *ctx;               /**!< Context passed to the reader function */
-} esp_repl_reader_t;
 
 /**
  * @brief Function prototype called before executing a command.
@@ -45,7 +28,7 @@ typedef struct esp_repl_reader {
  *
  * @return ESP_OK to continue execution, error code to abort.
  */
-typedef esp_err_t (*esp_repl_pre_executor_fn)(void *ctx, char *buf, const esp_err_t reader_ret_val);
+typedef esp_err_t (*esp_repl_pre_executor_fn)(void *ctx, const char *buf, esp_err_t reader_ret_val);
 
 /**
  * @brief Pre-executor configuration structure for the REPL.
@@ -54,25 +37,6 @@ typedef struct esp_repl_pre_executor {
     esp_repl_pre_executor_fn func; /**!< Function to run before command execution */
     void *ctx;                      /**!< Context passed to the pre-executor function */
 } esp_repl_pre_executor_t;
-
-/**
- * @brief Function prototype to execute a REPL command.
- *
- * @param ctx User-defined context pointer.
- * @param buf Null-terminated command string.
- * @param ret_val Pointer to store the command return value.
- *
- * @return ESP_OK on success, error code otherwise.
- */
-typedef esp_err_t (*esp_repl_executor_fn)(void *ctx, const char *buf, int *ret_val);
-
-/**
- * @brief Executor configuration structure for the REPL.
- */
-typedef struct esp_repl_executor {
-    esp_repl_executor_fn func; /**!< Function to execute commands */
-    void *ctx;                  /**!< Context passed to the executor function */
-} esp_repl_executor_t;
 
 /**
  * @brief Function prototype called after executing a command.
@@ -84,7 +48,7 @@ typedef struct esp_repl_executor {
  *
  * @return ESP_OK on success, error code otherwise.
  */
-typedef esp_err_t (*esp_repl_post_executor_fn)(void *ctx, const char *buf, const esp_err_t executor_ret_val, const int cmd_ret_val);
+typedef esp_err_t (*esp_repl_post_executor_fn)(void *ctx, const char *buf, esp_err_t executor_ret_val, int cmd_ret_val);
 
 /**
  * @brief Post-executor configuration structure for the REPL.
@@ -133,24 +97,25 @@ typedef struct esp_repl_on_exit {
  * @brief Configuration structure to initialize a REPL instance.
  */
 typedef struct esp_repl_config {
-    size_t max_cmd_line_size;        /**!< Maximum allowed command line size */
-    esp_repl_reader_t reader;        /**!< Reader callback and context */
-    esp_repl_pre_executor_t pre_executor;   /**!< Pre-executor callback and context */
-    esp_repl_executor_t executor;           /**!< Executor callback and context */
-    esp_repl_post_executor_t post_executor; /**!< Post-executor callback and context */
-    esp_repl_on_stop_t on_stop;             /**!< Stop callback and context */
-    esp_repl_on_exit_t on_exit;             /**!< Exit callback and context */
+    esp_linenoise_handle_t linenoise_handle;    /**!< Handle to the esp_linenoise instance */
+    esp_command_set_handle_t command_set_handle;   /**!< Handle to a set of commands */
+    size_t max_cmd_line_size;                   /**!< Maximum allowed command line size */
+    const char *history_save_path;              /**!< Path to file to save the history */
+    esp_repl_pre_executor_t pre_executor;       /**!< Pre-executor callback and context */
+    esp_repl_post_executor_t post_executor;     /**!< Post-executor callback and context */
+    esp_repl_on_stop_t on_stop;                 /**!< Stop callback and context */
+    esp_repl_on_exit_t on_exit;                 /**!< Exit callback and context */
 } esp_repl_config_t;
 
 /**
  * @brief Create a REPL instance.
  *
- * @param handle Pointer to store the created REPL instance handle.
  * @param config Pointer to the configuration structure.
+ * @param out_handle Pointer to store the created REPL instance handle.
  *
  * @return ESP_OK on success, error code otherwise.
  */
-esp_err_t esp_repl_create(esp_repl_handle_t *handle, const esp_repl_config_t *config);
+esp_err_t esp_repl_create(const esp_repl_config_t *config, esp_repl_handle_t *out_handle);
 
 /**
  * @brief Destroy a REPL instance.
@@ -172,6 +137,24 @@ esp_err_t esp_repl_start(esp_repl_handle_t handle);
 
 /**
  * @brief Stop a REPL instance.
+ *
+ * @note This function will internally call 'esp_linenoise_abort' first to try to return from
+ * 'esp_linenoise_get_line'. If the user has provided a custom read to the esp_linenoise
+ * instance used by the esp_repl instance, it is the responsibility of the user to provide
+ * the mechanism to return from this custom read by providing a callback to the 'on_stop' field
+ * in the esp_repl_config_t.
+ *
+ * Return Values:
+ *   - ESP_OK: Returned if the user has not provided a custom read and the abort operation succeeds.
+ *   - ESP_ERR_INVALID_STATE: Returned if the user has provided a custom read. In this case, the user
+ *     is responsible for implementing an abort mechanism that ensures a successful return from
+ *     their custom read. This can be achieved by placing the logic in the on_stop callback.
+ *
+ * Behavior:
+ *   - When a custom read is registered, ESP_ERR_INVALID_STATE indicates that esp_repl_stop() cannot
+ *     forcibly return from the read. The user must handle the return themselves via on_stop().
+ *   - From the perspective of esp_repl_stop(), this scenario is treated as successful, and its
+ *     return value should be set to ESP_OK.
  *
  * @param handle REPL instance handle.
  *
