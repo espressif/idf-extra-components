@@ -47,6 +47,7 @@ jobs:
             esp_isotp;
             esp_lcd_qemu_rgb;
             esp_jpeg;
+            esp_repl;
             esp_serial_slave_link;
             expat;
             fmt;
