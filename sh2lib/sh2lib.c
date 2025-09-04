@@ -165,15 +165,15 @@ static int callback_on_frame_not_send(nghttp2_session *session,
 static int callback_on_frame_recv(nghttp2_session *session,
                                   const nghttp2_frame *frame, void *user_data)
 {
+    struct sh2lib_handle *h2 = user_data;
     ESP_LOGD(TAG, "[frame-recv][sid: %" PRIi32 "] frame type  %s", frame->hd.stream_id, sh2lib_frame_type_str(frame->hd.type));
-    if (frame->hd.type != NGHTTP2_DATA) {
-        return 0;
-    }
-    /* Subsequent processing only for data frame */
     sh2lib_frame_data_recv_cb_t data_recv_cb = nghttp2_session_get_stream_user_data(session, frame->hd.stream_id);
-    if (data_recv_cb) {
-        struct sh2lib_handle *h2 = user_data;
+    if (frame->hd.type == NGHTTP2_DATA && data_recv_cb) {
         (*data_recv_cb)(h2, NULL, 0, DATA_RECV_FRAME_COMPLETE);
+    }
+    if (frame->hd.type == NGHTTP2_GOAWAY) {
+        ESP_LOGW(TAG, "[frame-recv] GOAWAY: no more requests may be sent");
+        h2->http2_goaway = true;
     }
     return 0;
 }
