@@ -4,54 +4,102 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_twai.h"
-#include "esp_check.h"
 #include "esp_isotp.h"
 // Include isotp-c library from submodule
 #include "isotp.h"
+#include <sys/queue.h>
 
 static const char *TAG = "esp_isotp";
 
 /**
- * @brief ISO-TP link structure
+ * @brief TWAI frame container with embedded data buffer.
+ *
+ * This structure wraps the TWAI frame with an embedded 8-byte data buffer
+ * to ensure memory safety during asynchronous operations.
+ *
+ * Used for:
+ * - TX frames: Pre-allocated in SLIST pool, recycled after transmission
+ * - RX frames: Pre-allocated in link structure for ISR-safe reception
+ */
+typedef struct esp_isotp_frame_t {
+    twai_frame_t frame;           ///< TWAI driver frame structure
+    uint8_t data_payload[8];      ///< Embedded 8-byte CAN frame data buffer
+    SLIST_ENTRY(esp_isotp_frame_t) link;  ///< Single-linked list entry for frame pool
+} esp_isotp_frame_t;
+
+SLIST_HEAD(frame_pool_head, esp_isotp_frame_t);
+
+/**
+ * @brief ISO-TP link context structure.
+ *
+ * Contains all state and buffers needed for an ISO-TP transport session.
+ * This structure bridges the isotp-c library with ESP-IDF TWAI driver.
  */
 typedef struct esp_isotp_link_t {
-    IsoTpLink link;
-    twai_node_handle_t twai_node;
-    uint8_t *tx_buffer;
-    uint8_t *rx_buffer;
-    bool use_extended_id;
+    IsoTpLink link;                           ///< isotp-c library link state
+    twai_node_handle_t twai_node;             ///< Associated TWAI driver node handle
+    uint8_t *isotp_tx_buffer;                 ///< ISO-TP TX reassembly buffer (for multi-frame messages)
+    uint8_t *isotp_rx_buffer;                 ///< ISO-TP RX reassembly buffer (for multi-frame messages)
+    bool use_extended_id;                     ///< true=29-bit CAN IDs, false=11-bit CAN IDs
+    esp_isotp_frame_t isr_rx_frame_buffer;    ///< Pre-allocated frame buffer for ISR-safe RX operations
+    struct frame_pool_head tx_frame_pool;     ///< Single-linked list of available TX frames
+    esp_isotp_frame_t *tx_frame_array;        ///< Pre-allocated array of TX frames
+    size_t tx_frame_pool_size;                ///< Size of TX frame pool
 } esp_isotp_link_t;
 
 /**
- * @brief TWAI receive callback function.
+ * @brief TWAI transmit done callback.
+ *
+ * Called when a TWAI frame transmission is complete. Returns the used
+ * frame back to the SLIST pool for reuse.
+ *
+ * @note Runs in ISR context.
+ * @param handle TWAI node handle invoking the callback.
+ * @param edata Transmit event data from TWAI driver.
+ * @param user_ctx User context pointer (esp_isotp_handle_t).
+ * @return Always returns false (no context switch needed).
+ */
+static IRAM_ATTR bool esp_isotp_tx_callback(twai_node_handle_t handle, const twai_tx_done_event_data_t *edata, void *user_ctx)
+{
+    esp_isotp_handle_t isotp_handle = (esp_isotp_handle_t) user_ctx;
+    // Return the used frame back to the SLIST pool.
+    if (edata->done_tx_frame && isotp_handle) {
+        esp_isotp_frame_t *tx_frame = (esp_isotp_frame_t *)edata->done_tx_frame;
+        // Return frame to SLIST pool for reuse (ISR-safe)
+        SLIST_INSERT_HEAD(&isotp_handle->tx_frame_pool, tx_frame, link);
+    }
+
+    return false;
+}
+
+/**
+ * @brief TWAI receive done callback.
  *
  * Processes a received TWAI frame and feeds it to the ISO-TP state machine.
  *
  * @note Runs in ISR context.
  * @param handle TWAI node handle invoking the callback.
- * @param edata  Receive event data from TWAI driver (unused here).
- * @param user_ctx User context pointer; expected to be an esp_isotp_handle_t.
+ * @param edata Receive event data from TWAI driver (unused).
+ * @param user_ctx User context pointer (esp_isotp_handle_t).
  * @return true to request a context switch to a higher-priority task, false otherwise.
  */
 static IRAM_ATTR bool esp_isotp_rx_callback(twai_node_handle_t handle, const twai_rx_done_event_data_t *edata, void *user_ctx)
 {
     esp_isotp_handle_t link_handle = (esp_isotp_handle_t) user_ctx;
+    esp_isotp_frame_t *rx_frame = &link_handle->isr_rx_frame_buffer;
 
-    uint8_t frame_data[TWAI_FRAME_MAX_LEN];
-    twai_frame_t rx_frame = {
-        .buffer = frame_data,
-        .buffer_len = sizeof(frame_data),
-    };
-
-    if (twai_node_receive_from_isr(handle, &rx_frame) == ESP_OK) {
-        if (rx_frame.header.id == link_handle->link.receive_arbitration_id) {
-            // Process received TWAI message and send flow control frames if needed
-            isotp_on_can_message(&link_handle->link, frame_data, rx_frame.buffer_len);
+    if (twai_node_receive_from_isr(handle, &rx_frame->frame) == ESP_OK) {
+        if (rx_frame->frame.header.id == link_handle->link.receive_arbitration_id) {
+            // Feed received TWAI frame to isotp-c state machine for reassembly.
+            // isotp-c will handle single/multi-frame logic and send flow control frames as needed.
+            isotp_on_can_message(&link_handle->link, rx_frame->data_payload, rx_frame->frame.buffer_len);
         }
     }
     return false;
@@ -76,7 +124,7 @@ uint32_t isotp_user_get_us(void)
  *
  * Queues a TWAI frame for transmission using the configured TWAI node.
  *
- * @param arbitration_id CAN identifier (11-bit or 29-bit).
+ * @param arbitration_id TWAI identifier (11-bit or 29-bit).
  * @param data Pointer to frame payload.
  * @param size Payload length in bytes (0–8).
  * @param user_data Optional ISO-TP link handle.
@@ -86,18 +134,37 @@ uint32_t isotp_user_get_us(void)
 int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, const uint8_t size, void *user_data)
 {
     esp_isotp_handle_t isotp_handle = (esp_isotp_handle_t) user_data;
-    ESP_RETURN_ON_FALSE(isotp_handle != NULL, ISOTP_RET_ERROR, TAG, "Invalid ISO-TP handle");
+    ESP_RETURN_ON_FALSE_ISR(isotp_handle != NULL, ISOTP_RET_ERROR, TAG, "Invalid ISO-TP handle");
     twai_node_handle_t twai_node = isotp_handle->twai_node;
 
-    twai_frame_t tx_msg = {0};
-    tx_msg.header.id = arbitration_id;
-    tx_msg.header.ide = isotp_handle->use_extended_id;
-    tx_msg.header.rtr = false;
-    tx_msg.buffer = (uint8_t *)data;
-    tx_msg.buffer_len = size;
+    // Get a pre-allocated frame from the SLIST pool.
+    // This avoids dynamic allocation overhead completely.
+    esp_isotp_frame_t *tx_frame = SLIST_FIRST(&isotp_handle->tx_frame_pool);
+    ESP_RETURN_ON_FALSE_ISR(tx_frame != NULL, ISOTP_RET_ERROR, TAG, "No available frames in pool");
 
-    esp_err_t ret = twai_node_transmit(twai_node, &tx_msg, 0);
-    ESP_RETURN_ON_ERROR(ret, TAG, "Failed to send TWAI frame");
+    // Remove frame from pool
+    SLIST_REMOVE_HEAD(&isotp_handle->tx_frame_pool, link);
+
+    // Initialize TWAI frame structure and copy payload data into embedded buffer.
+    memset(tx_frame, 0, sizeof(esp_isotp_frame_t));
+    tx_frame->frame.header.id = arbitration_id;
+    tx_frame->frame.header.ide = isotp_handle->use_extended_id;  // Extended (29-bit) vs Standard (11-bit) ID
+    tx_frame->frame.header.rtr = false;                          // Data frame, not Remote Transmission Request
+    tx_frame->frame.buffer = tx_frame->data_payload;             // Point to our embedded data buffer
+    tx_frame->frame.buffer_len = size;
+
+    // Copy payload into the embedded buffer to ensure data lifetime during async transmission.
+    memcpy(tx_frame->data_payload, data, size);
+
+    // Send the frame; TX callback will return frame to pool on completion.
+    esp_err_t ret = twai_node_transmit(twai_node, &tx_frame->frame, 0);
+    if (ret != ESP_OK) {
+        // Return frame to SLIST pool if sending failed immediately.
+        SLIST_INSERT_HEAD(&isotp_handle->tx_frame_pool, tx_frame, link);
+        ESP_EARLY_LOGE(TAG, "Failed to send TWAI frame: %s", esp_err_to_name(ret));
+        return ISOTP_RET_ERROR;
+    }
+
     return ISOTP_RET_OK;
 }
 
@@ -123,37 +190,65 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
     ESP_RETURN_ON_FALSE(config->tx_buffer_size > 0 && config->rx_buffer_size > 0, ESP_ERR_INVALID_SIZE, TAG, "Buffer sizes must be greater than 0");
     ESP_RETURN_ON_FALSE(config->tx_id != config->rx_id, ESP_ERR_INVALID_ARG, TAG, "TX and RX IDs must be different");
 
-    // Validate ID ranges based on type
+    // Validate ID ranges based on type.
     uint32_t mask = config->use_extended_id ? TWAI_EXT_ID_MASK : TWAI_STD_ID_MASK;
     ESP_RETURN_ON_FALSE(((config->tx_id & ~mask) == 0) && ((config->rx_id & ~mask) == 0),
                         ESP_ERR_INVALID_ARG, TAG, "ID exceeds mask for selected format");
 
-    // Allocate memory for handle
+    // Allocate memory for handle.
     isotp = calloc(1, sizeof(esp_isotp_link_t));
     ESP_RETURN_ON_FALSE(isotp, ESP_ERR_NO_MEM, TAG, "Failed to allocate memory for ISO-TP link");
 
-    // Allocate memory for buffers
-    isotp->tx_buffer = calloc(config->tx_buffer_size, sizeof(uint8_t));
-    isotp->rx_buffer = calloc(config->rx_buffer_size, sizeof(uint8_t));
-    ESP_GOTO_ON_FALSE(isotp->rx_buffer && isotp->tx_buffer, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate buffer memory");
+    // Allocate ISO-TP reassembly buffers for multi-frame message handling.
+    // These buffers are used by isotp-c to reassemble/fragment large payloads.
+    isotp->isotp_tx_buffer = calloc(config->tx_buffer_size, sizeof(uint8_t));
+    isotp->isotp_rx_buffer = calloc(config->rx_buffer_size, sizeof(uint8_t));
+    ESP_GOTO_ON_FALSE(isotp->isotp_rx_buffer && isotp->isotp_tx_buffer, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate ISO-TP reassembly buffers");
 
-    // Initialize ISO-TP link
-    isotp_init_link(&isotp->link, config->tx_id, isotp->tx_buffer,
-                    config->tx_buffer_size, isotp->rx_buffer, config->rx_buffer_size);
+    // Initialize TX frame pool (default pool size: 8 frames)
+    // Using simple single-linked list for maximum efficiency
+    isotp->tx_frame_pool_size = 8;
+    SLIST_INIT(&isotp->tx_frame_pool);
+
+    // Allocate array of TX frames
+    isotp->tx_frame_array = malloc(isotp->tx_frame_pool_size * sizeof(esp_isotp_frame_t));
+    ESP_GOTO_ON_FALSE(isotp->tx_frame_array, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate TX frame array");
+
+    // Initialize each frame and add to SLIST pool
+    for (size_t i = 0; i < isotp->tx_frame_pool_size; i++) {
+        esp_isotp_frame_t *frame = &isotp->tx_frame_array[i];
+        memset(frame, 0, sizeof(esp_isotp_frame_t));
+        frame->frame.buffer = frame->data_payload;
+        frame->frame.buffer_len = sizeof(frame->data_payload);
+
+        SLIST_INSERT_HEAD(&isotp->tx_frame_pool, frame, link);
+    }
+
+    // Initialize the isotp-c library link with our allocated buffers.
+    isotp_init_link(&isotp->link, config->tx_id, isotp->isotp_tx_buffer,
+                    config->tx_buffer_size, isotp->isotp_rx_buffer, config->rx_buffer_size);
     isotp->link.receive_arbitration_id = config->rx_id;
     isotp->use_extended_id = config->use_extended_id;
 
-    // Set user argument for TWAI operations
+    // Pre-allocate ISR-safe receive frame buffer to avoid dynamic allocation in interrupt context.
+    // This buffer is reused for each incoming CAN frame received in the ISR.
+    memset(&isotp->isr_rx_frame_buffer, 0, sizeof(esp_isotp_frame_t));
+    isotp->isr_rx_frame_buffer.frame.buffer = isotp->isr_rx_frame_buffer.data_payload;
+    isotp->isr_rx_frame_buffer.frame.buffer_len = sizeof(isotp->isr_rx_frame_buffer.data_payload);
+
+
+    // Set user argument for TWAI operations.
     isotp->link.user_send_can_arg = isotp;
 
-    // Register TWAI callback
+    // Register TWAI callbacks.
     twai_event_callbacks_t cbs = {
         .on_rx_done = esp_isotp_rx_callback,
+        .on_tx_done = esp_isotp_tx_callback,
     };
     ret = twai_node_register_event_callbacks(twai_node, &cbs, isotp);
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to register event callbacks");
 
-    // Enable TWAI node
+    // Enable TWAI node.
     ret = twai_node_enable(twai_node);
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to enable TWAI node");
 
@@ -164,17 +259,26 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
 
 err:
     if (isotp) {
-        if (isotp->rx_buffer) {
-            free(isotp->rx_buffer);
+        if (isotp->isotp_rx_buffer) {
+            free(isotp->isotp_rx_buffer);
         }
-        if (isotp->tx_buffer) {
-            free(isotp->tx_buffer);
+        if (isotp->isotp_tx_buffer) {
+            free(isotp->isotp_tx_buffer);
+        }
+        if (isotp->tx_frame_array) {
+            free(isotp->tx_frame_array);
         }
         free(isotp);
     }
     return ret;
 }
 
+/**
+ * @brief Poll the ISO-TP link. Call this periodically from a task.
+ *
+ * @param handle ISO-TP transport handle.
+ * @return ESP_OK on success, or an error code on failure.
+ */
 esp_err_t esp_isotp_poll(esp_isotp_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
@@ -185,9 +289,23 @@ esp_err_t esp_isotp_poll(esp_isotp_handle_t handle)
     return ESP_OK;
 }
 
+/**
+ * @brief Send a payload using ISO-TP.
+ *
+ * @param handle ISO-TP transport handle.
+ * @param data Pointer to payload buffer.
+ * @param size Payload size in bytes.
+ * @return
+ *  - ESP_OK on success
+ *  - ESP_ERR_NOT_FINISHED when the send is still in progress
+ *  - ESP_ERR_NO_MEM for buffer overflow conditions
+ *  - ESP_ERR_INVALID_SIZE for invalid sizes
+ *  - ESP_ERR_TIMEOUT on timeout
+ *  - ESP_FAIL for other errors
+ */
 esp_err_t esp_isotp_send(esp_isotp_handle_t handle, const uint8_t *data, uint32_t size)
 {
-    ESP_RETURN_ON_FALSE(handle && data && size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
+    ESP_RETURN_ON_FALSE_ISR(handle && data && size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
 
     int ret = isotp_send(&handle->link, data, size);
     switch (ret) {
@@ -204,18 +322,29 @@ esp_err_t esp_isotp_send(esp_isotp_handle_t handle, const uint8_t *data, uint32_
         return ESP_ERR_TIMEOUT;
     case ISOTP_RET_ERROR:
     default:
-        ESP_LOGE(TAG, "ISO-TP send failed with error code: %d", ret);
+        ESP_EARLY_LOGE(TAG, "ISO-TP send failed with error code: %d", ret);
         return ESP_FAIL;
     }
 }
 
+/**
+ * @brief Send a payload with a specific TWAI ID.
+ *
+ * Uses the provided TWAI ID for this transmission instead of the default.
+ *
+ * @param handle ISO-TP transport handle.
+ * @param id TWAI identifier (subject to STD/EXT mask based on configuration).
+ * @param data Pointer to payload buffer.
+ * @param size Payload size in bytes.
+ * @return Same as esp_isotp_send().
+ */
 esp_err_t esp_isotp_send_with_id(esp_isotp_handle_t handle, uint32_t id, const uint8_t *data, uint32_t size)
 {
-    ESP_RETURN_ON_FALSE(handle && data && size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
+    ESP_RETURN_ON_FALSE_ISR(handle && data && size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
 
-    // Validate ID range based on configured format
+    // Validate ID range based on configured format.
     uint32_t mask = handle->use_extended_id ? TWAI_EXT_ID_MASK : TWAI_STD_ID_MASK;
-    ESP_RETURN_ON_FALSE((id & ~mask) == 0, ESP_ERR_INVALID_ARG, TAG, "ID exceeds mask for selected format");
+    ESP_RETURN_ON_FALSE_ISR((id & ~mask) == 0, ESP_ERR_INVALID_ARG, TAG, "ID exceeds mask for selected format");
 
     int ret = isotp_send_with_id(&handle->link, id, data, size);
     switch (ret) {
@@ -232,11 +361,26 @@ esp_err_t esp_isotp_send_with_id(esp_isotp_handle_t handle, uint32_t id, const u
         return ESP_ERR_TIMEOUT;
     case ISOTP_RET_ERROR:
     default:
-        ESP_LOGE(TAG, "ISO-TP send with ID failed with error code: %d", ret);
+        ESP_EARLY_LOGE(TAG, "ISO-TP send with ID failed with error code: %d", ret);
         return ESP_FAIL;
     }
 }
 
+/**
+ * @brief Receive a payload using ISO-TP.
+ *
+ * @param handle ISO-TP transport handle.
+ * @param data Output buffer for received data.
+ * @param size Size of the output buffer in bytes.
+ * @param received_size Actual number of bytes written to the buffer.
+ * @return
+ *  - ESP_OK when data is received
+ *  - ESP_ERR_NOT_FOUND when no data is available
+ *  - ESP_ERR_INVALID_SIZE when the buffer is too small or size invalid
+ *  - ESP_ERR_INVALID_RESPONSE on sequence errors
+ *  - ESP_ERR_TIMEOUT on timeout
+ *  - ESP_FAIL for other errors
+ */
 esp_err_t esp_isotp_receive(esp_isotp_handle_t handle, uint8_t *data, uint32_t size, uint32_t *received_size)
 {
     ESP_RETURN_ON_FALSE(handle && data && size && received_size, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
@@ -263,28 +407,42 @@ esp_err_t esp_isotp_receive(esp_isotp_handle_t handle, uint8_t *data, uint32_t s
     }
 }
 
+/**
+ * @brief Delete an ISO-TP transport and free resources.
+ *
+ * Disables the TWAI node, cleans up TX frame pool and frees allocated
+ * memory. Continues cleanup even if disabling TWAI fails.
+ *
+ * @param handle ISO-TP transport handle.
+ * @return ESP_OK on success or the error from TWAI disable.
+ */
 esp_err_t esp_isotp_delete(esp_isotp_handle_t handle)
 {
     ESP_RETURN_ON_FALSE(handle, ESP_ERR_INVALID_ARG, TAG, "Invalid parameters");
 
     esp_err_t ret = ESP_OK;
 
-    // Disable TWAI node (continue cleanup even if this fails)
+    // Disable TWAI node (continue cleanup even if this fails).
     esp_err_t twai_ret = twai_node_disable(handle->twai_node);
     if (twai_ret != ESP_OK) {
         ESP_LOGW(TAG, "Failed to disable TWAI node: %s", esp_err_to_name(twai_ret));
         ret = twai_ret;
     }
 
-    // Clean up ISO-TP link
+    // Clean up ISO-TP link.
     isotp_destroy_link(&handle->link);
 
-    // Free allocated memory
-    if (handle->tx_buffer) {
-        free(handle->tx_buffer);
+    // Clean up TX frame array (SLIST pool is automatically cleaned when frames are freed).
+    if (handle->tx_frame_array) {
+        free(handle->tx_frame_array);
     }
-    if (handle->rx_buffer) {
-        free(handle->rx_buffer);
+
+    // Free ISO-TP reassembly buffers and handle.
+    if (handle->isotp_tx_buffer) {
+        free(handle->isotp_tx_buffer);
+    }
+    if (handle->isotp_rx_buffer) {
+        free(handle->isotp_rx_buffer);
     }
     free(handle);
 

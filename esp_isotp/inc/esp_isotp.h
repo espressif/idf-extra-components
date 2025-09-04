@@ -45,16 +45,20 @@ typedef struct {
 } esp_isotp_config_t;
 
 /**
- * @brief Create a new ISO-TP link
+ * @brief Create a new ISO-TP transport bound to a TWAI node.
  *
- * @param twai_node TWAI node handle
- * @param config Pointer to the configuration structure
- * @param[out] out_handle Pointer to store the created ISO-TP handle
+ * Allocates internal buffers, creates TX frame pool, registers TWAI callbacks
+ * and enables the provided TWAI node.
+ *
+ * @param twai_node TWAI node handle to bind.
+ * @param config Transport configuration.
+ * @param[out] out_handle Returned ISO-TP transport handle.
  * @return esp_err_t
- *     - ESP_OK: Success
- *     - ESP_ERR_INVALID_ARG: Invalid argument
- *     - ESP_ERR_INVALID_SIZE: Invalid buffer size
- *     - ESP_ERR_NO_MEM: Out of memory
+ *  - ESP_OK on success
+ *  - ESP_ERR_INVALID_ARG for invalid parameters
+ *  - ESP_ERR_INVALID_SIZE for invalid buffer sizes
+ *  - ESP_ERR_NO_MEM when allocation fails
+ *  - Other error codes from TWAI functions
  */
 esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_config_t *config, esp_isotp_handle_t *out_handle);
 
