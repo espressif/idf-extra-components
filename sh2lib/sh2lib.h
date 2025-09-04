@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include "esp_tls.h"
 #include <nghttp2/nghttp2.h>
 
@@ -33,6 +34,7 @@ struct sh2lib_handle {
     char            *hostname;     /*!< The hostname we are connected to */
     struct esp_tls  *http2_tls;    /*!< Pointer to the TLS session handle */
     int             http2_tls_rc;  /*!< Error code from http2_tls */
+    bool            http2_goaway;  /*!< HTTP2 server sent GOAWAY */
 };
 
 /**
