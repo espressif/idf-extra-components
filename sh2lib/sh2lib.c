@@ -37,6 +37,7 @@ static ssize_t callback_send_inner(struct sh2lib_handle *hd, const uint8_t *data
         if (rv == ESP_TLS_ERR_SSL_WANT_READ || rv == ESP_TLS_ERR_SSL_WANT_WRITE) {
             rv = NGHTTP2_ERR_WOULDBLOCK;
         } else {
+            hd->http2_tls_rc = rv;
             rv = NGHTTP2_ERR_CALLBACK_FAILURE;
         }
     }
@@ -86,6 +87,7 @@ static ssize_t callback_recv(nghttp2_session *session, uint8_t *buf,
         if (rv == ESP_TLS_ERR_SSL_WANT_READ || rv == ESP_TLS_ERR_SSL_WANT_WRITE) {
             rv = NGHTTP2_ERR_WOULDBLOCK;
         } else {
+            hd->http2_tls_rc = rv;
             rv = NGHTTP2_ERR_CALLBACK_FAILURE;
         }
     } else if (rv == 0) {
