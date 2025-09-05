@@ -206,7 +206,7 @@ jobs:
             pytest_args: ""
           - runs-on: "qemu"
             marker: "qemu"
-            target: "esp32s3"
+            target: ["esp32s3", "esp32c3"]
             runner-labels: [self-hosted, linux, docker]
             pytest_args: "--embedded-services idf,qemu"
           - runs-on: "linux"
