@@ -1,4 +1,4 @@
-menu "ISO-TP Protocol Configuration"
+menu "ISO-TP Protocol"
 
     config ISO_TP_DEFAULT_BLOCK_SIZE
         int "Default Block Size"
@@ -57,19 +57,5 @@ menu "ISO-TP Protocol Configuration"
         help
             Determines if an additional argument is present in the
             definition of isotp_user_send_can function.
-
-    config ISO_TP_TRANSMIT_COMPLETE_CALLBACK
-        bool "Enable Transmit Complete Callback"
-        default y
-        help
-            Enable support for transmission complete callback functions.
-            Allows applications to be notified when transmission is finished.
-
-    config ISO_TP_RECEIVE_COMPLETE_CALLBACK
-        bool "Enable Receive Complete Callback"
-        default y
-        help
-            Enable support for receive complete callback functions.
-            Allows applications to be notified when a message is received.
 
 endmenu

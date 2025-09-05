@@ -73,3 +73,7 @@
 [submodule "argtable3/argtable3"]
 	path = argtable3/argtable3
 	url = https://github.com/argtable/argtable3.git
+
+[submodule "esp_isotp/isotp-c"]
+	path = esp_isotp/isotp-c
+	url = https://github.com/SimonCahill/isotp-c.git

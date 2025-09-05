@@ -11,8 +11,7 @@
 #include "esp_twai.h"
 #include "esp_check.h"
 #include "esp_isotp.h"
-// Ensure configuration is included before isotp.h
-#include "isotp_config.h"
+// Include isotp-c library from submodule
 #include "isotp.h"
 
 static const char *TAG = "esp_isotp";
@@ -57,21 +56,10 @@ uint32_t isotp_user_get_us(void)
 }
 
 /// isotp-c library stub function: send twai message
-int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, const uint8_t size
-#ifdef ISO_TP_USER_SEND_CAN_ARG
-                        , void *user_data
-#endif
-                       )
+int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, const uint8_t size, void *user_data)
 {
-#ifdef ISO_TP_USER_SEND_CAN_ARG
     twai_node_handle_t twai_node = (twai_node_handle_t) user_data;
     ESP_RETURN_ON_FALSE(twai_node != NULL, ISOTP_RET_ERROR, TAG, "Invalid TWAI node");
-#else
-    // Without user_data, we need to get TWAI node from somewhere else
-    // This shouldn't happen with current design
-    ESP_LOGE(TAG, "No TWAI node available for TWAI transmission");
-    return ISOTP_RET_ERROR;
-#endif
 
     twai_frame_t tx_msg = {0};
     tx_msg.header.id = arbitration_id;
@@ -114,10 +102,7 @@ esp_err_t esp_isotp_new_transport(twai_node_handle_t twai_node, const esp_isotp_
                     config->tx_buffer_size, isotp->rx_buffer, config->rx_buffer_size);
     isotp->link.receive_arbitration_id = config->rx_id;
 
-    // Set user argument for TWAI operations
-#ifdef ISO_TP_USER_SEND_CAN_ARG
     isotp->link.user_send_can_arg = twai_node;
-#endif
 
     // Register TWAI callback
     twai_event_callbacks_t cbs = {
