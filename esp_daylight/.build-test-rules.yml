@@ -1,0 +1,2 @@
+# Build and test rules for esp_daylight component
+# This file can be empty - the component will be built with default rules
