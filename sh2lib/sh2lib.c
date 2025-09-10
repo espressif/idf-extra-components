@@ -306,13 +306,13 @@ int sh2lib_execute(struct sh2lib_handle *hd)
     ret = nghttp2_session_send(hd->http2_sess);
     if (ret != 0) {
         ESP_LOGE(TAG, "[sh2-execute] HTTP2 session send failed %d", ret);
-        return -1;
+        return ret;
     }
 
     ret = nghttp2_session_recv(hd->http2_sess);
     if (ret != 0) {
         ESP_LOGE(TAG, "[sh2-execute] HTTP2 session recv failed %d", ret);
-        return -1;
+        return ret;
     }
 
     return 0;
@@ -322,8 +322,7 @@ int sh2lib_do_get_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, size_
 {
     int ret = nghttp2_submit_request(hd->http2_sess, NULL, nva, nvlen, NULL, recv_cb);
     if (ret < 0) {
-        ESP_LOGE(TAG, "[sh2-do-get] HEADERS call failed");
-        return -1;
+        ESP_LOGE(TAG, "[sh2-do-get] HEADERS call failed %i", ret);
     }
     return ret;
 }
@@ -357,8 +356,7 @@ int sh2lib_do_putpost_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, s
     sh2lib_data_provider.source.ptr = send_cb;
     int ret = nghttp2_submit_request(hd->http2_sess, NULL, nva, nvlen, &sh2lib_data_provider, recv_cb);
     if (ret < 0) {
-        ESP_LOGE(TAG, "[sh2-do-putpost] HEADERS call failed");
-        return -1;
+        ESP_LOGE(TAG, "[sh2-do-putpost] HEADERS call failed %i", ret);
     }
     return ret;
 }
