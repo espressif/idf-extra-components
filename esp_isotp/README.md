@@ -54,13 +54,12 @@ void app_main(void) {
     twai_node_handle_t twai_node;
     ESP_ERROR_CHECK(twai_new_node_onchip(&twai_cfg, &twai_node));
 
-    // 2) Create ISO-TP (11-bit IDs)
+    // 2) Create ISO-TP (11-bit IDs, auto-detected)
     esp_isotp_config_t config = {
-        .tx_id = 0x7E0,                // request ID
-        .rx_id = 0x7E8,                // response ID
+        .tx_id = 0x7E0,                // request ID (11-bit, auto-detected)
+        .rx_id = 0x7E8,                // response ID (11-bit, auto-detected)
         .tx_buffer_size = 4096,
         .rx_buffer_size = 4096,
-        .use_extended_id = false,   // Use 11-bit standard IDs
     };
     esp_isotp_handle_t isotp_handle;
     ESP_ERROR_CHECK(esp_isotp_new_transport(twai_node, &config, &isotp_handle));
@@ -87,16 +86,15 @@ void app_main(void) {
 
 ## Extended (29-bit) IDs
 
-- Set `use_extended_id = true`; use IDs ≤ 0x1FFFFFFF.
-- `tx_id` and `rx_id` must differ and match peer IDE.
+- ID format is auto-detected: IDs > 0x7FF use 29-bit extended format, others use 11-bit standard format.
+- `tx_id` and `rx_id` must differ and match peer's expected format.
 
 ```c
 esp_isotp_config_t cfg = {
-    .tx_id = 0x18DAF110,
-    .rx_id = 0x18DA10F1,
+    .tx_id = 0x18DAF110,    // 29-bit ID (auto-detected as extended)
+    .rx_id = 0x18DA10F1,    // 29-bit ID (auto-detected as extended)
     .tx_buffer_size = 4096,
     .rx_buffer_size = 4096,
-    .use_extended_id = true, // Set to true for 29-bit IDs
 };
 ```
 
