@@ -1,3 +1,8 @@
+## 2.6.0
+
+### Enhancements:
+- Added support to use DS peripheral for RSA based encrypted OTA scheme
+
 ## 2.5.1
 
 ## Bugfixes:

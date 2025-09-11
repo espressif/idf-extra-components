@@ -24,13 +24,23 @@
 #include "mbedtls/hkdf.h"
 #include "esp_random.h"
 #include "esp_encrypted_img_utilities.h"
+
 #if SOC_HMAC_SUPPORTED
-
-
 #include "esp_efuse.h"
 #include "esp_efuse_chip.h"
 #endif /* SOC_HMAC_SUPPORTED */
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
+
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+#if __has_include("rsa_dec_alt.h")
+#include "rsa_dec_alt.h"
+#else
+#error "DS Peripheral is not supported on this version of ESP-IDF"
+#endif /* __has_include("rsa_dec_alt.h") */
+
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
+
+#include "esp_random.h"
 
 static const char *TAG = "esp_encrypted_img";
 
@@ -46,10 +56,14 @@ typedef enum {
 
 #define GCM_KEY_SIZE        32
 
+#define CACHE_BUF_SIZE        16
+
 struct esp_encrypted_img_handle {
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if !defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
     char *rsa_pem;
     size_t rsa_len;
+#endif
 #elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
     hmac_key_id_t hmac_key;
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
@@ -95,6 +109,53 @@ typedef struct esp_encrypted_img_handle esp_encrypted_img_t;
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
 #define RSA_MPI_ASN1_HEADER_SIZE 11
+
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+int mbedtls_esp_random(void *ctx, unsigned char *buf, size_t len)
+{
+    (void) ctx;
+    esp_fill_random(buf, len);
+    return 0;
+}
+
+static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
+{
+    int ret = 1;
+    mbedtls_pk_context pk;
+    mbedtls_pk_init(&pk);
+
+    ret = mbedtls_pk_setup_rsa_alt(&pk, NULL, esp_ds_rsa_decrypt, NULL, esp_ds_get_keylen);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_setup_rsa_alt returned -0x%04x\n", (unsigned int) - ret);
+        goto exit;
+    }
+
+    size_t olen = 0;
+    ret = mbedtls_pk_decrypt(&pk, (const unsigned char *)enc_gcm, ENC_GCM_KEY_SIZE,
+                             (unsigned char *)handle->gcm_key, &olen, GCM_KEY_SIZE,
+                             mbedtls_esp_random, NULL);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_decrypt returned -0x%04x\n", (unsigned int) - ret);
+        goto exit;
+    }
+
+    void *tmp_buf = realloc(handle->cache_buf, CACHE_BUF_SIZE);
+    if (!tmp_buf) {
+        ESP_LOGE(TAG, "Failed to reallocate memory for cache buffer");
+        ret = ESP_ERR_NO_MEM;
+        goto exit;
+    }
+    handle->cache_buf = tmp_buf;
+    handle->state = ESP_PRE_ENC_IMG_READ_IV;
+    handle->binary_file_read = 0;
+    handle->cache_buf_len = 0;
+exit:
+    mbedtls_pk_free(&pk);
+    return (ret);
+}
+
+#else
+
 static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
 {
     int ret = 1;
@@ -131,20 +192,25 @@ static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
         ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_decrypt returned -0x%04x\n", (unsigned int) - ret );
         goto exit;
     }
-    handle->cache_buf = realloc(handle->cache_buf, 16);
-    if (!handle->cache_buf) {
-        return ESP_ERR_NO_MEM;
+    void *tmp_buf = realloc(handle->cache_buf, CACHE_BUF_SIZE);
+    if (!tmp_buf) {
+        ESP_LOGE(TAG, "Failed to reallocate memory for cache buffer");
+        ret = ESP_ERR_NO_MEM;
+        goto exit;
     }
+    handle->cache_buf = tmp_buf;
     handle->state = ESP_PRE_ENC_IMG_READ_IV;
     handle->binary_file_read = 0;
     handle->cache_buf_len = 0;
 exit:
+    if (handle->rsa_pem) {
+        mbedtls_platform_zeroize(handle->rsa_pem, handle->rsa_len);
+        free(handle->rsa_pem);
+        handle->rsa_pem = NULL;
+    }
     mbedtls_pk_free( &pk );
     mbedtls_entropy_free( &entropy );
     mbedtls_ctr_drbg_free( &ctr_drbg );
-    free(handle->rsa_pem);
-    handle->rsa_pem = NULL;
-
     return (ret);
 }
 
@@ -232,6 +298,7 @@ exit:
     mbedtls_pk_free(&pk);
     return ESP_FAIL;
 }
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
@@ -417,25 +484,20 @@ static int derive_gcm_key(const char *data, esp_encrypted_img_t *handle)
     mbedtls_mpi shared_secret;
     mbedtls_mpi_init(&shared_secret);
 
-    if ((ret = mbedtls_ecdh_compute_shared(&grp, &shared_secret, server_public_point, &device_private_mpi,
-                                           mbedtls_esp_random, NULL)) != 0) {
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_ecdh_compute_shared returned -0x%04x\n", (unsigned int) - ret);
-        mbedtls_mpi_free(&shared_secret);
-        mbedtls_mpi_init(&shared_secret);
-        memset(&device_private_mpi, 0, sizeof(mbedtls_mpi));
-        mbedtls_mpi_free(&device_private_mpi);
-        goto exit;
-    }
-    memset(&device_private_mpi, 0, sizeof(mbedtls_mpi));
+    ret = mbedtls_ecdh_compute_shared(&grp, &shared_secret, server_public_point, &device_private_mpi,
+                                      mbedtls_esp_random, NULL);
     mbedtls_mpi_free(&device_private_mpi);
-
-    if ((ret = mbedtls_mpi_write_binary(&shared_secret, shared_secret_bytes, sizeof(shared_secret_bytes))) != 0) {
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_mpi_write_binary returned -0x%04x\n", (unsigned int) - ret);
-        mbedtls_mpi_free(&shared_secret); // Free shared_secret on error
+    if (ret != 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_ecdh_compute_shared returned -0x%04x\n", (unsigned int) - ret);
         goto exit;
     }
-    mbedtls_platform_zeroize(&shared_secret, sizeof(shared_secret));
+
+    ret = mbedtls_mpi_write_binary(&shared_secret, shared_secret_bytes, sizeof(shared_secret_bytes));
     mbedtls_mpi_free(&shared_secret);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_mpi_write_binary returned -0x%04x\n", (unsigned int) - ret);
+        goto exit;
+    }
 
     unsigned char *hkdf_info = calloc(1, HKDF_INFO_SIZE);
     if (hkdf_info == NULL) {
@@ -457,10 +519,15 @@ static int derive_gcm_key(const char *data, esp_encrypted_img_t *handle)
 
     memcpy(handle->gcm_key, derived_key, GCM_KEY_SIZE);
     ESP_LOGI(TAG, "GCM key derived successfully");
-    handle->cache_buf = realloc(handle->cache_buf, 16);
-    if (!handle->cache_buf) {
-        return ESP_ERR_NO_MEM;
+
+    void *tmp_buf = realloc(handle->cache_buf, CACHE_BUF_SIZE);
+    if (!tmp_buf) {
+        ESP_LOGE(TAG, "Failed to reallocate memory for cache buffer");
+        ret = ESP_ERR_NO_MEM;
+        goto exit;
     }
+    handle->cache_buf = tmp_buf;
+
     handle->state = ESP_PRE_ENC_IMG_READ_IV;
     handle->binary_file_read = 0;
     handle->cache_buf_len = 0;
@@ -601,9 +668,18 @@ esp_err_t esp_encrypted_img_export_public_key(esp_decrypt_handle_t ctx, uint8_t 
     esp_encrypted_img_t *handle = (esp_encrypted_img_t *)ctx;
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if !defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
     // In case of RSA, we return the public key corresponding to the private key
     // passed with esp_encrypted_img_decrypt_start()
     return esp_encrypted_img_export_rsa_pub_key(handle->rsa_pem, handle->rsa_len, pub_key, pub_key_len);
+#else
+    // In case of RSA with DS, the private key is stored securely in the DS context,
+    // and we cannot export the public key directly.
+    // The public key is derived from the DS context, so we return an error.
+    (void)handle;
+    ESP_LOGE(TAG, "Public key export is not supported for RSA with DS");
+    return ESP_ERR_NOT_SUPPORTED;
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
     // In case of ECIES, we return the public key corresponding to the private key
     // derived from the HMAC key ID passed with esp_encrypted_img_decrypt_start()
@@ -630,6 +706,17 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
     }
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    if (cfg->ds_data == NULL) {
+        ESP_LOGE(TAG, "esp_encrypted_img_decrypt_start : Invalid argument");
+        goto failure;
+    }
+    esp_err_t err = esp_ds_init_data_ctx(cfg->ds_data);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize DS context, err: %2x", err);
+        goto failure;
+    }
+#else
     if (cfg->rsa_priv_key == NULL || cfg->rsa_priv_key_len == 0) {
         ESP_LOGE(TAG, "esp_encrypted_img_decrypt_start : Invalid argument");
         goto failure;
@@ -643,6 +730,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 
     memcpy(handle->rsa_pem, cfg->rsa_priv_key, cfg->rsa_priv_key_len);
     handle->rsa_len = cfg->rsa_priv_key_len;
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
@@ -671,11 +759,12 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 
 failure:
     if (handle) {
-#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA) && !defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
         free(handle->rsa_pem);
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
         if (handle->cache_buf) {
             free(handle->cache_buf);
+            handle->cache_buf = NULL;
         }
         free(handle);
     }
@@ -694,31 +783,31 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
     if (handle->binary_file_read != handle->binary_file_len) {
         size_t copy_len = 0;
 
-        if ((handle->cache_buf_len + (data_len - curr_index)) - (handle->cache_buf_len + (data_len - curr_index)) % 16 > 0) {
-            data_out_size = (handle->cache_buf_len + (data_len - curr_index)) - (handle->cache_buf_len + (data_len - curr_index)) % 16;
+        if ((handle->cache_buf_len + (data_len - curr_index)) - (handle->cache_buf_len + (data_len - curr_index)) % CACHE_BUF_SIZE > 0) {
+            data_out_size = (handle->cache_buf_len + (data_len - curr_index)) - (handle->cache_buf_len + (data_len - curr_index)) % CACHE_BUF_SIZE;
             args->data_out = realloc(args->data_out, data_out_size);
             if (!args->data_out) {
                 return ESP_ERR_NO_MEM;
             }
         }
         if (handle->cache_buf_len != 0) {
-            copy_len = MIN(16 - handle->cache_buf_len, data_len - curr_index);
+            copy_len = MIN(CACHE_BUF_SIZE - handle->cache_buf_len, data_len - curr_index);
             memcpy(handle->cache_buf + handle->cache_buf_len, args->data_in + curr_index, copy_len);
             handle->cache_buf_len += copy_len;
-            if (handle->cache_buf_len != 16) {
+            if (handle->cache_buf_len != CACHE_BUF_SIZE) {
                 args->data_out_len = 0;
                 return ESP_ERR_NOT_FINISHED;
             }
 #if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-            if (mbedtls_gcm_update(&handle->gcm_ctx, 16, (const unsigned char *)handle->cache_buf, (unsigned char *) args->data_out) != 0) {
+            if (mbedtls_gcm_update(&handle->gcm_ctx, CACHE_BUF_SIZE, (const unsigned char *)handle->cache_buf, (unsigned char *) args->data_out) != 0) {
 #else
-            if (mbedtls_gcm_update(&handle->gcm_ctx, (const unsigned char *)handle->cache_buf, 16, (unsigned char *) args->data_out, data_out_size, &olen) != 0) {
+            if (mbedtls_gcm_update(&handle->gcm_ctx, (const unsigned char *)handle->cache_buf, CACHE_BUF_SIZE, (unsigned char *) args->data_out, data_out_size, &olen) != 0) {
 #endif
                 return ESP_FAIL;
             }
-            dec_len = 16;
+            dec_len = CACHE_BUF_SIZE;
         }
-        handle->cache_buf_len = (data_len - curr_index - copy_len) % 16;
+        handle->cache_buf_len = (data_len - curr_index - copy_len) % CACHE_BUF_SIZE;
         if (handle->cache_buf_len != 0) {
             data_len -= handle->cache_buf_len;
             memcpy(handle->cache_buf, args->data_in + (data_len), handle->cache_buf_len);
@@ -743,7 +832,7 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
     }
     size_t copy_len = 0;
 
-    copy_len = MIN(16 - handle->cache_buf_len, data_len - curr_index);
+    copy_len = MIN(CACHE_BUF_SIZE - handle->cache_buf_len, data_len - curr_index);
     memcpy(handle->cache_buf + handle->cache_buf_len, args->data_in + curr_index, copy_len);
     handle->cache_buf_len += copy_len;
 #if (MBEDTLS_VERSION_NUMBER < 0x03000000)
@@ -755,9 +844,9 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
     }
     if (data_len - curr_index - copy_len > 0) {
 #if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-        if (mbedtls_gcm_update(&handle->gcm_ctx, data_len - curr_index - copy_len, (const unsigned char *)(args->data_in + curr_index + copy_len), (unsigned char *)(args->data_out + 16)) != 0) {
+        if (mbedtls_gcm_update(&handle->gcm_ctx, data_len - curr_index - copy_len, (const unsigned char *)(args->data_in + curr_index + copy_len), (unsigned char *)(args->data_out + CACHE_BUF_SIZE)) != 0) {
 #else
-        if (mbedtls_gcm_update(&handle->gcm_ctx,  (const unsigned char *)(args->data_in + curr_index + copy_len), data_len - curr_index - copy_len, (unsigned char *)(args->data_out + 16), data_out_size - 16, &olen) != 0) {
+        if (mbedtls_gcm_update(&handle->gcm_ctx,  (const unsigned char *)(args->data_in + curr_index + copy_len), data_len - curr_index - copy_len, (unsigned char *)(args->data_out + CACHE_BUF_SIZE), data_out_size - CACHE_BUF_SIZE, &olen) != 0) {
 #endif
             return ESP_FAIL;
         }
@@ -826,7 +915,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
             uint32_t recv_magic = *(uint32_t *)args->data_in;
             if (recv_magic != esp_enc_img_magic) {
                 ESP_LOGE(TAG, "Magic Verification failed");
-#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA) && !defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
                 free(handle->rsa_pem);
                 handle->rsa_pem = NULL;
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
@@ -840,7 +929,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
 
                 if (recv_magic != esp_enc_img_magic) {
                     ESP_LOGE(TAG, "Magic Verification failed");
-#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA) && !defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
                     free(handle->rsa_pem);
                     handle->rsa_pem = NULL;
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
@@ -859,6 +948,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
         if (handle->cache_buf_len == 0 && args->data_in_len - curr_index >= ENC_GCM_KEY_SIZE) {
             if (process_gcm_key(handle, args->data_in + curr_index, ENC_GCM_KEY_SIZE) != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to process GCM key");
+                handle->cache_buf_len = 0;
                 return ESP_FAIL;
             }
             curr_index += ENC_GCM_KEY_SIZE;
@@ -867,6 +957,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
             if (handle->cache_buf_len == ENC_GCM_KEY_SIZE) {
                 if (process_gcm_key(handle, handle->cache_buf, ENC_GCM_KEY_SIZE) != ESP_OK) {
                     ESP_LOGE(TAG, "Failed to process GCM key");
+                    handle->cache_buf_len = 0;
                     return ESP_FAIL;
                 }
             } else {
@@ -1002,7 +1093,12 @@ exit:
     mbedtls_gcm_free(&handle->gcm_ctx);
     free(handle->cache_buf);
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    esp_ds_deinit_data_ctx();
+#else
     free(handle->rsa_pem);
+    handle->rsa_pem = NULL;
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
     free(handle);
     return err;
@@ -1024,7 +1120,12 @@ esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx)
     mbedtls_gcm_free(&handle->gcm_ctx);
     free(handle->cache_buf);
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    esp_ds_deinit_data_ctx();
+#else
     free(handle->rsa_pem);
+    handle->rsa_pem = NULL;
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
     free(handle);
     return ESP_OK;
