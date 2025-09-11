@@ -143,7 +143,7 @@ static void http2_task(void *args)
     while (1) {
         /* Process HTTP2 send/receive */
         if (sh2lib_execute(&hd) < 0) {
-            printf("Error in send/receive\n");
+            printf("Error in send/receive, tls error code: %d\n", hd.http2_tls_rc);
             break;
         }
         vTaskDelay(2);
