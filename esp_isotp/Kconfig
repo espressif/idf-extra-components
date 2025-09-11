@@ -51,11 +51,4 @@ menu "ISO-TP Protocol"
             Value used for padding when ISO_TP_FRAME_PADDING is enabled.
             Common values: 0x00, 0xAA, 0xCC, 0xFF.
 
-    config ISO_TP_USER_SEND_CAN_ARG
-        bool "Enable User Send CAN Argument"
-        default y
-        help
-            Determines if an additional argument is present in the
-            definition of isotp_user_send_can function.
-
 endmenu
