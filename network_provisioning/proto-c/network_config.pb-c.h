@@ -64,7 +64,8 @@ struct  CmdGetWifiStatus
 typedef enum {
   RESP_GET_WIFI_STATUS__STATE__NOT_SET = 0,
   RESP_GET_WIFI_STATUS__STATE_WIFI_FAIL_REASON = 10,
-  RESP_GET_WIFI_STATUS__STATE_WIFI_CONNECTED = 11
+  RESP_GET_WIFI_STATUS__STATE_WIFI_CONNECTED = 11,
+  RESP_GET_WIFI_STATUS__STATE_ATTEMPT_FAILED = 12
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(RESP_GET_WIFI_STATUS__STATE__CASE)
 } RespGetWifiStatus__StateCase;
 
@@ -77,6 +78,7 @@ struct  RespGetWifiStatus
   union {
     WifiConnectFailedReason wifi_fail_reason;
     WifiConnectedState *wifi_connected;
+    WifiAttemptFailed *attempt_failed;
   };
 };
 #define RESP_GET_WIFI_STATUS__INIT \

@@ -610,7 +610,7 @@ const ProtobufCMessageDescriptor cmd_get_wifi_status__descriptor =
   (ProtobufCMessageInit) cmd_get_wifi_status__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor resp_get_wifi_status__field_descriptors[4] =
+static const ProtobufCFieldDescriptor resp_get_wifi_status__field_descriptors[5] =
 {
   {
     "status",
@@ -660,8 +660,21 @@ static const ProtobufCFieldDescriptor resp_get_wifi_status__field_descriptors[4]
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "attempt_failed",
+    12,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(RespGetWifiStatus, state_case),
+    offsetof(RespGetWifiStatus, attempt_failed),
+    &wifi_attempt_failed__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned resp_get_wifi_status__field_indices_by_name[] = {
+  4,   /* field[4] = attempt_failed */
   0,   /* field[0] = status */
   3,   /* field[3] = wifi_connected */
   2,   /* field[2] = wifi_fail_reason */
@@ -671,7 +684,7 @@ static const ProtobufCIntRange resp_get_wifi_status__number_ranges[2 + 1] =
 {
   { 1, 0 },
   { 10, 2 },
-  { 0, 4 }
+  { 0, 5 }
 };
 const ProtobufCMessageDescriptor resp_get_wifi_status__descriptor =
 {
@@ -681,7 +694,7 @@ const ProtobufCMessageDescriptor resp_get_wifi_status__descriptor =
   "RespGetWifiStatus",
   "",
   sizeof(RespGetWifiStatus),
-  4,
+  5,
   resp_get_wifi_status__field_descriptors,
   resp_get_wifi_status__field_indices_by_name,
   2,  resp_get_wifi_status__number_ranges,

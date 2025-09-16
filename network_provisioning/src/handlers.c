@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -91,6 +91,10 @@ static esp_err_t wifi_get_status_handler(network_prov_config_get_wifi_data_t *re
         /* If disconnected, convey reason */
         network_prov_mgr_get_wifi_disconnect_reason(&resp_data->fail_reason);
     } else {
+        if (network_prov_mgr_get_wifi_remaining_conn_attempts(&resp_data->connecting_info.attempts_remaining) != ESP_OK) {
+            ESP_LOGW(TAG, "network provisioning manager not running");
+            return ESP_ERR_INVALID_STATE;
+        }
         ESP_LOGD(TAG, "Got state : connecting");
     }
     return ESP_OK;

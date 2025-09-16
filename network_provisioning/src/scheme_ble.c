@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -22,6 +22,10 @@ static const char *TAG = "network_prov_scheme_ble";
 extern const network_prov_scheme_t network_prov_scheme_ble;
 
 static uint8_t *custom_service_uuid;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+static uint8_t *custom_ble_addr;
+static uint8_t custom_keep_ble_on;
+#endif
 
 static uint8_t *custom_manufacturer_data;
 static size_t custom_manufacturer_data_len;
@@ -40,6 +44,10 @@ static esp_err_t prov_start(protocomm_t *pc, void *config)
 
     protocomm_ble_config_t *ble_config = (protocomm_ble_config_t *) config;
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+    ble_config->keep_ble_on = custom_keep_ble_on;
+#endif
+
 #if defined(CONFIG_NETWORK_PROV_BLE_BONDING)
     ble_config->ble_bonding = 1;
 #endif
@@ -51,6 +59,10 @@ static esp_err_t prov_start(protocomm_t *pc, void *config)
 #if defined(CONFIG_NETWORK_PROV_BLE_FORCE_ENCRYPTION)
     ble_config->ble_link_encryption = 1;
 #endif
+
+#if defined(CONFIG_NETWORK_PROV_BLE_NOTIFY)
+    ble_config->ble_notify = 1;
+#endif
     /* Start protocomm as BLE service */
     if (protocomm_ble_start(pc, ble_config) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start protocomm BLE service");
@@ -58,6 +70,35 @@ static esp_err_t prov_start(protocomm_t *pc, void *config)
     }
     return ESP_OK;
 }
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+esp_err_t network_prov_scheme_ble_set_random_addr(const uint8_t *addr)
+{
+    if (!addr) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    custom_ble_addr = (uint8_t *) malloc(BLE_ADDR_LEN);
+    if (custom_ble_addr == NULL) {
+        ESP_LOGE(TAG, "Error allocating memory for random address");
+        return ESP_ERR_NO_MEM;
+    }
+
+    memcpy(custom_ble_addr, addr, BLE_ADDR_LEN);
+    return ESP_OK;
+}
+
+esp_err_t network_prov_mgr_keep_ble_on(uint8_t is_on_after_ble_stop)
+{
+    if (!is_on_after_ble_stop) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    custom_keep_ble_on = is_on_after_ble_stop;
+    return ESP_OK;
+}
+#endif // ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+
 
 esp_err_t network_prov_scheme_ble_set_service_uuid(uint8_t *uuid128)
 {
@@ -142,22 +183,35 @@ static esp_err_t set_config_service(void *config, const char *service_name, cons
     /* Set manufacturer data if it is provided by app */
     if (custom_manufacturer_data) {
         size_t mfg_data_len = custom_manufacturer_data_len;
-        /* Manufacturer Data Length + 2 Byte header + BLE Device name + 2 Byte
-         * header <= 31 Bytes */
-        if (mfg_data_len > (MAX_BLE_MANUFACTURER_DATA_LEN - sizeof(ble_config->device_name) - 2)) {
-            ESP_LOGE(TAG, "Manufacturer data length is more than the max allowed size; expect truncated mfg_data ");
-            /* XXX Does it even make any sense to set truncated mfg_data ? The
-             * only reason to not return failure from here is provisioning
-             * should continue as it is with error prints for mfg_data length */
-            mfg_data_len = MAX_BLE_MANUFACTURER_DATA_LEN - sizeof(ble_config->device_name) - 2;
-        }
+        size_t dev_name_len = strnlen(ble_config->device_name, MAX_BLE_DEVNAME_LEN);
 
-        ble_config->manufacturer_data = custom_manufacturer_data;
-        ble_config->manufacturer_data_len = mfg_data_len;
+        if ((dev_name_len + 2) >= MAX_BLE_MANUFACTURER_DATA_LEN) {
+            /* No space left for manufacturer data */
+            ESP_LOGE(TAG, "No space left for Manufacturer data ");
+            ble_config->manufacturer_data = NULL;
+            ble_config->manufacturer_data_len = 0;
+        } else {
+            if ((mfg_data_len + (dev_name_len ? (dev_name_len + 2) : 0)) > MAX_BLE_MANUFACTURER_DATA_LEN) {
+                ESP_LOGE(TAG, "Manufacturer data length is more than the max allowed size; expect truncated mfg_data ");
+                /* Truncate the mfg_data to fit in the available length */
+                mfg_data_len = MAX_BLE_MANUFACTURER_DATA_LEN - (dev_name_len ? (dev_name_len + 2) : 0);
+            }
+
+            ble_config->manufacturer_data = custom_manufacturer_data;
+            ble_config->manufacturer_data_len = mfg_data_len;
+        }
     } else {
         ble_config->manufacturer_data = NULL;
         ble_config->manufacturer_data_len = 0;
     }
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+    if (custom_ble_addr) {
+        ble_config->ble_addr = custom_ble_addr;
+    } else {
+        ble_config->ble_addr = NULL;
+    }
+#endif // ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
 
     return ESP_OK;
 }
@@ -186,6 +240,7 @@ static esp_err_t set_config_endpoint(void *config, const char *endpoint_name, ui
                 realloc(ble_config->nu_lookup, (ble_config->nu_lookup_count + 1) * sizeof(protocomm_ble_name_uuid_t)));
     if (!lookup_table) {
         ESP_LOGE(TAG, "Error allocating memory for EP-UUID lookup table");
+        free(copy_ep_name);
         return ESP_ERR_NO_MEM;
     }
 
