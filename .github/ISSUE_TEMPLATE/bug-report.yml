@@ -29,6 +29,7 @@ body:
         - coremark
         - dhara
         - eigen
+        - esp_daylight
         - esp_delta_ota
         - esp_encrypted_img
         - esp_gcov
