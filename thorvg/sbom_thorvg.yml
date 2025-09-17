@@ -1,7 +1,7 @@
 name: thorvg
-version: 0.14.9
+version: 0.15.15
 cpe: cpe:2.3:a:thorvg:thorvg:{}:*:*:*:*:*:*:*
 supplier: 'Organization: thorvg <https://github.com/thorvg/thorvg>'
 description: ThorVG is an open-source graphics library designed for creating vector-based scenes and animations.
 url: https://github.com/thorvg/thorvg
-hash: 81a0fbfd590873b21e53c3af77969c71d3d9b586
+hash: 651c71537e74766e3ef123ecc64f620a903ec8d4

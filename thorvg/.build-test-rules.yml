@@ -1,0 +1,6 @@
+thorvg/examples/thorvg_lottie:
+  disable:
+    - if: IDF_TARGET not in ["esp32s3", "esp32p4"]
+      reason: Running lottie animation requires a large PSRAM
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3
+      reason: test version >= 5.3 is sufficient

@@ -76,19 +76,17 @@ set(MESON_CXX_FLAGS "'${MESON_CXX_FLAGS}'")
 list(JOIN linker_args "', '" MESON_LINKER_FLAGS)
 set(MESON_LINKER_FLAGS "'${MESON_LINKER_FLAGS}'")
 
-if(CONFIG_IDF_TARGET_ARCH_RISCV)
-    set(cpu_family "riscv32")
-else()
-    set(cpu_family "xtensa")
-endif()
+# Please note, xtensa is not recognized by Meson, but "riscv32" is a safe generic option
+# Always use "riscv32" as cpu_family in cross_file.txt to avoid Meson warnings
+set(cpu_family "riscv32")
 
 # Two-step generation of cross_file.txt to expand CMake variables...
 configure_file(${CMAKE_CURRENT_LIST_DIR}/cross_file.txt.in ${TVG_CROSS_CFG}.tmp)
 # ...and then expand generator expressions
 file(GENERATE OUTPUT ${TVG_CROSS_CFG} INPUT ${TVG_CROSS_CFG}.tmp)
-                    
+
 include(ExternalProject)
-                    
+
 ExternalProject_Add(${TVG_LIB}_target
     PREFIX ${TVG_BUILD_DIR}
     SOURCE_DIR ${TVG_SUBDIR}
