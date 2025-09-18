@@ -12,3 +12,5 @@ cve-exclude-list:
     reason: Resolved in version 2.6.4, please see https://github.com/libexpat/libexpat/pull/915
   - cve: CVE-2024-8176
     reason: Resolved in version 2.7.0, please see https://github.com/libexpat/libexpat/pull/973
+  - cve: CVE-2025-59375
+    reason: Resolved in version 2.7.2, please see https://github.com/libexpat/libexpat/pull/1034
