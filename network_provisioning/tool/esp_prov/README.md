@@ -114,9 +114,14 @@ For ESP-IDF v5.1:
 bash install.sh --enable-ttfw
 ```
 
-For ESP-IDF v5.2 or later:
+For ESP-IDF v5.2 to v5.5:
 ```shell
 bash install.sh --enable-pytest
+```
+
+For ESP-IDF v6.0 or later:
+```shell
+bash install.sh --enable-ci
 ```
 
 **Note:** For troubleshooting errors with Bluetooth LE transport, please refer this [link](https://bleak.readthedocs.io/en/latest/troubleshooting.html).

@@ -31,6 +31,10 @@ message WifiConnectedState {
     int32 channel = 5;
 }
 
+message WifiAttemptFailed {
+    uint32 attempts_remaining = 1;
+}
+
 enum ThreadNetworkState {
     Attached = 0;
     Attaching = 1;

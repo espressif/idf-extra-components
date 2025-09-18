@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -68,6 +68,56 @@ void network_prov_scheme_ble_event_cb_free_bt  (void *user_data, network_prov_cb
  *  - ESP_ERR_INVALID_ARG : Null argument
  */
 esp_err_t network_prov_scheme_ble_set_service_uuid(uint8_t *uuid128);
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+/**
+ * @brief   Keep the BLE on after provisioning
+ *
+ * This API is used to specify whether the BLE should remain on
+ * after the provisioning process has stopped.
+ *
+ * This must be called before starting provisioning, i.e. before
+ * making a call to network_prov_mgr_start_provisioning(), otherwise
+ * the default behavior will be used.
+ *
+ * @note    The value being pointed to by the argument must be valid
+ *          at least until provisioning is started. Upon start, the
+ *          manager will store an internal copy of this value, and
+ *          this data can be freed or invalidated afterwards.
+ *
+ * @param[in] is_on_after_ble_stop  A boolean indicating if BLE should remain on after provisioning
+ *
+ * @return
+ *  - ESP_OK              : Success
+ *  - ESP_ERR_INVALID_ARG : Null argument
+ */
+esp_err_t network_prov_mgr_keep_ble_on(uint8_t is_on_after_ble_stop);
+
+/**
+ * @brief   Set Bluetooth Random address
+ *
+ * This must be called before starting provisioning, i.e. before
+ * making a call to network_prov_mgr_start_provisioning().
+ *
+ * This API can be used in cases where a new identity address is to be used during
+ * provisioning. This will result in this device being treated as a new device by remote
+ * devices.
+ *
+ * @note    This API will change the existing BD address for the device. The address once
+ *          set will remain unchanged until BLE stack tear down happens when
+ *          network_prov_mgr_deinit is invoked.
+ *
+ *          This API is only to be called to set random address. Re-invoking this API
+ *          after provisioning is started will have no effect.
+ *
+ * @param[in] rand_addr     The static random address to be set of length 6 bytes.
+ *
+ * @return
+ *  - ESP_OK              : Success
+ *  - ESP_ERR_INVALID_ARG : Null argument
+ */
+esp_err_t network_prov_scheme_ble_set_random_addr(const uint8_t *rand_addr);
+#endif // ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
 
 /**
  * @brief   Set manufacturer specific data in scan response

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2018-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2018-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -133,6 +133,19 @@ static esp_err_t cmd_get_status_handler(NetworkConfigPayload *req,
                     } else if (resp_data.fail_reason == NETWORK_PROV_WIFI_STA_AP_NOT_FOUND) {
                         resp_payload->wifi_fail_reason = WIFI_CONNECT_FAILED_REASON__WifiNetworkNotFound;
                     }
+                } else if (resp_data.wifi_state == NETWORK_PROV_WIFI_STA_CONN_ATTEMPT_FAILED) {
+                    resp_payload->wifi_sta_state = WIFI_STATION_STATE__Connecting;
+                    resp_payload->state_case = RESP_GET_WIFI_STATUS__STATE_ATTEMPT_FAILED;
+                    WifiAttemptFailed *attempt_failed = (WifiAttemptFailed *)(
+                                                            calloc(1, sizeof(WifiAttemptFailed)));
+                    if (!attempt_failed) {
+                        free(resp_payload);
+                        ESP_LOGE(TAG, "Error allocating memory");
+                        return ESP_ERR_NO_MEM;
+                    }
+                    wifi_attempt_failed__init(attempt_failed);
+                    attempt_failed->attempts_remaining = resp_data.connecting_info.attempts_remaining;
+                    resp_payload->attempt_failed = attempt_failed;
                 }
                 resp_payload->status = STATUS__Success;
             } else {

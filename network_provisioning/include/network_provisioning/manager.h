@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -41,6 +41,13 @@ typedef enum {
      */
     NETWORK_PROV_START,
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+    /**
+     * Emitted before accepting the wifi credentials to
+     * set the wifi configurations according to requirement.
+     * NOTE - In this case event_data shall be populated with a pointer to `wifi_config_t`.
+     */
+    NETWORK_PROV_SET_WIFI_STA_CONFIG,
+
     /**
      * Emitted when Wi-Fi AP credentials are received via `protocomm`
      * endpoint `network_config`. The event data in this case is a pointer
@@ -118,6 +125,17 @@ typedef struct {
      */
     void *user_data;
 } network_prov_event_handler_t;
+
+/**
+ * @brief   Structure holding the configuration related to Wi-Fi provisioning
+ */
+typedef struct {
+    /**
+     * Maximum number of allowed connection attempts for Wi-Fi. If value 0
+     * same as legacy behavior of infinite connection attempts.
+     */
+    uint32_t wifi_conn_attempts;
+} network_prov_wifi_conn_cfg_t;
 
 /**
  * @brief Event handler can be set to none if not used
@@ -215,6 +233,12 @@ typedef struct {
      * specific behavior. Use NETWORK_PROV_EVENT_HANDLER_NONE when not used.
      */
     network_prov_event_handler_t app_event_handler;
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+    /**
+     * This config holds the Wi-Fi provisioning related configurations.
+     */
+    network_prov_wifi_conn_cfg_t network_prov_wifi_conn_cfg;
+#endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 } network_prov_mgr_config_t;
 
 /**
@@ -245,6 +269,9 @@ typedef enum network_prov_security {
      *  + AES-GCM encryption/decryption
      */
     NETWORK_PROV_SECURITY_2 = 2
+#endif
+#if !CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_0 && !CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_1 && !CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_2
+#error "All of the protocomm security versions are disabled. Make sure to enable at least one security version."
 #endif
 } network_prov_security_t;
 
@@ -289,8 +316,13 @@ esp_err_t network_prov_mgr_init(network_prov_mgr_config_t config);
  * If provisioning service is  still active when this API is called,
  * it first stops the service, hence emitting NETWORK_PROV_END, and
  * then performs the de-initialization
+ *
+ * @return
+ *  - ESP_OK         : Success
+ *  - ESP_FAIL       : Failed to post event NETWORK_PROV_DEINIT or NETWORK_PROV_END
+ *  - ESP_ERR_NO_MEM : Out of memory (as may be returned by esp_event_post)
  */
-void network_prov_mgr_deinit(void);
+esp_err_t network_prov_mgr_deinit(void);
 
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 /**
