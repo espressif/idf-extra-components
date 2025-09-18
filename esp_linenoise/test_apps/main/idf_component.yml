@@ -1,0 +1,4 @@
+dependencies:
+  espressif/esp_linenoise:
+    version: "*"
+    override_path: "../.."
