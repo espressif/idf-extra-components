@@ -1,0 +1,4 @@
+dependencies:
+  espressif/esp_ext_part_tables:
+    version: "*"
+    override_path: "../.."
