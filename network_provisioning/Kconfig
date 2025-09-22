@@ -50,8 +50,16 @@ menu "Network Provisioning Manager"
     config NETWORK_PROV_BLE_FORCE_ENCRYPTION
         bool
         prompt "Force Link Encryption during characteristic Read / Write"
+        depends on BT_ENABLED
         help
             Used to enforce link encryption when attempting to read / write characteristic
+
+    config NETWORK_PROV_BLE_NOTIFY
+        bool
+        prompt "Add support for Notification for provisioning BLE descriptors"
+        depends on BT_ENABLED
+        help
+            Used to enable support Notification in BLE descriptors of prov* characteristics
 
     config NETWORK_PROV_KEEP_BLE_ON_AFTER_PROV
         bool "Keep BT on after provisioning is done"

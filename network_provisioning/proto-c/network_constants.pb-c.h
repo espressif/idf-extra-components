@@ -16,6 +16,7 @@ PROTOBUF_C__BEGIN_DECLS
 
 
 typedef struct WifiConnectedState WifiConnectedState;
+typedef struct WifiAttemptFailed WifiAttemptFailed;
 typedef struct ThreadAttachState ThreadAttachState;
 
 
@@ -73,6 +74,16 @@ struct  WifiConnectedState
     , (char *)protobuf_c_empty_string, WIFI_AUTH_MODE__Open, {0,NULL}, {0,NULL}, 0 }
 
 
+struct  WifiAttemptFailed
+{
+  ProtobufCMessage base;
+  uint32_t attempts_remaining;
+};
+#define WIFI_ATTEMPT_FAILED__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&wifi_attempt_failed__descriptor) \
+    , 0 }
+
+
 struct  ThreadAttachState
 {
   ProtobufCMessage base;
@@ -105,6 +116,25 @@ WifiConnectedState *
 void   wifi_connected_state__free_unpacked
                      (WifiConnectedState *message,
                       ProtobufCAllocator *allocator);
+/* WifiAttemptFailed methods */
+void   wifi_attempt_failed__init
+                     (WifiAttemptFailed         *message);
+size_t wifi_attempt_failed__get_packed_size
+                     (const WifiAttemptFailed   *message);
+size_t wifi_attempt_failed__pack
+                     (const WifiAttemptFailed   *message,
+                      uint8_t             *out);
+size_t wifi_attempt_failed__pack_to_buffer
+                     (const WifiAttemptFailed   *message,
+                      ProtobufCBuffer     *buffer);
+WifiAttemptFailed *
+       wifi_attempt_failed__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   wifi_attempt_failed__free_unpacked
+                     (WifiAttemptFailed *message,
+                      ProtobufCAllocator *allocator);
 /* ThreadAttachState methods */
 void   thread_attach_state__init
                      (ThreadAttachState         *message);
@@ -129,6 +159,9 @@ void   thread_attach_state__free_unpacked
 typedef void (*WifiConnectedState_Closure)
                  (const WifiConnectedState *message,
                   void *closure_data);
+typedef void (*WifiAttemptFailed_Closure)
+                 (const WifiAttemptFailed *message,
+                  void *closure_data);
 typedef void (*ThreadAttachState_Closure)
                  (const ThreadAttachState *message,
                   void *closure_data);
@@ -144,6 +177,7 @@ extern const ProtobufCEnumDescriptor    wifi_auth_mode__descriptor;
 extern const ProtobufCEnumDescriptor    thread_network_state__descriptor;
 extern const ProtobufCEnumDescriptor    thread_attach_failed_reason__descriptor;
 extern const ProtobufCMessageDescriptor wifi_connected_state__descriptor;
+extern const ProtobufCMessageDescriptor wifi_attempt_failed__descriptor;
 extern const ProtobufCMessageDescriptor thread_attach_state__descriptor;
 
 PROTOBUF_C__END_DECLS
