@@ -45,9 +45,9 @@ def config_get_status_response(security_ctx, response_data):
             return 'connected'
         elif cmd_resp1.resp_get_wifi_status.wifi_sta_state == 1:
             print('++++ WiFi state: Connecting... ++++')
-            if cmd_resp1.resp_get_status.HasField('attempt_failed'):
-                if cmd_resp1.resp_get_status.attempt_failed.attempts_remaining:
-                    print(cmd_resp1.resp_get_status)
+            if cmd_resp1.resp_get_wifi_status.HasField('attempt_failed'):
+                if cmd_resp1.resp_get_wifi_status.attempt_failed.attempts_remaining:
+                    print(cmd_resp1.resp_get_wifi_status)
                 else:
                     print('attempt_failed {\n  attempts_remaining: 0\n}')
             return 'connecting'
