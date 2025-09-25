@@ -25,6 +25,7 @@ manifest_file = [
     "pid_ctrl/.build-test-rules.yml",
     "qrcode/.build-test-rules.yml",
     "quirc/.build-test-rules.yml",
+    "thorvg/.build-test-rules.yml",
     "touch_element/.build-test-rules.yml",
     "zlib/.build-test-rules.yml",
     "libjpeg-turbo/.build-test-rules.yml",
