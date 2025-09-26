@@ -119,6 +119,10 @@ Note:
 
 For ESP32 devices that support the Digital Signature peripheral (such as ESP32-S2, ESP32-S3, ESP32-C3, etc.), you can enable hardware-accelerated RSA operations by selecting the `PRE_ENCRYPTED_RSA_USE_DS` configuration option. This provides enhanced security and performance compared to software-based RSA operations.
 
+**ESP-IDF Version Requirement:**
+
+The Digital Signature (DS) peripheral support for decryption was introduced in ESP-IDF v5.3. To use DS peripheral functionality with esp_encrypted_img, you must use ESP-IDF v5.3 or above. Projects using ESP-IDF versions prior to v5.3 cannot use the DS peripheral option.
+
 **Configuration:**
 
 In your project's menuconfig, navigate to:
@@ -168,6 +172,7 @@ Check the esp_secure_cert_manager documentation for more information on how to u
 
 **Important Notes:**
 
+- **ESP-IDF v5.3+ Required:** DS peripheral support requires ESP-IDF v5.3 or above
 - The DS peripheral requires the private key to be in a specific format managed by ESP Secure Certificate Manager
 - Public key export via `esp_encrypted_img_export_public_key()` is not supported when using DS peripheral (returns `ESP_ERR_NOT_SUPPORTED`)
 - This option is only available on ESP32 variants that support the Digital Signature peripheral
