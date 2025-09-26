@@ -7,7 +7,7 @@ menu "JPEG Decoder"
         help
             By default, Espressif SoCs use TJpg decoder implemented in ROM code.
             If this feature is disabled, new configuration of TJpg decoder can be used.
-            Refer to REAME.md for more details.
+            Refer to README.md for more details.
 
     config JD_SZBUF
         int "Size of stream input buffer"
