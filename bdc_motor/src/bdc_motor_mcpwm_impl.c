@@ -135,18 +135,14 @@ esp_err_t bdc_motor_new_mcpwm_device(const bdc_motor_config_t *motor_config, con
     generator_config.gen_gpio_num = motor_config->pwmb_gpio_num;
     ESP_GOTO_ON_ERROR(mcpwm_new_generator(mcpwm_motor->operator, &generator_config, &mcpwm_motor->genb), err, TAG, "create generator failed");
 
-    mcpwm_generator_set_actions_on_timer_event(mcpwm_motor->gena,
-            MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH),
-            MCPWM_GEN_TIMER_EVENT_ACTION_END());
-    mcpwm_generator_set_actions_on_compare_event(mcpwm_motor->gena,
-            MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, mcpwm_motor->cmpa, MCPWM_GEN_ACTION_LOW),
-            MCPWM_GEN_COMPARE_EVENT_ACTION_END());
-    mcpwm_generator_set_actions_on_timer_event(mcpwm_motor->genb,
-            MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH),
-            MCPWM_GEN_TIMER_EVENT_ACTION_END());
-    mcpwm_generator_set_actions_on_compare_event(mcpwm_motor->genb,
-            MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, mcpwm_motor->cmpb, MCPWM_GEN_ACTION_LOW),
-            MCPWM_GEN_COMPARE_EVENT_ACTION_END());
+    mcpwm_generator_set_action_on_timer_event(mcpwm_motor->gena,
+            MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH));
+    mcpwm_generator_set_action_on_compare_event(mcpwm_motor->gena,
+            MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, mcpwm_motor->cmpa, MCPWM_GEN_ACTION_LOW));
+    mcpwm_generator_set_action_on_timer_event(mcpwm_motor->genb,
+            MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH));
+    mcpwm_generator_set_action_on_compare_event(mcpwm_motor->genb,
+            MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, mcpwm_motor->cmpb, MCPWM_GEN_ACTION_LOW));
 
     mcpwm_motor->base.enable = bdc_motor_mcpwm_enable;
     mcpwm_motor->base.disable = bdc_motor_mcpwm_disable;
