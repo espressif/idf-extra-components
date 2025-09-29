@@ -9,6 +9,7 @@ manifest_file = [
     "coremark/.build-test-rules.yml",
     "esp_daylight/.build-test-rules.yml",
     "esp_encrypted_img/.build-test-rules.yml",
+    "esp_flash_dispatcher/.build-test-rules.yml",
     "esp_gcov/.build-test-rules.yml",
     "esp_jpeg/.build-test-rules.yml",
     "esp_serial_slave_link/.build-test-rules.yml",
