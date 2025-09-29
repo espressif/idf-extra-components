@@ -1,6 +1,6 @@
 idf_build_get_property(target IDF_TARGET)
 
-set(reqs fatfs)
+set(reqs fatfs esp_blockdev)
 set(inc diskio include)
 set(priv_inc priv_include)
 set(srcs "src/nand.c"
