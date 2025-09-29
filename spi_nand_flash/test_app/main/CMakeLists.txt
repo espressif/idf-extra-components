@@ -1,4 +1,4 @@
-set(src "test_app_main.c" "test_spi_nand_flash.c")
+set(src "test_app_main.c" "test_spi_nand_flash.c" "test_spi_nand_flash_bdl.c")
 
 set(priv_reqs unity esp_timer)
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER "5.3")

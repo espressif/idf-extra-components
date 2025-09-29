@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "esp_blockdev.h"
 #ifndef CONFIG_IDF_TARGET_LINUX
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
@@ -25,6 +26,8 @@ typedef struct spi_nand_flash_device_t spi_nand_flash_device_t;
 #ifdef CONFIG_IDF_TARGET_LINUX
 #include "nand_linux_mmap_emul.h"
 #endif
+
+#define ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS    ESP_BLOCKDEV_CMD_USER_BASE+1
 
 /** @brief SPI mode used for reading from SPI NAND Flash */
 typedef enum {
@@ -157,6 +160,22 @@ esp_err_t spi_nand_flash_get_block_num(spi_nand_flash_device_t *handle, uint32_t
  * @return ESP_OK on success, or a flash error code if the de-initialization failed.
  */
 esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle);
+
+/** @brief Create a block device interface for SPI NAND Flash
+ *
+ * This function initializes the SPI NAND flash device and creates an esp_blockdev
+ * interface for use with filesystems and other block device consumers.
+ *
+ * @param conf Configuration for the SPI NAND flash device
+ * @param[out] dev Pointer to store the created NAND device handle
+ * @param[out] out_bdl_handle_ptr Pointer to store the block device handle
+ * @return
+ *         - ESP_OK: Success
+ *         - ESP_ERR_INVALID_ARG: Invalid configuration or NULL pointers
+ *         - ESP_ERR_NO_MEM: Insufficient memory
+ *         - ESP_ERR_NOT_FOUND: NAND device not detected
+ */
+esp_err_t spi_nand_flash_get_blockdev(spi_nand_flash_config_t *conf, spi_nand_flash_device_t **dev, esp_blockdev_handle_t *out_bdl_handle_ptr);
 
 #ifdef __cplusplus
 }

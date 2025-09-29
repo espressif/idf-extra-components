@@ -10,21 +10,58 @@
 #include "spi_nand_flash.h"
 #include "nand_linux_mmap_emul.h"
 #include "nand_private/nand_impl_wrap.h"
+#include "esp_blockdev.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #define PATTERN_SEED    0x12345678
+
+static void fill_buffer(uint32_t seed, uint8_t *dst, size_t count)
+{
+    srand(seed);
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t val = rand();
+        memcpy(dst + i * sizeof(uint32_t), &val, sizeof(val));
+    }
+}
+
+static void check_buffer(uint32_t seed, const uint8_t *src, size_t count)
+{
+    srand(seed);
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t val;
+        memcpy(&val, src + i * sizeof(uint32_t), sizeof(val));
+        if (!(rand() == val)) {
+            printf("Val not equal\n");
+        }
+    }
+}
 
 TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
 {
     nand_file_mmap_emul_config_t conf = {"", 50 * 1024 * 1024, true};
     spi_nand_flash_config_t nand_flash_config = {&conf, 0, SPI_NAND_IO_MODE_SIO, 0};
     spi_nand_flash_device_t *device_handle;
-    REQUIRE(spi_nand_flash_init_device(&nand_flash_config, &device_handle) == ESP_OK);
+    esp_blockdev_handle_t bdl;
+    REQUIRE(0 == spi_nand_flash_get_blockdev(&nand_flash_config, &device_handle, &bdl));
 
-    uint32_t sector_num, sector_size;
-    REQUIRE(spi_nand_flash_get_capacity(device_handle, &sector_num) == 0);
-    REQUIRE(spi_nand_flash_get_sector_size(device_handle, &sector_size) == 0);
+    uint32_t sector_size = bdl->geometry.write_size;
+    uint32_t sector_num;
+    bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &sector_num);
+
+    uint8_t *pattern_buf = (uint8_t *)malloc(sector_size);
+    REQUIRE(pattern_buf != NULL);
+    uint8_t *temp_buf = (uint8_t *)malloc(sector_size);
+    REQUIRE(temp_buf != NULL);
+
+    fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
+    bdl->ops->write(bdl, pattern_buf, 100, sector_size);
+    memset((void *)temp_buf, 0x00, sector_size);
+    bdl->ops->read(bdl, temp_buf, sector_size, 100, sector_size);
+    check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
+
+    free(pattern_buf);
+    free(temp_buf);
 
     uint32_t test_block = 15;
     if (test_block < sector_num) {
@@ -39,16 +76,7 @@ TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
         REQUIRE(is_bad_status == true);
     }
 
-    spi_nand_flash_deinit_device(device_handle);
-}
-
-static void fill_buffer(uint32_t seed, uint8_t *dst, size_t count)
-{
-    srand(seed);
-    for (size_t i = 0; i < count; ++i) {
-        uint32_t val = rand();
-        memcpy(dst + i * sizeof(uint32_t), &val, sizeof(val));
-    }
+    bdl->ops->release(bdl);
 }
 
 TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_nand_flash]")

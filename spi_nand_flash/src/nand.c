@@ -10,6 +10,8 @@
 #include "esp_check.h"
 #include "spi_nand_flash.h"
 #include "nand.h"
+#include "esp_blockdev.h"
+
 
 #ifndef CONFIG_IDF_TARGET_LINUX
 #include "spi_nand_oper.h"
@@ -341,4 +343,142 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle)
     vSemaphoreDelete(handle->mutex);
     free(handle);
     return ret;
+}
+
+/**************************************************************************************
+ **************************************************************************************
+ * Block Device Layer interface implementation
+ **************************************************************************************
+ */
+
+static esp_err_t spi_nand_blockdev_read(esp_blockdev_handle_t handle, uint8_t *dst_buf, size_t dst_buf_size, uint64_t src_addr, size_t data_read_len)
+{
+    spi_nand_flash_device_t *dev_handle = (spi_nand_flash_device_t *)handle->ctx;
+
+    esp_err_t res = spi_nand_flash_read_sector(dev_handle, dst_buf, src_addr);
+
+    return res;
+}
+
+static esp_err_t spi_nand_blockdev_write(esp_blockdev_handle_t handle, const uint8_t *src_buf, uint64_t dst_addr, size_t data_write_len)
+{
+    spi_nand_flash_device_t *dev_handle = (spi_nand_flash_device_t *)handle->ctx;
+
+    esp_err_t res = spi_nand_flash_write_sector(dev_handle, src_buf, dst_addr);
+
+    return res;
+}
+
+static esp_err_t spi_nand_blockdev_erase(esp_blockdev_handle_t handle, uint64_t start_addr, size_t erase_len)
+{
+    spi_nand_flash_device_t *dev_handle = (spi_nand_flash_device_t *)handle->ctx;
+
+    esp_err_t res = ESP_OK;
+    uint32_t block_size = dev_handle->chip.block_size;;
+    uint32_t start_block, block_count;
+    if (start_addr % block_size != 0 || erase_len % block_size != 0 ) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    start_block = start_addr / block_size;
+    block_count = erase_len / block_size;
+
+    // Erase each block in the range
+    for (uint32_t block = start_block; block < (block_count + start_block); block++) {
+        res = dev_handle->ops->erase_block(dev_handle, block);
+        if (res != ESP_OK) {
+            break;
+        }
+    }
+
+    return res;
+}
+
+static esp_err_t spi_nand_blockdev_sync(esp_blockdev_handle_t handle)
+{
+    spi_nand_flash_device_t *dev_handle = (spi_nand_flash_device_t *)handle->ctx;
+    return spi_nand_flash_sync(dev_handle);
+}
+
+static esp_err_t spi_nand_blockdev_ioctl(esp_blockdev_handle_t handle, const uint8_t cmd, void *args)
+{
+    if (handle == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    spi_nand_flash_device_t *dev_handle = (spi_nand_flash_device_t *)handle->ctx;
+
+    switch (cmd) {
+    case ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS: {
+        uint32_t *sectors_available = (uint32_t *)args;
+        spi_nand_flash_get_capacity(dev_handle, sectors_available);
+    }
+    break;
+
+    default:
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t spi_nand_release_blockdev(const esp_blockdev_handle_t handle)
+{
+    if (handle == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    spi_nand_flash_device_t *dev_handle = (spi_nand_flash_device_t *)handle->ctx;
+
+    esp_err_t res = spi_nand_flash_deinit_device(dev_handle);
+    if (res == ESP_OK) {
+        free(handle);
+    }
+
+    return res;
+}
+
+static const esp_blockdev_ops_t spi_nand_blockdev_ops = {
+    .read = spi_nand_blockdev_read,
+    .write = spi_nand_blockdev_write,
+    .erase = spi_nand_blockdev_erase,
+    .ioctl = spi_nand_blockdev_ioctl,
+    .sync = spi_nand_blockdev_sync,
+    .release = spi_nand_release_blockdev,
+};
+
+esp_err_t spi_nand_flash_get_blockdev(spi_nand_flash_config_t *conf, spi_nand_flash_device_t **dev, esp_blockdev_handle_t *out_bdl_handle_ptr)
+{
+    if (conf == NULL || dev == NULL || out_bdl_handle_ptr == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t ret = spi_nand_flash_init_device(conf, dev);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    esp_blockdev_t *blockdev = (esp_blockdev_t *) calloc(1, sizeof(esp_blockdev_t));
+    if (blockdev == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    blockdev->ctx = *dev;
+
+    ESP_BLOCKDEV_FLAGS_INST_CONFIG_DEFAULT(blockdev->device_flags);
+    blockdev->ops = &spi_nand_blockdev_ops;
+
+    // Set up geometry information
+    uint32_t sector_size = (*dev)->chip.page_size;
+    uint32_t block_size = (*dev)->chip.block_size;
+    uint32_t num_blocks = (*dev)->chip.num_blocks;
+
+    blockdev->geometry.disk_size = num_blocks * block_size;
+    blockdev->geometry.write_size = sector_size;
+    blockdev->geometry.read_size = sector_size;
+    blockdev->geometry.erase_size = block_size;
+    blockdev->geometry.recommended_write_size = sector_size;
+    blockdev->geometry.recommended_read_size = sector_size;
+    blockdev->geometry.recommended_erase_size = block_size;
+
+    *out_bdl_handle_ptr = blockdev;
+    return ESP_OK;
 }
