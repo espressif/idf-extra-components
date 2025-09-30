@@ -9,6 +9,9 @@
 #include <string.h>
 #include "spi_nand_oper.h"
 #include "driver/spi_master.h"
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+#include "esp_private/esp_cache_private.h"
+#endif
 
 esp_err_t spi_nand_execute_transaction(spi_nand_flash_device_t *handle, spi_nand_transaction_t *transaction)
 {
@@ -99,11 +102,39 @@ esp_err_t spi_nand_read_page(spi_nand_flash_device_t *handle, uint32_t page)
     return spi_nand_execute_transaction(handle, &t);
 }
 
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+static uint16_t check_length_alignment(spi_nand_flash_device_t *handle, uint16_t length)
+{
+    size_t alignment;
+    uint16_t data_len = length;
+    esp_cache_get_alignment(MALLOC_CAP_DMA, &alignment);
+    bool is_length_unaligned = ((length + alignment - 1) & (~(alignment - 1))) ? true : false;
+    if (is_length_unaligned) {
+        if (length < alignment) {
+            data_len = ((length + alignment) & ~(alignment - 1));
+        } else {
+            data_len = ((length + (alignment - 1)) & ~(alignment - 1));
+        }
+    }
+    if (!(handle->config.flags & SPI_DEVICE_HALFDUPLEX)) {
+        data_len = data_len + alignment;
+    }
+    return data_len;
+}
+#endif
+
 static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
 {
     uint32_t spi_flags = SPI_TRANS_MODE_QIO;
     uint8_t cmd = CMD_READ_X4;
     uint8_t dummy_bits = 8;
+
+    uint8_t *data_read = data;
+    uint16_t data_read_len = length;
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    data_read = handle->temp_buffer;
+    data_read_len = check_length_alignment(handle, length);
+#endif
 
     if (handle->config.io_mode == SPI_NAND_IO_MODE_QIO) {
         spi_flags |= SPI_TRANS_MULTILINE_ADDR;
@@ -115,8 +146,8 @@ static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *da
         .command = cmd,
         .address_bytes = 2,
         .address = column,
-        .miso_len = length,
-        .miso_data = data,
+        .miso_len = data_read_len,
+        .miso_data = data_read,
         .dummy_bits = dummy_bits,
         .flags = spi_flags,
     };
@@ -133,6 +164,13 @@ static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *da
     uint8_t cmd = CMD_READ_X2;
     uint8_t dummy_bits = 8;
 
+    uint8_t *data_read = data;
+    uint16_t data_read_len = length;
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    data_read = handle->temp_buffer;
+    data_read_len = check_length_alignment(handle, length);
+#endif
+
     if (handle->config.io_mode == SPI_NAND_IO_MODE_DIO) {
         spi_flags |= SPI_TRANS_MULTILINE_ADDR;
         cmd = CMD_READ_DIO;
@@ -143,8 +181,8 @@ static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *da
         .command = cmd,
         .address_bytes = 2,
         .address = column,
-        .miso_len = length,
-        .miso_data = data,
+        .miso_len = data_read_len,
+        .miso_data = data_read,
         .dummy_bits = dummy_bits,
         .flags = spi_flags,
     };
@@ -157,16 +195,19 @@ static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *da
 
 static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
 {
-    uint8_t *data_read = NULL;
-    uint16_t data_read_len;
+    uint8_t *data_read = data;
+    uint16_t data_read_len = length;
     uint8_t half_duplex = handle->config.flags & SPI_DEVICE_HALFDUPLEX;
-    if (half_duplex) {
-        data_read_len = length;
-        data_read = data;
-    } else {
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    data_read = handle->temp_buffer;
+    data_read_len = check_length_alignment(handle, length);
+#else
+    if (!half_duplex) {
         data_read_len = length + 1;
         data_read = handle->temp_buffer;
     }
+#endif
+
     spi_nand_transaction_t  t = {
         .command = CMD_READ_FAST,
         .address_bytes = 2,
@@ -185,9 +226,19 @@ static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *da
     if (ret != ESP_OK) {
         goto fail;
     }
+
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    if (!half_duplex) {
+        memcpy(data, data_read + 1, length);
+    } else {
+        memcpy(data, data_read, length);
+    }
+#else
     if (!half_duplex) {
         memcpy(data, data_read + 1, length);
     }
+#endif
+
 fail:
     return ret;
 }
