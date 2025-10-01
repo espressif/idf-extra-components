@@ -4,9 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <stdbool.h>
+#include <stdio.h>
+#include <unistd.h>
 #include "esp_commands.h"
 #include "esp_dynamic_commands.h"
-#include "esp_commands_helpers.h"
 #include "esp_err.h"
 
 /* Default foreground color */
@@ -24,6 +25,7 @@ typedef struct esp_command_sets {
 
 /** run-time configuration options */
 static esp_commands_config_t s_config = {
+    .write_func = write,
     .hint_bold = false,
     .hint_color = ANSI_COLOR_DEFAULT,
     .max_cmdline_args = 32,
@@ -149,15 +151,20 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config)
 
     memcpy(&s_config, config, sizeof(s_config));
 
+    /* if no write function was passed in parameter,
+     * default it to the posix write */
+    if (s_config.write_func == NULL) {
+        s_config.write_func = write;
+    }
+
     return ESP_OK;
 }
 
 esp_err_t esp_commands_register_cmd(esp_command_t *cmd)
 {
     if (cmd == NULL ||
-            // (cmd->name == NULL || strchr(cmd->name, ' ') != NULL) ||
-            cmd->func == NULL ) {
-        printf("this should not happen\n");
+            (cmd->name == NULL || strchr(cmd->name, ' ') != NULL) ||
+            (cmd->func == NULL)) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -200,7 +207,7 @@ esp_err_t esp_commands_unregister_cmd(const char *cmd_name)
     }
 }
 
-esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, const char *cmdline, int *cmd_ret)
+esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, const int cmd_fd, const char *cmdline, int *cmd_ret)
 {
     char **argv = (char **) calloc(s_config.max_cmdline_args, sizeof(char *));
     if (argv == NULL) {
@@ -237,12 +244,14 @@ esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, const char *cmd
         free(tmp_line_buf);
         return ESP_ERR_NOT_FOUND;
     }
+
+    const int fd_out = cmd_fd == -1 ? STDOUT_FILENO : cmd_fd;
     if (cmd->func) {
         if (is_cmd_help) {
             // executing help command, pass the cmd_set as context
-            *cmd_ret = (*cmd->func)(cmd_set, argc, argv);
+            *cmd_ret = (*cmd->func)(cmd_set, fd_out, argc, argv);
         } else {
-            *cmd_ret = (*cmd->func)(cmd->func_ctx, argc, argv);
+            *cmd_ret = (*cmd->func)(cmd->func_ctx, fd_out, argc, argv);
         }
     }
     free(argv);
@@ -447,6 +456,7 @@ void esp_commands_destroy_cmd_set(esp_command_set_handle_t *cmd_set)
 typedef struct call_completion_cb_ctx {
     const char *buf;
     const size_t buf_len;
+    void *cb_ctx;
     esp_command_get_completion_t completion_cb;
 } call_completion_cb_ctx_t;
 
@@ -456,12 +466,12 @@ static bool call_completion_cb(void *caller_ctx, esp_command_t *cmd)
 
     /* Check if command starts with buf */
     if (strncmp(ctx->buf, cmd->name, ctx->buf_len) == 0) {
-        ctx->completion_cb(cmd->name);
+        ctx->completion_cb(ctx->cb_ctx, cmd->name);
     }
     return true;
 }
 
-void esp_commands_get_completion(esp_command_set_handle_t cmd_set, const char *buf, esp_command_get_completion_t completion_cb)
+void esp_commands_get_completion(esp_command_set_handle_t cmd_set, const char *buf, void *cb_ctx, esp_command_get_completion_t completion_cb)
 {
     size_t len = strlen(buf);
     if (len == 0) {
@@ -471,6 +481,7 @@ void esp_commands_get_completion(esp_command_set_handle_t cmd_set, const char *b
     call_completion_cb_ctx_t ctx = {
         .buf = buf,
         .buf_len = len,
+        .cb_ctx = cb_ctx,
         .completion_cb = completion_cb
     };
     go_through_commands(cmd_set, &ctx, call_completion_cb);
@@ -503,43 +514,69 @@ const char *esp_commands_get_glossary(esp_command_set_handle_t cmd_set, const ch
 /* help command related code */
 /* -------------------------------------------------------------- */
 
-static void print_arg_help(esp_command_t *it)
+#define FDPRINTF(fd, fmt, ...) do {                                                \
+    char _buf[s_config.max_cmdline_length];                                        \
+    int _len = snprintf(_buf, sizeof(_buf), fmt, ##__VA_ARGS__);                   \
+    if (_len > 0) {                                                                \
+        ssize_t _ignored __attribute__((unused));                                  \
+        _ignored = write(fd, _buf,                                                 \
+            _len < (int)sizeof(_buf) ? _len : (int)sizeof(_buf) - 1);              \
+    }                                                                              \
+} while (0)
+
+static void print_arg_help(const int fd_out, esp_command_t *it)
 {
     /* First line: command name and hint
      * Pad all the hints to the same column
      */
-    printf("%-s",  it->name);
+    FDPRINTF(fd_out, "%-s",  it->name);
+
+    const char *hint = NULL;
     if (it->hint_cb) {
-        printf(" %s\n", it->hint_cb(it->func_ctx));
+        hint = it->hint_cb(it->func_ctx);
+    }
+
+    if (hint) {
+        FDPRINTF(fd_out, "%s\n", it->hint_cb(it->func_ctx));
     } else {
-        printf("\n");
+        FDPRINTF(fd_out, "\n");
     }
 
     /* Second line: print help */
     /* TODO: replace the simple print with a function that
      * replaces arg_print_formatted */
     if (it->help) {
-        printf("  %s\n", it->help);
+        FDPRINTF(fd_out, "  %s\n", it->help);
     } else {
-        printf("  -\n");
+        FDPRINTF(fd_out, "  -\n");
     }
 
     /* Third line: print the glossary*/
+    const char *glossary = NULL;
     if (it->glossary_cb) {
-        printf("%s\n", it->glossary_cb(it->func_ctx));
-    } else {
-        printf("  -\n");
+        glossary = it->glossary_cb(it->func_ctx);
     }
 
-    printf("\n");
+    if (glossary) {
+        FDPRINTF(fd_out, " %s\n", it->glossary_cb(it->func_ctx));
+    } else {
+        FDPRINTF(fd_out, "  -\n");
+    }
+
+    FDPRINTF(fd_out, "\n");
 }
 
-static void print_arg_command(esp_command_t *it)
+static void print_arg_command(const int fd_out, esp_command_t *it)
 {
-    printf("%-s",  it->name);
+    FDPRINTF(fd_out, "%-s", it->name);
     if (it->hint_cb) {
-        printf(" %s\n", it->hint_cb(it->func_ctx));
+        const char *hint = it->hint_cb(it->func_ctx);
+        if (hint) {
+            FDPRINTF(fd_out, " %s", it->hint_cb(it->func_ctx));
+        }
     }
+
+    FDPRINTF(fd_out, "\n");
 }
 
 typedef enum {
@@ -548,7 +585,7 @@ typedef enum {
     HELP_VERBOSE_LEVEL_MAX_NUM = 2
 } help_verbose_level_e;
 
-typedef void (*const fn_print_arg_t)(esp_command_t *);
+typedef void (*const fn_print_arg_t)(const int fd_out, esp_command_t *);
 
 static fn_print_arg_t print_verbose_level_arr[HELP_VERBOSE_LEVEL_MAX_NUM] = {
     print_arg_command,
@@ -556,6 +593,7 @@ static fn_print_arg_t print_verbose_level_arr[HELP_VERBOSE_LEVEL_MAX_NUM] = {
 };
 
 typedef struct call_cmd_ctx {
+    const int fd_out;
     help_verbose_level_e verbose_level;
     const char *command_name;
     bool command_found;
@@ -568,11 +606,11 @@ bool call_command_funcs(void *caller_ctx, esp_command_t *cmd)
 
     if (!ctx->command_name) {
         /* ctx->command_name is empty, print all commands */
-        print_verbose_level_arr[ctx->verbose_level](cmd);
+        print_verbose_level_arr[ctx->verbose_level](ctx->fd_out, cmd);
     } else if (ctx->command_name &&
                (strcmp(ctx->command_name, cmd->name) == 0)) {
         /* we found the command name, print the help and return */
-        print_verbose_level_arr[ctx->verbose_level](cmd);
+        print_verbose_level_arr[ctx->verbose_level](ctx->fd_out, cmd);
         ctx->command_found = true;
         return false;
     }
@@ -580,7 +618,7 @@ bool call_command_funcs(void *caller_ctx, esp_command_t *cmd)
     return true;
 }
 
-static int help_command(void *context, int argc, char **argv)
+static int help_command(void *context, const int fd_out, int argc, char **argv)
 {
     char *command_name = NULL;
     help_verbose_level_e verbose_level = HELP_VERBOSE_LEVEL_1;
@@ -589,7 +627,7 @@ static int help_command(void *context, int argc, char **argv)
      * help cmd_name -v 0 */
     if (argc <= 0 || argc > 4) {
         /* unknown issue, return error */
-        printf("help: invalid number of arguments %d\n", argc);
+        FDPRINTF(fd_out, "help: invalid number of arguments %d\n", argc);
         return 1;
     }
 
@@ -605,7 +643,7 @@ static int help_command(void *context, int argc, char **argv)
                 /* check if the following argument is either 0, or 1 */
                 if (i + 1 >= argc) {
                     /* format error, return with error */
-                    printf("help: arguments not provided in the right format\n");
+                    FDPRINTF(fd_out, "help: arguments not provided in the right format\n");
                     return 1;
                 } else if (strcmp(argv[i + 1], "0") == 0) {
                     verbose_level = 0;
@@ -613,7 +651,7 @@ static int help_command(void *context, int argc, char **argv)
                     verbose_level = 1;
                 } else {
                     /* wrong command format, return error */
-                    printf("help: invalid verbose level %s\n", argv[i + 1]);
+                    FDPRINTF(fd_out, "help: invalid verbose level %s\n", argv[i + 1]);
                     return 1;
                 }
 
@@ -633,6 +671,7 @@ static int help_command(void *context, int argc, char **argv)
      * is not NULL, find the command and only print the help for this command. if the
      * command is not found, return with error */
     call_cmd_ctx_t ctx = {
+        .fd_out = fd_out,
         .verbose_level = verbose_level,
         .command_name = command_name,
         .command_found = false
@@ -640,7 +679,7 @@ static int help_command(void *context, int argc, char **argv)
     go_through_commands(cmd_sets, &ctx, call_command_funcs);
 
     if (command_name && !ctx.command_found) {
-        printf("help: invalid command name %s\n", command_name);
+        FDPRINTF(fd_out, "help: invalid command name %s\n", command_name);
         return 1;
     }
 

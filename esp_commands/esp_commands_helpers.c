@@ -8,7 +8,6 @@
 #include <ctype.h>
 #include <string.h>
 #include <stddef.h>
-#include "esp_commands_helpers.h"
 #include "esp_commands.h"
 
 #define SS_FLAG_ESCAPE 0x8
