@@ -1,3 +1,9 @@
+# 03-Oct-2025
+
+- Build wifi_prov example for ESP32-P4 (for ESP32-P4-Function-EV-Board)
+- ESP32-P4 assumes ESP32-C6 (configurable) acts as Wi-Fi and BLE co-processor over SDIO transport
+- Uses esp_wifi_remote and esp_hosted_mcu
+
 # 01-April-2025
 
 - Extend provisioning check for `ESP_WIFI_REMOTE_ENABLED` as well along with existing `ESP_WIFI_ENABLED`
