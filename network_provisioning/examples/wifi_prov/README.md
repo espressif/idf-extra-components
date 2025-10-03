@@ -1,5 +1,5 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-S2 | ESP32-S3 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- |
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-S2 | ESP32-S3 | ESP32-P4 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- |
 
 # Wi-Fi Provisioning Example
 
@@ -282,6 +282,40 @@ expected on success:
 ==== Sending Custom data to esp32 ====
 CustomData response: SUCCESS
 ```
+
+## ESP32-P4 Support
+
+The ESP32-P4 uses a two-chip solution with ESP-Hosted to enable Wi-Fi provisioning.
+
+### Running on ESP32-P4-Function-EV-Board
+
+On this board, the ESP32-P4 connects to an on-board ESP32-C6 (co-processor) via SDIO. The ESP32-C6 comes pre-flashed with ESP-Hosted co-processor software. See [ESP-Hosted ESP32-P4 EV Board documentation](https://github.com/espressif/esp-hosted-mcu/blob/main/docs/esp32_p4_function_ev_board.md) for details.
+
+#### Build and Flash
+
+Set ESP32-P4 as target:
+```
+idf.py set-target esp32p4
+```
+
+Configure the project:
+```
+idf.py menuconfig
+```
+Navigate to `Component config` → `Wi-Fi Remote` → `choose slave target` and select `esp32c6`.
+
+Build and flash:
+```
+idf.py -p PORT flash monitor
+```
+
+#### Co-processor Update (Optional)
+
+The pre-flashed co-processor software is compatible, but upgrading to the latest version is recommended via:
+- [Simplified co-processor OTA](https://github.com/espressif/esp-hosted-mcu/blob/main/docs/esp32_p4_function_ev_board.md#51-ota-updates), or
+- [Manual flashing with ESP-Prog](https://github.com/espressif/esp-hosted-mcu/blob/main/docs/esp32_p4_function_ev_board.md#52-using-esp-prog)
+
+For ESP-Hosted technical queries, open an issue at the [ESP-Hosted GitHub repository](https://github.com/espressif/esp-hosted-mcu/issues).
 
 ## Troubleshooting
 
