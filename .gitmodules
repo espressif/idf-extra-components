@@ -77,3 +77,7 @@
 [submodule "esp_isotp/isotp-c"]
 	path = esp_isotp/isotp-c
 	url = https://github.com/SimonCahill/isotp-c.git
+
+[submodule "cjson/cJSON"]
+	path = cjson/cJSON
+	url = https://github.com/DaveGamble/cJSON.git
