@@ -37,6 +37,7 @@ jobs:
             catch2;
             cbor;
             ccomp_timer;
+            cjson;
             coap;
             coremark;
             dhara;
