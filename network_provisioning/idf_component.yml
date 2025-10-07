@@ -1,4 +1,4 @@
-version: "1.1.0"
+version: "1.2.0"
 description: Network provisioning component for Wi-Fi or Thread devices
 url: https://github.com/espressif/idf-extra-components/tree/master/network_provisioning
 dependencies:
@@ -6,3 +6,5 @@ dependencies:
     espressif/cjson:
       version: "^1.7.19"
       override_path: "../cjson"
+      rules:
+        - if: "idf_version >= 6.0"
