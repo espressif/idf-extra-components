@@ -26,8 +26,15 @@ if(CONFIG_BT_ENABLED)
     endif()
 endif()
 
+set(priv_requires protobuf-c bt esp_timer esp_wifi openthread)
+
+# For IDF < 6.0, use IDF's built-in json component; for IDF >= 6.0 use managed cJSON component
+if("${IDF_VERSION_MAJOR}" VERSION_LESS "6")
+    list(APPEND priv_requires json)
+endif()
+
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS include
                     PRIV_INCLUDE_DIRS src proto-c
                     REQUIRES lwip protocomm
-                    PRIV_REQUIRES protobuf-c bt esp_timer esp_wifi openthread)
+                    PRIV_REQUIRES ${priv_requires})

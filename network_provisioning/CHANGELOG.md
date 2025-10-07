@@ -1,3 +1,7 @@
+# 07-October-2025
+
+- Use managed cJSON component for IDF v6.0 and above
+
 # 01-April-2025
 
 - Extend provisioning check for `ESP_WIFI_REMOTE_ENABLED` as well along with existing `ESP_WIFI_ENABLED`
