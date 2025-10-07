@@ -188,7 +188,10 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config);
  */
 #define ESP_COMMAND_REGISTER(cmd_name, cmd_group, cmd_help, cmd_func, cmd_func_ctx, cmd_hint_cb, cmd_glossary_cb) \
     static_assert((cmd_func) != NULL); \
-    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands"))) = { \
+    /* Alignment attribute is required when building on linux target to prevent each input section */ \
+    /* from inheriting its alignment from the object's file default one thus preventing gaps between */ \
+    /* commands in the section. */ \
+    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands"), aligned(4))) = { \
         .name = #cmd_name, \
         .group = #cmd_group, \
         .help = cmd_help, \
