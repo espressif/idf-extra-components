@@ -34,6 +34,11 @@
 
 #include "sh2lib.h"
 
+// Compile-time check to ensure stack size is larger than inbound buffer length
+#if CONFIG_EXAMPLE_NGHTTP2_TASK_STACK_SIZE <= CONFIG_ESP_NGHTTP2_INBOUND_BUFFER_LENGTH
+#warning "CONFIG_EXAMPLE_NGHTTP2_TASK_STACK_SIZE should be larger than CONFIG_ESP_NGHTTP2_INBOUND_BUFFER_LENGTH"
+#endif
+
 /* The HTTP/2 server to connect to */
 #define HTTP2_SERVER_URI  "https://http2.github.io"
 /* A GET request that keeps streaming current time every second */
@@ -50,6 +55,7 @@ int handle_get_response(struct sh2lib_handle *handle, const char *data, size_t l
     }
     if (flags == DATA_RECV_RST_STREAM) {
         printf("[get-response] Stream Closed\n");
+        printf("Remaining task stask size: %d\n", uxTaskGetStackHighWaterMark(NULL));
     }
     return 0;
 }
@@ -167,5 +173,5 @@ void app_main(void)
      */
     ESP_ERROR_CHECK(example_connect());
 
-    xTaskCreate(&http2_task, "http2_task", (1024 * 32), NULL, 5, NULL);
+    xTaskCreate(&http2_task, "http2_task", CONFIG_EXAMPLE_NGHTTP2_TASK_STACK_SIZE, NULL, 5, NULL);
 }
