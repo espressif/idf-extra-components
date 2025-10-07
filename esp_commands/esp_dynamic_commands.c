@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stddef.h>
+#include "esp_commands_internal.h"
 #include "esp_dynamic_commands.h"
 #include "esp_commands.h"
 
@@ -50,7 +51,7 @@ esp_err_t esp_dynamic_commands_add(esp_command_t *cmd)
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_command_internal_t *list_item = malloc(sizeof(esp_command_internal_t));
+    esp_command_internal_t *list_item = esp_commands_malloc(sizeof(esp_command_internal_t));
     if (!list_item) {
         return ESP_ERR_NO_MEM;
     }

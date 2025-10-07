@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
+#include "esp_heap_caps.h"
 #include "esp_err.h"
 
 /**
@@ -133,22 +134,12 @@ typedef ssize_t (*esp_commands_write_t)(int fd, const void *buf, size_t count);
  */
 typedef struct esp_commands_config {
     esp_commands_write_t write_func;    /*!< Write function to call when executing a command */
+    uint32_t heap_caps_used;            /*!< Set of heap capabilities to be used to perform internal allocations */
     size_t max_cmdline_length;          /*!< Maximum length of the command line buffer, in bytes */
     size_t max_cmdline_args;            /*!< Maximum number of command line arguments to parse */
     int hint_color;                     /*!< ANSI color code used for hint text */
     bool hint_bold;                     /*!< If true, display hint text in bold */
 } esp_commands_config_t;
-
-/**
- * @brief Default configuration for esp_commands_manager
- */
-#define ESP_COMMANDS_CONFIG_DEFAULT() \
-{ \
-    .max_cmdline_length = 256, \
-    .max_cmdline_args = 32, \
-    .hint_color = 39, \
-    .hint_bold = false \
-}
 
 /**
  * @brief Callback for a completed command name
@@ -188,7 +179,10 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config);
  */
 #define ESP_COMMAND_REGISTER(cmd_name, cmd_group, cmd_help, cmd_func, cmd_func_ctx, cmd_hint_cb, cmd_glossary_cb) \
     static_assert((cmd_func) != NULL); \
-    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands"))) = { \
+    /* Alignment attribute is required when building on linux target to prevent each input section */ \
+    /* from inheriting its alignment from the object's file default one thus preventing gaps between */ \
+    /* commands in the section. */ \
+    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands"), aligned(4))) = { \
         .name = #cmd_name, \
         .group = #cmd_group, \
         .help = cmd_help, \
