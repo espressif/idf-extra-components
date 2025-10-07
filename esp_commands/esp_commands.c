@@ -6,7 +6,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "esp_heap_caps.h"
 #include "esp_commands.h"
+#include "esp_commands_internal.h"
 #include "esp_dynamic_commands.h"
 #include "esp_err.h"
 
@@ -26,6 +28,7 @@ typedef struct esp_command_sets {
 /** run-time configuration options */
 static esp_commands_config_t s_config = {
     .write_func = write,
+    .heap_caps_used = MALLOC_CAP_DEFAULT,
     .hint_bold = false,
     .hint_color = ANSI_COLOR_DEFAULT,
     .max_cmdline_args = 32,
@@ -141,6 +144,11 @@ bool compare_command_name(void *ctx, esp_command_t *cmd)
     return true;
 }
 
+void *esp_commands_malloc(const size_t malloc_size)
+{
+    return heap_caps_malloc(malloc_size, s_config.heap_caps_used);
+}
+
 esp_err_t esp_commands_update_config(const esp_commands_config_t *config)
 {
     if (!config ||
@@ -155,6 +163,12 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config)
      * default it to the posix write */
     if (s_config.write_func == NULL) {
         s_config.write_func = write;
+    }
+
+    /* if the heap_caps_used field is set to 0, set
+     * it to MALLOC_CAP_DEFAULT */
+    if (s_config.heap_caps_used == 0) {
+        s_config.heap_caps_used = MALLOC_CAP_DEFAULT;
     }
 
     return ESP_OK;
@@ -315,7 +329,7 @@ esp_err_t update_cmd_set_with_temp_info(esp_command_set_t *cmd_set, size_t cmd_c
         cmd_set->cmd_set_size = 0;
     } else {
         const size_t alloc_cmd_ptrs_size = sizeof(esp_command_t *) * cmd_count;
-        cmd_set->cmd_ptr_set = malloc(alloc_cmd_ptrs_size);
+        cmd_set->cmd_ptr_set = heap_caps_malloc(alloc_cmd_ptrs_size, s_config.heap_caps_used);
         if (!cmd_set->cmd_ptr_set) {
             return ESP_ERR_NO_MEM;
         } else {
@@ -333,7 +347,7 @@ esp_command_set_handle_t esp_commands_create_cmd_set(const char **cmd_set, const
         return NULL;
     }
 
-    esp_command_sets_t *cmd_ptr_sets = malloc(sizeof(esp_command_sets_t));
+    esp_command_sets_t *cmd_ptr_sets = heap_caps_malloc(sizeof(esp_command_sets_t), s_config.heap_caps_used);
     if (!cmd_ptr_sets) {
         return NULL;
     }
@@ -391,7 +405,7 @@ esp_command_set_handle_t esp_commands_concat_cmd_set(esp_command_set_handle_t cm
     /* Reaching this point, both cmd_set_a and cmd_set_b are set.
      * Create a new cmd_set that can host the items from both sets,
      * assign the items to the new set and free the input sets */
-    esp_command_sets_t *concat_cmd_sets = malloc(sizeof(esp_command_sets_t));
+    esp_command_sets_t *concat_cmd_sets = heap_caps_malloc(sizeof(esp_command_sets_t), s_config.heap_caps_used);
     if (!concat_cmd_sets) {
         return NULL;
     }

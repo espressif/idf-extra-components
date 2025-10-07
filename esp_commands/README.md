@@ -29,6 +29,7 @@ esp_commands_config_t config = ESP_COMMANDS_CONFIG_DEFAULT();
 esp_commands_update_config(&config);
 ```
 
+- `write_func`: The custom write function used by esp_commands to output data (default to posix write is not specified)
 - `max_cmdline_length`: Maximum command line buffer length (bytes).
 - `max_cmdline_args`: Maximum number of arguments parsed.
 - `hint_color`: ANSI color code used for hints.
@@ -93,10 +94,11 @@ Commands can be executed from a command line string:
 
 ```c
 int cmd_ret;
-esp_err_t ret = esp_commands_execute(NULL, "my_cmd arg1 arg2", &cmd_ret);
+esp_err_t ret = esp_commands_execute(NULL, STDOUT_FILENO, "my_cmd arg1 arg2", &cmd_ret);
 ```
 
 - `cmd_set`: Limits execution to a set of commands (or `NULL` for all commands).
+- `cmd_fd`: the file descriptor on which the output of the command is directed
 - `cmd_line`: String containing the command and arguments.
 - `cmd_ret`: Receives the command function return value.
 
@@ -114,7 +116,7 @@ const char *glossary = esp_commands_get_glossary(NULL, "echo");
 
 - **Completion**: Suggests matching commands.
 - **Hint**: Provides a short usage hint.
-- **Glossary**: Provides detailed command description.
+- **Glossary**: Provides detailed command argument description.
 
 ---
 

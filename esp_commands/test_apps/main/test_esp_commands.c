@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "unity.h"
+#include "esp_heap_caps.h"
 #include "esp_commands.h"
 #include "test_esp_commands_utils.h"
 
@@ -24,7 +25,14 @@
 
 static void test_setup(void)
 {
-    const esp_commands_config_t config = ESP_COMMANDS_CONFIG_DEFAULT();
+    const esp_commands_config_t config = {
+        .write_func = write,
+        .heap_caps_used = MALLOC_CAP_DEFAULT,
+        .hint_bold = false,
+        .hint_color = 39,
+        .max_cmdline_args = 32,
+        .max_cmdline_length = 256
+    };
     TEST_ASSERT_EQUAL(ESP_OK, esp_commands_update_config(&config));
 }
 
