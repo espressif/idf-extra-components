@@ -44,8 +44,8 @@ static ssize_t callback_send_inner(struct sh2lib_handle *hd, const uint8_t *data
     return rv;
 }
 
-static ssize_t callback_error(nghttp2_session *session, int lib_error_code,
-                              const char *msg, size_t len, void *user_data)
+static int callback_error(nghttp2_session *session, int lib_error_code,
+                          const char *msg, size_t len, void *user_data)
 {
     ESP_LOGE(TAG, "[error] code %i msg:%.*s", lib_error_code, len, msg);
     return 0;
