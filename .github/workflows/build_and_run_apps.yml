@@ -88,6 +88,8 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
+          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
+          ${IDF_PATH}/install.sh --enable-ci
           . ${IDF_PATH}/export.sh
           pip install --upgrade idf-component-manager 'idf-build-apps~=2.12'
       - name: Build apps
@@ -137,6 +139,8 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
+          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
+          ${IDF_PATH}/install.sh --enable-ci
           . ${IDF_PATH}/export.sh
           pip install --upgrade idf-component-manager 'idf-build-apps~=2.12'
       - name: Build apps for Linux
