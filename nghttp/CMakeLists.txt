@@ -28,7 +28,11 @@ set(srcs
 
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS port/include nghttp2/lib/includes
-                    PRIV_INCLUDE_DIRS port/private_include)
+                    PRIV_INCLUDE_DIRS nghttp2/lib port/private_include)
 
 target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
 target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DHAVE_CONFIG_H")
+
+# Override nghttp2_session.h with our own version to override inbound buffer length
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    "SHELL:-include \"${CMAKE_CURRENT_SOURCE_DIR}/port/private_include/esp_nghttp2_session.h\"")

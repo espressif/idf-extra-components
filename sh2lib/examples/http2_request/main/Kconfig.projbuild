@@ -1,0 +1,9 @@
+menu "Example Configuration"
+
+    config EXAMPLE_NGHTTP2_TASK_STACK_SIZE
+        int "Nghttp2 task stack size"
+        default 8192
+        help
+            This is the stack size for the nghttp task.
+
+endmenu
