@@ -43,7 +43,7 @@ def check_build_manifests_added_to_config(args):
 
     missing = build_manifests_from_repo - build_manifests_from_config
     if missing:
-        LOG.error(f"Missing build manifests in .idf_build_apps.toml: {missing}") 
+        LOG.error(f"Missing build manifests in .idf_build_apps.toml: {missing}")
         add_failure()
 
 
@@ -55,7 +55,7 @@ def check_components_added_to_upload_job(args):
     upload_job = load_yaml(os.path.join(args.root, ".github/workflows/upload_component.yml"))
     upload_job_steps = upload_job.get("jobs", {}).get("upload_components", {}).get("steps", [])
     upload_job_step = next((step for step in upload_job_steps if step.get("name") == "Upload components to component service"), None)
-    components_from_upload_job = set([name.strip() for name in upload_job_step.get("with", {}).get("directories", "").split(";")])
+    components_from_upload_job = set([name.strip() for name in upload_job_step.get("with", {}).get("components", "").split("\n") if name.strip()])
 
     missing = components_from_repo - components_from_upload_job
     if missing:
@@ -99,13 +99,13 @@ def load_toml(filepath) -> dict:
             return toml.load(str(filepath))
         except Exception as e:
             raise ValueError(f"Failed to load {filepath}: {e}")
-        
+
 
 def load_yaml(filepath) -> dict:
     with open(filepath, "r") as f:
         return yaml.safe_load(f)
 
-   
+
 def get_component_dirs(args):
     """
     Returns a list of component paths in this repository.

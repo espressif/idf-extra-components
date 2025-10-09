@@ -20,61 +20,52 @@ jobs:
       - run: |
           echo "${{ ( github.ref_name != 'master' || github.repository_owner != 'espressif' ) && 'Checking' || 'Uploading' }} components"
       - name: Upload components to component service
-        uses: espressif/upload-components-ci-action@v1
+        uses: espressif/upload-components-ci-action@v2
         with:
-          # Please try to keep the directories list sorted.
-          #
-          # Do note, however, that if you are updating two components in the same PR
-          # and one depends on the other, the new version of the 2nd component won't
-          # be found in the registry when the 1st component is uploaded.
-          #
-          # This is only a problem if you are adding two components for the first time,
-          # or if the 2nd component depends on the exact (new) version of the first one.
-          #
-          directories: >
-            argtable3;
-            bdc_motor;
-            catch2;
-            cbor;
-            ccomp_timer;
-            cjson;
-            coap;
-            coremark;
-            dhara;
-            eigen;
-            esp_daylight;
-            esp_delta_ota;
-            esp_encrypted_img;
-            esp_gcov;
-            esp_isotp;
-            esp_lcd_qemu_rgb;
-            esp_jpeg;
-            esp_serial_slave_link;
-            expat;
-            fmt;
-            freetype;
-            iqmath;
-            jsmn;
-            json_generator;
-            json_parser;
-            led_strip;
-            libsodium;
-            network_provisioning;
-            nghttp;
-            onewire_bus;
-            pcap;
-            pid_ctrl;
-            qrcode;
-            quirc;
-            sh2lib;
-            spi_nand_flash;
-            supertinycron;
-            thorvg;
-            touch_element;
-            unit-test-app;
-            zlib;
-            libpng;
-            libjpeg-turbo;
+          components: |
+            argtable3
+            bdc_motor
+            catch2
+            cbor
+            ccomp_timer
+            cjson
+            coap
+            coremark
+            dhara
+            eigen
+            esp_daylight
+            esp_delta_ota
+            esp_encrypted_img
+            esp_gcov
+            esp_isotp
+            esp_lcd_qemu_rgb
+            esp_jpeg
+            esp_serial_slave_link
+            expat
+            fmt
+            freetype
+            iqmath
+            jsmn
+            json_generator
+            json_parser
+            led_strip
+            libsodium
+            network_provisioning
+            nghttp
+            onewire_bus
+            pcap
+            pid_ctrl
+            qrcode
+            quirc
+            sh2lib
+            spi_nand_flash
+            supertinycron
+            thorvg
+            touch_element
+            unit-test-app
+            zlib
+            libpng
+            libjpeg-turbo
           namespace: "espressif"
           # API token will only be available in the master branch in the main repository.
           # However, dry-run doesn't require a valid token.
