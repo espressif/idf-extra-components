@@ -1,0 +1,4 @@
+esp_commands/test_apps:
+  enable:
+    - if: IDF_TARGET == "linux"
+      reason: "Sufficient to test on Linux target"
