@@ -153,7 +153,7 @@ static void get_line_task(void *args)
 {
     get_line_args_t *task_args = (get_line_args_t *)args;
 
-    s_linenoise_hdl = esp_linenoise_create_instance(task_args->config);
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(task_args->config, &s_linenoise_hdl));
     TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
 
     // wait for the instance to properly initialize before unlocking
@@ -613,7 +613,7 @@ TEST_CASE("CTRL-L clears the screen", "[esp_linenoise]")
     // we can check that the proper command was sent from
     // linenoise to the terminal
     // Verify prompt string is found in output
-    wait_ms(50);
+    wait_ms(100);
     char full_cmd_line[32] = {0};
     const char *expect_string = "screen cleared";
     const ssize_t nread = read(s_socket_fd_a[1], full_cmd_line, 32);
@@ -712,7 +712,7 @@ TEST_CASE("check esp_linenoise_get_line return values", "[esp_linenoise]")
 
     test_instance_setup(s_socket_fd_a, &lock, &config);
 
-    s_linenoise_hdl = esp_linenoise_create_instance(&config);
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config, &s_linenoise_hdl));
     TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
 
     const size_t buffer_size = 10;
@@ -762,7 +762,7 @@ TEST_CASE("check cmd line is bigger than the buffer", "[esp_linenoise]")
 
     test_instance_setup(s_socket_fd_a, &lock, &config);
 
-    s_linenoise_hdl = esp_linenoise_create_instance(&config);
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config, &s_linenoise_hdl));
     TEST_ASSERT_NOT_NULL(s_linenoise_hdl);
 
     const size_t buffer_size = 10;
@@ -979,7 +979,8 @@ TEST_CASE("Create and use 2 esp_linenoise instances", "[esp_linenoise]")
     pthread_mutex_t lock_a = PTHREAD_MUTEX_INITIALIZER;
 
     test_instance_setup(s_socket_fd_a, &lock_a, &config_a);
-    esp_linenoise_handle_t linenoise_handle_a = esp_linenoise_create_instance(&config_a);
+    esp_linenoise_handle_t linenoise_handle_a;
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config_a, &linenoise_handle_a));
     TEST_ASSERT_NOT_NULL(linenoise_handle_a);
 
     const size_t buffer_a_size = 32;
@@ -1001,7 +1002,8 @@ TEST_CASE("Create and use 2 esp_linenoise instances", "[esp_linenoise]")
     pthread_mutex_t lock_b = PTHREAD_MUTEX_INITIALIZER;
 
     test_instance_setup(s_socket_fd_b, &lock_b, &config_b);
-    esp_linenoise_handle_t linenoise_handle_b = esp_linenoise_create_instance(&config_b);
+    esp_linenoise_handle_t linenoise_handle_b;
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config_b, &linenoise_handle_b));
     TEST_ASSERT_NOT_NULL(linenoise_handle_b);
 
     const size_t buffer_b_size = 32;
@@ -1053,7 +1055,8 @@ TEST_CASE("tests that esp_linenoise_abort actually forces esp_linenoise_get_line
     config_a.read_bytes_cb = NULL;
     config_b.read_bytes_cb = NULL;
 
-    esp_linenoise_handle_t linenoise_handle_a = esp_linenoise_create_instance(&config_a);
+    esp_linenoise_handle_t linenoise_handle_a;
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config_a, &linenoise_handle_a));
     TEST_ASSERT_NOT_NULL(linenoise_handle_a);
 
     const size_t buffer_a_size = 32;
@@ -1071,7 +1074,8 @@ TEST_CASE("tests that esp_linenoise_abort actually forces esp_linenoise_get_line
     xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args_a, 5, NULL);
     pthread_mutex_lock(&lock_a);
 
-    esp_linenoise_handle_t linenoise_handle_b = esp_linenoise_create_instance(&config_b);
+    esp_linenoise_handle_t linenoise_handle_b;
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config_b, &linenoise_handle_b));
     TEST_ASSERT_NOT_NULL(linenoise_handle_b);
 
     const size_t buffer_b_size = 32;

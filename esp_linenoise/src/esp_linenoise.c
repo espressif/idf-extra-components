@@ -1116,21 +1116,20 @@ void esp_linenoise_get_instance_config_default(esp_linenoise_config_t *config)
     };
 }
 
-esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_t *config)
+esp_err_t esp_linenoise_create_instance(const esp_linenoise_config_t *config, esp_linenoise_handle_t *out_handle)
 {
-    if (!config) {
-        return NULL;
-    }
-
-    esp_linenoise_instance_t *instance = malloc(sizeof(esp_linenoise_instance_t));
-    if (!instance) {
-        return NULL;
+    if (!config || !out_handle) {
+        return ESP_ERR_INVALID_ARG;
     }
 
     /* make sure the history is NULL since the linenoise library will allocate it */
     if (config->history != NULL) {
-        free(instance);
-        return NULL;
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_linenoise_instance_t *instance = malloc(sizeof(esp_linenoise_instance_t));
+    if (!instance) {
+        return ESP_ERR_NO_MEM;
     }
 
     instance->config = *config;
@@ -1170,7 +1169,7 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
             const esp_err_t ret_val = esp_linenoise_set_event_fd(instance);
             if (ret_val != ESP_OK) {
                 free(instance);
-                return NULL;
+                return ret_val;
             }
         } else {
             /* make sure the state->mux is set to NULL */
@@ -1196,9 +1195,11 @@ esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_
         instance->config.write_bytes_cb(instance->config.out_fd, buf, len);
     }
 
-    /* set the self value to the handle of instance */
+    /* set the self value to the handle of instance and assign the instance to out_handle */
     instance->self = instance;
-    return (esp_linenoise_handle_t)instance;
+    *out_handle =  (esp_linenoise_handle_t)instance;
+
+    return ESP_OK;
 }
 
 esp_err_t esp_linenoise_delete_instance(esp_linenoise_handle_t handle)

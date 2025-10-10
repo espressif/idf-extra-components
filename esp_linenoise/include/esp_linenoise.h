@@ -137,9 +137,10 @@ void esp_linenoise_get_instance_config_default(esp_linenoise_config_t *config);
  * @brief Creates a new linenoise instance.
  *
  * @param config Pointer to the configuration parameters for the instance.
- * @return Handle to the created instance, or NULL on failure.
+ * @param[out] out_handle Handle to the created instance, or NULL on failure.
+ * @return ESP_OK if instance created successfully,
  */
-esp_linenoise_handle_t esp_linenoise_create_instance(const esp_linenoise_config_t *config);
+esp_err_t esp_linenoise_create_instance(const esp_linenoise_config_t *config, esp_linenoise_handle_t *out_handle);
 
 /**
  * @brief Destroys a linenoise instance and frees associated memory.
