@@ -33,6 +33,7 @@ body:
         - esp_daylight
         - esp_delta_ota
         - esp_encrypted_img
+        - esp_flash_dispatcher
         - esp_gcov
         - esp_isotp
         - esp_jpeg
