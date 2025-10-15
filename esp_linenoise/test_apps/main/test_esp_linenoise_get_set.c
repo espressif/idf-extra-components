@@ -14,7 +14,8 @@ static esp_linenoise_handle_t get_linenoise_instance_default_config(void)
 {
     esp_linenoise_config_t config;
     esp_linenoise_get_instance_config_default(&config);
-    esp_linenoise_handle_t h = esp_linenoise_create_instance(&config);
+    esp_linenoise_handle_t h;
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config, &h));
     TEST_ASSERT_NOT_NULL(h);
     return h;
 }

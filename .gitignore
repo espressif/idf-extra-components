@@ -13,3 +13,5 @@ warnings.txt
 doxygen_output/
 **/docs/book/
 docs_build_output/
+pytest-args.txt
+build_info*.json

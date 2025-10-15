@@ -3,5 +3,5 @@ esp_linenoise/test_apps:
     - if: IDF_TARGET == "linux"
       reason: "Sufficient to test on Linux target"
   disable:
-    - if: IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR <= 4
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 4
       reason: "those versions of esp-idf do not support eventfd for linux target"

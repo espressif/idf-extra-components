@@ -14,7 +14,8 @@
 ```c
 esp_linenoise_config_t config;
 esp_linenoise_get_instance_config_default(&config);
-esp_linenoise_handle_t handle = esp_linenoise_create_instance(&config);
+esp_linenoise_handle_t handle;
+const esp_err_t ret = esp_linenoise_create_instance(&config, &handle);
 const size_t buffer_size = 128;
 char buffer[128];
 const char *line = esp_linenoise_get_line(&handle, buffer, buffer_size);
