@@ -131,7 +131,8 @@ jobs:
           - "release-v5.5"
           - "latest"
     runs-on: ubuntu-22.04
-    container: espressif/idf:${{ matrix.idf_ver }}
+    container:
+      image: espressif/idf:${{ matrix.idf_ver }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -156,22 +157,16 @@ jobs:
         with:
           name: app_binaries_${{ matrix.idf_ver }}_linux
           path: |
-            */examples/*/build_linux*/bootloader/bootloader.bin
-            */examples/*/build_linux*/partition_table/partition-table.bin
-            */examples/*/build_linux*/*.bin
-            */examples/*/build_linux*/flasher_args.json
+            */examples/*/build_linux*/*.elf
             */examples/*/build_linux*/config/sdkconfig.json
-            */test_app*/**/build_linux*/bootloader/bootloader.bin
-            */test_app*/**/build_linux*/partition_table/partition-table.bin
-            */test_app*/**/build_linux*/*.bin
-            */test_app*/**/build_linux*/flasher_args.json
+            */test_app*/**/build_linux*/*.elf
             */test_app*/**/build_linux*/config/sdkconfig.json
             build_info*.json
 
   run-target:
     name: Run apps on target
     if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
-    needs: [build, build-linux]
+    needs: [build]
     strategy:
       fail-fast: false
       matrix:
@@ -213,11 +208,6 @@ jobs:
             target: ["esp32s3", "esp32c3"]
             runner-labels: [self-hosted, linux, docker]
             pytest_args: "--embedded-services idf,qemu"
-          - runs-on: "linux"
-            marker: "host_test"
-            target: "linux"
-            runner-labels: [self-hosted, linux, docker]
-            pytest_args: ""
     env:
       TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
       TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
@@ -253,10 +243,72 @@ jobs:
           name: ${{ env.TEST_RESULT_NAME }}
           path: ${{ env.TEST_RESULT_FILE }}
 
+  run-target-linux:
+    name: Run apps on Linux target
+    if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
+    needs: [build-linux]
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver:
+          # - "release-v5.1" # Not testing for 5.1 with linux target due to limited support
+          - "release-v5.2"
+          - "release-v5.3"
+          - "release-v5.4"
+          - "release-v5.5"
+          - "latest"
+        runner:
+          - runs-on: "linux"
+            marker: "host_test"
+            target: "linux"
+            pytest_args: "--embedded-services idf"
+        exclude:
+          - idf_ver: "release-v5.2" # Bug with Unity IDF test apps
+            runner:
+              target: "linux"
+    env:
+      TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
+      TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.14-slim-trixie # Newer Debian base to support newer glibc for Linux apps
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: app_binaries_${{ matrix.idf_ver }}_*
+          merge-multiple: true
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: |
+          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
+      - name: Make .elf files executable
+        if: matrix.runner.target == 'linux'
+        continue-on-error: true
+        shell: bash
+        run: |
+          chmod +x */examples/*/build_linux*/*.elf || echo "No example .elf files found"
+          shopt -s globstar
+          chmod +x */test_app*/**/build_linux*/*.elf || echo "No test_app .elf files found"
+      - name: Run apps
+        shell: bash
+        run: |
+          python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
+          cat pytest-args.txt
+          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }} ${{ matrix.runner.pytest_args }}
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.TEST_RESULT_NAME }}
+          path: ${{ env.TEST_RESULT_FILE }}
+
   publish-results:
     name: Publish Test results
     needs:
       - run-target
+      - run-target-linux
     if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0'
     runs-on: ubuntu-22.04
     steps:
