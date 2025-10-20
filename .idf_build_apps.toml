@@ -12,6 +12,7 @@ manifest_file = [
     "esp_flash_dispatcher/.build-test-rules.yml",
     "esp_gcov/.build-test-rules.yml",
     "esp_jpeg/.build-test-rules.yml",
+    "esp_linenoise/.build-test-rules.yml",
     "esp_serial_slave_link/.build-test-rules.yml",
     "expat/.build-test-rules.yml",
     "iqmath/.build-test-rules.yml",
