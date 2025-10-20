@@ -1,0 +1,5 @@
+# sdkconfig replacement configurations for deprecated options formatted as
+# CONFIG_DEPRECATED_OPTION CONFIG_NEW_OPTION
+
+CONFIG_ESP32_GCOV_ENABLE                                CONFIG_ESP_GCOV_ENABLE
+CONFIG_APPTRACE_GCOV_DUMP_TASK_STACK_SIZE               CONFIG_ESP_GCOV_DUMP_TASK_STACK_SIZE
