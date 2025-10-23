@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     name: Run clang-tidy
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: espressif/idf:latest
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
           ${IDF_PATH}/tools/idf_tools.py --non-interactive install esp-clang
       - name: Install clang-tidy-sarif
         run: |
-          curl -sSL https://github.com/psastras/sarif-rs/releases/download/clang-tidy-sarif-v0.3.3/clang-tidy-sarif-x86_64-unknown-linux-gnu -o clang-tidy-sarif
+          curl -sSL https://github.com/psastras/sarif-rs/releases/download/clang-tidy-sarif-v0.8.0/clang-tidy-sarif-x86_64-unknown-linux-gnu -o clang-tidy-sarif
           chmod +x clang-tidy-sarif
       - name: Install pyclang
         shell: bash
@@ -42,8 +42,18 @@ jobs:
       - name: Convert clang-tidy results into SARIF output
         run: |
           export PATH=$PWD:$PATH
-          ./clang-tidy-sarif -o results.sarif.raw warnings.txt
-          python3 $GITHUB_WORKSPACE/.github/filter_sarif.py -o results.sarif --include-prefix ${GITHUB_WORKSPACE}/ results.sarif.raw
+          ./clang-tidy-sarif -o results.sarif.raw -i warnings.txt
+          # Remove warnings which recommend using functions not supported in newlib.
+          python3 $GITHUB_WORKSPACE/.github/filter_sarif.py -o results.sarif \
+            --include-prefix ${GITHUB_WORKSPACE}/ \
+            --exclude-text-contains memset_s \
+            --exclude-text-contains memmove_s \
+            --exclude-text-contains memcpy_s \
+            --exclude-text-contains fprintf_s \
+            --exclude-text-contains snprintf_s \
+            --exclude-text-contains strncpy_s \
+            --exclude-text-contains sscanf_s \
+            results.sarif.raw
       - uses: actions/upload-artifact@v4
         with:
           path: |
