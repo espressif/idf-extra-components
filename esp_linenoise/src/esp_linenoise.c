@@ -1264,7 +1264,6 @@ esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_b
     esp_err_t ret_val = ESP_OK;
     if (count > 0) {
         esp_linenoise_sanitize(cmd_line_buffer);
-        count = strlen(cmd_line_buffer);
     } else if (count == 0 && config->allow_empty_line) {
         /* will return an empty (0-length) string */
     } else {
@@ -1395,6 +1394,8 @@ esp_err_t esp_linenoise_history_load(esp_linenoise_handle_t handle, const char *
         }
         const esp_err_t ret_val = esp_linenoise_history_add(handle, buf);
         if (ret_val != ESP_OK) {
+            free(buf);
+            fclose(fp);
             return ret_val;
         }
     }
