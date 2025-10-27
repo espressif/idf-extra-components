@@ -62,7 +62,6 @@ typedef struct esp_linenoise_state {
 } esp_linenoise_state_t;
 
 typedef struct esp_linenoise_instance {
-    esp_linenoise_handle_t self;
     esp_linenoise_config_t config;
     esp_linenoise_state_t state;
 } esp_linenoise_instance_t;
@@ -82,7 +81,6 @@ esp_linenoise_instance_t *esp_linenoise_create_instance_static(void)
     esp_linenoise_instance_t *instance = malloc(sizeof(esp_linenoise_instance_t));
     assert(instance != NULL);
 
-    instance->self = instance;
     esp_linenoise_get_instance_config_default(&instance->config);
 
     /* set the state part of the esp_linenoise_instance_t to 0 to init all values to 0 (or NULL) */
