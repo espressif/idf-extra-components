@@ -1158,7 +1158,7 @@ esp_err_t esp_linenoise_create_instance(const esp_linenoise_config_t *config, es
     }
     if ((instance->config.read_bytes_cb == NULL) ||
             (instance->config.read_bytes_cb == esp_linenoise_default_read_bytes)) {
-        /*  since we are using the default read function, make sure
+        /* since we are using the default read function, make sure
          * blocking read are set */
         int flags = fcntl(instance->config.in_fd, F_GETFL, 0);
         flags &= ~O_NONBLOCK;
@@ -1214,13 +1214,13 @@ esp_err_t esp_linenoise_delete_instance(esp_linenoise_handle_t handle)
 
     // delete the mutex in the state and close the eventfd
     // if it was created
-    if (esp_linenoise_remove_event_fd != NULL) {
+    if ((instance->config.write_bytes_cb == esp_linenoise_default_write_bytes) &&
+            (esp_linenoise_remove_event_fd != NULL)) {
         ret_val = esp_linenoise_remove_event_fd(instance);
         if (ret_val != ESP_OK) {
             return ret_val;
         }
     }
-
     // reset the memory
     memset(instance, 0x00, sizeof(esp_linenoise_instance_t));
 
@@ -1542,5 +1542,57 @@ esp_err_t esp_linenoise_get_max_cmd_line_length(esp_linenoise_handle_t handle, s
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
     *max_cmd_line_length = ((esp_linenoise_instance_t *)handle)->config.max_cmd_line_length;
+    return ESP_OK;
+}
+
+inline __attribute__((always_inline))
+esp_err_t esp_linenoise_get_out_fd(esp_linenoise_handle_t handle, int *fd)
+{
+    ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (fd == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *fd = handle->config.out_fd;
+    return ESP_OK;
+}
+
+inline __attribute__((always_inline))
+esp_err_t esp_linenoise_get_in_fd(esp_linenoise_handle_t handle, int *fd)
+{
+    ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (fd == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *fd = handle->config.in_fd;
+    return ESP_OK;
+}
+
+inline __attribute__((always_inline))
+esp_err_t esp_linenoise_get_read(esp_linenoise_handle_t handle, esp_linenoise_read_bytes_t *read_func)
+{
+    ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (read_func == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *read_func = handle->config.read_bytes_cb;
+    return ESP_OK;
+}
+
+inline __attribute__((always_inline))
+esp_err_t esp_linenoise_get_write(esp_linenoise_handle_t handle, esp_linenoise_write_bytes_t *write_func)
+{
+    ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (write_func == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *write_func = handle->config.write_bytes_cb;
     return ESP_OK;
 }
