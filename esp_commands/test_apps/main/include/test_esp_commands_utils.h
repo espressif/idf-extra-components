@@ -16,7 +16,7 @@ extern "C" {
 #define GET_STR(STR) #STR
 
 #define CREATE_CMD_FUNC(NAME) \
-    static int GET_NAME(NAME, _func)(void *ctx, const int out_fd, int argc, char **argv) { \
+    static int GET_NAME(NAME, _func)(void *ctx, esp_commands_exec_arg_t *cmd_args, int argc, char **argv) { \
         printf(GET_STR(NAME) GET_STR(_func)); \
         printf("\n"); \
         return 0; \

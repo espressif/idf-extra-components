@@ -14,7 +14,26 @@ extern "C" {
 #include "esp_err.h"
 
 #define ESP_COMMAND_STRINGIFY(name) #name
-#define ESP_COMMAND_
+
+/**
+ * @brief Function pointer type for writing bytes.
+ *
+ * @param fd File descriptor.
+ * @param buf Buffer containing bytes to write.
+ * @param count Number of bytes to write.
+ * @return Number of bytes written, or -1 on error.
+ */
+typedef ssize_t (*esp_commands_write_t)(int fd, const void *buf, size_t count);
+
+/**
+ * @brief Structure containing dynamic argument necessary for the\
+ * command callback to execute properly
+ */
+typedef struct esp_commands_exec_arg {
+    int out_fd; /*!< file descriptor that the command function has to use to output data */
+    esp_commands_write_t write_func; /*!< write function the command function has to use to output datga */
+    void *dynamic_ctx; /*!< dynamic context passed to the command function */
+} esp_commands_exec_arg_t;
 
 /**
  * @brief Console command main function type with user context
@@ -22,12 +41,12 @@ extern "C" {
  * This function type is used to implement a console command.
  *
  * @param context User-defined context passed at invocation
- * @param fd_out The file descriptor to use to output data
+ * @param cmd_arg Structure containing dynamic arguments necessary for the command
  * @param argc Number of arguments
  * @param argv Array of argc entries, each pointing to a null-terminated string argument
  * @return Return code of the console command; 0 indicates success
  */
-typedef int (*esp_command_func_t)(void *context, const int fd_out, int argc, char **argv);
+typedef int (*esp_command_func_t)(void *context, esp_commands_exec_arg_t *cmd_arg, int argc, char **argv);
 
 /**
  * @brief Callback to generate a command hint
@@ -54,7 +73,6 @@ typedef const char *(*esp_command_glossary_t)(void *context);
 /**
  * @brief Structure describing a console command
  *
- * @note Only one of `func` or `func_ctx` should be set.
  * @note The `group` field allows categorizing commands into groups,
  * which can simplify filtering or listing commands.
  */
@@ -123,20 +141,9 @@ DEFINE_FIELD_ACCESSOR(help)
 #define FIELD_ACCESSOR(NAME) get_##NAME
 
 /**
- * @brief Function pointer type for writing bytes.
- *
- * @param fd File descriptor.
- * @param buf Buffer containing bytes to write.
- * @param count Number of bytes to write.
- * @return Number of bytes written, or -1 on error.
- */
-typedef ssize_t (*esp_commands_write_t)(int fd, const void *buf, size_t count);
-
-/**
  * @brief Configuration parameters for esp_commands_manager initialization
  */
 typedef struct esp_commands_config {
-    esp_commands_write_t write_func;    /*!< Write function to call when executing a command */
     uint32_t heap_caps_used;            /*!< Set of heap capabilities to be used to perform internal allocations */
     size_t max_cmdline_length;          /*!< Maximum length of the command line buffer, in bytes */
     size_t max_cmdline_args;            /*!< Maximum number of command line arguments to parse */
@@ -217,7 +224,8 @@ esp_err_t esp_commands_unregister_cmd(const char *cmd_name);
  * @brief Execute a command line
  *
  * @param cmd_set Set of commands allowed to execute. If NULL, all registered commands are allowed
- * @param cmd_fd File descriptor used to output data
+ * @param cmd_arg Structure containing dynamic arguments necessary for the command
+ * callback to execute properly
  * @param cmd_line Command line string to execute
  * @param cmd_ret Return value from the command function. If -1, standard output will be used.
  * @return ESP_OK on success
@@ -225,7 +233,7 @@ esp_err_t esp_commands_unregister_cmd(const char *cmd_name);
  *         ESP_ERR_NOT_FOUND if command is not found in cmd_set
  *         ESP_ERR_NO_MEM if internal memory allocation fails
  */
-esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, const int cmd_fd, const char *cmdline, int *cmd_ret);
+esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, esp_commands_exec_arg_t *cmd_args, const char *cmdline, int *cmd_ret);
 
 /**
  * @brief Find a command by name within a specific command set.
