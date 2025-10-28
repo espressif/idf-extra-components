@@ -29,6 +29,31 @@ typedef struct esp_repl_instance {
     esp_repl_state_t state;
 } esp_repl_instance_t;
 
+#if CONFIG_ESP_REPL_HAS_QUIT_CMD
+#define _ESP_REPL_STRINGIFY(x) #x
+#define ESP_REPL_STRINGIFY(x) _ESP_REPL_STRINGIFY(x)
+
+#define ESP_REPL_QUIT_CMD quit
+#define ESP_REPL_QUIT_CMD_STR ESP_REPL_STRINGIFY(ESP_REPL_QUIT_CMD)
+#define ESP_REPL_QUIT_CMD_SIZE strlen(ESP_REPL_QUIT_CMD_STR)
+
+/* dummy command function callback to allow the registration for the quit command
+ * to succeed */
+static int esp_repl_quit_cmd(void *context, esp_commands_exec_arg_t *cmd_args, int argc, char **argv)
+{
+    return 0;
+}
+
+ESP_COMMAND_REGISTER(ESP_REPL_QUIT_CMD,
+                     "esp_repl",
+                     "This command will trigger the exit mechanism to exit from esp_repl() main loop",
+                     esp_repl_quit_cmd,
+                     NULL,
+                     NULL,
+                     NULL
+                    );
+#endif // CONFIG_ESP_REPL_HAS_QUIT_CMD
+
 #define ESP_REPL_CHECK_INSTANCE(handle) do {    \
         if(handle == NULL) {                    \
             return ESP_ERR_INVALID_ARG;         \
@@ -204,9 +229,35 @@ void esp_repl(esp_repl_handle_t handle)
             continue;
         }
 
+#if CONFIG_ESP_REPL_HAS_QUIT_CMD
+        /* evaluate the command name. make sure that the first argument of the cmd_line
+         * is ESP_REPL_QUIT_CMD_STR and the character following that is either a space
+         * or a null character */
+        if ((strncmp(ESP_REPL_QUIT_CMD_STR, cmd_line, ESP_REPL_QUIT_CMD_SIZE) == 0) &&
+                ((cmd_line[ESP_REPL_QUIT_CMD_SIZE] == ' ') || (cmd_line[ESP_REPL_QUIT_CMD_SIZE] == '\0'))) {
+            /* quit command received, call esp_repl_stop() */
+            if (esp_repl_stop(handle) == ESP_OK) {
+                /* if esp_repl_stop() was successful, retry the while condition.
+                 * the esp_repl state should have been changed which will force
+                 * the while to break */
+                continue;
+            }
+        }
+#endif // CONFIG_ESP_REPL_HAS_QUIT_CMD
+
         /* try to run the command */
         int cmd_func_ret;
-        const esp_err_t exec_ret = esp_commands_execute(c_set, -1, cmd_line, &cmd_func_ret);
+        esp_commands_exec_arg_t cmd_args;
+        esp_err_t get_ret = esp_linenoise_get_out_fd(handle->config.linenoise_handle, &(cmd_args.out_fd));
+        if (get_ret != ESP_OK) {
+            cmd_args.out_fd = STDOUT_FILENO;
+        }
+        get_ret = esp_linenoise_get_write(handle->config.linenoise_handle, &(cmd_args.write_func));
+        if (get_ret != ESP_OK) {
+            cmd_args.write_func = write;
+        }
+
+        const esp_err_t exec_ret = esp_commands_execute(c_set, &cmd_args, cmd_line, &cmd_func_ret);
 
         /* forward the raw command line to the post executor callback (e.g., save in history).
         * this callback is not necessary for the user to register, continue if it isn't */

@@ -2,7 +2,9 @@ version: "1.0.0"
 description: "esp_repl - Read Eval Print Loop component"
 url: https://github.com/espressif/idf-extra-components/tree/master/esp_repl
 dependencies:
-  espressif/esp_linenoise: '*'
+  SoucheSouche/esp_linenoise:
+    version: "*"
+    registry_url: https://components-staging.espressif.com
   SoucheSouche/esp_commands:
     version: "*"
     registry_url: https://components-staging.espressif.com

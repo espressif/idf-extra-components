@@ -71,13 +71,13 @@ static void test_send_characters(int socket_fd, const char *msg)
     TEST_ASSERT_EQUAL(msg_len, nwrite);
 }
 
-esp_err_t test_pre_executor(void *ctx, char *buf, const esp_err_t reader_ret_val)
+esp_err_t test_pre_executor(void *ctx, const char *buf, esp_err_t reader_ret_val)
 {
     s_pre_executor_nb_of_calls++;
     return ESP_OK;
 }
 
-esp_err_t test_post_executor(void *ctx, const char *buf, const esp_err_t executor_ret_val, const int cmd_ret_val)
+esp_err_t test_post_executor(void *ctx, const char *buf, esp_err_t executor_ret_val, int cmd_ret_val)
 {
     s_post_executor_nb_of_calls++;
     return ESP_OK;
@@ -222,14 +222,6 @@ TEST_CASE("esp_repl() loop calls all callbacks and exit on call to esp_repl_stop
     test_socket_teardown(s_socket_fd);
 }
 
-static int quit_command(void *context, const int fd_out, int argc, char **argv)
-{
-    esp_repl_handle_t repl_handle = (esp_repl_handle_t)context;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_repl_stop(repl_handle));
-
-    return 0;
-}
-
 TEST_CASE("esp_repl() exits when esp_repl_stop() called from the task running esp_repl()", "[esp_repl]")
 {
     /* create semaphores */
@@ -274,18 +266,6 @@ TEST_CASE("esp_repl() exits when esp_repl_stop() called from the task running es
     BaseType_t rc = xTaskCreate(repl_task, "repl_task", 4096, &args, 5, NULL);
     TEST_ASSERT_EQUAL(pdPASS, rc);
 
-    /* register a quit command to esp_commands */
-    esp_command_t quit_cmd = {
-        .name = "quit",
-        .group = "quit",
-        .help = "-",
-        .func = quit_command,
-        .func_ctx = repl_handle,
-        .hint_cb = NULL,
-        .glossary_cb = NULL
-    };
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_register_cmd(&quit_cmd));
-
     /* start repl */
     TEST_ASSERT_EQUAL(ESP_OK, esp_repl_start(repl_handle));
 
@@ -295,7 +275,7 @@ TEST_CASE("esp_repl() exits when esp_repl_stop() called from the task running es
     TEST_ASSERT_TRUE(xSemaphoreTake(start_sem, pdMS_TO_TICKS(2000)));
 
     /* send the quit command */
-    const char *quit_cmd_line = "quit\n";
+    const char *quit_cmd_line = "quit  \n";
     test_send_characters(s_socket_fd[1], quit_cmd_line);
 
     /* wait for the repl task to signal completion */
