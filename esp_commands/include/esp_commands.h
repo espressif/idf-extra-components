@@ -13,6 +13,9 @@ extern "C" {
 #include "esp_heap_caps.h"
 #include "esp_err.h"
 
+#define ESP_COMMAND_STRINGIFY(name) #name
+#define ESP_COMMAND_
+
 /**
  * @brief Console command main function type with user context
  *
@@ -182,7 +185,7 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config);
     /* Alignment attribute is required when building on linux target to prevent each input section */ \
     /* from inheriting its alignment from the object's file default one thus preventing gaps between */ \
     /* commands in the section. */ \
-    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands"), aligned(4))) = { \
+    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands" "." ESP_COMMAND_STRINGIFY(cmd_name)), aligned(4))) = { \
         .name = #cmd_name, \
         .group = #cmd_group, \
         .help = cmd_help, \
