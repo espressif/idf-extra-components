@@ -1,0 +1,10 @@
+esp_sysview/test_apps:
+  depends_components:
+    - esp_trace
+    - esp_driver_gptimer
+  disable:
+    - if: IDF_TARGET in ["esp32h21", "esp32h4"]
+      temporary: true
+      reason: not support yet # TODO: [ESP32H21] IDF-11539 [ESP32H4] IDF-12325
+    - if: IDF_VERSION_MAJOR < 6
+      reason: IDF version below v6.0 is not supported

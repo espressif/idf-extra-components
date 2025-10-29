@@ -44,6 +44,7 @@ jobs:
             esp_jpeg
             esp_schedule
             esp_serial_slave_link
+            esp_sysview
             expat
             fmt
             freetype

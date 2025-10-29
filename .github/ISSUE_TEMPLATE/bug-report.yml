@@ -40,6 +40,7 @@ body:
         - esp_lcd_qemu_rgb
         - esp_schedule
         - esp_serial_slave_link
+        - esp_sysview
         - expat
         - fmt
         - freetype
