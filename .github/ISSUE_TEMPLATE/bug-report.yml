@@ -42,6 +42,7 @@ body:
         - esp_schedule
         - esp_cli
         - esp_serial_slave_link
+        - esp_sysview
         - expat
         - fmt
         - freetype
