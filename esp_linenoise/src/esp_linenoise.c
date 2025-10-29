@@ -974,7 +974,7 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
 {
     esp_linenoise_config_t *config = &instance->config;
 
-    config->write_bytes_cb(instance->config.out_fd, config->prompt, sizeof(config->prompt));
+    config->write_bytes_cb(instance->config.out_fd, config->prompt, strlen(config->prompt));
 
     size_t count = 0;
     const int in_fd = instance->config.in_fd;
