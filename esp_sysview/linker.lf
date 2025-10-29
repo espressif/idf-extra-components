@@ -1,0 +1,11 @@
+[mapping:esp_sysview]
+archive: libesp_sysview.a
+entries:
+    # Place all the symbols in the IRAM to allow tracing when flash cache is disabled
+    SEGGER_SYSVIEW (noflash)
+    SEGGER_RTT_esp (noflash)
+    SEGGER_SYSVIEW_Config_FreeRTOS (noflash)
+    SEGGER_SYSVIEW_FreeRTOS (noflash)
+    adapter_encoder_sysview (noflash)
+    if HEAP_TRACING_TOHOST = y:
+        heap_trace_module (noflash)
