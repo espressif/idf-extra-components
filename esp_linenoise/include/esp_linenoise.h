@@ -307,6 +307,48 @@ esp_err_t esp_linenoise_set_max_cmd_line_length(esp_linenoise_handle_t handle, s
  */
 esp_err_t esp_linenoise_get_max_cmd_line_length(esp_linenoise_handle_t handle, size_t *max_cmd_line_length);
 
+/**
+ * @brief Return the output file descriptor used by esp_linenoise
+ *
+ * @param handle The esp_linenoise handle from which to get
+ * the file descriptor
+ * @param fd Return value containing the output file descriptor
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG otherwise
+ */
+esp_err_t esp_linenoise_get_out_fd(esp_linenoise_handle_t handle, int *fd);
+
+/**
+ * @brief Return the input file descriptor used by esp_linenoise
+ *
+ * @param handle The esp_linenoise handle from which to get
+ * the file descriptor
+ * @param fd Return value containing the input file descriptor
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG otherwise
+ */
+esp_err_t esp_linenoise_get_in_fd(esp_linenoise_handle_t handle, int *fd);
+
+/**
+ * @brief Return the read function used by linenoise
+ *
+ * @param handle The esp_linenoise handle from which to get
+ * the file descriptor
+ * @param read_func Return the read_func as set in the configuration structure
+ * of the given esp_linenoise instance
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG otherwise
+ */
+esp_err_t esp_linenoise_get_read(esp_linenoise_handle_t handle, esp_linenoise_read_bytes_t *read_func);
+
+/**
+ * @brief Return the write function used by linenoise
+ *
+ * @param handle The esp_linenoise handle from which to get
+ * the file descriptor
+ * @param write_func Return the write_func as set in the configuration structure
+ * of the given esp_linenoise instance
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG otherwise
+ */
+esp_err_t esp_linenoise_get_write(esp_linenoise_handle_t handle, esp_linenoise_write_bytes_t *write_func);
+
 #ifdef __cplusplus
 }
 #endif
