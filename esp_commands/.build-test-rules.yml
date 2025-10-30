@@ -1,4 +1,6 @@
 esp_commands/test_apps:
   enable:
     - if: (IDF_TARGET == "linux") and (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3)
-      reason: "Sufficient to test on Linux target"
+      reason: "Test the main logic of the component (not target dependent)"
+    - if: IDF_TARGET == "esp32"
+      reason: "Test the placement of statically registered commands in dedicated flash section"

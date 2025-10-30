@@ -13,7 +13,7 @@ extern "C" {
 #include "esp_heap_caps.h"
 #include "esp_err.h"
 
-#define ESP_COMMAND_STRINGIFY(name) #name
+#define _STRINGIFY(name) #name
 
 /**
  * @brief Function pointer type for writing bytes.
@@ -187,20 +187,23 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config);
  * @brief macro registering a command and placing it in a specific section of flash.rodata
  * @note see the linker.lf file for more information concerning the section characteristics
  */
-#define ESP_COMMAND_REGISTER(cmd_name, cmd_group, cmd_help, cmd_func, cmd_func_ctx, cmd_hint_cb, cmd_glossary_cb) \
+#define _ESP_REPL_STRINGIFY(x) #x
+#define ESP_REPL_STRINGIFY(x) _ESP_REPL_STRINGIFY(x)
+
+#define _ESP_COMMAND_REGISTER(cmd_name, cmd_group, cmd_help, cmd_func, cmd_func_ctx, cmd_hint_cb, cmd_glossary_cb) \
     static_assert((cmd_func) != NULL); \
-    /* Alignment attribute is required when building on linux target to prevent each input section */ \
-    /* from inheriting its alignment from the object's file default one thus preventing gaps between */ \
-    /* commands in the section. */ \
-    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands" "." ESP_COMMAND_STRINGIFY(cmd_name)), aligned(4))) = { \
-        .name = #cmd_name, \
-        .group = #cmd_group, \
+    static const esp_command_t cmd_name __attribute__((used, section(".esp_commands" "." _ESP_REPL_STRINGIFY(cmd_name)), aligned(4))) = { \
+        .name = _ESP_REPL_STRINGIFY(cmd_name), \
+        .group = _ESP_REPL_STRINGIFY(cmd_group), \
         .help = cmd_help, \
         .func = cmd_func, \
         .func_ctx = cmd_func_ctx, \
         .hint_cb = cmd_hint_cb, \
         .glossary_cb = cmd_glossary_cb \
     };
+
+#define ESP_COMMAND_REGISTER(cmd_name, cmd_group, cmd_help, cmd_func, cmd_func_ctx, cmd_hint_cb, cmd_glossary_cb) \
+    _ESP_COMMAND_REGISTER(cmd_name, cmd_group, cmd_help, cmd_func, cmd_func_ctx, cmd_hint_cb, cmd_glossary_cb)
 
 /**
  * @brief Register a command
