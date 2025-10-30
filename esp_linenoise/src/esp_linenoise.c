@@ -1278,6 +1278,10 @@ esp_err_t esp_linenoise_get_line(esp_linenoise_handle_t handle, char *cmd_line_b
 
 void esp_linenoise_add_completion(void *ctx, const char *str)
 {
+    if ((ctx == NULL) || str == NULL) {
+        return;
+    }
+
     esp_linenoise_completions_t *lc = (esp_linenoise_completions_t *)ctx;
 
     size_t len = strlen(str);
@@ -1300,6 +1304,10 @@ void esp_linenoise_add_completion(void *ctx, const char *str)
 esp_err_t esp_linenoise_history_add(esp_linenoise_handle_t handle, const char *line)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (line == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     esp_linenoise_config_t *config = &((esp_linenoise_instance_t *)handle)->config;
     esp_linenoise_state_t *state = &((esp_linenoise_instance_t *)handle)->state;
@@ -1345,8 +1353,11 @@ esp_err_t esp_linenoise_history_save(esp_linenoise_handle_t handle, const char *
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
 
-    esp_linenoise_instance_t *instance = (esp_linenoise_instance_t *)handle;
+    if (filename == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
+    esp_linenoise_instance_t *instance = (esp_linenoise_instance_t *)handle;
     FILE *fp;
     int j;
 
@@ -1366,6 +1377,10 @@ esp_err_t esp_linenoise_history_save(esp_linenoise_handle_t handle, const char *
 esp_err_t esp_linenoise_history_load(esp_linenoise_handle_t handle, const char *filename)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (filename == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     esp_linenoise_instance_t *instance = (esp_linenoise_instance_t *)handle;
 
@@ -1495,6 +1510,11 @@ esp_err_t esp_linenoise_set_empty_line(esp_linenoise_handle_t handle, bool empty
 esp_err_t esp_linenoise_is_empty_line(esp_linenoise_handle_t handle, bool *is_empty_line)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (is_empty_line == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     *is_empty_line = ((esp_linenoise_instance_t *)handle)->config.allow_empty_line;
     return ESP_OK;
 }
@@ -1509,6 +1529,11 @@ esp_err_t esp_linenoise_set_multi_line(esp_linenoise_handle_t handle, bool multi
 esp_err_t esp_linenoise_is_multi_line(esp_linenoise_handle_t handle, bool *is_multi_line)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (is_multi_line == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     *is_multi_line = ((esp_linenoise_instance_t *)handle)->config.allow_multi_line;
     return ESP_OK;
 }
@@ -1523,6 +1548,11 @@ esp_err_t esp_linenoise_set_dumb_mode(esp_linenoise_handle_t handle, bool dumb_m
 esp_err_t esp_linenoise_is_dumb_mode(esp_linenoise_handle_t handle, bool *is_dumb_mode)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (is_dumb_mode == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     *is_dumb_mode = ((esp_linenoise_instance_t *)handle)->config.allow_dumb_mode;
     return ESP_OK;
 }
@@ -1541,11 +1571,15 @@ esp_err_t esp_linenoise_set_max_cmd_line_length(esp_linenoise_handle_t handle, s
 esp_err_t esp_linenoise_get_max_cmd_line_length(esp_linenoise_handle_t handle, size_t *max_cmd_line_length)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (max_cmd_line_length == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     *max_cmd_line_length = ((esp_linenoise_instance_t *)handle)->config.max_cmd_line_length;
     return ESP_OK;
 }
 
-inline __attribute__((always_inline))
 esp_err_t esp_linenoise_get_out_fd(esp_linenoise_handle_t handle, int *fd)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
@@ -1558,7 +1592,6 @@ esp_err_t esp_linenoise_get_out_fd(esp_linenoise_handle_t handle, int *fd)
     return ESP_OK;
 }
 
-inline __attribute__((always_inline))
 esp_err_t esp_linenoise_get_in_fd(esp_linenoise_handle_t handle, int *fd)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
@@ -1571,7 +1604,6 @@ esp_err_t esp_linenoise_get_in_fd(esp_linenoise_handle_t handle, int *fd)
     return ESP_OK;
 }
 
-inline __attribute__((always_inline))
 esp_err_t esp_linenoise_get_read(esp_linenoise_handle_t handle, esp_linenoise_read_bytes_t *read_func)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
@@ -1584,7 +1616,6 @@ esp_err_t esp_linenoise_get_read(esp_linenoise_handle_t handle, esp_linenoise_re
     return ESP_OK;
 }
 
-inline __attribute__((always_inline))
 esp_err_t esp_linenoise_get_write(esp_linenoise_handle_t handle, esp_linenoise_write_bytes_t *write_func)
 {
     ESP_LINENOISE_CHECK_INSTANCE(handle);
