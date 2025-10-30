@@ -536,7 +536,7 @@ static void print_arg_help(esp_commands_exec_arg_t *cmd_args, esp_command_t *it)
     /* First line: command name and hint
      * Pad all the hints to the same column
      */
-    FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "%-s",  it->name);
+    FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "%s",  it->name);
 
     const char *hint = NULL;
     if (it->hint_cb) {
@@ -544,18 +544,18 @@ static void print_arg_help(esp_commands_exec_arg_t *cmd_args, esp_command_t *it)
     }
 
     if (hint) {
-        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "%s\n", it->hint_cb(it->func_ctx));
+        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, " %s\n", it->hint_cb(it->func_ctx));
     } else {
-        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "\n");
+        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, " -\n");
     }
 
     /* Second line: print help */
     /* TODO: replace the simple print with a function that
      * replaces arg_print_formatted */
     if (it->help) {
-        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "  %s\n", it->help);
+        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, " %s\n", it->help);
     } else {
-        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "  -\n");
+        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, " -\n");
     }
 
     /* Third line: print the glossary*/
@@ -567,7 +567,7 @@ static void print_arg_help(esp_commands_exec_arg_t *cmd_args, esp_command_t *it)
     if (glossary) {
         FDPRINTF(cmd_args->out_fd, cmd_args->write_func, " %s\n", it->glossary_cb(it->func_ctx));
     } else {
-        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "  -\n");
+        FDPRINTF(cmd_args->out_fd, cmd_args->write_func, " -\n");
     }
 
     FDPRINTF(cmd_args->out_fd, cmd_args->write_func, "\n");

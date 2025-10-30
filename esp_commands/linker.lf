@@ -1,6 +1,6 @@
 [sections:esp_commands]
 entries:
-    .esp_command+
+    .esp_commands+
 
 [scheme:esp_commands_default]
 entries:
