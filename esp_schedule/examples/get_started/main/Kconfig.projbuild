@@ -1,0 +1,54 @@
+menu "esp_schedule Example Configuration"
+
+    choice ESP_SCHEDULE_EXAMPLE_PROV_SCHEME
+        prompt "Network Provisioning Scheme"
+        default ESP_SCHEDULE_EXAMPLE_PROV_SOFTAP
+        help
+            Select the network provisioning scheme for the ESP Schedule example.
+            For BLE provisioning, please enable BT_ENABLED and BT_NIMBLE_ENABLED.
+
+        config ESP_SCHEDULE_EXAMPLE_PROV_BLE
+            bool "BLE Provisioning"
+            depends on BT_ENABLED && BT_NIMBLE_ENABLED
+            help
+                Use Bluetooth Low Energy (BLE) for network provisioning.
+                Requires a BLE-capable device and provisioning app.
+
+        config ESP_SCHEDULE_EXAMPLE_PROV_SOFTAP
+            bool "SoftAP Provisioning"
+            help
+                Use WiFi Soft Access Point for network provisioning.
+                Creates a WiFi hotspot that users can connect to for provisioning.
+
+    endchoice
+
+    choice ESP_SCHEDULE_EXAMPLE_PROV_SECURITY_VERSION
+        prompt "Provisioning security version"
+        default ESP_SCHEDULE_EXAMPLE_PROV_SECURITY_VERSION_1 if ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_1
+        default ESP_SCHEDULE_EXAMPLE_PROV_SECURITY_VERSION_2 if ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_2
+        help
+            Select the network provisioning security version.
+
+        config ESP_SCHEDULE_EXAMPLE_PROV_SECURITY_VERSION_0
+            bool "Security Version 0"
+            depends on ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_0
+            help
+                Security version 0. No authentication is needed; plaintext communication.
+
+        config ESP_SCHEDULE_EXAMPLE_PROV_SECURITY_VERSION_1
+            bool "Security Version 1"
+            depends on ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_1
+            help
+                Security version 1. The PoP is set to '12345678'.
+                In production, please use a randomly generated PoP in a factory partition.
+
+        config ESP_SCHEDULE_EXAMPLE_PROV_SECURITY_VERSION_2
+            bool "Security Version 2"
+            depends on ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_2
+            help
+                Security version 2. Username: 'wifiprov', Password: 'abcd1234'
+                In production, please use a randomly generated username and password in a factory partition.
+
+    endchoice
+
+endmenu
