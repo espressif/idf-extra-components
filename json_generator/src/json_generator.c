@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include<inttypes.h>
+#include <inttypes.h>
 
 #include <json_generator.h>
 

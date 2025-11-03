@@ -298,7 +298,7 @@ int json_gen_obj_set_bool(json_gen_str_t *jstr, const char *name, bool val);
 int json_gen_obj_set_int(json_gen_str_t *jstr, const char *name, int val);
 
 /** Add a 64 bit integer element to an object
-
+ *
  * \note This must be called between json_gen_start_object()/json_gen_push_object()
  * and json_gen_end_object()/json_gen_pop_object()
  *
@@ -403,7 +403,7 @@ int json_gen_arr_set_bool(json_gen_str_t *jstr, bool val);
 int json_gen_arr_set_int(json_gen_str_t *jstr, int val);
 
 /** Add a 64 bit integer element to an array
-
+ *
  * \note This must be called between json_gen_start_array()/json_gen_push_array()
  * and json_gen_end_array()/json_gen_pop_array()
  *
