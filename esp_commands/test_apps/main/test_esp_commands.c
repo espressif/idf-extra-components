@@ -41,35 +41,35 @@ TEST_CASE("help command - called without command set", "[esp_commands]")
 
     /* call esp_commands_execute to run help command with verbosity 0 */
     int cmd_ret = -1;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(NULL, NULL, "help -v 0", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help -v 0", &cmd_ret, NULL, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
 
     /* call esp_commands_execute to run help command with verbosity 1 */
     cmd_ret = -1;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(NULL, NULL, "help -v 1", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help -v 1", &cmd_ret, NULL, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
 
     /* call esp_commands_execute to run help command on a registered command */
     cmd_ret = -1;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(NULL, NULL, "help cmd_a -v 0", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help cmd_a -v 0", &cmd_ret, NULL, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(NULL, NULL, "help cmd_a -v 1", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help cmd_a -v 1", &cmd_ret, NULL, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
 
     /* call esp_commands_execute to run help command on an unregistered command */
     cmd_ret = -1;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(NULL, NULL, "help cmd_w", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help cmd_w", &cmd_ret, NULL, NULL));
     TEST_ASSERT_EQUAL(1, cmd_ret);
 
     /* call esp_commands_execute to run help command on a registered command with wrong
      * verbosity syntax */
     cmd_ret = -1;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(NULL, NULL, "help cmd_a -v=1", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help cmd_a -v=1", &cmd_ret, NULL, NULL));
     TEST_ASSERT_EQUAL(1, cmd_ret);
 
     /* call esp_commands_execute to run help command with too many command names */
     cmd_ret = -1;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(NULL, NULL, "help cmd_a cmd_b -v 1", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help cmd_a cmd_b -v 1", &cmd_ret, NULL, NULL));
     TEST_ASSERT_EQUAL(1, cmd_ret);
 }
 
@@ -115,7 +115,7 @@ static void run_cmd_test(esp_command_set_handle_t handle, const char **cmd_list,
     for (size_t i = 0; i < nb_cmds; i++) {
         int cmd_ret = -1;
         esp_err_t expected = expected_ret_val[i] == 0 ? ESP_OK : ESP_ERR_NOT_FOUND;
-        TEST_ASSERT_EQUAL(expected, esp_commands_execute(handle, NULL, cmd_list[i], &cmd_ret));
+        TEST_ASSERT_EQUAL(expected, esp_commands_execute(cmd_list[i], &cmd_ret, handle, NULL));
         TEST_ASSERT_EQUAL(expected_ret_val[i], cmd_ret);
     }
 }
@@ -149,9 +149,9 @@ TEST_CASE("test static command set", "[esp_commands]")
 
     /* test help command with set of static commands */
     int cmd_ret;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(handle_set_a, NULL, "help", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help", &cmd_ret, handle_set_a, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(handle_set_b, NULL, "help", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help", &cmd_ret, handle_set_b, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
 
     /* destroy sets */
@@ -236,9 +236,9 @@ TEST_CASE("test dynamic command set", "[esp_commands]")
 
     /* test help command with set of dynamic commands */
     int cmd_ret;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(handle_set_1, NULL, "help", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help", &cmd_ret, handle_set_1, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(handle_set_2, NULL, "help", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help", &cmd_ret, handle_set_2, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
 
 
@@ -298,7 +298,7 @@ TEST_CASE("test static and dynamic command sets", "[esp_commands]")
 
     /* test help command with set of dynamic commands */
     int cmd_ret;
-    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute(handle_combined_set, NULL, "help", &cmd_ret));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_commands_execute("help", &cmd_ret, handle_combined_set, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
 
     // --- cleanup ---

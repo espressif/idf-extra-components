@@ -22,10 +22,16 @@ It allows applications to define console-like commands with metadata (help text,
 
 ## Configuration
 
-The component is initialized with a configuration struct:
+By default, the component is initialized with a default configuration. It is however possible for the user to update this configuration with the call of the following API:
 
 ```c
-esp_commands_config_t config = ESP_COMMANDS_CONFIG_DEFAULT();
+esp_commands_config_t config = {
+    .heap_caps_used = <user specific value>,
+    .max_cmdline_length = <user specific value>,
+    .max_cmdline_args = <user specific value>,
+    .hint_color = <user specific value>,
+    .hint_bold = <user specific value>
+};
 esp_commands_update_config(&config);
 ```
 
@@ -60,7 +66,7 @@ typedef struct esp_command {
 Use the `ESP_COMMAND_REGISTER` macro to register a command at compile time:
 
 ```c
-static int my_cmd(void *ctx, int argc, char **argv) {
+static int my_cmd(void *context, esp_commands_exec_arg_t *cmd_arg, int argc, char **argv) {
     printf("Hello from my_cmd!\n");
     return 0;
 }
@@ -68,7 +74,7 @@ static int my_cmd(void *ctx, int argc, char **argv) {
 ESP_COMMAND_REGISTER(my_cmd, tools, "Prints hello", my_cmd, NULL, NULL, NULL);
 ```
 
-This places the command into the `.esp_commands` section.
+This places the command into the `.esp_commands` section in flash.
 
 ### Dynamic Registration
 
@@ -76,10 +82,10 @@ Commands can also be registered/unregistered at runtime:
 
 ```c
 esp_command_t cmd = {
-    .name = "echo",
-    .group = "utils",
-    .help = "Echoes arguments back",
-    .func = echo_func,
+    .name = "my_cmd",
+    .group = "tools",
+    .help = "Prints hello",
+    .func = my_cmd,
 };
 
 esp_commands_register_cmd(&cmd);
@@ -94,7 +100,7 @@ Commands can be executed from a command line string:
 
 ```c
 int cmd_ret;
-esp_err_t ret = esp_commands_execute(NULL, STDOUT_FILENO, "my_cmd arg1 arg2", &cmd_ret);
+esp_err_t ret = esp_commands_execute("my_cmd arg1 arg2", &cmd_ret, NULL, STDOUT_FILENO);
 ```
 
 - `cmd_set`: Limits execution to a set of commands (or `NULL` for all commands).
@@ -129,7 +135,7 @@ const char *cmd_names[] = {"echo", "my_cmd"};
 esp_command_set_handle_t set =
     ESP_COMMANDS_CREATE_CMD_SET(cmd_names, FIELD_ACCESSOR(name));
 
-esp_commands_execute(set, "echo Hello!", NULL);
+esp_commands_execute("my_cmd", NULL, set, NULL);
 esp_commands_destroy_cmd_set(&set);
 ```
 
@@ -156,12 +162,18 @@ ESP_COMMAND_REGISTER(hello_cmd, demo, "Prints a hello message", hello_cmd, NULL,
 
 void app_main(void) {
     // Update configuration (optional)
-    esp_commands_config_t config = ESP_COMMANDS_CONFIG_DEFAULT();
+    esp_commands_config_t config = {
+        .heap_caps_used = MALLOC_CAP_INTERNAL,
+        .max_cmdline_length = 64,
+        .max_cmdline_args = 4,
+        .hint_color = 31, // Red foreground
+        .hint_bold = true
+    };
     esp_commands_update_config(&config);
 
     // Execute command
     int ret_val;
-    esp_err_t ret = esp_commands_execute(NULL, "hello_cmd", &ret_val);
+    esp_err_t ret = esp_commands_execute("hello_cmd", &ret_val, NULL, NULL);
     if (ret == ESP_OK) {
         printf("Command executed successfully, return value: %d\n", ret_val);
     } else {

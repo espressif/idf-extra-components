@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_heap_caps.h"
 #include "esp_commands.h"
 #include "esp_commands_internal.h"
@@ -14,6 +16,10 @@
 
 /* Default foreground color */
 #define ANSI_COLOR_DEFAULT 39
+
+/* static mutex used to protect access to the static configuration */
+static SemaphoreHandle_t s_esp_commands_mutex = NULL;
+static StaticSemaphore_t s_esp_commands_mutex_buf;
 
 /* Pointers to the first and last command in the dedicated section.
  * See linker.lf for detailed information about the section */
@@ -54,6 +60,26 @@ static esp_commands_config_t s_config = {
  * in the .esp_commands section
  */
 #define ESP_COMMANDS_COUNT (size_t)(&_esp_commands_end - &_esp_commands_start)
+
+/**
+ * @brief Lock access to the s_config static structure
+ */
+static void esp_commands_lock(void)
+{
+    if (s_esp_commands_mutex == NULL) {
+        s_esp_commands_mutex = xSemaphoreCreateMutexStatic(&s_esp_commands_mutex_buf);
+        assert(s_esp_commands_mutex != NULL);
+    }
+    xSemaphoreTake(s_esp_commands_mutex, portMAX_DELAY);
+}
+
+/**
+ * @brief Unlock access to the s_config static structure
+ */
+static void esp_commands_unlock(void)
+{
+    xSemaphoreGive(s_esp_commands_mutex);
+}
 
 /**
  * @brief check the location of the pointer to esp_command_t
@@ -145,7 +171,11 @@ bool compare_command_name(void *ctx, esp_command_t *cmd)
 
 void *esp_commands_malloc(const size_t malloc_size)
 {
-    return heap_caps_malloc(malloc_size, s_config.heap_caps_used);
+    esp_commands_lock();
+    const uint32_t caps = s_config.heap_caps_used;
+    esp_commands_unlock();
+
+    return heap_caps_malloc(malloc_size, caps);
 }
 
 esp_err_t esp_commands_update_config(const esp_commands_config_t *config)
@@ -156,6 +186,7 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config)
         return ESP_ERR_INVALID_ARG;
     }
 
+    esp_commands_lock();
     memcpy(&s_config, config, sizeof(s_config));
 
     /* if the heap_caps_used field is set to 0, set
@@ -163,6 +194,7 @@ esp_err_t esp_commands_update_config(const esp_commands_config_t *config)
     if (s_config.heap_caps_used == 0) {
         s_config.heap_caps_used = MALLOC_CAP_DEFAULT;
     }
+    esp_commands_unlock();
 
     return ESP_OK;
 }
@@ -214,55 +246,70 @@ esp_err_t esp_commands_unregister_cmd(const char *cmd_name)
     }
 }
 
-esp_err_t esp_commands_execute(esp_command_set_handle_t cmd_set, esp_commands_exec_arg_t *cmd_args, const char *cmdline, int *cmd_ret)
+esp_err_t esp_commands_execute(const char *cmdline, int *cmd_ret, esp_command_set_handle_t cmd_set, esp_commands_exec_arg_t *cmd_args)
 {
-    char **argv = (char **) calloc(s_config.max_cmdline_args, sizeof(char *));
-    if (argv == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-    char *tmp_line_buf = (char *) calloc(1, s_config.max_cmdline_length);
-    if (!tmp_line_buf) {
-        free(argv);
-        return ESP_ERR_NO_MEM;
-    }
+    esp_commands_lock();
+    const size_t copy_max_cmdline_args = s_config.max_cmdline_args;
+    const size_t opy_max_cmdline_length = s_config.max_cmdline_length;
+    esp_commands_unlock();
 
-    strlcpy(tmp_line_buf, cmdline, s_config.max_cmdline_length);
+    /* the life time of those variables is not exceeding the scope of this function. Use the stack. */
+    char *argv[copy_max_cmdline_args];
+    memset(argv, 0x00, sizeof(argv));
+    char tmp_line_buf[opy_max_cmdline_length];
+    memset(tmp_line_buf, 0x00, sizeof(tmp_line_buf));
 
-    size_t argc = esp_commands_split_argv(tmp_line_buf, argv, s_config.max_cmdline_args);
+    /* copy the raw command line into the temp buffer */
+    strlcpy(tmp_line_buf, cmdline, opy_max_cmdline_length);
+
+    /* parse and split the raw command line */
+    size_t argc = esp_commands_split_argv(tmp_line_buf, argv, copy_max_cmdline_args);
+
     if (argc == 0) {
-        free(argv);
-        free(tmp_line_buf);
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* help should always be executed, if cmd_sets is set or not */
+    /* try to find the command from the first argument in the command line */
     const esp_command_t *cmd = NULL;
+    esp_command_sets_t *temp_set = cmd_set;
     bool is_cmd_help = false;
     if (strcmp("help", argv[0]) == 0) {
-        /* find the help command in the list in .esp_commands section */
-        cmd = esp_commands_find_command((esp_command_sets_t *)NULL, "help");
+        /* set the set to NULL because the help is not in the set passed by the user
+         * since this command is registered by esp_commands itself */
+        temp_set = (esp_command_sets_t *)NULL;
+
+        /* keep in mind that the command being executed is the help. This is needed
+         * when calling the help command function, to pass a specific dynamic context */
         is_cmd_help = true;
-    } else {
-        cmd = esp_commands_find_command(cmd_set, argv[0]);
     }
+    cmd = esp_commands_find_command(temp_set, argv[0]);
 
     if (cmd == NULL) {
-        free(argv);
-        free(tmp_line_buf);
         return ESP_ERR_NOT_FOUND;
     }
 
     if (cmd->func) {
-        esp_commands_exec_arg_t help_args;
         if (is_cmd_help) {
-            help_args.out_fd = (cmd_args && cmd_args->out_fd) ? cmd_args->out_fd : STDOUT_FILENO;
+            esp_commands_exec_arg_t help_args;
+
+            /* reuse the out_fd and write_func received as parameter by esp_commands_execute
+             * to allow the help command function to print information on the correct IO. Use
+             * default values in case the parameters provided are not set */
+            help_args.out_fd = (cmd_args && cmd_args->out_fd != -1) ? cmd_args->out_fd : STDOUT_FILENO;
             help_args.write_func = (cmd_args && cmd_args->write_func) ? cmd_args->write_func : write;
+
+            /* the help command needs the cmd_set to be able to only print the help for commands
+             * in the user set of commands */
             help_args.dynamic_ctx = cmd_set;
+
+            /* call the help command function with the specific dynamic context */
+            *cmd_ret = (*cmd->func)(cmd->func_ctx, &help_args, argc, argv);
+        } else {
+            /* regular command function has to be called, just passed the cmd_args as provided
+             * to the esp_commands_execute function */
+            *cmd_ret = (*cmd->func)(cmd->func_ctx, cmd_args, argc, argv);
         }
-        *cmd_ret = (*cmd->func)(cmd->func_ctx, &help_args, argc, argv);
     }
-    free(argv);
-    free(tmp_line_buf);
     return ESP_OK;
 }
 
@@ -322,7 +369,7 @@ esp_err_t update_cmd_set_with_temp_info(esp_command_set_t *cmd_set, size_t cmd_c
         cmd_set->cmd_set_size = 0;
     } else {
         const size_t alloc_cmd_ptrs_size = sizeof(esp_command_t *) * cmd_count;
-        cmd_set->cmd_ptr_set = heap_caps_malloc(alloc_cmd_ptrs_size, s_config.heap_caps_used);
+        cmd_set->cmd_ptr_set = esp_commands_malloc(alloc_cmd_ptrs_size);
         if (!cmd_set->cmd_ptr_set) {
             return ESP_ERR_NO_MEM;
         } else {
@@ -340,7 +387,7 @@ esp_command_set_handle_t esp_commands_create_cmd_set(const char **cmd_set, const
         return NULL;
     }
 
-    esp_command_sets_t *cmd_ptr_sets = heap_caps_malloc(sizeof(esp_command_sets_t), s_config.heap_caps_used);
+    esp_command_sets_t *cmd_ptr_sets = esp_commands_malloc(sizeof(esp_command_sets_t));
     if (!cmd_ptr_sets) {
         return NULL;
     }
@@ -398,7 +445,7 @@ esp_command_set_handle_t esp_commands_concat_cmd_set(esp_command_set_handle_t cm
     /* Reaching this point, both cmd_set_a and cmd_set_b are set.
      * Create a new cmd_set that can host the items from both sets,
      * assign the items to the new set and free the input sets */
-    esp_command_sets_t *concat_cmd_sets = heap_caps_malloc(sizeof(esp_command_sets_t), s_config.heap_caps_used);
+    esp_command_sets_t *concat_cmd_sets = esp_commands_malloc(sizeof(esp_command_sets_t));
     if (!concat_cmd_sets) {
         return NULL;
     }
@@ -496,8 +543,10 @@ void esp_commands_get_completion(esp_command_set_handle_t cmd_set, const char *b
 
 const char *esp_commands_get_hint(esp_command_set_handle_t cmd_set, const char *buf, int *color, bool *bold)
 {
+    esp_commands_lock();
     *color = s_config.hint_color;
     *bold = s_config.hint_bold;
+    esp_commands_unlock();
 
     esp_command_t *cmd = esp_commands_find_command(cmd_set, buf);
     if (cmd && cmd->hint_cb != NULL) {
@@ -522,7 +571,9 @@ const char *esp_commands_get_glossary(esp_command_set_handle_t cmd_set, const ch
 /* -------------------------------------------------------------- */
 
 #define FDPRINTF(fd, write, fmt, ...) do {                                         \
+    esp_commands_lock();                                                           \
     char _buf[s_config.max_cmdline_length];                                        \
+    esp_commands_unlock();                                                         \
     int _len = snprintf(_buf, sizeof(_buf), fmt, ##__VA_ARGS__);                   \
     if (_len > 0) {                                                                \
         ssize_t _ignored __attribute__((unused));                                  \

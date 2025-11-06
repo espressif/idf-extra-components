@@ -8,6 +8,8 @@
 #include <ctype.h>
 #include <string.h>
 #include <stddef.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_commands_internal.h"
 #include "esp_dynamic_commands.h"
 #include "esp_commands.h"
@@ -17,27 +19,27 @@
 
 static esp_command_internal_ll_t s_dynamic_cmd_list = SLIST_HEAD_INITIALIZER(esp_command_internal);
 static size_t s_number_of_registered_commands = 0;
-static SemaphoreHandle_t s_esp_commands_mutex = NULL;
-static StaticSemaphore_t s_esp_commands_mutex_buf;
+static SemaphoreHandle_t s_esp_commands_dyn_mutex = NULL;
+static StaticSemaphore_t s_esp_commands_dyn_mutex_buf;
 
 void esp_dynamic_commands_lock(void)
 {
     /* check if the mutex needs to be initialized and initialized it only
      * is requested in by the state of the create parameter */
-    if (s_esp_commands_mutex == NULL) {
-        s_esp_commands_mutex = xSemaphoreCreateMutexStatic(&s_esp_commands_mutex_buf);
-        assert(s_esp_commands_mutex != NULL);
+    if (s_esp_commands_dyn_mutex == NULL) {
+        s_esp_commands_dyn_mutex = xSemaphoreCreateMutexStatic(&s_esp_commands_dyn_mutex_buf);
+        assert(s_esp_commands_dyn_mutex != NULL);
     }
 
-    xSemaphoreTake(s_esp_commands_mutex, portMAX_DELAY);
+    xSemaphoreTake(s_esp_commands_dyn_mutex, portMAX_DELAY);
 }
 
 void esp_dynamic_commands_unlock(void)
 {
-    if (s_esp_commands_mutex == NULL) {
+    if (s_esp_commands_dyn_mutex == NULL) {
         return;
     }
-    xSemaphoreGive(s_esp_commands_mutex);
+    xSemaphoreGive(s_esp_commands_dyn_mutex);
 }
 
 const esp_command_internal_ll_t *esp_dynamic_commands_get_list(void)
