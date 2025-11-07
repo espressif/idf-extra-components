@@ -1,5 +1,21 @@
 menu "ESP Schedule Configuration"
 
+    config ESP_SCHEDULE_ENABLE_NVS
+        bool "Enable NVS Persistence"
+        default y
+        help
+            Enable NVS (Non-Volatile Storage) persistence for schedules.
+
+            This allows schedules to be saved to flash memory and automatically
+            restored after device reboot or power cycle.
+
+            Disabling this option will:
+            - Remove NVS-related API functions (esp_schedule_create_nvs, etc.)
+            - Save memory by excluding NVS persistence code
+            - Reduce binary size and remove nvs_flash dependency
+
+            If disabled, only esp_schedule_create_default() will be available.
+
     config ESP_SCHEDULE_ENABLE_DAYLIGHT
         bool "Enable Daylight (Sunrise/Sunset) Schedules"
         default y
