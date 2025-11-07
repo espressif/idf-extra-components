@@ -39,6 +39,11 @@ esp_schedule/examples/get_started:
     - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5)) and SOC_WIFI_SUPPORTED == 1
       reason: Network provisioning component has dependencies IDF >= 5.1; example only supports Wi-Fi enabled targets
 
+esp_schedule/test_app:
+  disable:
+    - if: IDF_VERSION_MAJOR < 5
+      reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
+
 catch2/examples/catch2-test:
   enable:
     - if: INCLUDE_DEFAULT == 1 or IDF_TARGET == "linux"
