@@ -20,6 +20,22 @@ extern "C" {
 typedef struct esp_repl_instance *esp_repl_handle_t;
 
 /**
+ * @brief Function prototype called at the beginning of esp_repl().
+ *
+ * @param ctx User-defined context pointer.
+ * @param handle Handle to the REPL instance.
+ */
+typedef void (*esp_repl_on_enter_fn)(void *ctx, esp_repl_handle_t handle);
+
+/**
+ * @brief Enter callback configuration structure for the REPL.
+ */
+typedef struct esp_repl_on_enter {
+    esp_repl_on_enter_fn func; /**!< Function called at the beginning of esp_repl() */
+    void *ctx;                /**!< Context passed to the enter function */
+} esp_repl_on_enter_t;
+
+/**
  * @brief Function prototype called before executing a command.
  *
  * @param ctx User-defined context pointer.
@@ -101,6 +117,7 @@ typedef struct esp_repl_config {
     esp_command_set_handle_t command_set_handle;   /**!< Handle to a set of commands */
     size_t max_cmd_line_size;                   /**!< Maximum allowed command line size */
     const char *history_save_path;              /**!< Path to file to save the history */
+    esp_repl_on_enter_t on_enter;               /**!< Enter callback and context */
     esp_repl_pre_executor_t pre_executor;       /**!< Pre-executor callback and context */
     esp_repl_post_executor_t post_executor;     /**!< Post-executor callback and context */
     esp_repl_on_stop_t on_stop;                 /**!< Stop callback and context */

@@ -184,6 +184,13 @@ void esp_repl(esp_repl_handle_t handle)
     esp_repl_config_t *config = &handle->config;
     esp_repl_state_t *state = &handle->state;
 
+    /* trigger a user defined callback before the function gets into the while loop
+     * if the user wants to perform some logic that needs to be done within the task
+     * running the REPL */
+    if (config->on_enter.func != NULL) {
+        config->on_enter.func(config->on_enter.ctx, handle);
+    }
+
     /* get the task handle of the task running this function.
      * It is necessary to gather this information in case esp_repl_stop()
      * is called from the same task as the one running esp_repl() (e.g.,
@@ -257,7 +264,7 @@ void esp_repl(esp_repl_handle_t handle)
             cmd_args.write_func = write;
         }
 
-        const esp_err_t exec_ret = esp_commands_execute(c_set, &cmd_args, cmd_line, &cmd_func_ret);
+        const esp_err_t exec_ret = esp_commands_execute(cmd_line, &cmd_func_ret, c_set, &cmd_args);
 
         /* forward the raw command line to the post executor callback (e.g., save in history).
         * this callback is not necessary for the user to register, continue if it isn't */
