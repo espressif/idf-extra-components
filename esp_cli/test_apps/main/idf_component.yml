@@ -1,4 +1,4 @@
 dependencies:
-  espressif/esp_repl:
+  espressif/esp_cli:
     version: "*"
     override_path: "../.."

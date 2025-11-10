@@ -9,58 +9,58 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-#include "esp_repl.h"
+#include "esp_cli.h"
 #include "esp_err.h"
-#include "esp_commands.h"
+#include "esp_cli_commands.h"
 #include "esp_linenoise.h"
 typedef enum {
-    ESP_REPL_STATE_RUNNING,
-    ESP_REPL_STATE_STOPPED
-} esp_repl_state_e;
+    ESP_CLI_STATE_RUNNING,
+    ESP_CLI_STATE_STOPPED
+} esp_cli_state_e;
 
-typedef struct esp_repl_state {
-    esp_repl_state_e state;
+typedef struct esp_cli_state {
+    esp_cli_state_e state;
     TaskHandle_t task_hdl;
     SemaphoreHandle_t mux;
-} esp_repl_state_t;
+} esp_cli_state_t;
 
-typedef struct esp_repl_instance {
-    esp_repl_config_t config;
-    esp_repl_state_t state;
-} esp_repl_instance_t;
+typedef struct esp_cli_instance {
+    esp_cli_config_t config;
+    esp_cli_state_t state;
+} esp_cli_instance_t;
 
-#if CONFIG_ESP_REPL_HAS_QUIT_CMD
-#define _ESP_REPL_STRINGIFY(x) #x
-#define ESP_REPL_STRINGIFY(x) _ESP_REPL_STRINGIFY(x)
+#if CONFIG_ESP_CLI_HAS_QUIT_CMD
+#define _ESP_CLI_STRINGIFY(x) #x
+#define ESP_CLI_STRINGIFY(x) _ESP_CLI_STRINGIFY(x)
 
-#define ESP_REPL_QUIT_CMD quit
-#define ESP_REPL_QUIT_CMD_STR ESP_REPL_STRINGIFY(ESP_REPL_QUIT_CMD)
-#define ESP_REPL_QUIT_CMD_SIZE strlen(ESP_REPL_QUIT_CMD_STR)
+#define ESP_CLI_QUIT_CMD quit
+#define ESP_CLI_QUIT_CMD_STR ESP_CLI_STRINGIFY(ESP_CLI_QUIT_CMD)
+#define ESP_CLI_QUIT_CMD_SIZE strlen(ESP_CLI_QUIT_CMD_STR)
 
 /* dummy command function callback to allow the registration for the quit command
  * to succeed */
-static int esp_repl_quit_cmd(void *context, esp_commands_exec_arg_t *cmd_args, int argc, char **argv)
+static int esp_cli_quit_cmd(void *context, esp_cli_commands_exec_arg_t *cmd_args, int argc, char **argv)
 {
     return 0;
 }
 
-ESP_COMMAND_REGISTER(ESP_REPL_QUIT_CMD,
-                     "esp_repl",
-                     "This command will trigger the exit mechanism to exit from esp_repl() main loop",
-                     esp_repl_quit_cmd,
-                     NULL,
-                     NULL,
-                     NULL
-                    );
-#endif // CONFIG_ESP_REPL_HAS_QUIT_CMD
+ESP_CLI_COMMAND_REGISTER(ESP_CLI_QUIT_CMD,
+                         "esp_cli",
+                         "This command will trigger the exit mechanism to exit from esp_cli() main loop",
+                         esp_cli_quit_cmd,
+                         NULL,
+                         NULL,
+                         NULL
+                        );
+#endif // CONFIG_ESP_CLI_HAS_QUIT_CMD
 
-#define ESP_REPL_CHECK_INSTANCE(handle) do {    \
+#define ESP_CLI_CHECK_INSTANCE(handle) do {    \
         if(handle == NULL) {                    \
             return ESP_ERR_INVALID_ARG;         \
         }                                       \
     } while(0)
 
-esp_err_t esp_repl_create(const esp_repl_config_t *config, esp_repl_handle_t *out_handle)
+esp_err_t esp_cli_create(const esp_cli_config_t *config, esp_cli_handle_t *out_handle)
 {
     if (!config || !out_handle) {
         return ESP_ERR_INVALID_ARG;
@@ -71,13 +71,13 @@ esp_err_t esp_repl_create(const esp_repl_config_t *config, esp_repl_handle_t *ou
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_repl_instance_t *instance = malloc(sizeof(esp_repl_instance_t));
+    esp_cli_instance_t *instance = malloc(sizeof(esp_cli_instance_t));
     if (!instance) {
         return ESP_ERR_NO_MEM;
     }
 
     instance->config = *config;
-    instance->state.state = ESP_REPL_STATE_STOPPED;
+    instance->state.state = ESP_CLI_STATE_STOPPED;
     instance->state.mux = xSemaphoreCreateMutex();
     if (!instance->state.mux) {
         free(instance);
@@ -85,20 +85,20 @@ esp_err_t esp_repl_create(const esp_repl_config_t *config, esp_repl_handle_t *ou
     }
 
     /* take the mutex right away to prevent the task to start running until
-    * the user explicitly calls esp_repl_start */
+    * the user explicitly calls esp_cli_start */
     xSemaphoreTake(instance->state.mux, portMAX_DELAY);
 
     *out_handle = instance;
     return ESP_OK;
 }
 
-esp_err_t esp_repl_destroy(esp_repl_handle_t handle)
+esp_err_t esp_cli_destroy(esp_cli_handle_t handle)
 {
-    ESP_REPL_CHECK_INSTANCE(handle);
-    esp_repl_state_t *state = &handle->state;
+    ESP_CLI_CHECK_INSTANCE(handle);
+    esp_cli_state_t *state = &handle->state;
 
-    /* the instance has to be not running for esp_repl to destroy it */
-    if (state->state != ESP_REPL_STATE_STOPPED) {
+    /* the instance has to be not running for esp_cli to destroy it */
+    if (state->state != ESP_CLI_STATE_STOPPED) {
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -109,32 +109,32 @@ esp_err_t esp_repl_destroy(esp_repl_handle_t handle)
     return ESP_OK;
 }
 
-esp_err_t esp_repl_start(esp_repl_handle_t handle)
+esp_err_t esp_cli_start(esp_cli_handle_t handle)
 {
-    ESP_REPL_CHECK_INSTANCE(handle);
-    esp_repl_state_t *state = &handle->state;
+    ESP_CLI_CHECK_INSTANCE(handle);
+    esp_cli_state_t *state = &handle->state;
 
-    if (state->state != ESP_REPL_STATE_STOPPED) {
+    if (state->state != ESP_CLI_STATE_STOPPED) {
         return ESP_ERR_INVALID_STATE;
     }
-    state->state = ESP_REPL_STATE_RUNNING;
+    state->state = ESP_CLI_STATE_RUNNING;
     xSemaphoreGive(state->mux);
 
     return ESP_OK;
 }
 
-esp_err_t esp_repl_stop(esp_repl_handle_t handle)
+esp_err_t esp_cli_stop(esp_cli_handle_t handle)
 {
-    ESP_REPL_CHECK_INSTANCE(handle);
-    esp_repl_config_t *config = &handle->config;
-    esp_repl_state_t *state = &handle->state;
+    ESP_CLI_CHECK_INSTANCE(handle);
+    esp_cli_config_t *config = &handle->config;
+    esp_cli_state_t *state = &handle->state;
 
-    if (state->state != ESP_REPL_STATE_RUNNING) {
+    if (state->state != ESP_CLI_STATE_RUNNING) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* update the state to force the while loop in esp_repl to return */
-    state->state = ESP_REPL_STATE_STOPPED;
+    /* update the state to force the while loop in esp_cli to return */
+    state->state = ESP_CLI_STATE_STOPPED;
 
     /** This function forces esp_linenoise_get_line() to return.
      *
@@ -145,9 +145,9 @@ esp_err_t esp_repl_stop(esp_repl_handle_t handle)
      *     their custom read. This can be achieved by placing the logic in the on_stop callback.
      *
      * Behavior:
-     *   - When a custom read is registered, ESP_ERR_INVALID_STATE indicates that esp_repl_stop() cannot
+     *   - When a custom read is registered, ESP_ERR_INVALID_STATE indicates that esp_cli_stop() cannot
      *     forcibly return from the read. The user must handle the return of their custom read via on_stop().
-     *   - From the perspective of esp_repl_stop(), this scenario is treated as successful, and its
+     *   - From the perspective of esp_cli_stop(), this scenario is treated as successful, and its
      *     return value should be set to ESP_OK.
      */
     esp_err_t ret_val = esp_linenoise_abort(config->linenoise_handle);
@@ -161,12 +161,12 @@ esp_err_t esp_repl_stop(esp_repl_handle_t handle)
         config->on_stop.func(config->on_stop.ctx, handle);
     }
 
-    /* Wait for esp_repl() to finish and signal completion, in the event of
-     * esp_repl_stop() is called from the same task running esp_repl() (e.g.,
+    /* Wait for esp_cli() to finish and signal completion, in the event of
+     * esp_cli_stop() is called from the same task running esp_cli() (e.g.,
      * called from a "quit" command), do not take the mutex to avoid a deadlock.
      *
-     * If esp_repl_stop() is called from the same task, it assures that this task
-     * is not blocking in esp_linenoise_get_line() so the while loop in esp_repl()
+     * If esp_cli_stop() is called from the same task, it assures that this task
+     * is not blocking in esp_linenoise_get_line() so the while loop in esp_cli()
      * will return as we updated the state above */
     if (state->task_hdl && state->task_hdl != xTaskGetCurrentTaskHandle()) {
         xSemaphoreTake(state->mux, portMAX_DELAY);
@@ -175,25 +175,25 @@ esp_err_t esp_repl_stop(esp_repl_handle_t handle)
     return ret_val;
 }
 
-void esp_repl(esp_repl_handle_t handle)
+void esp_cli(esp_cli_handle_t handle)
 {
     if (!handle) {
         return;
     }
 
-    esp_repl_config_t *config = &handle->config;
-    esp_repl_state_t *state = &handle->state;
+    esp_cli_config_t *config = &handle->config;
+    esp_cli_state_t *state = &handle->state;
 
     /* trigger a user defined callback before the function gets into the while loop
      * if the user wants to perform some logic that needs to be done within the task
-     * running the REPL */
+     * running the esp_cli instance */
     if (config->on_enter.func != NULL) {
         config->on_enter.func(config->on_enter.ctx, handle);
     }
 
     /* get the task handle of the task running this function.
-     * It is necessary to gather this information in case esp_repl_stop()
-     * is called from the same task as the one running esp_repl() (e.g.,
+     * It is necessary to gather this information in case esp_cli_stop()
+     * is called from the same task as the one running esp_cli() (e.g.,
      * through the execution of a command) */
     state->task_hdl = xTaskGetCurrentTaskHandle();
 
@@ -204,15 +204,15 @@ void esp_repl(esp_repl_handle_t handle)
         return;
     }
 
-    /* Waiting for task notify. This happens when `esp_repl_start`
+    /* Waiting for task notify. This happens when `esp_cli_start`
     * function is called. */
     xSemaphoreTake(state->mux, portMAX_DELAY);
 
     esp_linenoise_handle_t l_hdl = config->linenoise_handle;
-    esp_command_set_handle_t c_set = config->command_set_handle;
+    esp_cli_command_set_handle_t c_set = config->command_set_handle;
 
-    /* REPL loop */
-    while (state->state == ESP_REPL_STATE_RUNNING) {
+    /* esp_cli REPL loop */
+    while (state->state == ESP_CLI_STATE_RUNNING) {
 
         /* try to read a command line */
         const esp_err_t read_ret = esp_linenoise_get_line(l_hdl, cmd_line, cmd_line_size);
@@ -236,25 +236,25 @@ void esp_repl(esp_repl_handle_t handle)
             continue;
         }
 
-#if CONFIG_ESP_REPL_HAS_QUIT_CMD
+#if CONFIG_ESP_CLI_HAS_QUIT_CMD
         /* evaluate the command name. make sure that the first argument of the cmd_line
-         * is ESP_REPL_QUIT_CMD_STR and the character following that is either a space
+         * is ESP_CLI_QUIT_CMD_STR and the character following that is either a space
          * or a null character */
-        if ((strncmp(ESP_REPL_QUIT_CMD_STR, cmd_line, ESP_REPL_QUIT_CMD_SIZE) == 0) &&
-                ((cmd_line[ESP_REPL_QUIT_CMD_SIZE] == ' ') || (cmd_line[ESP_REPL_QUIT_CMD_SIZE] == '\0'))) {
-            /* quit command received, call esp_repl_stop() */
-            if (esp_repl_stop(handle) == ESP_OK) {
-                /* if esp_repl_stop() was successful, retry the while condition.
-                 * the esp_repl state should have been changed which will force
+        if ((strncmp(ESP_CLI_QUIT_CMD_STR, cmd_line, ESP_CLI_QUIT_CMD_SIZE) == 0) &&
+                ((cmd_line[ESP_CLI_QUIT_CMD_SIZE] == ' ') || (cmd_line[ESP_CLI_QUIT_CMD_SIZE] == '\0'))) {
+            /* quit command received, call esp_cli_stop() */
+            if (esp_cli_stop(handle) == ESP_OK) {
+                /* if esp_cli_stop() was successful, retry the while condition.
+                 * the esp_cli state should have been changed which will force
                  * the while to break */
                 continue;
             }
         }
-#endif // CONFIG_ESP_REPL_HAS_QUIT_CMD
+#endif // CONFIG_ESP_CLI_HAS_QUIT_CMD
 
         /* try to run the command */
         int cmd_func_ret;
-        esp_commands_exec_arg_t cmd_args;
+        esp_cli_commands_exec_arg_t cmd_args;
         esp_err_t get_ret = esp_linenoise_get_out_fd(handle->config.linenoise_handle, &(cmd_args.out_fd));
         if (get_ret != ESP_OK) {
             cmd_args.out_fd = STDOUT_FILENO;
@@ -264,7 +264,7 @@ void esp_repl(esp_repl_handle_t handle)
             cmd_args.write_func = write;
         }
 
-        const esp_err_t exec_ret = esp_commands_execute(cmd_line, &cmd_func_ret, c_set, &cmd_args);
+        const esp_err_t exec_ret = esp_cli_commands_execute(cmd_line, &cmd_func_ret, c_set, &cmd_args);
 
         /* forward the raw command line to the post executor callback (e.g., save in history).
         * this callback is not necessary for the user to register, continue if it isn't */
@@ -279,10 +279,10 @@ void esp_repl(esp_repl_handle_t handle)
     /* free the memory allocated for the cmd_line buffer */
     free(cmd_line);
 
-    /* release the semaphore to indicate esp_repl_stop that the esp_repl returned */
+    /* release the semaphore to indicate esp_cli_stop that the esp_cli returned */
     xSemaphoreGive(state->mux);
 
-    /* call the on_exit callback before returning from esp_repl */
+    /* call the on_exit callback before returning from esp_cli */
     if (config->on_exit.func != NULL) {
         config->on_exit.func(config->on_exit.ctx, handle);
     }

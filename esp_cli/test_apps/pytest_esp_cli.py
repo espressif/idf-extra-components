@@ -12,5 +12,5 @@ from pathlib import Path
     reason="Skip the idf version that did not build"
 )
 @pytest.mark.parametrize('target', ['linux'], indirect=['target'])
-def test_esp_repl(dut) -> None:
+def test_esp_cli(dut) -> None:
     dut.run_all_single_board_cases()
