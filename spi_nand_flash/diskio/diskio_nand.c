@@ -38,7 +38,7 @@ DRESULT ff_nand_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 
     ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &sector_size), fail, TAG, "");
 
-    for (int i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         ESP_GOTO_ON_ERROR(spi_nand_flash_read_sector(dev, buff + i * sector_size, sector + i),
                           fail, TAG, "spi_nand_flash_read failed");
     }
@@ -61,7 +61,7 @@ DRESULT ff_nand_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 
     ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &sector_size), fail, TAG, "");
 
-    for (int i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         ESP_GOTO_ON_ERROR(spi_nand_flash_write_sector(dev, buff + i * sector_size, sector + i),
                           fail, TAG, "spi_nand_flash_write failed");
     }
@@ -86,7 +86,7 @@ DRESULT ff_nand_trim(BYTE pdrv, DWORD start_sector, DWORD sector_count)
         return RES_PARERR;
     }
 
-    for (int i = 0; i < sector_count; i++) {
+    for (uint32_t i = 0; i < sector_count; i++) {
         ESP_GOTO_ON_ERROR(spi_nand_flash_trim(dev, start_sector + i),
                           fail, TAG, "spi_nand_flash_trim failed");
     }
@@ -118,16 +118,11 @@ DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         break;
     }
     case GET_SECTOR_SIZE: {
-        uint32_t capacity;
-        ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &capacity),
+        uint32_t sector_size;
+        ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &sector_size),
                           fail, TAG, "get_sector_size failed");
 
-        if (capacity > 0xFFFF) {
-            ESP_LOGE(TAG, "sector size too large");
-            return RES_PARERR;
-        }
-
-        *((WORD *)buff) = capacity;
+        *((WORD *)buff) = sector_size;
         ESP_LOGV(TAG, "sector size=%d", *((WORD *)buff));
         break;
     }
