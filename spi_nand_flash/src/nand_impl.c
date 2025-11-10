@@ -10,12 +10,12 @@
 #include "esp_check.h"
 #include "esp_err.h"
 #include "spi_nand_oper.h"
-#include "spi_nand_flash.h"
 #include "nand.h"
+#include "nand_device_types.h"
 
 #define ROM_WAIT_THRESHOLD_US 1000
 
-static const char *TAG = "spi_nand";
+static const char *TAG = "nand_hal"; //nand_spi_driver
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
 static esp_err_t s_verify_write(spi_nand_flash_device_t *handle, const uint8_t *expected_buffer, uint16_t offset, uint16_t length)
@@ -83,6 +83,10 @@ static uint16_t get_column_address(spi_nand_flash_device_t *handle, uint32_t blo
     uint16_t column_addr = offset;
 
     if ((handle->chip.flags & NAND_FLAG_HAS_READ_PLANE_SELECT) || (handle->chip.flags & NAND_FLAG_HAS_PROG_PLANE_SELECT)) {
+        if (handle->chip.num_planes == 0) {
+            ESP_LOGE(TAG, "Invalid number of planes (0)");
+            return column_addr;  // Return offset without plane selection
+        }
         uint32_t plane = block % handle->chip.num_planes;
         // The plane index is the bit following the most significant bit (MSB) of the address.
         // For a 2048-byte page (2^11), the plane select bit is the 12th bit, and
@@ -272,20 +276,20 @@ fail:
 static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
 {
     bool is_ecc_err = false;
-    ecc_status_t bits_corrected_status = STAT_ECC_OK;
+    nand_ecc_status_t bits_corrected_status = NAND_ECC_OK;
     if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 2) {
         bits_corrected_status = PACK_2BITS_STATUS(status, STAT_ECC1, STAT_ECC0);
     } else if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 3) {
         bits_corrected_status = PACK_3BITS_STATUS(status, STAT_ECC2, STAT_ECC1, STAT_ECC0);
     } else {
-        bits_corrected_status = STAT_ECC_MAX;
+        bits_corrected_status = NAND_ECC_MAX;
     }
     dev->chip.ecc_data.ecc_corrected_bits_status = bits_corrected_status;
     if (bits_corrected_status) {
-        if (bits_corrected_status == STAT_ECC_MAX) {
+        if (bits_corrected_status == NAND_ECC_MAX) {
             ESP_LOGE(TAG, "%s: Error while initializing value of ecc_status_reg_len_in_bits", __func__);
             is_ecc_err = true;
-        } else if (bits_corrected_status == STAT_ECC_NOT_CORRECTED) {
+        } else if (bits_corrected_status == NAND_ECC_NOT_CORRECTED) {
             is_ecc_err = true;
         }
     }

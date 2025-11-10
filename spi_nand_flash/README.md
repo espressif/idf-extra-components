@@ -20,26 +20,40 @@ SPI NAND Flash combines the benefits of NAND Flash technology with the simplicit
 
 ### Implementation Architecture
 
+The component now features a layered architecture for better maintainability and modularity:
+
 ```mermaid
 graph TD
-    A[Application] --> B[FATFS]
-    B --> C[Dhara Library]
-    C --> Hardware_Path[Hardware Path]
-    C --> Linux_Path[Linux Path]
-
-    subgraph Hardware_Path [Hardware Path]
-        HP1[NAND Flash Layer]
-        HP1 --> HP2[SPI NAND Flash Driver]
-        HP2 --> HP3["SPI Driver (ESP-IDF)"]
-        HP3 --> HP4[Hardware via SPI]
+    A[Application/FS] --> B[SPI NAND Flash API]
+    B --> C[NAND Wear-Leveling BDL]
+    C --> D[NAND Flash BDL] 
+    D --> E{Target}
+    E -->|ESP Chips| F[SPI NAND Operations]
+    F --> G[Hardware via SPI]
+    E -->|Linux| H[NAND Emulation]
+    H --> I[Memory-Mapped File]
+    
+    subgraph "Layered Architecture"
+        B["spi_nand_flash.h<br/>(Backward Compatible)"]
+        C["nand_wl_bdl<br/>(Wear Leveling)"]
+        D["nand_flash_bdl<br/>(Physical Flash)"]
     end
-
-    subgraph Linux_Path [Linux Path]
-        LP1[NAND Flash Layer]
-        LP1 --> LP2[NAND Emulation Layer]
-        LP2 --> LP3[Memory Mapped File]
+    
+    subgraph "Hardware Layer"
+        F["spi_nand_oper<br/>(SPI Commands)"]
+        H["nand_linux_mmap_emul<br/>(Host Test)"]
     end
 ```
+
+**Key Benefits:**
+- **Backward Compatible**: Existing code works unchanged
+- **Modular Design**: Clear separation between wear-leveling and flash management
+- **Enhanced Features**: Direct access to flash and wear-leveling layers
+
+**📖 Architecture Documentation:**
+For detailed information about the layered architecture, implementation details, API usage, and migration guide, see:
+- [Layered Architecture Guide](layered_architecture.md) - Complete architecture documentation
+
 ## Supported SPI NAND Flash chips
 
 At present, `spi_nand_flash` component is compatible with the chips produced by the following manufacturers and and their respective model numbers:

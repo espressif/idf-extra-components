@@ -67,6 +67,12 @@ esp_err_t nand_get_ecc_stats(spi_nand_flash_device_t *flash)
     spi_nand_flash_get_sector_size(flash, &sector_size);
     spi_nand_flash_get_block_size(flash, &block_size);
     spi_nand_flash_get_block_num(flash, &num_blocks);
+
+    if (sector_size == 0) {
+        ESP_LOGE(TAG, "Invalid sector size (0)");
+        return ESP_ERR_INVALID_SIZE;
+    }
+
     uint32_t pages_per_block = block_size / sector_size;
     uint32_t num_pages = num_blocks * pages_per_block;
 
