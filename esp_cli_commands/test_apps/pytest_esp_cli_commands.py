@@ -11,5 +11,5 @@ from pathlib import Path
     reason="Skip the idf version that did not build"
 )
 @idf_parametrize('target', ['linux', 'esp32'], indirect=['target'])
-def test_esp_commands(dut) -> None:
+def test_esp_cli_commands(dut) -> None:
     dut.run_all_single_board_cases()

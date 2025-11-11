@@ -16,12 +16,12 @@ extern "C" {
  *
  * @note This function uses heap_caps_malloc together
  * with the set of capabilities provided by the user in the
- * config structure. Implemented in esp_commands.c
+ * config structure. Implemented in esp_cli_commands.c
  *
  * @param malloc_size
  * @return void*
  */
-void *esp_commands_malloc(const size_t malloc_size);
+void *esp_cli_commands_malloc(const size_t malloc_size);
 
 #ifdef __cplusplus
 }

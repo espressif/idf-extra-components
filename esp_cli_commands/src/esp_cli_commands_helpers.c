@@ -8,7 +8,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stddef.h>
-#include "esp_commands.h"
+#include "esp_cli_commands.h"
 
 #define SS_FLAG_ESCAPE 0x8
 
@@ -32,7 +32,7 @@ typedef enum {
     state = SS_SPACE; \
 } while(0)
 
-size_t esp_commands_split_argv(char *line, char **argv, size_t argv_size)
+size_t esp_cli_commands_split_argv(char *line, char **argv, size_t argv_size)
 {
     const int QUOTE = '"';
     const int ESCAPE = '\\';

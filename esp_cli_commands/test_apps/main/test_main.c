@@ -21,6 +21,6 @@ void tearDown(void)
 
 void app_main(void)
 {
-    printf("Running esp_commands component tests\n");
+    printf("Running esp_cli_commands component tests\n");
     unity_run_menu();
 }

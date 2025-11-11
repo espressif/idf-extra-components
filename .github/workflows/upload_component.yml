@@ -34,7 +34,7 @@ jobs:
             dhara
             eigen
             esp_daylight
-            esp_commands
+            esp_cli_commands
             esp_delta_ota
             esp_encrypted_img
             esp_flash_dispatcher

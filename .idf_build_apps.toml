@@ -8,7 +8,7 @@ manifest_file = [
     "ccomp_timer/.build-test-rules.yml",
     "coremark/.build-test-rules.yml",
     "esp_daylight/.build-test-rules.yml",
-    "esp_commands/.build-test-rules.yml",
+    "esp_cli_commands/.build-test-rules.yml",
     "esp_encrypted_img/.build-test-rules.yml",
     "esp_flash_dispatcher/.build-test-rules.yml",
     "esp_gcov/.build-test-rules.yml",

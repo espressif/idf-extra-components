@@ -16,7 +16,7 @@ extern "C" {
 #define GET_STR(STR) #STR
 
 #define CREATE_CMD_FUNC(NAME) \
-    static int GET_NAME(NAME, _func)(void *ctx, esp_commands_exec_arg_t *cmd_args, int argc, char **argv) { \
+    static int GET_NAME(NAME, _func)(void *ctx, esp_cli_commands_exec_arg_t *cmd_args, int argc, char **argv) { \
         printf(GET_STR(NAME) GET_STR(_func)); \
         printf("\n"); \
         return 0; \
@@ -58,14 +58,14 @@ CREATE_FUNC(cmd_g, _glossary)
 CREATE_FUNC(cmd_h, _glossary)
 
 /* command registration */
-ESP_COMMAND_REGISTER(cmd_a, group_1, GET_STR(cmd_a_help), cmd_a_func, NULL, cmd_a_hint, cmd_a_glossary);
-ESP_COMMAND_REGISTER(cmd_b, group_1, GET_STR(cmd_b_help), cmd_b_func, NULL, cmd_b_hint, cmd_b_glossary);
-ESP_COMMAND_REGISTER(cmd_c, group_2, GET_STR(cmd_c_help), cmd_c_func, NULL, cmd_c_hint, cmd_c_glossary);
-ESP_COMMAND_REGISTER(cmd_d, group_2, GET_STR(cmd_d_help), cmd_d_func, NULL, cmd_d_hint, cmd_d_glossary);
-ESP_COMMAND_REGISTER(cmd_e, group_3, GET_STR(cmd_e_help), cmd_e_func, NULL, cmd_e_hint, cmd_e_glossary);
-ESP_COMMAND_REGISTER(cmd_f, group_3, GET_STR(cmd_f_help), cmd_f_func, NULL, cmd_f_hint, cmd_f_glossary);
-ESP_COMMAND_REGISTER(cmd_g, group_4, GET_STR(cmd_g_help), cmd_g_func, NULL, cmd_g_hint, cmd_g_glossary);
-ESP_COMMAND_REGISTER(cmd_h, group_4, GET_STR(cmd_h_help), cmd_h_func, NULL, cmd_h_hint, cmd_h_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_a, group_1, GET_STR(cmd_a_help), cmd_a_func, NULL, cmd_a_hint, cmd_a_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_b, group_1, GET_STR(cmd_b_help), cmd_b_func, NULL, cmd_b_hint, cmd_b_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_c, group_2, GET_STR(cmd_c_help), cmd_c_func, NULL, cmd_c_hint, cmd_c_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_d, group_2, GET_STR(cmd_d_help), cmd_d_func, NULL, cmd_d_hint, cmd_d_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_e, group_3, GET_STR(cmd_e_help), cmd_e_func, NULL, cmd_e_hint, cmd_e_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_f, group_3, GET_STR(cmd_f_help), cmd_f_func, NULL, cmd_f_hint, cmd_f_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_g, group_4, GET_STR(cmd_g_help), cmd_g_func, NULL, cmd_g_hint, cmd_g_glossary);
+ESP_CLI_COMMAND_REGISTER(cmd_h, group_4, GET_STR(cmd_h_help), cmd_h_func, NULL, cmd_h_hint, cmd_h_glossary);
 
 #ifdef __cplusplus
 }
