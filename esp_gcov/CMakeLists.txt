@@ -59,7 +59,7 @@ if(CONFIG_ESP_GCOV_ENABLE)
 
     # Register component with app_trace dependency
     idf_component_register(SRCS "gcov_rtio.c"
-                          REQUIRES "app_trace"
+                          REQUIRES "esp_trace"
                           INCLUDE_DIRS ".")
 
     # Configure gcov-specific flags
@@ -74,6 +74,6 @@ if(CONFIG_ESP_GCOV_ENABLE)
 
 else()
     # Register empty component when GCOV is disabled
-    idf_component_register(REQUIRES "app_trace")
+    idf_component_register(REQUIRES "esp_trace")
     message(STATUS "GCOV: Component registered but GCOV support is disabled")
 endif()
