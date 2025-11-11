@@ -32,6 +32,7 @@ body:
         - eigen
         - esp_daylight
         - esp_delta_ota
+        - esp_cli_commands
         - esp_encrypted_img
         - esp_flash_dispatcher
         - esp_gcov

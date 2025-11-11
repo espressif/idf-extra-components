@@ -1,0 +1,13 @@
+[sections:esp_cli_commands]
+entries:
+    .esp_cli_commands+
+
+[scheme:esp_cli_commands_default]
+entries:
+    esp_cli_commands -> flash_rodata
+
+[mapping:esp_cli_commands]
+archive: *
+entries:
+    * (esp_cli_commands_default);
+    esp_cli_commands -> flash_rodata KEEP() SORT(name) SURROUND(esp_cli_commands)
