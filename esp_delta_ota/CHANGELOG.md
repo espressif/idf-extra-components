@@ -1,3 +1,8 @@
+## 1.1.4
+
+### Enhancements:
+- Added ability to set the new firmware upgrade URL from STDIN
+
 ## 1.1.3
 
 ### Bugfixes:
