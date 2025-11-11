@@ -54,7 +54,7 @@ def create_patch(chip: str, base_binary: str, new_binary: str, patch_file_name: 
         sys.stdout.close()
         sys.stdout = output
 
-    x = re.search(r"Validation Hash: ([A-Za-z0-9]+) \(valid\)", content)
+    x = re.search(r"Validation Hash: ([A-Za-z0-9]+) \(valid\)", content, re.IGNORECASE)
     
     if x is None:
         print("Failed to find validation hash in base binary.")
