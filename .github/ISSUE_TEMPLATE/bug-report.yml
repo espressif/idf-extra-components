@@ -39,6 +39,7 @@ body:
         - esp_isotp
         - esp_jpeg
         - esp_lcd_qemu_rgb
+        - esp_schedule
         - esp_serial_slave_link
         - expat
         - fmt
