@@ -1,3 +1,8 @@
+## 1.1.3
+
+### Bugfixes:
+- Fixed `esp_delta_ota_patch_gen.py` patch generation, by ignoring the case in regex which is used to get validation hash of binary through esptool command, caused due to breaking change in esptool.
+
 ## 1.1.2
 
 ### Bugfixes:
