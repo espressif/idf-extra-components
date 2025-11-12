@@ -35,6 +35,7 @@ body:
         - esp_cli_commands
         - esp_encrypted_img
         - esp_flash_dispatcher
+        - esp_ext_part_tables
         - esp_gcov
         - esp_isotp
         - esp_jpeg
