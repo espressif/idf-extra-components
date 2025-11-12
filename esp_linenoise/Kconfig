@@ -1,0 +1,15 @@
+menu "esp_linenoise configuration"
+    config ESP_LINENOISE_MAX_INSTANCE_NB
+        int "Maximum number of esp_linenoise instances that can be created simultaneously"
+        range 1 32
+        default 5
+        help
+            Specifies the maximum number of esp_linenoise instances that can be created simultaneously.
+            This limitation applies only when esp_linenoise_abort is used, and the following note is
+            relevant in that context.
+
+            A dynamic memory allocation is performed when the first esp_linenoise instance is created and is
+            freed once the last instance is deleted. The allocated memory size is proportional to the value
+            set in this configuration. Therefore, it is recommended to keep this value as low as possible
+            to reduce memory consumption while ensuring the application’s functional requirements are met.
+endmenu
