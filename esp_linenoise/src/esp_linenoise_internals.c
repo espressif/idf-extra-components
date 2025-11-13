@@ -92,13 +92,21 @@ esp_err_t esp_linenoise_set_event_fd(esp_linenoise_instance_t *instance)
 
     /* Tell linenoise what file descriptor to add to the read file descriptor set,
      * that will be used to signal a read termination */
-    esp_vfs_eventfd_config_t eventfd_config = ESP_VFS_EVENTD_CONFIG_DEFAULT();
+    esp_vfs_eventfd_config_t eventfd_config = {
+        .max_fds = CONFIG_ESP_LINENOISE_MAX_INSTANCE_NB
+    };
     esp_err_t ret = esp_vfs_eventfd_register(&eventfd_config);
     int new_eventfd = -1;
     if (ret != ESP_ERR_INVALID_ARG) {
         new_eventfd = eventfd(0, 0);
     } else {
         /* issue with arg, this should not happen */
+        return ESP_FAIL;
+    }
+
+    /* make sure the FD returned is not -1, which would indicate that eventfd
+     * has reached the maximum number of FDs it can create */
+    if (new_eventfd == -1) {
         return ESP_FAIL;
     }
 
@@ -136,6 +144,9 @@ esp_err_t esp_linenoise_remove_event_fd(esp_linenoise_instance_t *instance)
     eventfd_pair_t *prev = NULL;
     SLIST_FOREACH(cur, &s_eventfd_pairs, next_pair) {
         if (cur->in_fd == config->in_fd) {
+            /* close the eventfd */
+            close(cur->eventfd);
+
             if (prev == NULL) {
                 /* remove head */
                 SLIST_REMOVE_HEAD(&s_eventfd_pairs, next_pair);
@@ -160,6 +171,13 @@ esp_err_t esp_linenoise_remove_event_fd(esp_linenoise_instance_t *instance)
 
     /* free the mutex */
     vSemaphoreDelete(state->mux);
+
+    /* if the list is empty, it means the last instance of esp_linenoise
+     * running is being deleted. Unregister eventfd to free the heap memory
+     * allocated when calling esp_vfs_eventfd_register */
+    if (SLIST_EMPTY(&s_eventfd_pairs)) {
+        return esp_vfs_eventfd_unregister();
+    }
 
     return ESP_OK;
 }
