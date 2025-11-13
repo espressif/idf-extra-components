@@ -1,3 +1,6 @@
+## [0.16.0]
+- fix: fix nand flash issue caused by data length unalignment on esp32p4
+
 ## [0.15.0]
 - feat: added support for Gigadevice (GD5F2GM7xExxG) NAND flash
 
