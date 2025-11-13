@@ -11,6 +11,7 @@
 
 #include "essl_internal.h"
 #include "essl_sdio.h"
+#include "esp_heap_caps.h"
 
 static const char TAG[] = "essl_sdio";
 

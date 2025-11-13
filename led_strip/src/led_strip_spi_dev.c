@@ -12,6 +12,7 @@
 #include "soc/spi_periph.h"
 #include "led_strip.h"
 #include "led_strip_interface.h"
+#include "esp_heap_caps.h"
 
 #define LED_STRIP_SPI_DEFAULT_RESOLUTION (2.5 * 1000 * 1000) // 2.5MHz resolution
 #define LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE 4
