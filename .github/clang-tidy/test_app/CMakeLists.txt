@@ -28,6 +28,10 @@ set(clang_check_args "--include-paths ${root_dir}")
 list(APPEND clang_check_args "--exclude-paths ${root_dir}/.github")
 list(APPEND clang_check_args "--exclude-paths $ENV{IDF_PATH}")
 
+# Exclude third-party code from clang-tidy checks
+list(APPEND clang_check_args "--exclude-paths ${root_dir}/esp_sysview/src/SEGGER")
+list(APPEND clang_check_args "--exclude-paths ${root_dir}/esp_sysview/src/Sample")
+
 # get the list of submodules
 execute_process(
     COMMAND git config --file ${root_dir}/.gitmodules --get-regexp path
