@@ -16,14 +16,11 @@ void setUp(void)
 
 void tearDown(void)
 {
-    /* the threshold is necessary because on esp_linenoise instance
-     * creation, a bunch of heap memory is being used to initialize (e.g.,
-     * eventfd and vfs internals) */
-    unity_utils_evaluate_leaks_direct(500);
+    unity_utils_evaluate_leaks_direct(0);
 }
 
 void app_main(void)
 {
-    printf("Running esp_cli component tests\n");
+    printf("Running esp_cli component host tests\n");
     unity_run_menu();
 }
