@@ -1,0 +1,10 @@
+version: "0.1.0"
+description: "esp_cli — A command-line interface component that uses a REPL as its main execution loop."
+url: https://github.com/espressif/idf-extra-components/tree/master/esp_cli
+dependencies:
+  espressif/esp_linenoise: "*"
+  espressif/esp_cli_commands: "*"
+sbom:
+  manifests:
+    - path: sbom_esp_cli.yml
+      dest: .
