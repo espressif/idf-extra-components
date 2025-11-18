@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include "esp_attr.h"
 #include "esp_bit_defs.h"
-#include "soc/soc_caps.h"
 
 #if __has_include("hal/touch_sensor_legacy_types.h")
 #include "hal/touch_sensor_legacy_types.h"
@@ -166,7 +165,7 @@ typedef enum {
 
 
 /********************************/
-#define TOUCH_PAD_BIT_MASK_ALL              ((1<<SOC_TOUCH_SENSOR_NUM)-1)
+#define TOUCH_PAD_BIT_MASK_ALL              (0x7FFF)
 #define TOUCH_PAD_SLOPE_DEFAULT             (TOUCH_PAD_SLOPE_7)
 #define TOUCH_PAD_TIE_OPT_DEFAULT           (TOUCH_PAD_TIE_OPT_FLOAT)
 #define TOUCH_PAD_BIT_MASK_MAX              (TOUCH_PAD_BIT_MASK_ALL)
@@ -190,31 +189,7 @@ typedef enum {
                                                     Recommended typical value: Modify this value to make the measurement time around 1ms.
                                                     Range: 0 ~ 0xffff */
 
-// TODO: replace by ll macro
-typedef enum {
-    TOUCH_PAD_INTR_MASK_DONE = BIT(0),      /*!<Measurement done for one of the enabled channels. */
-    TOUCH_PAD_INTR_MASK_ACTIVE = BIT(1),    /*!<Active for one of the enabled channels. */
-    TOUCH_PAD_INTR_MASK_INACTIVE = BIT(2),  /*!<Inactive for one of the enabled channels. */
-    TOUCH_PAD_INTR_MASK_SCAN_DONE = BIT(3), /*!<Measurement done for all the enabled channels. */
-    TOUCH_PAD_INTR_MASK_TIMEOUT = BIT(4),   /*!<Timeout for one of the enabled channels. */
-#if SOC_TOUCH_PROXIMITY_MEAS_DONE_SUPPORTED
-    TOUCH_PAD_INTR_MASK_PROXI_MEAS_DONE = BIT(5),   /*!<For proximity sensor, when the number of measurements reaches the set count of measurements, an interrupt will be generated. */
-    TOUCH_PAD_INTR_MASK_MAX
-#define TOUCH_PAD_INTR_MASK_ALL (TOUCH_PAD_INTR_MASK_TIMEOUT    \
-                                | TOUCH_PAD_INTR_MASK_SCAN_DONE \
-                                | TOUCH_PAD_INTR_MASK_INACTIVE  \
-                                | TOUCH_PAD_INTR_MASK_ACTIVE    \
-                                | TOUCH_PAD_INTR_MASK_DONE      \
-                                | TOUCH_PAD_INTR_MASK_PROXI_MEAS_DONE) /*!<All touch interrupt type enable. */
-#else
-    TOUCH_PAD_INTR_MASK_MAX
-#define TOUCH_PAD_INTR_MASK_ALL (TOUCH_PAD_INTR_MASK_TIMEOUT    \
-                                | TOUCH_PAD_INTR_MASK_SCAN_DONE \
-                                | TOUCH_PAD_INTR_MASK_INACTIVE  \
-                                | TOUCH_PAD_INTR_MASK_ACTIVE    \
-                                | TOUCH_PAD_INTR_MASK_DONE) /*!<All touch interrupt type enable. */
-#endif
-} touch_pad_intr_mask_t;
+typedef uint32_t touch_pad_intr_mask_t;
 
 typedef enum {
     TOUCH_PAD_DENOISE_BIT12 = 0,    /*!<Denoise range is 12bit */
