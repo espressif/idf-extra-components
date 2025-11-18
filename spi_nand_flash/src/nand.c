@@ -10,9 +10,13 @@
 #include "esp_check.h"
 #include "spi_nand_flash.h"
 #include "nand.h"
+#include "nand_impl.h"
+#include "nand_device_types.h"
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 #include "esp_blockdev.h"
 #include "esp_nand_blockdev.h"
-#include "nand_device_types.h"
+#endif
 
 static const char *TAG = "nand_api"; //nand_ftl??
 
@@ -200,6 +204,7 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle)
 // NEW LAYERED ARCHITECTURE API IMPLEMENTATION
 //---------------------------------------------------------------------------------------------------------------------------------------------
 
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 esp_err_t spi_nand_flash_init_with_layers(spi_nand_flash_config_t *config,
         esp_blockdev_handle_t *wl_bdl)
 {
@@ -227,3 +232,4 @@ esp_err_t spi_nand_flash_init_with_layers(spi_nand_flash_config_t *config,
     ESP_LOGD(TAG, "SPI NAND Flash initialized with layered block device architecture");
     return ESP_OK;
 }
+#endif // CONFIG_NAND_FLASH_ENABLE_BDL

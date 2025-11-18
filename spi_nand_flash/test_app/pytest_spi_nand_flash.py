@@ -12,6 +12,30 @@ from pathlib import Path
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that not build"
 )
+@pytest.mark.parametrize(
+    'config',
+    [
+        'default',
+    ],
+    indirect=True,
+)
 @idf_parametrize('target', ['esp32'], indirect=['target'])
-def test_spi_nand_flash(dut) -> None:
+def test_spi_nand_flash(dut: Dut, config: str) -> None:
+    dut.run_all_single_board_cases()
+
+
+@pytest.mark.spi_nand_flash
+@pytest.mark.skipif(
+    not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
+    reason="Skip the idf version that not build"
+)
+@pytest.mark.parametrize(
+    'config',
+    [
+        'bdl',
+    ],
+    indirect=True,
+)
+@idf_parametrize('target', ['esp32'], indirect=['target'])
+def test_spi_nand_flash_bdl(dut: Dut, config: str) -> None:
     dut.run_all_single_board_cases()

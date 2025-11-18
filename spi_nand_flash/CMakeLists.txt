@@ -1,15 +1,20 @@
 idf_build_get_property(target IDF_TARGET)
 
-set(reqs fatfs esp_blockdev)
+set(reqs fatfs)
 set(inc diskio include)
 set(priv_inc priv_include)
 set(srcs "src/nand.c"
          "src/dhara_glue.c"
          "src/nand_impl_wrap.c"
-         "src/nand_flash_blockdev.c"
-         "src/nand_wl_blockdev.c"
-         "diskio/diskio_nand.c"
-         "diskio/diskio_nand_blockdev.c")
+         "diskio/diskio_nand.c")
+
+# Conditionally add BDL support
+if(CONFIG_NAND_FLASH_ENABLE_BDL)
+    list(APPEND reqs esp_blockdev)
+    list(APPEND srcs "src/nand_flash_blockdev.c"
+                     "src/nand_wl_blockdev.c"
+                     "diskio/diskio_nand_blockdev.c")
+endif()
 
 if(${target} STREQUAL "linux")
     list(APPEND srcs "src/nand_impl_linux.c"

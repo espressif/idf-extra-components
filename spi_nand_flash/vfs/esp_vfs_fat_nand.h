@@ -11,7 +11,10 @@
 #include "spi_nand_flash.h"
 #include "esp_err.h"
 #include "esp_vfs_fat.h"
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 #include "esp_blockdev.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,6 +55,7 @@ esp_err_t esp_vfs_fat_nand_mount(const char *base_path,
 
 esp_err_t esp_vfs_fat_nand_unmount(const char *base_path, spi_nand_flash_device_t *nand_device);
 
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 /**
  * @brief Convenience function to initialize FAT filesystem using block device layer and register it in VFS
  *
@@ -89,6 +93,7 @@ esp_err_t esp_vfs_fat_nand_mount_bdl(const char *base_path,
  *      - ESP_ERR_INVALID_STATE if esp_vfs_fat_nand_mount_bdl hasn't been called
  */
 esp_err_t esp_vfs_fat_nand_unmount_bdl(const char *base_path, esp_blockdev_handle_t blockdev);
+#endif // CONFIG_NAND_FLASH_ENABLE_BDL
 
 #ifdef __cplusplus
 }
