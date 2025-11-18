@@ -18,17 +18,22 @@
 #endif
 #include "nand_impl.h"
 #include "nand.h"
-#include "esp_nand_blockdev.h"
 #include "nand_device_types.h"
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+#include "esp_nand_blockdev.h"
+#endif
 
 typedef struct {
     struct dhara_nand dhara_nand;
     struct dhara_map dhara_map;
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
     esp_blockdev_handle_t bdl_handle;
+#endif
     spi_nand_flash_device_t *parent_handle;
 } spi_nand_flash_dhara_priv_data_t;
 
-static esp_err_t dhara_init(spi_nand_flash_device_t *handle, esp_blockdev_handle_t bdl_handle)
+static esp_err_t dhara_init(spi_nand_flash_device_t *handle, void *bdl_handle)
 {
     // create a holder structure for dhara context
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = heap_caps_calloc(1, sizeof(spi_nand_flash_dhara_priv_data_t), MALLOC_CAP_DEFAULT);
@@ -36,7 +41,9 @@ static esp_err_t dhara_init(spi_nand_flash_device_t *handle, esp_blockdev_handle
     handle->ops_priv_data = dhara_priv_data;
     // store the pointer back to device structure in the holder structure
     dhara_priv_data->parent_handle = handle;
-    dhara_priv_data->bdl_handle = bdl_handle;
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+    dhara_priv_data->bdl_handle = (esp_blockdev_handle_t)bdl_handle;
+#endif
 
     dhara_priv_data->dhara_nand.log2_page_size = handle->chip.log2_page_size;
     dhara_priv_data->dhara_nand.log2_ppb = handle->chip.log2_ppb;
@@ -177,16 +184,16 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
                     uint8_t *data, dhara_error_t *err)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
     spi_nand_flash_device_t *dev_handle = NULL;
     esp_err_t ret = ESP_OK;
-    if (bdl_handle == NULL) {
-        dev_handle = dhara_priv_data->parent_handle;
-        ret = nand_read(dev_handle, p, offset, length, data);
-    } else {
-        dev_handle = (spi_nand_flash_device_t *)bdl_handle->ctx;
-        ret = bdl_handle->ops->read(bdl_handle, data, bdl_handle->geometry.read_size, (p * bdl_handle->geometry.read_size) + offset, length);
-    }
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
+    dev_handle = (spi_nand_flash_device_t *)bdl_handle->ctx;
+    ret = bdl_handle->ops->read(bdl_handle, data, bdl_handle->geometry.read_size, (p * bdl_handle->geometry.read_size) + offset, length);
+#else
+    dev_handle = dhara_priv_data->parent_handle;
+    ret = nand_read(dev_handle, p, offset, length, data);
+#endif
     if (ret != ESP_OK) {
         if (dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
             dhara_set_error(err, DHARA_E_ECC);
@@ -199,14 +206,14 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
 int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *data, dhara_error_t *err)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
     esp_err_t ret = ESP_OK;
-    if (bdl_handle == NULL) {
-        spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
-        ret = nand_prog(dev_handle, p, data);
-    } else {
-        ret = bdl_handle->ops->write(bdl_handle, data, (p * bdl_handle->geometry.read_size), bdl_handle->geometry.write_size);
-    }
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
+    ret = bdl_handle->ops->write(bdl_handle, data, (p * bdl_handle->geometry.read_size), bdl_handle->geometry.write_size);
+#else
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    ret = nand_prog(dev_handle, p, data);
+#endif
     if (ret) {
         if (ret == ESP_ERR_NOT_FINISHED) {
             dhara_set_error(err, DHARA_E_BAD_BLOCK);
@@ -219,14 +226,14 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
 int dhara_nand_erase(const struct dhara_nand *n, dhara_block_t b, dhara_error_t *err)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
     esp_err_t ret = ESP_OK;
-    if (bdl_handle == NULL) {
-        spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
-        ret = nand_erase_block(dev_handle, b);
-    } else {
-        ret = bdl_handle->ops->erase(bdl_handle, b * bdl_handle->geometry.erase_size, bdl_handle->geometry.erase_size);
-    }
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
+    ret = bdl_handle->ops->erase(bdl_handle, b * bdl_handle->geometry.erase_size, bdl_handle->geometry.erase_size);
+#else
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    ret = nand_erase_block(dev_handle, b);
+#endif
     if (ret) {
         if (ret == ESP_ERR_NOT_FINISHED) {
             dhara_set_error(err, DHARA_E_BAD_BLOCK);
@@ -239,17 +246,17 @@ int dhara_nand_erase(const struct dhara_nand *n, dhara_block_t b, dhara_error_t 
 int dhara_nand_is_bad(const struct dhara_nand *n, dhara_block_t b)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
     bool is_bad_status = false;
     esp_err_t ret = ESP_OK;
-    if (bdl_handle == NULL) {
-        spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
-        ret = nand_is_bad(dev_handle, b, &is_bad_status);
-    } else {
-        esp_blockdev_cmd_arg_is_bad_block_t bad_block_status = {b, false};
-        ret = bdl_handle->ops->ioctl(bdl_handle, ESP_BLOCKDEV_CMD_IS_BAD_BLOCK, &bad_block_status);
-        is_bad_status = bad_block_status.status;
-    }
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
+    esp_blockdev_cmd_arg_is_bad_block_t bad_block_status = {b, false};
+    ret = bdl_handle->ops->ioctl(bdl_handle, ESP_BLOCKDEV_CMD_IS_BAD_BLOCK, &bad_block_status);
+    is_bad_status = bad_block_status.status;
+#else
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    ret = nand_is_bad(dev_handle, b, &is_bad_status);
+#endif
     if (ret || is_bad_status == true) {
         return 1;
     }
@@ -259,31 +266,31 @@ int dhara_nand_is_bad(const struct dhara_nand *n, dhara_block_t b)
 void dhara_nand_mark_bad(const struct dhara_nand *n, dhara_block_t b)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
     esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
-    if (bdl_handle == NULL) {
-        spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
-        nand_mark_bad(dev_handle, b);
-    } else {
-        uint32_t block = b;
-        bdl_handle->ops->ioctl(bdl_handle, ESP_BLOCKDEV_CMD_MARK_BAD_BLOCK, &block);
-    }
+    uint32_t block = b;
+    bdl_handle->ops->ioctl(bdl_handle, ESP_BLOCKDEV_CMD_MARK_BAD_BLOCK, &block);
+#else
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    nand_mark_bad(dev_handle, b);
+#endif
     return;
 }
 
 int dhara_nand_is_free(const struct dhara_nand *n, dhara_page_t p)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
     bool is_free_status = true;
     esp_err_t ret = ESP_OK;
-    if (bdl_handle == NULL) {
-        spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
-        ret = nand_is_free(dev_handle, p, &is_free_status);
-    } else {
-        esp_blockdev_cmd_arg_is_free_page_t page_free_status = {p, true};
-        ret = bdl_handle->ops->ioctl(bdl_handle, ESP_BLOCKDEV_CMD_IS_FREE_PAGE, &page_free_status);
-        is_free_status = page_free_status.status;
-    }
+#ifdef CONFIG__NAND_FLASH_ENABLE_BDL
+    esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
+    esp_blockdev_cmd_arg_is_free_page_t page_free_status = {p, true};
+    ret = bdl_handle->ops->ioctl(bdl_handle, ESP_BLOCKDEV_CMD_IS_FREE_PAGE, &page_free_status);
+    is_free_status = page_free_status.status;
+#else
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
+    ret = nand_is_free(dev_handle, p, &is_free_status);
+#endif
 
     if (ret != ESP_OK) {
         return 0;

@@ -86,10 +86,10 @@ Application/Filesystem
 
 - **`nand.h`** - Internal device structure and operations
   - `spi_nand_flash_device_t` - Main device handle
-  - `nand_init_device()` - Internal device initialization
   - `nand_wl_attach_ops()` / `nand_wl_detach_ops()` - Dhara integration
 
 - **`nand_impl.h`** - Low-level flash operations
+  - `nand_init_device()` - Internal device initialization
   - Page read/write/erase functions
   - Bad block management
   - ECC status handling
@@ -103,6 +103,7 @@ Application/Filesystem
   - Register read/write operations
 
 - **`nand_linux_mmap_emul.h`** - Linux emulation (host testing)
+  - `nand_init_device()` - Internal device initialization
   - Memory-mapped file emulation
   - NAND flash simulation for testing
 
@@ -118,13 +119,13 @@ src/
 │                               # - spi_nand_flash_write_sector()
 │
 ├── nand_impl.c                 # Flash BDL implementation
+│                               # - Device detection and initialization
 │                               # - nand_read(), nand_prog(), nand_erase()
 │                               # - nand_is_bad(), nand_mark_bad()
 │                               # - nand_is_free()
 │
 ├── nand_flash_blockdev.c       # Flash BDL block device adapter
 │                               # - nand_flash_get_blockdev()
-│                               # - Device detection and initialization
 │                               # - Ioctl command handling
 │
 ├── dhara_glue.c                # Wear-Leveling BDL implementation

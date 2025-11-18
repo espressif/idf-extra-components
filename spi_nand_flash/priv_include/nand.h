@@ -17,6 +17,10 @@
 #include "freertos/semphr.h"
 #include "nand_device_types.h"
 
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+#include "esp_blockdev.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,7 +34,7 @@ extern "C" {
 typedef nand_flash_geometry_t spi_nand_chip_t;
 
 typedef struct {
-    esp_err_t (*init)(spi_nand_flash_device_t *handle, esp_blockdev_handle_t bdl_handle);
+    esp_err_t (*init)(spi_nand_flash_device_t *handle, void *bdl_handle); //if CONFIG_NAND_FLASH_ENABLE_BDL disabled, bdl_handle should be NULL
     esp_err_t (*deinit)(spi_nand_flash_device_t *handle);
     esp_err_t (*read)(spi_nand_flash_device_t *handle, uint8_t *buffer, uint32_t sector_id);
     esp_err_t (*write)(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint32_t sector_id);
@@ -58,30 +62,6 @@ struct spi_nand_flash_device_t {
 #endif
 };
 
-/**
- * @brief Initialize NAND flash device (internal use only)
- *
- * This is an internal function that initializes the NAND flash hardware,
- * detects the chip, and creates the device structure. It does NOT create
- * any block device interface.
- *
- * Used by:
- * - nand_flash_get_blockdev() - to create Flash BDL
- * - spi_nand_flash_init_device() - for legacy API
- *
- * @param[in]  config  Configuration for the SPI NAND flash device
- * @param[out] handle  Pointer to store the created NAND device handle
- *
- * @return
- *         - ESP_OK: Success
- *         - ESP_ERR_INVALID_ARG: Invalid configuration or NULL pointer
- *         - ESP_ERR_NO_MEM: Insufficient memory
- *         - ESP_ERR_NOT_FOUND: NAND device not detected
- *
- * @note This is INTERNAL API. Do not use directly in applications.
- */
-esp_err_t nand_init_device(spi_nand_flash_config_t *config,
-                           spi_nand_flash_device_t **handle);
 
 /**
  * @brief Attach wear-leveling operations to NAND device (internal use only)

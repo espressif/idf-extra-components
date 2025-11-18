@@ -16,8 +16,11 @@
 #include "vfs_fat_internal.h"
 #include "diskio_impl.h"
 #include "diskio_nand.h"
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 #include "diskio_nand_blockdev.h"
 #include "esp_blockdev.h"
+#endif
 
 static const char *TAG = "vfs_fat_nand";
 
@@ -110,6 +113,7 @@ esp_err_t esp_vfs_fat_nand_unmount(const char *base_path, spi_nand_flash_device_
     return err;
 }
 
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 esp_err_t esp_vfs_fat_nand_mount_bdl(const char *base_path, esp_blockdev_handle_t blockdev,
                                      const esp_vfs_fat_mount_config_t *mount_config)
 {
@@ -202,3 +206,4 @@ esp_err_t esp_vfs_fat_nand_unmount_bdl(const char *base_path, esp_blockdev_handl
     esp_err_t err = esp_vfs_fat_unregister_path(base_path);
     return err;
 }
+#endif // CONFIG_NAND_FLASH_ENABLE_BDL

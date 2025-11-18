@@ -22,9 +22,11 @@
 
 #include <stdint.h>
 #include "esp_err.h"
-#include "esp_blockdev.h"
 #include "spi_nand_flash.h"
 #include "nand_device_types.h"
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+#include "esp_blockdev.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -261,8 +263,8 @@ esp_err_t nand_flash_get_blockdev(spi_nand_flash_config_t *config,
 esp_err_t spi_nand_flash_wl_get_blockdev(esp_blockdev_handle_t nand_bdl,
         esp_blockdev_handle_t *out_bdl_handle_ptr);
 
-
-
 #ifdef __cplusplus
 }
 #endif
+
+#endif // CONFIG_NAND_FLASH_ENABLE_BDL

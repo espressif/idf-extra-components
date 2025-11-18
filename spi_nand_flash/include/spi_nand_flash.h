@@ -10,11 +10,14 @@
 
 #include <stdint.h>
 #include "esp_err.h"
-#include "esp_blockdev.h"
 #include "nand_device_types.h"
 #ifndef CONFIG_IDF_TARGET_LINUX
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#endif
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+#include "esp_blockdev.h"
 #endif
 
 #ifdef __cplusplus
@@ -178,6 +181,9 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle);
 // NEW LAYERED ARCHITECTURE API
 //---------------------------------------------------------------------------------------------------------------------------------------------
 
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+#include "esp_blockdev.h"
+
 /** @brief Initialize SPI NAND Flash with separate layer block devices
  *
  * This function provides direct access to the layered architecture, allowing
@@ -194,6 +200,7 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle);
  */
 esp_err_t spi_nand_flash_init_with_layers(spi_nand_flash_config_t *config,
         esp_blockdev_handle_t *wl_bdl);
+#endif // CONFIG_NAND_FLASH_ENABLE_BDL
 
 #ifdef __cplusplus
 }
