@@ -90,14 +90,6 @@ esp_linenoise_instance_t *esp_linenoise_create_instance_static(void)
 }
 
 /**
- * @brief Probe the terminal to check weather it supports escape sequences
- *
- * @param instance The linenoise instance used to check
- * @return int 0 if the terminal supports escape sequences
- */
-int esp_linenoise_probe(esp_linenoise_instance_t *instance);
-
-/**
  * @brief This function is used by the callback function registered by the user
  * in order to add completion options given the input string when the
  * user typed <tab>. See the example.c source code for a very easy to

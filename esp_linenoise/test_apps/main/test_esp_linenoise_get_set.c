@@ -72,6 +72,20 @@ TEST_CASE("set and get empty line flag", "[esp_linenoise]")
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_delete_instance(h));
 }
 
+TEST_CASE("set and get prompt", "[esp_linenoise]")
+{
+    esp_linenoise_handle_t h = get_linenoise_instance_default_config();
+
+    const char *test_prompt = "test";
+    const char *ret_prompt = NULL;
+
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_set_prompt(h, test_prompt));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_get_prompt(h, &ret_prompt));
+    TEST_ASSERT_TRUE(strcmp(test_prompt, ret_prompt) == 0);
+
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_delete_instance(h));
+}
+
 TEST_CASE("default max line length and max history length", "[esp_linenoise]")
 {
     esp_linenoise_config_t config;
