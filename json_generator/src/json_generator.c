@@ -20,6 +20,7 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "sdkconfig.h"
 #include <json_generator.h>
 
 #define MAX_INT_IN_STR      24
@@ -229,8 +230,46 @@ static int json_gen_set_int64(json_gen_str_t *jstr, int64_t val)
 {
     jstr->comma_req = true;
     char str[MAX_INT64_IN_STR];
+    char *str_ptr = str;
+
+#if CONFIG_LIBC_NEWLIB_NANO_FORMAT
+    /* Use modulo 10 parsing to format the 64-bit integer */
+    uint64_t abs_val;
+    bool negative = false;
+
+    if (val < 0) {
+        abs_val = (uint64_t)(-val);
+        negative = true;
+    } else {
+        abs_val = (uint64_t)val;
+    }
+
+    char *ptr = str + MAX_INT64_IN_STR - 1;  // Start at the end of buffer
+    *ptr = '\0';  // Null terminate
+
+    // Handle zero case
+    if (abs_val == 0) {
+        *ptr = '0';
+    } else {
+        // Extract digits from right to left using modulo 10
+        while (abs_val > 0) {
+            *(--ptr) = (abs_val % 10) + '0';
+            abs_val /= 10;
+        }
+    }
+
+    // Add negative sign if needed
+    if (negative) {
+        *(--ptr) = '-';
+    }
+
+    // Move ptr to the start of the number (skip the unused buffer space)
+    str_ptr = ptr;
+#else
+    /* use 64-bit integer formatting */
     snprintf(str, MAX_INT64_IN_STR, "%" PRId64, val);
-    return json_gen_add_to_str(jstr, str);
+#endif /* CONFIG_LIBC_NEWLIB_NANO_FORMAT */
+    return json_gen_add_to_str(jstr, str_ptr);
 }
 
 int json_gen_obj_set_int64(json_gen_str_t *jstr, const char *name, int64_t val)
