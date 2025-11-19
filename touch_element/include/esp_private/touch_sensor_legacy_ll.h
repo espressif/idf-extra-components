@@ -13,17 +13,32 @@
 #include "esp_bit_defs.h"
 #include "hal/misc.h"
 #include "hal/assert.h"
-#include "soc/touch_sensor_periph.h"
 #include "soc/rtc_cntl_struct.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc_io_struct.h"
 #include "soc/sens_struct.h"
-#include "soc/soc_caps.h"
 #include "touch_element/touch_sensor_legacy_types.h"
 #include "esp_idf_version.h"
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#define TOUCH_LL_CHAN_NUM                    15
+#define TOUCH_LL_PROXIMITY_CHANNEL_NUM       3
+#define TOUCH_LL_SHIELD_CHANNEL              14
+#define TOUCH_LL_DENOISE_CHANNEL             0
+
+#define TOUCH_LL_INTR_MASK_DONE              0x01/*!<Measurement done for one of the enabled channels. */
+#define TOUCH_LL_INTR_MASK_ACTIVE            0x02 /*!<Active for one of the enabled channels. */
+#define TOUCH_LL_INTR_MASK_INACTIVE          0x04 /*!<Inactive for one of the enabled channels. */
+#define TOUCH_LL_INTR_MASK_SCAN_DONE         0x08 /*!<Measurement done for all the enabled channels. */
+#define TOUCH_LL_INTR_MASK_TIMEOUT           0x10 /*!<Timeout for one of the enabled channels. */
+#ifdef RTC_CNTL_INT_ENA_W1TS_REG
+#define TOUCH_LL_INTR_MASK_PROXI_MEAS_DONE   0x20 /*!<For proximity sensor, when the number of measurements reaches the set count of measurements, an interrupt will be generated. */
+#define TOUCH_LL_INTR_MASK_ALL               0x3F /*!<All touch interrupt type enable. */
+#else
+#define TOUCH_LL_INTR_MASK_ALL               0x1F /*!<All touch interrupt type enable. */
 #endif
 
 #define TOUCH_LL_READ_RAW           0x0
@@ -36,8 +51,6 @@ extern "C" {
 #define TOUCH_LL_PAD_MEASURE_WAIT_MAX      (0xFF)      // The timer frequency is 8Mhz, the max value is 0xff
 #define TOUCH_LL_ACTIVE_THRESH_MAX         (0x3FFFFF)  // Max channel active threshold
 #define TOUCH_LL_TIMEOUT_MAX               (0x3FFFFF)  // Max timeout value
-
-#define TOUCH_LL_DENOISE_CHANNEL         (TOUCH_PAD_NUM0)
 
 /**
  * Get the current measure channel. Touch sensor measurement is cyclic scan mode.
@@ -692,22 +705,22 @@ static inline void touch_ll_get_idle_channel_connect(touch_pad_conn_type_t *type
  */
 static inline void touch_ll_intr_enable(touch_pad_intr_mask_t int_mask)
 {
-    if (int_mask & TOUCH_PAD_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_done_w1ts = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_ACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_active_w1ts = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_INACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_inactive_w1ts = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_scan_done_w1ts = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
+    if (int_mask & TOUCH_LL_INTR_MASK_TIMEOUT) {
         RTCCNTL.int_ena_w1ts.rtc_touch_timeout_w1ts = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_PROXI_MEAS_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_PROXI_MEAS_DONE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_approach_loop_done_w1ts = 1;
     }
 }
@@ -719,22 +732,22 @@ static inline void touch_ll_intr_enable(touch_pad_intr_mask_t int_mask)
  */
 static inline void touch_ll_intr_disable(touch_pad_intr_mask_t int_mask)
 {
-    if (int_mask & TOUCH_PAD_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_done_w1tc = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_ACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_active_w1tc = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_INACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_inactive_w1tc = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_scan_done_w1tc = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
+    if (int_mask & TOUCH_LL_INTR_MASK_TIMEOUT) {
         RTCCNTL.int_ena_w1tc.rtc_touch_timeout_w1tc = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_PROXI_MEAS_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_PROXI_MEAS_DONE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_approach_loop_done_w1tc = 1;
     }
 }
@@ -746,22 +759,22 @@ static inline void touch_ll_intr_disable(touch_pad_intr_mask_t int_mask)
  */
 static inline void touch_ll_intr_clear(touch_pad_intr_mask_t int_mask)
 {
-    if (int_mask & TOUCH_PAD_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_done = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_ACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_active = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_INACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_inactive = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         RTCCNTL.int_clr.rtc_touch_scan_done = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
+    if (int_mask & TOUCH_LL_INTR_MASK_TIMEOUT) {
         RTCCNTL.int_clr.rtc_touch_timeout = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_PROXI_MEAS_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_PROXI_MEAS_DONE) {
         RTCCNTL.int_clr.rtc_touch_approach_loop_done = 1;
     }
 }
@@ -778,24 +791,24 @@ static inline uint32_t touch_ll_read_intr_status_mask(void)
     uint32_t intr_msk = 0;
 
     if (intr_st.rtc_touch_done) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_active) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_ACTIVE;
+        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_inactive) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_INACTIVE;
+        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_scan_done) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_SCAN_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_SCAN_DONE;
     }
     if (intr_st.rtc_touch_timeout) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_TIMEOUT;
+        intr_msk |= TOUCH_LL_INTR_MASK_TIMEOUT;
     }
     if (intr_st.rtc_touch_approach_loop_done) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_PROXI_MEAS_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_PROXI_MEAS_DONE;
     }
-    return (intr_msk & TOUCH_PAD_INTR_MASK_ALL);
+    return (intr_msk & TOUCH_LL_INTR_MASK_ALL);
 }
 
 #else
@@ -807,19 +820,19 @@ static inline uint32_t touch_ll_read_intr_status_mask(void)
  */
 static inline void touch_ll_intr_enable(touch_pad_intr_mask_t int_mask)
 {
-    if (int_mask & TOUCH_PAD_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_done = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_ACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_active = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_INACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_inactive = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         RTCCNTL.int_ena.rtc_touch_scan_done = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
+    if (int_mask & TOUCH_LL_INTR_MASK_TIMEOUT) {
         RTCCNTL.int_ena.rtc_touch_timeout = 1;
     }
 }
@@ -829,21 +842,21 @@ static inline void touch_ll_intr_enable(touch_pad_intr_mask_t int_mask)
  *
  * @param type interrupt type
  */
-static inline void touch_ll_intr_disable(touch_pad_intr_mask_t int_mask)
+static inline void touch_ll_intr_disable(uint32_t int_mask)
 {
-    if (int_mask & TOUCH_PAD_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_done = 0;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_ACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_active = 0;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_INACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_inactive = 0;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         RTCCNTL.int_ena.rtc_touch_scan_done = 0;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
+    if (int_mask & TOUCH_LL_INTR_MASK_TIMEOUT) {
         RTCCNTL.int_ena.rtc_touch_timeout = 0;
     }
 }
@@ -855,19 +868,19 @@ static inline void touch_ll_intr_disable(touch_pad_intr_mask_t int_mask)
  */
 static inline void touch_ll_intr_clear(touch_pad_intr_mask_t int_mask)
 {
-    if (int_mask & TOUCH_PAD_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_done = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_ACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_active = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_INACTIVE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_inactive = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         RTCCNTL.int_clr.rtc_touch_scan_done = 1;
     }
-    if (int_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
+    if (int_mask & TOUCH_LL_INTR_MASK_TIMEOUT) {
         RTCCNTL.int_clr.rtc_touch_timeout = 1;
     }
 }
@@ -884,21 +897,21 @@ static inline uint32_t touch_ll_read_intr_status_mask(void)
     uint32_t intr_msk = 0;
 
     if (intr_st.rtc_touch_done) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_active) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_ACTIVE;
+        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_inactive) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_INACTIVE;
+        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_scan_done) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_SCAN_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_SCAN_DONE;
     }
     if (intr_st.rtc_touch_timeout) {
-        intr_msk |= TOUCH_PAD_INTR_MASK_TIMEOUT;
+        intr_msk |= TOUCH_LL_INTR_MASK_TIMEOUT;
     }
-    return (intr_msk & TOUCH_PAD_INTR_MASK_ALL);
+    return (intr_msk & TOUCH_LL_INTR_MASK_ALL);
 }
 
 #endif
