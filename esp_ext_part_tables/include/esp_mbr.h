@@ -21,6 +21,7 @@ extern "C" {
 #define MBR_COPY_PROTECTED 0x5A5A
 #define MBR_PARTITION_TABLE_OFFSET 0x1BE
 #define MBR_PARTITION_STATUS_ACTIVE 0x80
+#define MBR_MAX_PARTITION_COUNT 4
 
 // MBR partition entry structure - https://en.wikipedia.org/wiki/Master_boot_record#Partition_table_entries
 #pragma pack(push, 1)
