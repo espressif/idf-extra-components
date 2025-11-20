@@ -248,7 +248,7 @@ void touch_element_uninstall(void)
     if (ret != ESP_OK) {
         abort();
     }
-    touch_ll_intr_disable((touch_pad_intr_mask_t)(TOUCH_LL_INTR_MASK_DONE | TOUCH_LL_INTR_MASK_DONE | TOUCH_LL_INTR_MASK_TIMEOUT));
+    touch_ll_intr_disable((touch_pad_intr_mask_t)(TOUCH_LL_INTR_MASK_ACTIVE | TOUCH_LL_INTR_MASK_INACTIVE | TOUCH_LL_INTR_MASK_TIMEOUT));
     ret = rtc_isr_deregister(te_intr_cb, NULL);
     if (ret != ESP_OK) {
         abort();
@@ -710,8 +710,8 @@ static esp_err_t te_hw_init(const touch_elem_hw_config_t *hardware_init)
                          RTC_CNTL_TOUCH_TIMEOUT_INT_ST_M | RTC_CNTL_TOUCH_SCAN_DONE_INT_ST_M;
     ret = rtc_isr_register(te_intr_cb, NULL, intr_mask, 0);
     TE_CHECK(ret == ESP_OK, ret);
-    touch_ll_intr_enable((touch_pad_intr_mask_t)(TOUCH_LL_INTR_MASK_DONE | TOUCH_LL_INTR_MASK_SCAN_DONE |
-                         TOUCH_LL_INTR_MASK_DONE | TOUCH_LL_INTR_MASK_TIMEOUT));
+    touch_ll_intr_enable((touch_pad_intr_mask_t)(TOUCH_LL_INTR_MASK_ACTIVE | TOUCH_LL_INTR_MASK_SCAN_DONE |
+                         TOUCH_LL_INTR_MASK_INACTIVE | TOUCH_LL_INTR_MASK_TIMEOUT));
     TE_CHECK(ret == ESP_OK, ret);
     /*< Internal de-noise configuration */
     touch_pad_denoise_t denoise_config;

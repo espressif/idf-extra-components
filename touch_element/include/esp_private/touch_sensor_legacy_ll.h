@@ -708,10 +708,10 @@ static inline void touch_ll_intr_enable(touch_pad_intr_mask_t int_mask)
     if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_done_w1ts = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_ACTIVE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_active_w1ts = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_INACTIVE) {
         RTCCNTL.int_ena_w1ts.rtc_touch_inactive_w1ts = 1;
     }
     if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
@@ -735,10 +735,10 @@ static inline void touch_ll_intr_disable(touch_pad_intr_mask_t int_mask)
     if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_done_w1tc = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_ACTIVE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_active_w1tc = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_INACTIVE) {
         RTCCNTL.int_ena_w1tc.rtc_touch_inactive_w1tc = 1;
     }
     if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
@@ -762,10 +762,10 @@ static inline void touch_ll_intr_clear(touch_pad_intr_mask_t int_mask)
     if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_done = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_ACTIVE) {
         RTCCNTL.int_clr.rtc_touch_active = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_INACTIVE) {
         RTCCNTL.int_clr.rtc_touch_inactive = 1;
     }
     if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
@@ -794,10 +794,10 @@ static inline uint32_t touch_ll_read_intr_status_mask(void)
         intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_active) {
-        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_ACTIVE;
     }
     if (intr_st.rtc_touch_inactive) {
-        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_INACTIVE;
     }
     if (intr_st.rtc_touch_scan_done) {
         intr_msk |= TOUCH_LL_INTR_MASK_SCAN_DONE;
@@ -823,10 +823,10 @@ static inline void touch_ll_intr_enable(touch_pad_intr_mask_t int_mask)
     if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_done = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_ACTIVE) {
         RTCCNTL.int_ena.rtc_touch_active = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_INACTIVE) {
         RTCCNTL.int_ena.rtc_touch_inactive = 1;
     }
     if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
@@ -847,10 +847,10 @@ static inline void touch_ll_intr_disable(uint32_t int_mask)
     if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_ena.rtc_touch_done = 0;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_ACTIVE) {
         RTCCNTL.int_ena.rtc_touch_active = 0;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_INACTIVE) {
         RTCCNTL.int_ena.rtc_touch_inactive = 0;
     }
     if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
@@ -871,10 +871,10 @@ static inline void touch_ll_intr_clear(touch_pad_intr_mask_t int_mask)
     if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
         RTCCNTL.int_clr.rtc_touch_done = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_ACTIVE) {
         RTCCNTL.int_clr.rtc_touch_active = 1;
     }
-    if (int_mask & TOUCH_LL_INTR_MASK_DONE) {
+    if (int_mask & TOUCH_LL_INTR_MASK_INACTIVE) {
         RTCCNTL.int_clr.rtc_touch_inactive = 1;
     }
     if (int_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
@@ -900,10 +900,10 @@ static inline uint32_t touch_ll_read_intr_status_mask(void)
         intr_msk |= TOUCH_LL_INTR_MASK_DONE;
     }
     if (intr_st.rtc_touch_active) {
-        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_ACTIVE;
     }
     if (intr_st.rtc_touch_inactive) {
-        intr_msk |= TOUCH_LL_INTR_MASK_DONE;
+        intr_msk |= TOUCH_LL_INTR_MASK_INACTIVE;
     }
     if (intr_st.rtc_touch_scan_done) {
         intr_msk |= TOUCH_LL_INTR_MASK_SCAN_DONE;
