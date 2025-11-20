@@ -1,3 +1,9 @@
+# 09-October-2025
+
+- Build wifi_prov example for ESP32-P4 (for ESP32-P4-Function-EV-Board)
+- ESP32-P4 assumes ESP32-C6 (configurable) acts as Wi-Fi and BLE co-processor over SDIO transport
+- Uses esp_wifi_remote and esp_hosted_mcu
+
 # 07-October-2025
 
 - Use managed cJSON component for IDF v6.0 and above
