@@ -1,3 +1,6 @@
+## [1.0.0]
+- feat: added block device support, which is available from IDF version v6.0
+
 ## [0.15.0]
 - feat: added support for Gigadevice (GD5F2GM7xExxG) NAND flash
 

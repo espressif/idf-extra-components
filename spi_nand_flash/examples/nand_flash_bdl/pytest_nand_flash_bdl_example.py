@@ -13,7 +13,7 @@ from pathlib import Path
     reason="Skip the idf version that not build"
 )
 @idf_parametrize('target', ['esp32'], indirect=['target'])
-def test_nand_flash_example(dut) -> None:
+def test_nand_flash_bdl_example(dut) -> None:
     dut.expect_exact("Opening file")
     dut.expect_exact("File written")
     dut.expect_exact("Reading file")
