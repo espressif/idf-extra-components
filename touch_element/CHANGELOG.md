@@ -1,3 +1,7 @@
+## 1.1.1
+
+- Fixed the incorrect interrupt mask
+
 ## 1.1.0
 
 - Refactor to remove the dependency on the hal and soc caps in IDF
