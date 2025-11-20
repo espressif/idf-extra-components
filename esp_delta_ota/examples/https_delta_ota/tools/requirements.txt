@@ -1,1 +1,2 @@
 detools>=0.49.0
+esptool
