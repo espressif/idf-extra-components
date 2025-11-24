@@ -328,19 +328,37 @@ void sh2lib_free(struct sh2lib_handle *hd)
 int sh2lib_execute(struct sh2lib_handle *hd)
 {
     int ret;
-    ret = nghttp2_session_send(hd->http2_sess);
+    ret = sh2lib_execute_send(hd);
     if (ret != 0) {
-        ESP_LOGE(TAG, "[sh2-execute] HTTP2 session send failed %d", ret);
         return ret;
     }
 
-    ret = nghttp2_session_recv(hd->http2_sess);
+    ret = sh2lib_execute_recv(hd);
     if (ret != 0) {
-        ESP_LOGE(TAG, "[sh2-execute] HTTP2 session recv failed %d", ret);
         return ret;
     }
 
     return 0;
+}
+
+int sh2lib_execute_recv(struct sh2lib_handle *hd)
+{
+    int ret = nghttp2_session_recv(hd->http2_sess);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "[sh2-execute-recv] HTTP2 session recv failed %d", ret);
+    }
+
+    return ret;
+}
+
+int sh2lib_execute_send(struct sh2lib_handle *hd)
+{
+    int ret = nghttp2_session_send(hd->http2_sess);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "[sh2-execute-send] HTTP2 session send failed %d", ret);
+    }
+
+    return ret;
 }
 
 int sh2lib_do_get_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, size_t nvlen, sh2lib_frame_data_recv_cb_t recv_cb)
