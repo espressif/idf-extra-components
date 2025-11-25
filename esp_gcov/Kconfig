@@ -2,10 +2,10 @@ menu "GNU Code Coverage"
 
     config ESP_GCOV_ENABLE
         bool "GCOV to Host Enable"
-        depends on APPTRACE_ENABLE && !APPTRACE_SV_ENABLE
+        depends on ESP_TRACE_TRANSPORT_APPTRACE && ESP_TRACE_LIB_NONE
         select ESP_DEBUG_STUBS_ENABLE
         select ESP_IPC_ENABLE
-        default y
+        default n
         help
             Enables support for GCOV data transfer to host.
 
