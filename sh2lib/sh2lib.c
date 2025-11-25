@@ -343,6 +343,11 @@ int sh2lib_execute(struct sh2lib_handle *hd)
 
 int sh2lib_execute_recv(struct sh2lib_handle *hd)
 {
+    if (hd == NULL) {
+        ESP_LOGE(TAG, "[sh2-execute-recv] pointer to sh2lib handle cannot be NULL");
+        return -1;
+    }
+
     int ret = nghttp2_session_recv(hd->http2_sess);
     if (ret != 0) {
         ESP_LOGE(TAG, "[sh2-execute-recv] HTTP2 session recv failed %d", ret);
@@ -353,6 +358,11 @@ int sh2lib_execute_recv(struct sh2lib_handle *hd)
 
 int sh2lib_execute_send(struct sh2lib_handle *hd)
 {
+    if (hd == NULL) {
+        ESP_LOGE(TAG, "[sh2-execute-recv] pointer to sh2lib handle cannot be NULL");
+        return -1;
+    }
+
     int ret = nghttp2_session_send(hd->http2_sess);
     if (ret != 0) {
         ESP_LOGE(TAG, "[sh2-execute-send] HTTP2 session send failed %d", ret);
