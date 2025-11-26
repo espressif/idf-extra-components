@@ -59,6 +59,41 @@ set(compiler_args ${CMAKE_CXX_FLAGS})
 separate_arguments(compiler_args)
 list(FILTER compiler_args EXCLUDE REGEX "^$")
 
+# Expand response files (arguments starting with @"filename")
+# ESP-IDF's latest version uses response files for compiler flags
+# These need to be expanded because meson cannot read them from its build context
+function(expand_response_files arg_list output_var)
+    set(expanded_args)
+    foreach(arg IN LISTS arg_list)
+        # Check if argument is a response file reference: @"filename" or @filename
+        if(arg MATCHES "^@\"?(.+)\"?$")
+            set(response_file "${CMAKE_MATCH_1}")
+            # Remove quotes if present
+            string(REGEX REPLACE "^\"(.+)\"$" "\\1" response_file "${response_file}")
+            # Check if file exists and read its contents
+            if(EXISTS "${response_file}")
+                file(READ "${response_file}" file_contents)
+                # Split file contents into individual arguments
+                string(REGEX REPLACE "[\r\n]+" ";" file_args "${file_contents}")
+                separate_arguments(file_args)
+                list(FILTER file_args EXCLUDE REGEX "^$")
+                list(APPEND expanded_args ${file_args})
+                message(STATUS "Expanded response file ${response_file} with ${CMAKE_MATCH_0} arguments")
+            else()
+                # Response file doesn't exist yet (created at build time)
+                # Skip it - essential flags should be provided directly
+                message(STATUS "Skipping non-existent response file: ${response_file}")
+            endif()
+        else()
+            list(APPEND expanded_args "${arg}")
+        endif()
+    endforeach()
+    set(${output_var} ${expanded_args} PARENT_SCOPE)
+endfunction()
+
+expand_response_files("${compiler_args}" compiler_args)
+expand_response_files("${linker_args}" linker_args)
+
 message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${linker_args}")
 message(STATUS "CMAKE_CXX_FLAGS: ${compiler_args}")
 
