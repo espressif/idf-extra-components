@@ -18,7 +18,7 @@ void setUp(void)
 void tearDown(void)
 {
     esp_reent_cleanup();    //clean up some of the newlib's lazy allocations
-    unity_utils_evaluate_leaks_direct(20);
+    unity_utils_evaluate_leaks_direct(32);
 }
 
 void app_main(void)

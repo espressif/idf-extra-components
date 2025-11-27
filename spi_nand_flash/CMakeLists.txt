@@ -24,7 +24,7 @@ else()
                  "src/spi_nand_oper.c"
                  "vfs/vfs_fat_spinandflash.c")
 
-    set(priv_reqs vfs)
+    set(priv_reqs vfs esp_mm)
     list(APPEND inc vfs)
 
     if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER "5.3")
