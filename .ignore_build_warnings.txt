@@ -1,1 +1,2 @@
 DeprecationWarning: pkg_resources is deprecated as an API
+WARNING: The following Kconfig variables were used in "if" clauses

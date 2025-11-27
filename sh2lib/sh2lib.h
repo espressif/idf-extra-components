@@ -203,6 +203,38 @@ int sh2lib_do_put(struct sh2lib_handle *hd, const char *path,
  */
 int sh2lib_execute(struct sh2lib_handle *hd);
 
+/**
+ * @brief Execute receive on an HTTP/2 connection
+ *
+ * While the API sh2lib_do_get(), sh2lib_do_post() setup the requests to be
+ * initiated with the server, this API performs the actual data send/receive
+ * operations on the HTTP/2 connection. The callback functions are accordingly
+ * called during the processing of these requests.
+ *
+ * @param[in] hd      Pointer to a variable of the type 'struct sh2lib_handle'
+ *
+ * @return
+ *             - 0 if it succeeds
+ *             - Negative error code from nghttp2 on failure
+ */
+int sh2lib_execute_recv(struct sh2lib_handle *hd);
+
+/**
+ * @brief Execute send on an HTTP/2 connection
+ *
+ * While the API sh2lib_do_get(), sh2lib_do_post() setup the requests to be
+ * initiated with the server, this API performs the actual data send/receive
+ * operations on the HTTP/2 connection. The callback functions are accordingly
+ * called during the processing of these requests.
+ *
+ * @param[in] hd      Pointer to a variable of the type 'struct sh2lib_handle'
+ *
+ * @return
+ *             - 0 if it succeeds
+ *             - Negative error code from nghttp2 on failure
+ */
+int sh2lib_execute_send(struct sh2lib_handle *hd);
+
 #define SH2LIB_MAKE_NV(NAME, VALUE)                                    \
   {                                                                    \
     (uint8_t *)NAME, (uint8_t *)VALUE, strlen(NAME), strlen(VALUE),    \
