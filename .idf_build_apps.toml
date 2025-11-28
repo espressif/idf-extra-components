@@ -18,6 +18,7 @@ manifest_file = [
     "esp_cli/.build-test-rules.yml",
     "esp_ext_part_tables/.build-test-rules.yml",
     "esp_serial_slave_link/.build-test-rules.yml",
+    "esp_sysview/.build-test-rules.yml",
     "expat/.build-test-rules.yml",
     "iqmath/.build-test-rules.yml",
     "esp_isotp/.build-test-rules.yml",
