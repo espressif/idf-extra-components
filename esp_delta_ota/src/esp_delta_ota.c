@@ -68,7 +68,8 @@ static int esp_delta_ota_read_cb(void *arg_p, uint8_t *buf_p, size_t size)
             return ESP_FAIL;
         }
     } else {
-        err = handle->read_cb_with_user_data(buf_p, size, handle->src_offset, handle->user_data);        if (err != ESP_OK) {
+        err = handle->read_cb_with_user_data(buf_p, size, handle->src_offset, handle->user_data);       
+        if (err != ESP_OK) {
             ESP_LOGE(TAG, "Error in read_cb_with_user_data(): %s", esp_err_to_name(err));
             return ESP_FAIL;
         }
