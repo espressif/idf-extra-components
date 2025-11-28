@@ -16,21 +16,21 @@ cve-exclude-list:
     reason: Not applicable as per comment https://github.com/obgm/libcoap/issues/1724#issuecomment-3296780541
   - cve: CVE-2025-59391
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69493
+  - cve: CVE-2025-65493
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69494
+  - cve: CVE-2025-65494
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69495
+  - cve: CVE-2025-65495
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69496
+  - cve: CVE-2025-65496
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69497
+  - cve: CVE-2025-65497
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69498
+  - cve: CVE-2025-65498
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69499
+  - cve: CVE-2025-65499
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69500
+  - cve: CVE-2025-65500
     reason: Resolved in version 4.3.5a
-  - cve: CVE-2025-69501
+  - cve: CVE-2025-65501
     reason: Resolved in version 4.3.5a
