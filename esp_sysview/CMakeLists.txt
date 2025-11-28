@@ -26,10 +26,12 @@ if(CONFIG_ESP_TRACE_LIB_EXTERNAL)
         endif()
     endif()
 
+    configure_file(linker.lf.in ${CMAKE_CURRENT_BINARY_DIR}/linker.lf)
+
     idf_component_register(SRCS "${srcs}"
                         INCLUDE_DIRS "${include_dirs}"
                         REQUIRES     esp_trace
-                        LDFRAGMENTS linker.lf
+                        LDFRAGMENTS ${CMAKE_CURRENT_BINARY_DIR}/linker.lf
                         WHOLE_ARCHIVE TRUE # Link all symbols so self-registering adapters (ESP_TRACE_REGISTER_*) are not discarded
                         )
 
