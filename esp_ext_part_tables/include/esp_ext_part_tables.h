@@ -10,6 +10,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "esp_err.h"
+#include "esp_idf_version.h"
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+#include "esp_blockdev.h"
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 #if __has_include(<bsd/sys/queue.h>)
 #include <bsd/sys/queue.h>
@@ -208,6 +213,54 @@ esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *
  *     - ESP_ERR_NOT_SUPPORTED: Unsupported signature type.
  */
 esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const void *signature, esp_ext_part_signature_type_t type);
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+/**
+ * @brief Read a aprtition table and from a block device handle and parse it.
+ *
+ * This function reads the partition table from the specified block device and populates the provided partition list structure.
+ * The type of partition table to read is specified by the 'type' parameter.
+ * Additional arguments for parsing can be provided through the 'extra_args' parameter.
+ *
+ * @note This function is not thread-safe.
+ *
+ * @param[in] handle       Block device handle to read from.
+ * @param[out] part_list   Pointer to the partition list structure to populate from the partition table.
+ * @param[in] type         Type of partition table to read (e.g., MBR).
+ * @param[in] extra_args   Pointer to additional arguments for parsing dependent on the partition type (optional, can be NULL).
+ *
+ * @return
+ *     - ESP_OK: Partition list was successfully loaded.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
+ *     - ESP_ERR_NOT_SUPPORTED: Unsupported partition table type.
+ *     - ESP_ERR_NO_MEM: Memory allocation failed.
+ *     - propagated errors from BDL operations or partition table parsing functions.
+ */
+esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args);
+
+/**
+ * @brief Generate a partition table and write it to a block device handle.
+ *
+ * This function writes the provided partition list to the specified block device.
+ * The type of partition table to write is specified by the 'type' parameter.
+ * Additional arguments for generation can be provided through the 'extra_args' parameter.
+ *
+ * @note This function is not thread-safe.
+ *
+ * @param[in] handle       Block device handle to write to.
+ * @param[in] part_list    Pointer to the partition list structure generate the partition table from.
+ * @param[in] type         Type of partition table to write (e.g., MBR).
+ * @param[in] extra_args   Pointer to additional arguments for generation dependent on the partition type (optional, can be NULL).
+ *
+ * @return
+ *     - ESP_OK: Partition list was successfully written.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
+ *     - ESP_ERR_NOT_SUPPORTED: Unsupported partition table type.
+ *     - ESP_ERR_NO_MEM: Memory allocation failed.
+ *     - propagated errors from BDL operations or partition table generation functions.
+ */
+esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args);
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 #ifdef __cplusplus
 }
