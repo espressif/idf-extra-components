@@ -54,6 +54,36 @@ esp_err_t spi_nand_execute_transaction(spi_nand_flash_device_t *handle, spi_nand
     return ret;
 }
 
+esp_err_t spi_nand_read_manufacturer_id(spi_nand_flash_device_t *handle, uint8_t *manufacturer_id)
+{
+    esp_err_t ret = ESP_OK;
+    spi_nand_transaction_t t = {
+        .command = CMD_READ_ID,
+        .address = 0, // This normally selects the manufacturer id. Some chips ignores it, but still expects 8 dummy bits here
+        .address_bytes = 1,
+        .miso_len = 1,
+        .miso_data = manufacturer_id,
+        .flags = SPI_TRANS_USE_RXDATA,
+    };
+    ret = spi_nand_execute_transaction(handle, &t);
+    return ret;
+}
+
+esp_err_t spi_nand_read_device_id(spi_nand_flash_device_t *handle, uint8_t *device_id, uint8_t length)
+{
+    esp_err_t ret = ESP_OK;
+    spi_nand_transaction_t t = {
+        .command = CMD_READ_ID,
+        .address = 0,
+        .address_bytes = 2,
+        .miso_len = length,
+        .miso_data = device_id,
+        .flags = SPI_TRANS_USE_RXDATA,
+    };
+    ret = spi_nand_execute_transaction(handle, &t);
+    return ret;
+}
+
 esp_err_t spi_nand_read_register(spi_nand_flash_device_t *handle, uint8_t reg, uint8_t *val)
 {
     spi_nand_transaction_t t = {
