@@ -5,4 +5,11 @@ dependencies:
   espressif/network_provisioning:
       version: "*"
       override_path: '../../../'
-
+  espressif/esp_wifi_remote:
+    version: ">=0.10"
+    rules:
+      - if: "target in [esp32p4, esp32h2]"
+  espressif/esp_hosted:
+    version: "~2"
+    rules:
+      - if: "target in [esp32p4, esp32h2]"
