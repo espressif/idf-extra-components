@@ -9,8 +9,9 @@ jobs:
     name: Run SBOM manifests validation test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: |
+      - uses: actions/checkout@v6
+      - name: Validate SBOM manifests
+        run: |
           git config --global safe.directory $(pwd)
           pip install esp-idf-sbom
           python3 -m esp_idf_sbom manifest validate
