@@ -32,8 +32,9 @@ static const char *lt[] = {
     /* 15 */ "\u2588\u2588",
 };
 
-void esp_qrcode_print_console(esp_qrcode_handle_t qrcode)
+void esp_qrcode_print_console(esp_qrcode_handle_t qrcode, void *user_data)
 {
+    (void)user_data;
     int size = qrcodegen_getSize(qrcode);
     int border = 2;
     unsigned char num = 0;
@@ -103,7 +104,7 @@ esp_err_t esp_qrcode_generate(esp_qrcode_config_t *cfg, const char *text)
                                    qrcodegen_VERSION_MIN, cfg->max_qrcode_version,
                                    qrcodegen_Mask_AUTO, true);
     if (ok && cfg->display_func) {
-        cfg->display_func((esp_qrcode_handle_t)qrcode);
+        cfg->display_func((esp_qrcode_handle_t)qrcode, cfg->user_data);
         err = ESP_OK;
     }
 
