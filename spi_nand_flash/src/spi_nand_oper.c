@@ -9,6 +9,9 @@
 #include <string.h>
 #include "spi_nand_oper.h"
 #include "driver/spi_master.h"
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+#include "esp_private/esp_cache_private.h"
+#endif
 
 esp_err_t spi_nand_execute_transaction(spi_nand_flash_device_t *handle, spi_nand_transaction_t *transaction)
 {
@@ -34,11 +37,11 @@ esp_err_t spi_nand_execute_transaction(spi_nand_flash_device_t *handle, spi_nand
         .dummy_bits = transaction->dummy_bits
     };
 
-    if (transaction->flags == SPI_TRANS_USE_TXDATA) {
+    if (transaction->flags & SPI_TRANS_USE_TXDATA) {
         assert(transaction->mosi_len <= 4 && "SPI_TRANS_USE_TXDATA used for a long transaction");
         memcpy(e.base.tx_data, transaction->mosi_data, transaction->mosi_len);
     }
-    if (transaction->flags == SPI_TRANS_USE_RXDATA) {
+    if (transaction->flags & SPI_TRANS_USE_RXDATA) {
         assert(transaction->miso_len <= 4 && "SPI_TRANS_USE_RXDATA used for a long transaction");
     }
 
@@ -67,7 +70,7 @@ esp_err_t spi_nand_read_register(spi_nand_flash_device_t *handle, uint8_t reg, u
 
 esp_err_t spi_nand_write_register(spi_nand_flash_device_t *handle, uint8_t reg, uint8_t val)
 {
-    spi_nand_transaction_t  t = {
+    spi_nand_transaction_t t = {
         .command = CMD_SET_REGISTER,
         .address_bytes = 1,
         .address = reg,
@@ -81,7 +84,7 @@ esp_err_t spi_nand_write_register(spi_nand_flash_device_t *handle, uint8_t reg, 
 
 esp_err_t spi_nand_write_enable(spi_nand_flash_device_t *handle)
 {
-    spi_nand_transaction_t  t = {
+    spi_nand_transaction_t t = {
         .command = CMD_WRITE_ENABLE
     };
 
@@ -90,7 +93,7 @@ esp_err_t spi_nand_write_enable(spi_nand_flash_device_t *handle)
 
 esp_err_t spi_nand_read_page(spi_nand_flash_device_t *handle, uint32_t page)
 {
-    spi_nand_transaction_t  t = {
+    spi_nand_transaction_t t = {
         .command = CMD_PAGE_READ,
         .address_bytes = 3,
         .address = page
@@ -99,11 +102,39 @@ esp_err_t spi_nand_read_page(spi_nand_flash_device_t *handle, uint32_t page)
     return spi_nand_execute_transaction(handle, &t);
 }
 
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+static uint16_t check_length_alignment(spi_nand_flash_device_t *handle, uint16_t length)
+{
+    size_t alignment;
+    uint16_t data_len = length;
+    esp_cache_get_alignment(MALLOC_CAP_DMA, &alignment);
+    bool is_length_unaligned = (length & (alignment - 1)) ? true : false;
+    if (is_length_unaligned) {
+        if (length < alignment) {
+            data_len = ((length + alignment) & ~(alignment - 1));
+        } else {
+            data_len = ((length + (alignment - 1)) & ~(alignment - 1));
+        }
+    }
+    if (!(handle->config.flags & SPI_DEVICE_HALFDUPLEX)) {
+        data_len = data_len + alignment;
+    }
+    return data_len;
+}
+#endif
+
 static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
 {
     uint32_t spi_flags = SPI_TRANS_MODE_QIO;
     uint8_t cmd = CMD_READ_X4;
     uint8_t dummy_bits = 8;
+
+    uint8_t *data_read = data;
+    uint16_t data_read_len = length;
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    data_read = handle->temp_buffer;
+    data_read_len = check_length_alignment(handle, length);
+#endif
 
     if (handle->config.io_mode == SPI_NAND_IO_MODE_QIO) {
         spi_flags |= SPI_TRANS_MULTILINE_ADDR;
@@ -111,12 +142,12 @@ static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *da
         dummy_bits = 4;
     }
 
-    spi_nand_transaction_t  t = {
+    spi_nand_transaction_t t = {
         .command = cmd,
         .address_bytes = 2,
         .address = column,
-        .miso_len = length,
-        .miso_data = data,
+        .miso_len = data_read_len,
+        .miso_data = data_read,
         .dummy_bits = dummy_bits,
         .flags = spi_flags,
     };
@@ -124,7 +155,12 @@ static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *da
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
     t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
 #endif
-    return spi_nand_execute_transaction(handle, &t);
+    esp_err_t ret =  spi_nand_execute_transaction(handle, &t);
+
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    memcpy(data, data_read, length);
+#endif
+    return ret;
 }
 
 static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
@@ -133,18 +169,25 @@ static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *da
     uint8_t cmd = CMD_READ_X2;
     uint8_t dummy_bits = 8;
 
+    uint8_t *data_read = data;
+    uint16_t data_read_len = length;
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    data_read = handle->temp_buffer;
+    data_read_len = check_length_alignment(handle, length);
+#endif
+
     if (handle->config.io_mode == SPI_NAND_IO_MODE_DIO) {
         spi_flags |= SPI_TRANS_MULTILINE_ADDR;
         cmd = CMD_READ_DIO;
         dummy_bits = 4;
     }
 
-    spi_nand_transaction_t  t = {
+    spi_nand_transaction_t t = {
         .command = cmd,
         .address_bytes = 2,
         .address = column,
-        .miso_len = length,
-        .miso_data = data,
+        .miso_len = data_read_len,
+        .miso_data = data_read,
         .dummy_bits = dummy_bits,
         .flags = spi_flags,
     };
@@ -152,22 +195,30 @@ static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *da
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
     t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
 #endif
-    return spi_nand_execute_transaction(handle, &t);
+    esp_err_t ret =  spi_nand_execute_transaction(handle, &t);
+
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    memcpy(data, data_read, length);
+#endif
+    return ret;
 }
 
 static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
 {
-    uint8_t *data_read = NULL;
-    uint16_t data_read_len;
+    uint8_t *data_read = data;
+    uint16_t data_read_len = length;
     uint8_t half_duplex = handle->config.flags & SPI_DEVICE_HALFDUPLEX;
-    if (half_duplex) {
-        data_read_len = length;
-        data_read = data;
-    } else {
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    data_read = handle->temp_buffer;
+    data_read_len = check_length_alignment(handle, length);
+#else
+    if (!half_duplex) {
         data_read_len = length + 1;
         data_read = handle->temp_buffer;
     }
-    spi_nand_transaction_t  t = {
+#endif
+
+    spi_nand_transaction_t t = {
         .command = CMD_READ_FAST,
         .address_bytes = 2,
         .address = column,
@@ -185,9 +236,19 @@ static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *da
     if (ret != ESP_OK) {
         goto fail;
     }
+
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    if (!half_duplex) {
+        memcpy(data, data_read + 1, length);
+    } else {
+        memcpy(data, data_read, length);
+    }
+#else
     if (!half_duplex) {
         memcpy(data, data_read + 1, length);
     }
+#endif
+
 fail:
     return ret;
 }
@@ -204,7 +265,7 @@ esp_err_t spi_nand_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t
 
 esp_err_t spi_nand_program_execute(spi_nand_flash_device_t *handle, uint32_t page)
 {
-    spi_nand_transaction_t  t = {
+    spi_nand_transaction_t t = {
         .command = CMD_PROGRAM_EXECUTE,
         .address_bytes = 3,
         .address = page
@@ -222,14 +283,28 @@ esp_err_t spi_nand_program_load(spi_nand_flash_device_t *handle, const uint8_t *
         spi_flags = SPI_TRANS_MODE_QIO;
     }
 
-    spi_nand_transaction_t  t = {
+    uint16_t data_write_len = length;
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+    memcpy(handle->temp_buffer, data, length);
+    const uint8_t *data_write = handle->temp_buffer;
+    data_write_len = check_length_alignment(handle, length);
+#endif
+
+    spi_nand_transaction_t t = {
         .command = cmd,
         .address_bytes = 2,
         .address = column,
-        .mosi_len = length,
+        .mosi_len = data_write_len,
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
+        .mosi_data = data_write,
+#else
         .mosi_data = data,
+#endif
         .flags = spi_flags,
     };
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+    t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
+#endif
 
     return spi_nand_execute_transaction(handle, &t);
 }

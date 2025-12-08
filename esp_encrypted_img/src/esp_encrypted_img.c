@@ -826,10 +826,24 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
         return ESP_ERR_NOT_FINISHED;
     }
     data_out_size = handle->cache_buf_len + data_len - curr_index;
-    args->data_out = realloc(args->data_out, data_out_size);
-    if (!args->data_out) {
+
+    /* Handle zero-size allocation edge case to avoid undefined behavior */
+    if (data_out_size == 0) {
+        if (args->data_out) {
+            free(args->data_out);
+            args->data_out = NULL;
+        }
+        args->data_out_len = 0;
+        return ESP_OK;
+    }
+
+    /* Use temporary pointer to prevent memory leak if realloc fails */
+    void *temp = realloc(args->data_out, data_out_size);
+    if (!temp) {
+        /* Original pointer remains valid, caller should free it */
         return ESP_ERR_NO_MEM;
     }
+    args->data_out = temp;
     size_t copy_len = 0;
 
     copy_len = MIN(CACHE_BUF_SIZE - handle->cache_buf_len, data_len - curr_index);

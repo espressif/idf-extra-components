@@ -127,6 +127,14 @@ typedef struct esp_linenoise_config {
 typedef struct esp_linenoise_instance *esp_linenoise_handle_t;
 
 /**
+ * @brief Probe the terminal to check weather it supports escape sequences
+ *
+ * @param handle The linenoise handle used to check
+ * @return int 0 if the terminal supports escape sequences
+ */
+int esp_linenoise_probe(esp_linenoise_handle_t handle);
+
+/**
  * @brief Returns the default parameters for creating a linenoise instance.
  *
  * @param[out] config esp_linenoise_config_t structure to populate with default values.
@@ -306,6 +314,24 @@ esp_err_t esp_linenoise_set_max_cmd_line_length(esp_linenoise_handle_t handle, s
  * @return ESP_OK on success, or error code on failure.
  */
 esp_err_t esp_linenoise_get_max_cmd_line_length(esp_linenoise_handle_t handle, size_t *max_cmd_line_length);
+
+/**
+ * @brief Sets the prompt used by the esp_linenoise instance.
+ *
+ * @param handle Handle to the linenoise instance.
+ * @param prompt Prompt to be set.
+ * @return ESP_OK on success, or error code on failure.
+ */
+esp_err_t esp_linenoise_set_prompt(esp_linenoise_handle_t handle, const char *prompt);
+
+/**
+ * @brief Gets the current esp_linenoise instance prompt.
+ *
+ * @param handle Handle to the linenoise instance.
+ * @param prompt esp_linenoise instance current prompt.
+ * @return ESP_OK on success, or error code on failure.
+ */
+esp_err_t esp_linenoise_get_prompt(esp_linenoise_handle_t handle, const char **prompt);
 
 /**
  * @brief Return the output file descriptor used by esp_linenoise

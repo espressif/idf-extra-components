@@ -9,8 +9,14 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_idf_version.h"
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+#include "esp_blockdev.h"
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 #include "esp_ext_part_tables.h"
+#include "esp_mbr.h"
 
 #if __has_include(<bsd/sys/queue.h>)
 #include <bsd/sys/queue.h>
@@ -153,3 +159,73 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
     }
     return ESP_OK;
 }
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args)
+{
+    if (handle == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = ESP_OK;
+    uint8_t *buf = NULL;
+
+    switch (type) {
+    case ESP_EXT_PART_LIST_SIGNATURE_MBR:
+        buf = malloc(MBR_SIZE);
+        if (buf == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+
+        err = handle->ops->read(handle, buf, MBR_SIZE, 0, MBR_SIZE);
+        if (err != ESP_OK) {
+            free(buf);
+            return err;
+        }
+
+        err = esp_mbr_parse(buf, part_list, (esp_mbr_parse_extra_args_t *) extra_args);
+        free(buf);
+        break;
+
+    default:
+        err = ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
+        break;
+    }
+
+    return err;
+}
+
+esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args)
+{
+    if (handle == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = ESP_OK;
+    uint8_t *buf = NULL;
+
+    switch (type) {
+    case ESP_EXT_PART_LIST_SIGNATURE_MBR:
+        buf = malloc(MBR_SIZE);
+        if (buf == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+
+        err = esp_mbr_generate((mbr_t *) buf, part_list, (esp_mbr_generate_extra_args_t *) extra_args);
+        if (err != ESP_OK) {
+            free(buf);
+            return err;
+        }
+
+        err = handle->ops->write(handle, buf, 0, MBR_SIZE);
+        free(buf);
+        break;
+
+    default:
+        err = ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
+        break;
+    }
+
+    return err;
+}
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))

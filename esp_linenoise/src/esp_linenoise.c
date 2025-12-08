@@ -1041,9 +1041,9 @@ static void esp_linenoise_sanitize(char *src)
     *dst = 0;
 }
 
-int esp_linenoise_probe(esp_linenoise_instance_t *instance)
+int esp_linenoise_probe(esp_linenoise_handle_t handle)
 {
-    esp_linenoise_config_t *config = &instance->config;
+    esp_linenoise_instance_t *instance = (esp_linenoise_instance_t *)handle;
 
     /* Make sure we are in non blocking mode before performing the terminal probing */
     int fd_in = instance->config.in_fd;
@@ -1057,7 +1057,7 @@ int esp_linenoise_probe(esp_linenoise_instance_t *instance)
 
     /* Device status request */
     char status_request_str[] = "\x1b[5n";
-    config->write_bytes_cb(out_fd, status_request_str, sizeof(status_request_str));
+    instance->config.write_bytes_cb(out_fd, status_request_str, sizeof(status_request_str));
 
     /* Try to read response */
     int timeout_ms = 500;
@@ -1067,7 +1067,7 @@ int esp_linenoise_probe(esp_linenoise_instance_t *instance)
         usleep(retry_ms * 1000);
         timeout_ms -= retry_ms;
         char c;
-        int cb = config->read_bytes_cb(fd_in, &c, 1);
+        int cb = instance->config.read_bytes_cb(fd_in, &c, 1);
         if (cb < 0) {
             continue;
         }
@@ -1577,6 +1577,30 @@ esp_err_t esp_linenoise_get_max_cmd_line_length(esp_linenoise_handle_t handle, s
     }
 
     *max_cmd_line_length = ((esp_linenoise_instance_t *)handle)->config.max_cmd_line_length;
+    return ESP_OK;
+}
+
+esp_err_t esp_linenoise_set_prompt(esp_linenoise_handle_t handle, const char *prompt)
+{
+    ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (prompt == NULL || strlen(prompt) == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    ((esp_linenoise_instance_t *)handle)->config.prompt = prompt;
+    return ESP_OK;
+}
+
+esp_err_t esp_linenoise_get_prompt(esp_linenoise_handle_t handle, const char **prompt)
+{
+    ESP_LINENOISE_CHECK_INSTANCE(handle);
+
+    if (prompt == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *prompt = ((esp_linenoise_instance_t *)handle)->config.prompt;
     return ESP_OK;
 }
 

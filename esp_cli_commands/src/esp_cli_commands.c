@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include "freertos/FreeRTOS.h"
@@ -56,10 +57,10 @@ static esp_cli_commands_config_t s_config = {
          ++_i)
 
 /**
- * @brief returns the number of commands registered
- * in the .esp_cli_commands section
+ * @brief Get the number of commands registered in the .esp_cli_commands section
  */
-#define ESP_CLI_COMMANDS_COUNT (size_t)(&_esp_cli_commands_end - &_esp_cli_commands_start)
+#define ESP_CLI_COMMANDS_COUNT \
+    (((uintptr_t)&_esp_cli_commands_end - (uintptr_t)&_esp_cli_commands_start) / sizeof(esp_cli_command_t))
 
 /**
  * @brief Lock access to the s_config static structure

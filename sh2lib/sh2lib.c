@@ -54,16 +54,16 @@ static int callback_error(nghttp2_session *session, int lib_error_code,
 static ssize_t callback_send(nghttp2_session *session, const uint8_t *data,
                              size_t length, int flags, void *user_data)
 {
-    int rv = 0;
+    ssize_t rv = 0;
     struct sh2lib_handle *hd = user_data;
 
-    int copy_offset = 0;
-    int pending_data = length;
+    size_t copy_offset = 0;
+    size_t pending_data = length;
 
     /* Send data in 1000 byte chunks */
-    while (copy_offset != length) {
-        int chunk_len = pending_data > 1000 ? 1000 : pending_data;
-        int subrv = callback_send_inner(hd, data + copy_offset, chunk_len);
+    while (copy_offset < length) {
+        size_t chunk_len = pending_data > 1000 ? 1000 : pending_data;
+        ssize_t subrv = callback_send_inner(hd, data + copy_offset, chunk_len);
         if (subrv <= 0) {
             if (copy_offset == 0) {
                 /* If no data is transferred, send the error code */
@@ -143,10 +143,8 @@ static int callback_on_frame_send(nghttp2_session *session,
             ESP_LOGD(TAG, "[frame-send] C ----------------------------> S (HEADERS)");
 #if DBG_FRAME_SEND
             ESP_LOGD(TAG, "[frame-send] headers nv-len = %d", frame->headers.nvlen);
-            const nghttp2_nv *nva = frame->headers.nva;
-            size_t i;
-            for (i = 0; i < frame->headers.nvlen; ++i) {
-                ESP_LOGD(TAG, "[frame-send] %s : %s", nva[i].name, nva[i].value);
+            for (size_t i = 0; i < frame->headers.nvlen; ++i) {
+                ESP_LOGD(TAG, "[frame-send] %s : %s", frame->headers.nva[i].name, frame->headers.nva[i].value);
             }
 #endif
         }
@@ -228,7 +226,11 @@ static int do_http2_connect(struct sh2lib_handle *hd)
 {
     int ret;
     nghttp2_session_callbacks *callbacks;
-    nghttp2_session_callbacks_new(&callbacks);
+    ret = nghttp2_session_callbacks_new(&callbacks);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "[sh2-connect] Failed to create session callbacks");
+        return -1;
+    }
     nghttp2_session_callbacks_set_error_callback2(callbacks, callback_error);
     nghttp2_session_callbacks_set_send_callback(callbacks, callback_send);
     nghttp2_session_callbacks_set_recv_callback(callbacks, callback_recv);
@@ -251,6 +253,9 @@ static int do_http2_connect(struct sh2lib_handle *hd)
     ret = nghttp2_submit_settings(hd->http2_sess, NGHTTP2_FLAG_NONE, NULL, 0);
     if (ret != 0) {
         ESP_LOGE(TAG, "[sh2-connect] Submit settings failed");
+        /* Clean up session to prevent memory leak on error path */
+        nghttp2_session_del(hd->http2_sess);
+        hd->http2_sess = NULL;
         return -1;
     }
     return 0;
@@ -258,12 +263,12 @@ static int do_http2_connect(struct sh2lib_handle *hd)
 
 int sh2lib_connect(struct sh2lib_config_t *cfg, struct sh2lib_handle *hd)
 {
-    memset(hd, 0, sizeof(*hd));
-
-    if (cfg == NULL) {
-        ESP_LOGE(TAG, "[sh2-connect] pointer to sh2lib configurations cannot be NULL");
-        goto error;
+    if (hd == NULL || cfg == NULL || cfg->uri == NULL) {
+        ESP_LOGE(TAG, "[sh2-connect] Invalid argument");
+        return -1;
     }
+
+    memset(hd, 0, sizeof(*hd));
 
     const char *proto[] = {"h2", NULL};
     esp_tls_cfg_t tls_cfg = {
@@ -294,8 +299,19 @@ int sh2lib_connect(struct sh2lib_config_t *cfg, struct sh2lib_handle *hd)
 
     struct http_parser_url u;
     http_parser_url_init(&u);
-    http_parser_parse_url(cfg->uri, strlen(cfg->uri), 0, &u);
+    if (http_parser_parse_url(cfg->uri, strlen(cfg->uri), 0, &u) != 0) {
+        ESP_LOGE(TAG, "[sh2-connect] Failed to parse URI");
+        goto error;
+    }
+    if (!(u.field_set & (1 << UF_HOST))) {
+        ESP_LOGE(TAG, "[sh2-connect] Host field not present in URI");
+        goto error;
+    }
     hd->hostname = strndup(&cfg->uri[u.field_data[UF_HOST].off], u.field_data[UF_HOST].len);
+    if (!hd->hostname) {
+        ESP_LOGE(TAG, "[sh2-connect] Failed to allocate memory for hostname");
+        goto error;
+    }
 
     /* HTTP/2 Connection */
     if (do_http2_connect(hd) != 0) {
@@ -311,6 +327,10 @@ error:
 
 void sh2lib_free(struct sh2lib_handle *hd)
 {
+    if (hd == NULL) {
+        return;
+    }
+
     if (hd->http2_sess) {
         nghttp2_session_del(hd->http2_sess);
         hd->http2_sess = NULL;
@@ -327,24 +347,62 @@ void sh2lib_free(struct sh2lib_handle *hd)
 
 int sh2lib_execute(struct sh2lib_handle *hd)
 {
+    if (hd == NULL) {
+        ESP_LOGE(TAG, "[sh2-execute] Invalid argument");
+        return -1;
+    }
+
     int ret;
-    ret = nghttp2_session_send(hd->http2_sess);
+    ret = sh2lib_execute_send(hd);
     if (ret != 0) {
-        ESP_LOGE(TAG, "[sh2-execute] HTTP2 session send failed %d", ret);
         return ret;
     }
 
-    ret = nghttp2_session_recv(hd->http2_sess);
+    ret = sh2lib_execute_recv(hd);
     if (ret != 0) {
-        ESP_LOGE(TAG, "[sh2-execute] HTTP2 session recv failed %d", ret);
         return ret;
     }
 
     return 0;
 }
 
+int sh2lib_execute_recv(struct sh2lib_handle *hd)
+{
+    if (hd == NULL) {
+        ESP_LOGE(TAG, "[sh2-execute-recv] Invalid argument");
+        return -1;
+    }
+
+    int ret = nghttp2_session_recv(hd->http2_sess);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "[sh2-execute-recv] HTTP2 session recv failed %d", ret);
+    }
+
+    return ret;
+}
+
+int sh2lib_execute_send(struct sh2lib_handle *hd)
+{
+    if (hd == NULL) {
+        ESP_LOGE(TAG, "[sh2-execute-send] Invalid argument");
+        return -1;
+    }
+
+    int ret = nghttp2_session_send(hd->http2_sess);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "[sh2-execute-send] HTTP2 session send failed %d", ret);
+    }
+
+    return ret;
+}
+
 int sh2lib_do_get_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, size_t nvlen, sh2lib_frame_data_recv_cb_t recv_cb)
 {
+    if (hd == NULL || (nva == NULL && nvlen > 0)) {
+        ESP_LOGE(TAG, "[sh2-do-get] Invalid argument");
+        return -1;
+    }
+
     int ret = nghttp2_submit_request(hd->http2_sess, NULL, nva, nvlen, NULL, recv_cb);
     if (ret < 0) {
         ESP_LOGE(TAG, "[sh2-do-get] HEADERS call failed %i", ret);
@@ -354,6 +412,11 @@ int sh2lib_do_get_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, size_
 
 int sh2lib_do_get(struct sh2lib_handle *hd, const char *path, sh2lib_frame_data_recv_cb_t recv_cb)
 {
+    if (hd == NULL || path == NULL || hd->hostname == NULL) {
+        ESP_LOGE(TAG, "[sh2-do-get] Invalid argument");
+        return -1;
+    }
+
     const nghttp2_nv nva[] = { SH2LIB_MAKE_NV(":method", "GET"),
                                SH2LIB_MAKE_NV(":scheme", "https"),
                                SH2LIB_MAKE_NV(":authority", hd->hostname),
@@ -375,6 +438,10 @@ int sh2lib_do_putpost_with_nv(struct sh2lib_handle *hd, const nghttp2_nv *nva, s
                               sh2lib_putpost_data_cb_t send_cb,
                               sh2lib_frame_data_recv_cb_t recv_cb)
 {
+    if (hd == NULL || (nva == NULL && nvlen > 0) || send_cb == NULL) {
+        ESP_LOGE(TAG, "[sh2-do-putpost] Invalid argument");
+        return -1;
+    }
 
     nghttp2_data_provider sh2lib_data_provider;
     sh2lib_data_provider.read_callback = sh2lib_data_provider_cb;
@@ -390,6 +457,11 @@ int sh2lib_do_post(struct sh2lib_handle *hd, const char *path,
                    sh2lib_putpost_data_cb_t send_cb,
                    sh2lib_frame_data_recv_cb_t recv_cb)
 {
+    if (hd == NULL || path == NULL || send_cb == NULL || hd->hostname == NULL) {
+        ESP_LOGE(TAG, "[sh2-do-post] Invalid argument");
+        return -1;
+    }
+
     const nghttp2_nv nva[] = { SH2LIB_MAKE_NV(":method", "POST"),
                                SH2LIB_MAKE_NV(":scheme", "https"),
                                SH2LIB_MAKE_NV(":authority", hd->hostname),
@@ -402,6 +474,11 @@ int sh2lib_do_put(struct sh2lib_handle *hd, const char *path,
                   sh2lib_putpost_data_cb_t send_cb,
                   sh2lib_frame_data_recv_cb_t recv_cb)
 {
+    if (hd == NULL || path == NULL || send_cb == NULL || hd->hostname == NULL) {
+        ESP_LOGE(TAG, "[sh2-do-put] Invalid argument");
+        return -1;
+    }
+
     const nghttp2_nv nva[] = { SH2LIB_MAKE_NV(":method", "PUT"),
                                SH2LIB_MAKE_NV(":scheme", "https"),
                                SH2LIB_MAKE_NV(":authority", hd->hostname),

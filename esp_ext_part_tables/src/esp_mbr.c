@@ -243,6 +243,10 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
     esp_ext_part_list_item_t *it = NULL;
     int i = 0;
     SLIST_FOREACH(it, &part_list->head, next) {
+        if (i >= MBR_MAX_PARTITION_COUNT) {
+            ESP_LOGW(TAG, "More than %d partitions in the list, only the first %d will be added to the MBR", MBR_MAX_PARTITION_COUNT, MBR_MAX_PARTITION_COUNT);
+            break; // MBR can only hold 4 partitions
+        }
         err = esp_mbr_partition_set(mbr, i, it, &args);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to set partition %d: %s", i, esp_err_to_name(err));

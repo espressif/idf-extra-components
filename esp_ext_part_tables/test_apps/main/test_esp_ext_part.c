@@ -10,18 +10,19 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "esp_err.h"
-#include "esp_ext_part_tables.h"
-#include "esp_mbr.h"
-
-#include "unity.h"
-#include "unity_test_runner.h"
 #include "esp_heap_caps.h"
+#include "esp_idf_version.h"
 
 #if !CONFIG_IDF_TARGET_LINUX
 #include "esp_newlib.h"
 #endif // !CONFIG_IDF_TARGET_LINUX
 
+#include "unity.h"
+#include "unity_test_runner.h"
 #include "unity_test_utils_memory.h"
+
+#include "esp_ext_part_tables.h"
+#include "esp_mbr.h"
 
 void setUp(void)
 {
@@ -357,6 +358,203 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_e
     // Deinitialize the part list
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list_from_mbr_correct));
 }
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+#include "esp_blockdev.h"
+
+// BDL simulated block device implementation for testing
+
+static esp_err_t bdl_simulated_read(esp_blockdev_handle_t handle, uint8_t *dst_buf, size_t dst_buf_size, uint64_t src_addr, size_t data_read_len)
+{
+    if (handle == NULL || dst_buf == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t *buffer = (uint8_t *) handle->ctx;
+
+    if (src_addr + data_read_len > handle->geometry.disk_size || data_read_len > dst_buf_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    memcpy(dst_buf, buffer + src_addr, data_read_len);
+    return ESP_OK;
+}
+
+static esp_err_t bdl_simulated_write(esp_blockdev_handle_t handle, const uint8_t *src_buf, uint64_t dst_addr, size_t data_write_len)
+{
+    if (handle == NULL || src_buf == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t *buffer = (uint8_t *) handle->ctx;
+
+    if (dst_addr + data_write_len > handle->geometry.disk_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    memcpy(buffer + dst_addr, src_buf, data_write_len);
+    return ESP_OK;
+}
+
+static esp_err_t bdl_simulated_release_blockdev(esp_blockdev_handle_t handle)
+{
+    if (handle != NULL) {
+        free(handle);
+    }
+    return ESP_OK;
+}
+
+static const esp_blockdev_ops_t bdl_simulated_blockdev_ops = {
+    .read = bdl_simulated_read,
+    .write = bdl_simulated_write,
+    .erase = NULL, // Not recommended to leave as NULL; just for test purposes
+    .ioctl = NULL,
+    .sync = NULL,
+    .release = bdl_simulated_release_blockdev,
+};
+
+static esp_err_t bdl_simulated_get_blockdev(uint8_t *buffer, size_t buffer_size, esp_blockdev_handle_t *out_handle)
+{
+    if (buffer == NULL || out_handle == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_blockdev_handle_t out = (esp_blockdev_handle_t) calloc(1, sizeof(esp_blockdev_t));
+    if (out == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    out->ctx = (void *) buffer;
+
+    out->device_flags.default_val_after_erase = 0;
+
+    out->geometry.disk_size = buffer_size;
+    out->geometry.read_size = 1;
+    out->geometry.write_size = 1;
+    out->geometry.erase_size = 1;
+
+    out->ops = &bdl_simulated_blockdev_ops;
+
+    *out_handle = out;
+    return ESP_OK;
+}
+
+TEST_CASE("Test with BDL (simulated in RAM) - basic operations", "[esp_ext_part_table]")
+{
+    size_t buffer_size = 3 * 1024;
+    uint8_t *buffer = (uint8_t *) malloc(buffer_size);
+    TEST_ASSERT_NOT_NULL(buffer);
+    esp_blockdev_handle_t handle = NULL;
+    esp_err_t err = bdl_simulated_get_blockdev(buffer, buffer_size, &handle);
+    TEST_ESP_OK(err);
+    TEST_ASSERT_NOT_NULL(handle);
+
+    size_t sector_size = 512;
+
+    // Write As to the first sector
+    uint8_t buf[] = {[0 ... 511] = 'A'}; // Fill buffer with 'A'
+    err = handle->ops->write(handle, buf, 0, sector_size);
+    TEST_ESP_OK(err);
+
+    uint8_t read_buf[512] = {0};
+    err = handle->ops->read(handle, read_buf, sector_size, 0, sector_size);
+    TEST_ESP_OK(err);
+    TEST_ASSERT_EQUAL_MEMORY(buf, read_buf, sizeof(buf));
+
+    // Write Bs to the emulated "first sector" (0 + start sector offset (2) == sector size (512) * 2)
+    {
+        uint8_t buf2[] = {[0 ... 511] = 'B'}; // Fill buffer with 'B'
+        err = handle->ops->write(handle, buf2, sector_size * 2, sector_size);
+        TEST_ESP_OK(err);
+
+        err = handle->ops->read(handle, read_buf, sector_size, sector_size * 2, sector_size);
+        TEST_ESP_OK(err);
+        TEST_ASSERT_EQUAL_MEMORY(buf2, read_buf, sizeof(buf2));
+    }
+
+    // Read the first sector again, it should be 'A's
+    err = handle->ops->read(handle, read_buf, sector_size, 0, sector_size);
+    TEST_ESP_OK(err);
+    TEST_ASSERT_EQUAL_MEMORY(buf, read_buf, sizeof(buf));
+
+    // Visualize the first 5 sectors
+    for (int i = 0; i < 5; i++) {
+        // Read the first sector, it should be 'A's
+        err = handle->ops->read(handle, read_buf, sector_size, sector_size * i, sector_size);
+        TEST_ESP_OK(err);
+        for (int j = 0; j < sizeof(read_buf); j++) {
+            printf("%c", read_buf[j]);
+        }
+        printf("\n");
+        fflush(stdout);
+    }
+
+    handle->ops->release(handle);
+    handle = NULL;
+    free(buffer);
+    buffer = NULL;
+}
+
+TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table]")
+{
+    size_t buffer_size = 512;
+    uint8_t *buffer = (uint8_t *) malloc(buffer_size);
+    TEST_ASSERT_NOT_NULL(buffer);
+    esp_blockdev_handle_t handle = NULL;
+    esp_err_t err = bdl_simulated_get_blockdev(buffer, buffer_size, &handle);
+    TEST_ESP_OK(err);
+    TEST_ASSERT_NOT_NULL(handle);
+
+    err = handle->ops->write(handle, mbr_bin, 0, mbr_bin_len);
+    TEST_ESP_OK(err);
+
+    esp_mbr_parse_extra_args_t mbr_parse_args = {
+        .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B
+    };
+
+    esp_ext_part_list_t part_list = {0};
+    esp_ext_part_list_item_t *it = NULL;
+    err = esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args);
+    TEST_ESP_OK(err);
+
+    it = esp_ext_part_list_item_head(&part_list);
+    TEST_ASSERT_NOT_NULL(it);
+    printf("Partition list read from BDL simulated MBR:\n");
+    print_esp_ext_part_list_items(it);
+    fflush(stdout);
+
+    esp_mbr_generate_extra_args_t mbr_gen_args = {
+        .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
+        .alignment = ESP_EXT_PART_ALIGN_1MiB
+    };
+
+    esp_ext_part_list_item_t partition_for_insertion = {
+        .info = {
+            .address = esp_ext_part_sector_count_to_bytes(20480, mbr_gen_args.sector_size), // 10 MiB offset
+            .size = 10 * 1024 * 1024, // 10 MiB
+            .type = ESP_EXT_PART_TYPE_LITTLEFS,
+            .extra = 4096, // LittleFS block size stored in CHS hack
+            .flags = ESP_EXT_PART_FLAG_EXTRA, // Extra flag set to indicate that the extra field is used
+        }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &partition_for_insertion));
+
+    err = esp_ext_part_list_bdl_write(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_gen_args);
+    TEST_ESP_OK(err);
+
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+
+    err = esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args);
+    TEST_ESP_OK(err);
+
+    it = esp_ext_part_list_item_head(&part_list);
+    TEST_ASSERT_NOT_NULL(it);
+    printf("Partition list after writing new partition to BDL simulated MBR:\n");
+    print_esp_ext_part_list_items(it);
+    fflush(stdout);
+
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+}
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 void app_main(void)
 {
