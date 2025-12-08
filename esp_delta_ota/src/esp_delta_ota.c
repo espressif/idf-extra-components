@@ -19,7 +19,7 @@ static const char *TAG = "esp_delta_ota";
 
 typedef struct esp_delta_ota_ctx {
     void *user_data;
-    union{
+    union {
         src_read_cb_t read_cb;        /*!< Read Callback */
         src_read_cb_with_user_ctx_t read_cb_with_user_data; /*!< Read Callback with user data */
     };
@@ -68,7 +68,7 @@ static int esp_delta_ota_read_cb(void *arg_p, uint8_t *buf_p, size_t size)
             return ESP_FAIL;
         }
     } else {
-        err = handle->read_cb_with_user_data(buf_p, size, handle->src_offset, handle->user_data);       
+        err = handle->read_cb_with_user_data(buf_p, size, handle->src_offset, handle->user_data);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Error in read_cb_with_user_data(): %s", esp_err_to_name(err));
             return ESP_FAIL;
