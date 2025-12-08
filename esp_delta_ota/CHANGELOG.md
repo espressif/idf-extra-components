@@ -1,3 +1,8 @@
+## 1.1.4
+
+### Enhancements:
+- Added support to pass user data to read callback with new callback function: `src_read_cb_with_user_ctx_t`
+
 ## 1.1.3
 
 ### Bugfixes:

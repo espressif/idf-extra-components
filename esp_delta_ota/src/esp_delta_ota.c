@@ -19,7 +19,10 @@ static const char *TAG = "esp_delta_ota";
 
 typedef struct esp_delta_ota_ctx {
     void *user_data;
-    src_read_cb_t read_cb;
+    union {
+        src_read_cb_t read_cb;        /*!< Read Callback */
+        src_read_cb_with_user_ctx_t read_cb_with_user_data; /*!< Read Callback with user data */
+    };
     union {
         merged_stream_write_cb_with_user_ctx_t write_cb_with_user_data;
         merged_stream_write_cb_t write_cb;
@@ -57,11 +60,21 @@ static int esp_delta_ota_read_cb(void *arg_p, uint8_t *buf_p, size_t size)
         return -ESP_ERR_INVALID_ARG;
     }
     esp_delta_ota_ctx *handle = (esp_delta_ota_ctx *)arg_p;
-    esp_err_t err = handle->read_cb(buf_p, size, handle->src_offset);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Error in read_cb(): %s", esp_err_to_name(err));
-        return ESP_FAIL;
+    esp_err_t err = ESP_OK;
+    if (!handle->user_data) {
+        err = handle->read_cb(buf_p, size, handle->src_offset);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Error in read_cb(): %s", esp_err_to_name(err));
+            return ESP_FAIL;
+        }
+    } else {
+        err = handle->read_cb_with_user_data(buf_p, size, handle->src_offset, handle->user_data);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Error in read_cb_with_user_data(): %s", esp_err_to_name(err));
+            return ESP_FAIL;
+        }
     }
+
     handle->src_offset += size;
     return ESP_OK;
 }
