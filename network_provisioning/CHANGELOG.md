@@ -1,3 +1,12 @@
+# 1.2.1 (15-Dec-2025)
+
+- Fix prov-ctrl reset handler to return success when device is already in provisioning mode
+  - If firmware has already called `network_prov_mgr_reset_wifi_sm_state_on_failure()` or
+    `network_prov_mgr_reset_thread_sm_state_on_failure()`, the device state is already reset
+    to provisioning mode. The prov-ctrl handler now returns success in this case instead of
+    an invalid state error, allowing phone apps to successfully reset even if firmware has
+    already performed the reset operation.
+
 # 07-October-2025
 
 - Use managed cJSON component for IDF v6.0 and above
