@@ -1,0 +1,11 @@
+menu "Example Configuration"
+
+    config EXAMPLE_FORMAT_IF_MOUNT_FAILED
+        bool "Format the file system if mount failed"
+        default n
+        help
+            If this configuration is enabled, the example will format the file system
+            if it fails to mount the file system.
+
+endmenu
+

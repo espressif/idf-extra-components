@@ -1,3 +1,6 @@
+## [1.0.0]
+- feat: added block device support, which is available from IDF version v6.0
+
 ## [0.16.0]
 - fix: fix nand flash issue caused by data length unalignment on esp32p4
 
