@@ -42,5 +42,5 @@ check_warnings = true
 
 # build related options
 build_dir = "build_@t_@w"
-config = "sdkconfig.ci"
+config = ["sdkconfig.ci","sdkconfig.ci.*="]
 ignore_warning_file = ".ignore_build_warnings.txt"
