@@ -1,3 +1,10 @@
+# 1.2.2 (18-Dec-2025)
+
+- Fix connection attempts counter not being reset on state reset or new credentials
+  - Reset `connection_attempts_completed` to 0 in `network_prov_mgr_reset_wifi_sm_state_on_failure()`
+    and `network_prov_mgr_configure_wifi_sta()` to ensure full `wifi_conn_attempts` retries
+    after reset or when applying new credentials.
+
 # 1.2.1 (15-Dec-2025)
 
 - Fix prov-ctrl reset handler to return success when device is already in provisioning mode
