@@ -103,7 +103,15 @@ esp_err_t esp_qrcode_generate(esp_qrcode_config_t *cfg, const char *text)
                                    qrcodegen_VERSION_MIN, cfg->max_qrcode_version,
                                    qrcodegen_Mask_AUTO, true);
     if (ok && cfg->display_func) {
-        cfg->display_func((esp_qrcode_handle_t)qrcode);
+        // If user_data is provided, use callback version
+        // Otherwise use simple version (backward compatible)
+        if (cfg->user_data != NULL) {
+            // Use callback version with user_data
+            cfg->display_func_with_cb((esp_qrcode_handle_t)qrcode, cfg->user_data);
+        } else {
+            // Use simple version without user_data (backward compatible)
+            cfg->display_func((esp_qrcode_handle_t)qrcode);
+        }
         err = ESP_OK;
     }
 
