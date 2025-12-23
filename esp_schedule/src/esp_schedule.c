@@ -9,6 +9,7 @@
 #include "esp_sntp.h"
 #include "esp_daylight.h"
 #include "esp_schedule_internal.h"
+#include <ccronexpr.h>
 
 static const char *TAG = "esp_schedule";
 
@@ -413,6 +414,27 @@ static uint32_t esp_schedule_get_next_schedule_time_diff(const char *schedule_na
     }
 #endif /* CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT */
 
+#if CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+    /* Handle cron expression schedules */
+    if (trigger->type == ESP_SCHEDULE_TYPE_CRON_EXPR) {
+        cron_expr cron = {0};
+        const char *err = NULL;
+        cron_parse_expr(trigger->cron_expr_str, &cron, &err);
+        if (err) {
+            ESP_LOGE(TAG, "Failed to parse CRON expression: %s, error: %s", trigger->cron_expr_str, err);
+            return 0;
+        }
+        trigger->next_scheduled_time_utc = cron_next(&cron, now);
+        time_diff = difftime(trigger->next_scheduled_time_utc, now);
+        localtime_r(&trigger->next_scheduled_time_utc, &schedule_time);
+        /* Print schedule time */
+        memset(time_str, 0, sizeof(time_str));
+        strftime(time_str, sizeof(time_str), "%c %z[%Z]", &schedule_time);
+        ESP_LOGI(TAG, "Schedule %s will be active on: %s. DST: %s", schedule_name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
+        return time_diff;
+    }
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR */
+
     localtime_r(&now, &current_time);
 
     /* Get schedule time */
@@ -507,6 +529,21 @@ static bool esp_schedule_is_expired(esp_schedule_trigger_t *trigger)
         }
         /* Repeating solar schedules (day-of-week or date-based) never expire - they recalculate */
 #endif
+#if CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+    } else if (trigger->type == ESP_SCHEDULE_TYPE_CRON_EXPR) {
+        cron_expr cron = {0};
+        const char *err = NULL;
+        cron_parse_expr(trigger->cron_expr_str, &cron, &err);
+        if (err) {
+            ESP_LOGE(TAG, "Failed to parse CRON expression: %s, error: %s", trigger->cron_expr_str, err);
+            return true;
+        }
+        time_t next = cron_next(&cron, current_timestamp);
+        if (next <= 0) {
+            ESP_LOGI(TAG, "CRON expression schedule is expired");
+            return true;
+        }
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR */
     } else if (trigger->type == ESP_SCHEDULE_TYPE_DATE) {
         if (trigger->date.repeat_months == 0) {
             if (trigger->next_scheduled_time_utc > 0 && trigger->next_scheduled_time_utc <= current_timestamp) {
@@ -723,6 +760,24 @@ static esp_err_t esp_schedule_set(esp_schedule_t *schedule, esp_schedule_config_
             schedule->trigger.date.year = schedule_config->trigger.date.year;
             schedule->trigger.date.repeat_every_year = schedule_config->trigger.date.repeat_every_year;
 #endif
+#if CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+        } else if (schedule->trigger.type == ESP_SCHEDULE_TYPE_CRON_EXPR) {
+            /* First, parse the cron expression string */
+            const char *err = NULL;
+            cron_expr cron = {0};
+            cron_parse_expr(schedule_config->trigger.cron_expr_str, &cron, &err);
+            if (err) {
+                ESP_LOGE(TAG, "Failed to parse CRON expression: %s, error: %s", schedule_config->trigger.cron_expr_str, err);
+                return ESP_FAIL;
+            } else {
+                /* Safe copy with NUL-termination */
+                if (strlen(schedule_config->trigger.cron_expr_str) > MAX_CRON_EXPR_STR_LEN) {
+                    ESP_LOGE(TAG, "CRON expression too long to fit buffer");
+                    return ESP_FAIL;
+                }
+                strlcpy(schedule->trigger.cron_expr_str, schedule_config->trigger.cron_expr_str, MAX_CRON_EXPR_STR_LEN);
+            }
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR */
         }
     }
 
@@ -749,7 +804,11 @@ esp_err_t esp_schedule_edit(esp_schedule_handle_t handle, esp_schedule_config_t 
     if (schedule->trigger.type == ESP_SCHEDULE_TYPE_RELATIVE) {
         schedule->trigger.next_scheduled_time_utc = 0;
     }
-    esp_schedule_set(schedule, schedule_config);
+    esp_err_t err = esp_schedule_set(schedule, schedule_config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to edit schedule %s", schedule->name);
+        return err;
+    }
     ESP_LOGD(TAG, "Schedule %s edited", schedule->name);
     return ESP_OK;
 }
@@ -792,7 +851,12 @@ esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config
     }
     strlcpy(schedule->name, schedule_config->name, sizeof(schedule->name));
 
-    esp_schedule_set(schedule, schedule_config);
+    esp_err_t err = esp_schedule_set(schedule, schedule_config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create schedule %s", schedule->name);
+        free(schedule);
+        return NULL;
+    }
 
     esp_schedule_create_timer(schedule);
     ESP_LOGD(TAG, "Schedule %s created", schedule->name);

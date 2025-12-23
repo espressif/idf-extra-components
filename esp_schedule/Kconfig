@@ -17,4 +17,11 @@ menu "ESP Schedule Configuration"
             If disabled, ESP_SCHEDULE_TYPE_SUNRISE and ESP_SCHEDULE_TYPE_SUNSET
             will not be available.
 
+    config ESP_SCHEDULE_ENABLE_CRON_EXPR
+        bool "Enable cron expression schedules"
+        default n
+        help
+            Enable support for cron-like expressions (e.g. "0 9 * * *")
+            to define recurring schedules. Disable this to save code/heap
+            if cron-based scheduling is not needed.
 endmenu
