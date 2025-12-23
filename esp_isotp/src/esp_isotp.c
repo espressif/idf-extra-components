@@ -208,6 +208,9 @@ int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, cons
     esp_isotp_handle_t isotp_handle = (esp_isotp_handle_t) user_data;
     ESP_RETURN_ON_FALSE_ISR(isotp_handle != NULL, ISOTP_RET_ERROR, TAG, "Invalid ISO-TP handle");
 
+    // Size validation - TWAI frames are max 8 bytes by protocol
+    ESP_RETURN_ON_FALSE_ISR(size <= 8, ISOTP_RET_ERROR, TAG, "Invalid TWAI frame size");
+
     twai_node_handle_t twai_node = isotp_handle->twai_node;
 
     // Get a pre-allocated frame from the SLIST pool.
@@ -222,9 +225,6 @@ int isotp_user_send_can(const uint32_t arbitration_id, const uint8_t *data, cons
     memset(&tx_frame->frame, 0, sizeof(twai_frame_t));
     tx_frame->frame.header.id = arbitration_id;
     tx_frame->frame.header.ide = is_extended_id(arbitration_id);  // Extended (29-bit) vs Standard (11-bit) ID
-
-    // Size validation - TWAI frames are max 8 bytes by protocol
-    ESP_RETURN_ON_FALSE_ISR(size <= 8, ISOTP_RET_ERROR, TAG, "Invalid TWAI frame size");
 
     // Copy payload into the embedded buffer to ensure data lifetime during async transmission.
     memcpy(tx_frame->data_payload, data, size);
