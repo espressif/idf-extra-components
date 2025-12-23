@@ -1,6 +1,9 @@
-argtable3/test_apps:
+argtable3/test_apps/argtable_unit_tests:
   disable:
-    - if: IDF_VERSION_MAJOR < 6
-      reason: "argtable3 is a built-in component in esp-idf version < 6.0"
+    - if: IDF_TARGET not in ["esp32", "esp32c3"]
+      reason: "Sufficient to test on one Xtensa and one RISC-V target"
+
+argtable3/test_apps/console_compat:
+  disable:
     - if: IDF_TARGET not in ["esp32", "esp32c3"]
       reason: "Sufficient to test on one Xtensa and one RISC-V target"
