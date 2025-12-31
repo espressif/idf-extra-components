@@ -34,16 +34,70 @@ A typical use case involves:
 ### Example
 
 ```c
-#include "esp_cli.h"
-#include "esp_linenoise.h"
-#include "esp_cli_commands.h"
+#include <string.h>
+#include <fcntl.h>
+#include "driver/uart_vfs.h"
+#include "driver/uart.h"
 #include "esp_log.h"
+#include "esp_cli.h"
+#include "esp_cli_commands.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#define EXAMPLE_COMMAND_MAX_LENGTH 128
+
 static const char *TAG = "repl_example";
 
-void cli_task(void *arg)
+static int example_cmd_func(void *context, esp_cli_commands_exec_arg_t *cmd_args, int argc, char **argv)
+{
+    (void)context; /* this is NULL and useless for the help command */
+    (void)argc;
+    (void)argv;
+
+    const char example_cmd_msg[] = "example command output\n";
+    cmd_args->write_func(cmd_args->out_fd, example_cmd_msg, strlen(example_cmd_msg));
+    return 0;
+}
+
+static const char *example_cmd_hint(void *context)
+{
+    (void)context;
+    return "example cmd hint";
+}
+
+static const char *example_cmd_glossary(void *context)
+{
+    (void)context;
+    return "example command glossary";
+}
+
+static const char example_cmd_help_str[] = "example command help";
+
+ESP_CLI_COMMAND_REGISTER(cmd,
+                         cmd,
+                         example_cmd_help_str,
+                         example_cmd_func,
+                         NULL,
+                         example_cmd_hint,
+                         example_cmd_glossary);
+
+static void example_completion_cb(const char *str, void *cb_ctx, esp_linenoise_completion_cb_t cb)
+{
+    esp_cli_commands_get_completion(NULL, str, cb_ctx, cb);
+}
+
+static char *example_hints_cb(const char *str, int *color, int *bold)
+{
+    /* return the hint of a given command */
+    return NULL;
+}
+
+static void example_free_hints_cb(void *ptr)
+{
+    /* free the hint pointed at by the pointer in parameter */
+}
+
+static void example_cli_task(void *arg)
 {
     esp_cli_handle_t repl_hdl = (esp_cli_handle_t)arg;
 
@@ -55,21 +109,113 @@ void cli_task(void *arg)
     vTaskDelete(NULL);
 }
 
+static void example_init_io(void)
+{
+    /* Drain stdout before reconfiguring it */
+    fflush(stdout);
+    fsync(fileno(stdout));
+
+#if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) || defined(CONFIG_ESP_CONSOLE_UART_CUSTOM)
+    /* Minicom, screen, idf_monitor send CR when ENTER key is pressed */
+    uart_vfs_dev_port_set_rx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CR);
+    /* Move the caret to the beginning of the next line on '\n' */
+    uart_vfs_dev_port_set_tx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CRLF);
+
+    /* Configure UART. Note that REF_TICK is used so that the baud rate remains
+     * correct while APB frequency is changing in light sleep mode.
+     */
+    const uart_config_t uart_config = {
+            .baud_rate = CONFIG_ESP_CONSOLE_UART_BAUDRATE,
+            .data_bits = UART_DATA_8_BITS,
+            .parity = UART_PARITY_DISABLE,
+            .stop_bits = UART_STOP_BITS_1,
+#if SOC_UART_SUPPORT_REF_TICK
+            .source_clk = UART_SCLK_REF_TICK,
+#elif SOC_UART_SUPPORT_XTAL_CLK
+            .source_clk = UART_SCLK_XTAL,
+#endif
+    };
+    /* Install UART driver for interrupt-driven reads and writes */
+    ESP_ERROR_CHECK( uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM, 256, 0, 0, NULL, 0) );
+    ESP_ERROR_CHECK( uart_param_config(CONFIG_ESP_CONSOLE_UART_NUM, &uart_config) );
+
+    /* Tell VFS to use UART driver */
+    uart_vfs_dev_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+
+#elif defined(CONFIG_ESP_CONSOLE_USB_CDC)
+    /* Minicom, screen, idf_monitor send CR when ENTER key is pressed */
+    esp_vfs_dev_cdcacm_set_rx_line_endings(ESP_LINE_ENDINGS_CR);
+    /* Move the caret to the beginning of the next line on '\n' */
+    esp_vfs_dev_cdcacm_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
+
+    /* Enable blocking mode on stdin and stdout */
+    fcntl(fileno(stdout), F_SETFL, 0);
+    fcntl(fileno(stdin), F_SETFL, 0);
+
+#elif defined(CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG)
+    /* Minicom, screen, idf_monitor send CR when ENTER key is pressed */
+    usb_serial_jtag_vfs_set_rx_line_endings(ESP_LINE_ENDINGS_CR);
+    /* Move the caret to the beginning of the next line on '\n' */
+    usb_serial_jtag_vfs_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
+
+    /* Enable blocking mode on stdin and stdout */
+    fcntl(fileno(stdout), F_SETFL, 0);
+    fcntl(fileno(stdin), F_SETFL, 0);
+
+    usb_serial_jtag_driver_config_t jtag_config = {
+        .tx_buffer_size = 256,
+        .rx_buffer_size = 256,
+    };
+
+    /* Install USB-SERIAL-JTAG driver for interrupt-driven reads and writes */
+    ESP_ERROR_CHECK( usb_serial_jtag_driver_install(&jtag_config));
+
+    /* Tell vfs to use usb-serial-jtag driver */
+    usb_serial_jtag_vfs_use_driver();
+
+#else
+#error Unsupported console type
+#endif
+
+    /* Disable buffering on stdin */
+    setvbuf(stdin, NULL, _IONBF, 0);
+}
+
 void app_main(void)
 {
     esp_err_t ret;
     esp_cli_handle_t cli = NULL;
 
+    /* configure the IO used by the esp_cli */
+    example_init_io();
+
     // Initialize esp_linenoise (mandatory)
-    esp_linenoise_handle_t esp_linenoise_hdl = esp_linenoise_create();
+    esp_linenoise_handle_t esp_linenoise_hdl = NULL;
+    esp_linenoise_config_t esp_linenoise_config;
+    esp_linenoise_config.prompt = ">";
+    esp_linenoise_config.max_cmd_line_length = EXAMPLE_COMMAND_MAX_LENGTH;
+    esp_linenoise_config.history_max_length = 16;
+    esp_linenoise_config.in_fd = STDIN_FILENO;
+    esp_linenoise_config.out_fd = STDOUT_FILENO;
+    esp_linenoise_config.allow_multi_line = true;
+    esp_linenoise_config.allow_empty_line = true;
+    esp_linenoise_config.allow_dumb_mode = false;
+    esp_linenoise_config.completion_cb = example_completion_cb;
+    esp_linenoise_config.hints_cb = example_hints_cb;
+    esp_linenoise_config.free_hints_cb = example_free_hints_cb;
+    esp_linenoise_config.read_bytes_cb = NULL; // use default read function
+    esp_linenoise_config.write_bytes_cb = NULL; // use default write function
+    esp_linenoise_config.history = NULL;
+    ESP_ERROR_CHECK(esp_linenoise_create_instance(&esp_linenoise_config, &esp_linenoise_hdl));
 
     // Initialize command set (optional)
-    esp_cli_command_set_handle_t esp_cli_commands_cmd_set = esp_cli_commands_create();
+    const char* cmd_set[1] = { "cmd" };
+    esp_cli_command_set_handle_t esp_cli_commands_cmd_set = ESP_CLI_COMMANDS_CREATE_CMD_SET(cmd_set, ESP_CLI_COMMAND_FIELD_ACCESSOR(name));
 
     esp_cli_config_t cli_cfg = {
         .linenoise_handle = esp_linenoise_hdl,
         .command_set_handle = esp_cli_commands_cmd_set, /* optional */
-        .max_cmd_line_size = 256,
+        .max_cmd_line_size = EXAMPLE_COMMAND_MAX_LENGTH,
         .history_save_path = "/spiffs/cli_history.txt", /* optional */
     };
 
@@ -80,7 +226,7 @@ void app_main(void)
     }
 
     // Create esp_cli instance task
-    if (xTaskCreate(cli_task, "cli_task", 4096, cli, 5, NULL) != pdPASS) {
+    if (xTaskCreate(example_cli_task, "example_cli_task", 4096, cli, 5, NULL) != pdPASS) {
         ESP_LOGE(TAG, "Failed to create esp_cli instance task");
         esp_cli_destroy(cli);
         return;
@@ -114,5 +260,4 @@ void app_main(void)
 
     ESP_LOGI(TAG, "esp_cli example finished");
 }
-
 ```
