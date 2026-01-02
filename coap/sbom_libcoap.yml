@@ -34,3 +34,5 @@ cve-exclude-list:
     reason: Resolved in version 4.3.5a
   - cve: CVE-2025-65501
     reason: Resolved in version 4.3.5a
+  - cve: CVE-2025-34468
+    reason: Resolved in version 4.3.5a
