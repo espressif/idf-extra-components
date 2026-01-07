@@ -254,16 +254,20 @@ static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
     psa_key_id_t rsa_key_id = PSA_KEY_ID_NULL;
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_status_t status;
-    mbedtls_pk_context pk;
+    mbedtls_pk_context *pk = calloc(1, sizeof(mbedtls_pk_context));
+    if (pk == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for mbedtls_pk_context");
+        return ESP_ERR_NO_MEM;
+    }
     unsigned char *key_buf = NULL;
     size_t key_buf_size = MBEDTLS_MPI_MAX_SIZE * 2;
 
     ESP_LOGI(TAG, "Reading RSA private key (PSA)");
 
-    mbedtls_pk_init(&pk);
+    mbedtls_pk_init(pk);
 
     /* Parse RSA key from PEM using mbedtls */
-    ret = mbedtls_pk_parse_key(&pk, (const unsigned char *)handle->rsa_pem, handle->rsa_len, NULL, 0);
+    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)handle->rsa_pem, handle->rsa_len, NULL, 0);
     if (ret != 0) {
         ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_key returned -0x%04x\n", (unsigned int) - ret);
         goto exit;
@@ -277,7 +281,7 @@ static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
         goto exit;
     }
 
-    ret = mbedtls_pk_write_key_der(&pk, key_buf, key_buf_size);
+    ret = mbedtls_pk_write_key_der(pk, key_buf, key_buf_size);
     if (ret < 0) {
         ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_write_key_der returned -0x%04x\n", (unsigned int) - ret);
         goto exit;
@@ -293,7 +297,9 @@ static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
     psa_set_key_type(&attributes, PSA_KEY_TYPE_RSA_KEY_PAIR);
 
     status = psa_import_key(&attributes, key_start, key_len, &rsa_key_id);
-    mbedtls_pk_free(&pk);
+    mbedtls_pk_free(pk);
+    free(pk);
+    pk = NULL;
 
     if (status != PSA_SUCCESS) {
         ESP_LOGE(TAG, "psa_import_key failed: %d", (int)status);
@@ -331,6 +337,10 @@ static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
     handle->cache_buf_len = 0;
 
 exit:
+    if (pk) {
+        mbedtls_pk_free(pk);
+        free(pk);
+    }
     if (rsa_key_id != PSA_KEY_ID_NULL) {
         psa_destroy_key(rsa_key_id);
     }
