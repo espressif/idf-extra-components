@@ -92,6 +92,7 @@ jobs:
           ${IDF_PATH}/install.sh --enable-ci
           . ${IDF_PATH}/export.sh
           pip install --upgrade 'idf-build-apps~=2.12'
+          pip install idf-ci
       - name: Build apps
         shell: bash
         run: |

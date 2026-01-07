@@ -126,9 +126,6 @@ void pre_encrypted_ota_task(void *pvParameter)
         .cert_pem = (char *)server_cert_pem_start,
 #endif /* CONFIG_EXAMPLE_USE_CERT_BUNDLE */
         .keep_alive_enable = true,
-#ifdef CONFIG_EXAMPLE_ENABLE_PARTIAL_HTTP_DOWNLOAD
-        .save_client_session = true,
-#endif
     };
     esp_decrypt_cfg_t cfg = {0};
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
