@@ -34,6 +34,8 @@ idf.py build flash monitor
 
 ```
 I (xxx) lua_example: Lua Example Starting
+I (xxx) lua_example: Initializing LittleFS filesystem
+I (xxx) lua_example: Filesystem mounted at /assets
 I (xxx) lua_example: Starting Lua test: Simple Embedded Script
 The answer is: 42
 I (xxx) lua_example: End of Lua test: Simple Embedded Script
