@@ -36,6 +36,7 @@
 #define BUFFSIZE 1024
 #define PATCH_HEADER_SIZE 64
 #define DIGEST_SIZE 32
+#define OTA_URL_SIZE 256
 static uint32_t esp_delta_ota_magic = 0xfccdde10;
 
 static const char *TAG = "https_delta_ota_example";
@@ -154,6 +155,20 @@ static void ota_example_task(void *pvParameter)
     };
 #ifdef CONFIG_EXAMPLE_SKIP_COMMON_NAME_CHECK
     config.skip_cert_common_name_check = true;
+#endif
+
+#ifdef CONFIG_EXAMPLE_FIRMWARE_UPG_URL_FROM_STDIN
+    char url_buf[OTA_URL_SIZE];
+    if (strcmp(config.url, "FROM_STDIN") == 0) {
+        example_configure_stdin_stdout();
+        fgets(url_buf, OTA_URL_SIZE, stdin);
+        int len = strlen(url_buf);
+        url_buf[len - 1] = '\0';
+        config.url = url_buf;
+    } else {
+        ESP_LOGE(TAG, "Configuration mismatch: wrong firmware upgrade image url");
+        abort();
+    }
 #endif
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
