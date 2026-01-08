@@ -1,4 +1,4 @@
 dependencies:
-  espressif/esp_littlefs: "^1.0.0"
-  lua/cpp:
-    path: ${CMAKE_CURRENT_LIST_DIR}/../..
+  lua:
+    override_path: "../../.."
+  joltwallet/littlefs: "^1.20.3"

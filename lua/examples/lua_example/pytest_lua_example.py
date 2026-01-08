@@ -8,6 +8,8 @@ from pytest_embedded import Dut
 @pytest.mark.generic
 def test_lua_example(dut: Dut) -> None:
     dut.expect_exact('Lua Example Starting')
+    dut.expect_exact('Initializing LittleFS filesystem')
+    dut.expect_exact('Filesystem mounted at /assets')
     dut.expect_exact('Starting Lua test: Simple Embedded Script')
     dut.expect_exact('The answer is: 42')
     dut.expect_exact('End of Lua test: Simple Embedded Script')
