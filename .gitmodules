@@ -81,3 +81,7 @@
 [submodule "cjson/cJSON"]
 	path = cjson/cJSON
 	url = https://github.com/DaveGamble/cJSON.git
+
+[submodule "lua/lua"]
+	path = lua/lua
+	url = https://github.com/lua/lua.git

@@ -1,0 +1,10 @@
+version: "5.5.0"
+description: Lua is a powerful, efficient, lightweight, embeddable scripting language
+url: https://github.com/espressif/idf-extra-components/tree/master/lua
+repository: https://github.com/espressif/idf-extra-components.git
+dependencies:
+  idf: ">=5.0"
+sbom:
+  manifests:
+    - path: sbom_lua.yml
+      dest: lua
