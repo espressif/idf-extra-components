@@ -33,9 +33,12 @@ idf_component_register(
         "lua/lutf8lib.c"
         "lua/lzio.c"
     INCLUDE_DIRS
-        "include"
+        "port/include"
         "lua"
 )
+
+# Enable 32-bit mode for Lua (required for ESP32 and Xtensa/RISC-V architectures)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE LUA_32BITS=1)
 
 # Suppress compiler warnings from upstream Lua code
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-function)

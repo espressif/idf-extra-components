@@ -2,11 +2,10 @@
 
 ESP-IDF component which wraps Lua from upstream repository - https://www.lua.org/
 
-This component provides Lua 5.5.0, a powerful, efficient, lightweight, embeddable scripting language.
+This component provides Lua, a powerful, efficient, lightweight, embeddable scripting language.
 
 ## Features
 
-- Lua 5.5.0 (latest version from upstream)
 - Suitable for embedding Lua code inside ESP-IDF applications
 - Configurable stack size limit
 - MIT license
@@ -47,7 +46,7 @@ void run_lua() {
 
 ## Changes to upstream
 
-This component overrides `luaconf.h` to set `LUA_32BITS` to 1, which is required for ESP32 and other Xtensa/RISC-V architectures.
+This component uses header injection to provide ESP-IDF specific configuration overrides without modifying the upstream Lua source code. The platform-specific settings (such as `LUA_32BITS` for ESP32 and Xtensa/RISC-V architectures) are defined in `lua/port/include/luaconf.h`.
 
 ## License
 
