@@ -4,7 +4,7 @@ cpe: cpe:2.3:a:libcoap:libcoap:{}:*:*:*:*:*:*:*
 supplier: 'Organization: libcoap <https://libcoap.net/>'
 description: A CoAP (RFC 7252) implementation in C
 url: https://github.com/obgm/libcoap
-hash: e3fdcdcfbd1588754fe9dd4b754ac9397260f0f9
+hash: 1c26ef352a4ec19fc07428d7f3d90971d608d456
 cve-exclude-list:
   - cve: CVE-2024-31031
     reason: Resolved in version 4.3.5-rc1
