@@ -15,6 +15,7 @@
 
 #include "mbedtls/version.h"
 #include "mbedtls/pk.h"
+#include "sdkconfig.h"
 
 #if !defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
 #include "mbedtls/entropy.h"
@@ -67,6 +68,7 @@ static esp_err_t gcm_init_and_set_key(esp_encrypted_img_t *handle, const unsigne
     status = psa_import_key(&attributes, key, key_bits / 8, &handle->psa_gcm_key_id);
     if (status != PSA_SUCCESS) {
         ESP_LOGE(TAG, "psa_import_key for GCM failed: %d", (int)status);
+        psa_reset_key_attributes(&attributes);
         return ESP_FAIL;
     }
 
@@ -74,6 +76,7 @@ static esp_err_t gcm_init_and_set_key(esp_encrypted_img_t *handle, const unsigne
     status = psa_aead_decrypt_setup(&handle->psa_aead_op, handle->psa_gcm_key_id, PSA_ALG_GCM);
     if (status != PSA_SUCCESS) {
         ESP_LOGE(TAG, "psa_aead_decrypt_setup failed: %d", (int)status);
+        psa_aead_abort(&handle->psa_aead_op);
         psa_destroy_key(handle->psa_gcm_key_id);
         return ESP_FAIL;
     }

@@ -86,7 +86,7 @@ typedef struct {
 #define HEADER_DATA_SIZE    sizeof(pre_enc_bin_header)
 
 // Magic Byte is created using command: echo -n "esp_encrypted_img" | sha256sum
-static uint32_t esp_enc_img_magic = 0x0788b6cf;
+static const uint32_t esp_enc_img_magic = 0x0788b6cf;
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
 #define HMAC_OUTPUT_SIZE    32

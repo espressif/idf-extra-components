@@ -28,17 +28,20 @@ void setUp(void)
     uint8_t ciphertext[16];
     const uint8_t key[16] = { 0 };
 #if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
-    psa_crypto_init();
+    psa_status_t status = psa_crypto_init();
+    TEST_ASSERT_EQUAL(PSA_SUCCESS, status);
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attributes, PSA_ALG_ECB_NO_PADDING);
     psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
     psa_set_key_bits(&attributes, 128);
     psa_key_id_t key_id;
-    psa_import_key(&attributes, key, sizeof(key), &key_id);
+    status = psa_import_key(&attributes, key, sizeof(key), &key_id);
+    TEST_ASSERT_EQUAL(PSA_SUCCESS, status);
     size_t output_length;
-    psa_cipher_encrypt(key_id, PSA_ALG_ECB_NO_PADDING, plaintext, sizeof(plaintext),
-                       ciphertext, sizeof(ciphertext), &output_length);
+    status = psa_cipher_encrypt(key_id, PSA_ALG_ECB_NO_PADDING, plaintext, sizeof(plaintext),
+                                ciphertext, sizeof(ciphertext), &output_length);
+    TEST_ASSERT_EQUAL(PSA_SUCCESS, status);
     psa_destroy_key(key_id);
 #else
     mbedtls_aes_context ctx;
