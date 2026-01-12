@@ -61,6 +61,11 @@ typedef struct esp_encrypted_img_handle {
     psa_aead_operation_t psa_aead_op;
     psa_key_id_t psa_gcm_key_id;
     bool psa_initialized;
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    void *ds_data;
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
 #else
     mbedtls_gcm_context gcm_ctx;
 #endif

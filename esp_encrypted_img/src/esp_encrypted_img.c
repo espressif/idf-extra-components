@@ -39,12 +39,17 @@
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
 
 #if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+#if __has_include("psa_crypto_driver_esp_rsa_ds.h")
+#include "psa_crypto_driver_esp_rsa_ds.h"
+#endif /* __has_include("psa_crypto_driver_esp_rsa_ds.h") */
+#else
 #if __has_include("rsa_dec_alt.h")
 #include "rsa_dec_alt.h"
 #else
 #error "DS Peripheral is not supported on this version of ESP-IDF"
 #endif /* __has_include("rsa_dec_alt.h") */
-
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 #endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 
 #include "esp_random.h"
@@ -203,47 +208,87 @@ static void gcm_cleanup(esp_encrypted_img_t *handle)
 #define RSA_MPI_ASN1_HEADER_SIZE 11
 
 #if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+#if !defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
 int mbedtls_esp_random(void *ctx, unsigned char *buf, size_t len)
 {
     (void) ctx;
     esp_fill_random(buf, len);
     return 0;
 }
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 
 static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
 {
-    int ret = 1;
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    if (handle == NULL || handle->ds_data == NULL) {
+        ESP_LOGE(TAG, "Invalid argument: handle or ds_data is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    psa_key_id_t rsa_key_id = PSA_KEY_ID_NULL;
+    psa_status_t status;
+    psa_algorithm_t alg = PSA_ALG_RSA_PKCS1V15_CRYPT;
+
+    esp_ds_data_ctx_t *ds_key = (esp_ds_data_ctx_t *)handle->ds_data;
+
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_RSA_KEY_PAIR);
+    psa_set_key_bits(&attributes, ds_key->rsa_length_bits);
+    psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_DECRYPT);
+    psa_set_key_algorithm(&attributes, alg);
+    psa_set_key_lifetime(&attributes, PSA_KEY_LIFETIME_ESP_RSA_DS);
+    status = psa_import_key(&attributes,
+                            (const uint8_t *)ds_key,
+                            sizeof(*ds_key),
+                            &rsa_key_id);
+    psa_reset_key_attributes(&attributes);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_import_key failed: %d", (int)status);
+        return ESP_FAIL;
+    }
+    size_t olen = 0;
+    status = psa_asymmetric_decrypt(rsa_key_id, alg, (const unsigned char *)enc_gcm,
+                                    ENC_GCM_KEY_SIZE, NULL, 0,
+                                    (unsigned char *)handle->gcm_key,
+                                    GCM_KEY_SIZE,
+                                    &olen);
+    psa_destroy_key(rsa_key_id);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_asymmetric_decrypt failed: %d", (int)status);
+        return ESP_FAIL;
+    }
+#else
+    int ret;
     mbedtls_pk_context pk;
     mbedtls_pk_init(&pk);
 
     ret = mbedtls_pk_setup_rsa_alt(&pk, NULL, esp_ds_rsa_decrypt, NULL, esp_ds_get_keylen);
     if (ret != 0) {
         ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_setup_rsa_alt returned -0x%04x\n", (unsigned int) - ret);
-        goto exit;
+        mbedtls_pk_free(&pk);
+        return ret;
     }
 
     size_t olen = 0;
     ret = mbedtls_pk_decrypt(&pk, (const unsigned char *)enc_gcm, ENC_GCM_KEY_SIZE,
                              (unsigned char *)handle->gcm_key, &olen, GCM_KEY_SIZE,
                              mbedtls_esp_random, NULL);
+    mbedtls_pk_free(&pk);
     if (ret != 0) {
         ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_decrypt returned -0x%04x\n", (unsigned int) - ret);
-        goto exit;
+        return ret;
     }
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 
     void *tmp_buf = realloc(handle->cache_buf, CACHE_BUF_SIZE);
     if (!tmp_buf) {
         ESP_LOGE(TAG, "Failed to reallocate memory for cache buffer");
-        ret = ESP_ERR_NO_MEM;
-        goto exit;
+        return ESP_ERR_NO_MEM;
     }
     handle->cache_buf = tmp_buf;
     handle->state = ESP_PRE_ENC_IMG_READ_IV;
     handle->binary_file_read = 0;
     handle->cache_buf_len = 0;
-exit:
-    mbedtls_pk_free(&pk);
-    return (ret);
+    return ESP_OK;
 }
 
 #else
@@ -1233,11 +1278,15 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
         ESP_LOGE(TAG, "esp_encrypted_img_decrypt_start : Invalid argument");
         goto failure;
     }
+#if CONFIG_MBEDTLS_VER_4_X_SUPPORT
+    handle->ds_data = cfg->ds_data;
+#else
     esp_err_t err = esp_ds_init_data_ctx(cfg->ds_data);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize DS context, err: %2x", err);
         goto failure;
     }
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 #else
     if (cfg->rsa_priv_key == NULL || cfg->rsa_priv_key_len == 0) {
         ESP_LOGE(TAG, "esp_encrypted_img_decrypt_start : Invalid argument");
@@ -1613,7 +1662,9 @@ exit:
     free(handle->cache_buf);
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
 #if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+#if !defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
     esp_ds_deinit_data_ctx();
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 #else
     free(handle->rsa_pem);
     handle->rsa_pem = NULL;
@@ -1640,7 +1691,9 @@ esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx)
     free(handle->cache_buf);
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
 #if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+#if !defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
     esp_ds_deinit_data_ctx();
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 #else
     free(handle->rsa_pem);
     handle->rsa_pem = NULL;
