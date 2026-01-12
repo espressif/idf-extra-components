@@ -5,6 +5,8 @@
  */
 
 #include "test_mocks.h"
+#include "esp_efuse_chip.h"
+#include "sdkconfig.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -117,6 +119,7 @@ esp_ds_data_ctx_t *esp_secure_cert_get_ds_ctx()
         free(ds_ctx);
         return NULL;
     }
+    ds_ctx->esp_ds_data->rsa_length = 95;
 
     ds_ctx->efuse_key_id = 0;
     ds_ctx->rsa_length_bits = 3072;
@@ -145,3 +148,15 @@ esp_err_t esp_ds_finish_sign(void *signature, esp_ds_context_t *esp_ds_ctx)
     }
     return 0;
 }
+
+#if CONFIG_PRE_ENCRYPTED_RSA_USE_DS
+esp_efuse_purpose_t __wrap_esp_efuse_get_key_purpose(esp_efuse_block_t block)
+{
+    // Simulate the behavior of getting the efuse key purpose
+    // For this example, we'll assume that the purpose is always HMAC_DOWN_DIGITAL_SIGNATURE for key blocks 0 and 1
+    if (block == EFUSE_BLK_KEY0 || block == EFUSE_BLK_KEY1) {
+        return ESP_EFUSE_KEY_PURPOSE_HMAC_DOWN_DIGITAL_SIGNATURE;
+    }
+    return 0; // Indicate no purpose
+}
+#endif // CONFIG_PRE_ENCRYPTED_RSA_USE_DS

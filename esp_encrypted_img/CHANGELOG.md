@@ -1,3 +1,8 @@
+## 2.7.1
+
+### Enhancements:
+- Added support for ESP-IDF v6.0 release
+
 ## 2.7.0
 
 ### Features:
