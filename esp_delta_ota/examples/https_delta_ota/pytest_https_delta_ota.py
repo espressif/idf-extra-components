@@ -218,6 +218,15 @@ def test_esp_delta_ota(dut: Dut):
     build_dir = dut.app.binary_path
     chip_target = getattr(dut, 'target', None) or os.environ.get('IDF_TARGET', 'esp32')
     
+    server_process = None
+    server_process = multiprocessing.Process(
+        target=start_https_server,
+        args=(build_dir, '', server_port)
+    )
+    server_process.daemon = True
+    server_process.start()
+    print('HTTPS server started')
+        
     try:
         base_binary = os.path.join(build_dir, 'https_delta_ota.bin')
         if not os.path.exists(base_binary):
@@ -229,36 +238,36 @@ def test_esp_delta_ota(dut: Dut):
         if not os.path.exists(new_binary):
             raise Exception(f'New binary not found at {new_binary}. Expected pre-built binary: {binary_name} in tests/ directory. Example dir: {example_dir}')
 
+        # Step 2: Generate patch
         patch_file = os.path.join(build_dir, 'patch.bin')
         generate_patch(base_binary, new_binary, patch_file, chip_target)
 
-        server_process = multiprocessing.Process(
-            target=start_https_server,
-            args=(build_dir, '0.0.0.0', server_port)
-        )
-        
-        server_process.daemon = True
-        server_process.start()
-        time.sleep(3)  # Let server start
-
+        # Step 1: Connect device and get the correct host IP on same subnet
         env_name = 'wifi_high_traffic' if dut.app.sdkconfig.get('EXAMPLE_WIFI_SSID_PWD_FROM_STDIN') is True else None
         host_ip = setting_connection(dut, env_name)
-        ota_url = f'https://{host_ip}:{server_port}/patch.bin'
+        print(f'Device connected. Host IP on same subnet: {host_ip}')
 
+        # Step 3: Provide OTA URL to device
+        ota_url = f'https://{host_ip}:{server_port}/patch.bin'
         print(f'Providing OTA URL to device: {ota_url}')
+        dut.expect('Reading OTA URL from stdin', timeout=60)
         dut.write(f'{ota_url}\n')
+
+        # Step 4: Wait for OTA to start and complete
+        dut.expect('Rebooting in', timeout=60)  # Device preparing to reboot
         
-        dut.expect('Rebooting in 5 seconds...', timeout=60)
+        # Step 5: Wait for reboot and new firmware to boot
         dut.expect('Hello world!', timeout=60)
-        
-        # Cleanup
-        server_process.terminate()
-        server_process.join(timeout=5)
-        if server_process.is_alive():
-            server_process.kill()
         
         print('Delta OTA test PASSED: Successfully updated from https_delta_ota to hello_world')
         
     except Exception as e:
         print(f'HTTPS Delta OTA test FAILED: {str(e)}')
         raise
+    finally:
+        # Cleanup server process even on failure
+        if server_process is not None:
+            server_process.terminate()
+            server_process.join(timeout=5)
+            if server_process.is_alive():
+                server_process.kill()
