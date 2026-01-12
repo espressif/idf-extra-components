@@ -160,6 +160,7 @@ static void ota_example_task(void *pvParameter)
 #ifdef CONFIG_EXAMPLE_FIRMWARE_UPG_URL_FROM_STDIN
     char url_buf[OTA_URL_SIZE];
     if (strcmp(config.url, "FROM_STDIN") == 0) {
+        ESP_LOGI(TAG, "Reading OTA URL from stdin");
         example_configure_stdin_stdout();
         fgets(url_buf, OTA_URL_SIZE, stdin);
         int len = strlen(url_buf);
