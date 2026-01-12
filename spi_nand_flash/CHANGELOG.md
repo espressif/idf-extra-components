@@ -1,3 +1,7 @@
+ ## [0.17.0]                                                                                                                                                                                                                                                                                                       
+- fix: fix a compilation error caused by the missing freertos/FreeRTOS.h header when building with ESP-IDF v6.0 and later.
+- update: improvements to the lower-level APIs following updates in esp_driver_spi.
+
 ## [0.16.0]
 - fix: fix nand flash issue caused by data length unalignment on esp32p4
 

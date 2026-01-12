@@ -16,6 +16,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_timer.h"
+#include "esp_heap_caps.h"
 
 #define EXAMPLE_FLASH_FREQ_KHZ      40000
 #define PATTERN_SEED    0x12345678
@@ -114,9 +115,9 @@ static esp_err_t read_write_sectors_tp(spi_nand_flash_device_t *flash, uint32_t 
 
     ESP_RETURN_ON_FALSE((start_sec + sec_count) < sector_num, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
 
-    pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
     ESP_RETURN_ON_FALSE(pattern_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
     ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
 
     fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
