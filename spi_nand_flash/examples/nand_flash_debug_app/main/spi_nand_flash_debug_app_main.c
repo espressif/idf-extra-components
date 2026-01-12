@@ -16,6 +16,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_timer.h"
+#include "esp_heap_caps.h"
 
 #define EXAMPLE_FLASH_FREQ_KHZ      40000
 #define PATTERN_SEED    0x12345678
