@@ -103,7 +103,7 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
     uint16_t column_addr = get_column_address(handle, block, handle->chip.page_size);
 
     // Read the first 2 bytes on the OOB of the first page in the block. This should be 0xFFFF for a good block
-    ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *) handle->read_buffer, column_addr, 2),
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *) handle->read_buffer, column_addr, 4),
                       fail, TAG, "");
 
     memcpy(&bad_block_indicator, handle->read_buffer, sizeof(bad_block_indicator));
@@ -255,7 +255,7 @@ esp_err_t nand_is_free(spi_nand_flash_device_t *handle, uint32_t page, bool *is_
     uint16_t column_addr = get_column_address(handle, block, handle->chip.page_size + 2);
 
     ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *)handle->read_buffer,
-                                    column_addr, 2), fail, TAG, "");
+                                    column_addr, 4), fail, TAG, "");
 
     memcpy(&used_marker, handle->read_buffer, sizeof(used_marker));
     ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%04x,", page, used_marker);

@@ -213,7 +213,7 @@ static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *da
     data_read_len = check_length_alignment(handle, length);
 #else
     if (!half_duplex) {
-        data_read_len = length + 1;
+        data_read_len = length + 4;
         data_read = handle->temp_buffer;
     }
 #endif
