@@ -1,3 +1,19 @@
 esp_cli_commands/test_apps:
   enable:
-    - if: (IDF_TARGET in ["esp32", "linux"]) and (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3)
+    - if: (IDF_TARGET in ["esp32", "linux"]) and ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR >= 6))
+
+esp_cli_commands/examples/command_set_example:
+  enable:
+    - if: (IDF_TARGET in ["esp32", "linux"]) and ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR >= 6))
+
+esp_cli_commands/examples/debug_and_unregister_dynamic:
+  enable:
+    - if: (IDF_TARGET in ["esp32", "linux"]) and ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR >= 6))
+
+esp_cli_commands/examples/hello_command_static:
+  enable:
+    - if: (IDF_TARGET in ["esp32", "linux"]) and ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR >= 6))
+
+esp_cli_commands/examples/math_op_static:
+  enable:
+    - if: (IDF_TARGET in ["esp32", "linux"]) and ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR >= 6))
