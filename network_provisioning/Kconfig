@@ -85,4 +85,16 @@ menu "Network Provisioning Manager"
             help
                     Scan will end after an AP matching with the SSID has been detected.
     endchoice
+
+    config NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS
+        bool "Save Wi-Fi credentials to flash only after successful connection"
+        depends on NETWORK_PROV_NETWORK_TYPE_WIFI
+        default n
+        help
+            When enabled, Wi-Fi credentials are stored in RAM initially and saved to flash only
+            after successful connection (IP address assignment). This prevents invalid credentials
+            from persisting in flash if the device reboots before connection succeeds.
+
+            When disabled (default), credentials are saved to flash immediately when received,
+            matching the legacy behavior.
 endmenu
