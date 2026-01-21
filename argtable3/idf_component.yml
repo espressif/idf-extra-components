@@ -3,7 +3,7 @@ description: "Argtable3 - GNU-style command-line option parsing C library"
 url: https://github.com/espressif/idf-extra-components/tree/master/argtable3
 documentation: https://www.argtable.org/docs/
 dependencies:
-  idf: ">=6.0"
+  idf: ">=5.1"
 sbom:
   manifests:
     - path: sbom_argtable3.yml
