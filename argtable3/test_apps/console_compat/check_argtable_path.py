@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import sys
 import os
+import re
 
 
 def main():
@@ -13,22 +14,36 @@ def main():
     args = parser.parse_args()
 
 
-    # look for 'arg_int.c' in 'strings app.elf'
+    # look for any files from argtable3 directory in 'strings app.elf'
+    # This is more generic and works regardless of which argtable3 functions are used
+    # Matches both IEC path (/argtable3/src/arg_*.c) and IDF path (/argtable3/arg_*.c)
     strings_output = subprocess.check_output([args.strings_program, args.elf_file], encoding="utf-8")
-    lines_with_arg_int_c = [line for line in strings_output.splitlines() if "arg_int.c" in line]
+    lines_with_argtable = [line for line in strings_output.splitlines() if re.search(r'/argtable3/(src/)?arg_\w+\.c', line)]
 
     found_iec_path = False
     found_idf_path = False
+    iec_files = []
+    idf_files = []
 
-    for line in lines_with_arg_int_c:
+    for line in lines_with_argtable:
         if os.path.abspath(args.iec_path) in line:
             found_iec_path = True
+            iec_files.append(line.strip())
         if os.path.abspath(args.idf_path) in line:
             found_idf_path = True
+            idf_files.append(line.strip())
 
-    print(f"Found arg_int.c in IDF: {found_idf_path}, in IEC: {found_iec_path}", file=sys.stderr)
+    print("Found argtable3 files from IEC:", file=sys.stderr)
+    for f in iec_files:
+        print(f"  {f}", file=sys.stderr)
+    
+    print("Found argtable3 files from IDF:", file=sys.stderr)
+    for f in idf_files:
+        print(f"  {f}", file=sys.stderr)
+
+    print(f"\nSummary - IDF files: {len(idf_files)}, IEC files: {len(iec_files)}", file=sys.stderr)
     if found_idf_path or not found_iec_path:
-        print("Error: arg_int.c was found in IDF or not found in IEC", file=sys.stderr)
+        print("Error: argtable3 files were found in IDF or not found in IEC", file=sys.stderr)
         raise SystemExit(1)
 
 if __name__ == "__main__":
