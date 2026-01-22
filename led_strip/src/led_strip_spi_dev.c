@@ -142,9 +142,9 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     // If R/G/B order is not specified, set default GRB order as fallback
     if (component_fmt.format_id == 0) {
         component_fmt = LED_STRIP_COLOR_COMPONENT_FMT_GRB;
-        if (led_config->led_model == LED_MODEL_WS2816) {
-            component_fmt.format.bytes_per_color = 2;
-        }
+    }
+    if (led_config->led_model == LED_MODEL_WS2816) {
+        component_fmt.format.bytes_per_color = 2;
     }
     if (component_fmt.format.bytes_per_color == 0) {
         component_fmt.format.bytes_per_color = 1;

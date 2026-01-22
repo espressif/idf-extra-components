@@ -47,6 +47,7 @@ typedef union {
 
 /// Helper macros to set the color component format
 #define LED_STRIP_COLOR_COMPONENT_FMT_GRB (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 3}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_GRB_16 (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 2, .num_components = 3}}
 #define LED_STRIP_COLOR_COMPONENT_FMT_GRBW (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 4}}
 #define LED_STRIP_COLOR_COMPONENT_FMT_RGB (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 3}}
 #define LED_STRIP_COLOR_COMPONENT_FMT_RGBW (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 4}}
