@@ -13,5 +13,4 @@ def test_esp_encrypted_img(dut, marker) -> None:
     binary_path = getattr(dut.app, "binary_path", None)
     if not binary_path or not os.path.exists(binary_path):
         pytest.skip(f"Build was skipped or binary not found: {binary_path}")
-    # ...existing code...
     dut.run_all_single_board_cases()

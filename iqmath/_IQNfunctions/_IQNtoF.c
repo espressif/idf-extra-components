@@ -6,6 +6,7 @@
  ******************************************************************************/
 
 #include <stdint.h>
+#include <string.h>
 
 #include "../support/support.h"
 
@@ -64,7 +65,10 @@ __STATIC_INLINE float __IQNtoF(int_fast32_t iqNInput, int8_t q_value)
     uiq23Result += (uint_fast32_t) ui16Exp << 16;
 
     /* Return the mantissa + exp + sign result as a floating point type. */
-    return *(float *) &uiq23Result;
+    /* Use memcpy to avoid strict-aliasing violation */
+    float result;
+    memcpy(&result, &uiq23Result, sizeof(float));
+    return result;
 }
 
 /**

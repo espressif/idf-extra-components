@@ -1,3 +1,8 @@
+## 2.7.0
+
+### Features:
+- Added support for PSA Crypto API and hence compatibility with ESP-IDF 6.0 release
+
 ## 2.6.0
 
 ### Enhancements:
