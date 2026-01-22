@@ -122,6 +122,9 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
             component_fmt.format.bytes_per_color = 2;
         }
     }
+    if (component_fmt.format.bytes_per_color == 0) {
+        component_fmt.format.bytes_per_color = 1;
+    }
     // check the validation of the color component format
     uint8_t mask = 0;
     if (component_fmt.format.num_components == 3) {

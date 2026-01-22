@@ -61,11 +61,11 @@ static esp_err_t led_strip_spi_set_pixel(led_strip_t *strip, uint32_t index, uin
     uint8_t pos_mult = format.bytes_per_color;
     for (uint8_t i = 0; i < format.bytes_per_color; i++) {
         uint8_t color_shift = 8 * (format.bytes_per_color - 1 - i);
-        __led_strip_spi_bit((red >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.r_pos + i)]);
-        __led_strip_spi_bit((green >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.g_pos + i)]);
-        __led_strip_spi_bit((blue >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.b_pos + i)]);
+        __led_strip_spi_bit((red >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.r_pos * pos_mult + i)]);
+        __led_strip_spi_bit((green >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.g_pos * pos_mult + i)]);
+        __led_strip_spi_bit((blue >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.b_pos * pos_mult + i)]);
         if (format.num_components > 3) {
-            __led_strip_spi_bit(0, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.w_pos + i)]);
+            __led_strip_spi_bit(0, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.w_pos * pos_mult + i)]);
         }
     }
     return ESP_OK;
@@ -86,10 +86,10 @@ static esp_err_t led_strip_spi_set_pixel_rgbw(led_strip_t *strip, uint32_t index
     uint8_t pos_mult = format.bytes_per_color;
     for (uint8_t i = 0; i < format.bytes_per_color; i++) {
         uint8_t color_shift = 8 * (format.bytes_per_color - 1 - i);
-        __led_strip_spi_bit((red >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.r_pos + i)]);
-        __led_strip_spi_bit((green >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.g_pos + i)]);
-        __led_strip_spi_bit((blue >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.b_pos + i)]);
-        __led_strip_spi_bit((white >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.w_pos + i)]);
+        __led_strip_spi_bit((red >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.r_pos * pos_mult + i)]);
+        __led_strip_spi_bit((green >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.g_pos * pos_mult + i)]);
+        __led_strip_spi_bit((blue >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.b_pos * pos_mult + i)]);
+        __led_strip_spi_bit((white >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.w_pos * pos_mult + i)]);
     }
     return ESP_OK;
 }
@@ -146,7 +146,9 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
             component_fmt.format.bytes_per_color = 2;
         }
     }
-    // check the validation of the color component format
+    if (component_fmt.format.bytes_per_color == 0) {
+        component_fmt.format.bytes_per_color = 1;
+    }
     uint8_t mask = 0;
     if (component_fmt.format.num_components == 3) {
         mask = BIT(component_fmt.format.r_pos) | BIT(component_fmt.format.g_pos) | BIT(component_fmt.format.b_pos);

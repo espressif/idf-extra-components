@@ -25,7 +25,7 @@ esp_err_t led_strip_set_pixel_hsv(led_strip_handle_t strip, uint32_t index, uint
     uint32_t blue = 0;
 
     uint32_t rgb_max = value;
-    uint32_t rgb_min = rgb_max * (255 - saturation) / 255.0f;
+    uint32_t rgb_min = rgb_max * (255 - saturation) / 255;
 
     uint32_t i = hue / 60;
     uint32_t diff = hue % 60;
@@ -78,7 +78,7 @@ esp_err_t led_strip_set_pixel_hsv_16(led_strip_handle_t strip, uint32_t index, u
     uint32_t blue = 0;
 
     uint32_t rgb_max = value;
-    uint32_t rgb_min = rgb_max * (65535 - saturation) / 65535.0f;
+    uint32_t rgb_min = rgb_max * (65535 - saturation) / 65535;
 
     uint32_t i = hue / 60;
     uint32_t diff = hue % 60;
