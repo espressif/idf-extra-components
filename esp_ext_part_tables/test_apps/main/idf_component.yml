@@ -1,0 +1,5 @@
+dependencies:
+  idf: ">=5.1"
+  espressif/esp_ext_part_tables:
+    version: "*"
+    override_path: "../.."

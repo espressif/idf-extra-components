@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2017-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2017-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -16,10 +16,21 @@
 #endif /* MBEDTLS_ALLOW_PRIVATE_ACCESS */
 #endif /* !(MBEDTLS_VERSION_NUMBER < 0x03000000) */
 
+/* For MbedTLS 4.x support using PSA crypto */
+#if (MBEDTLS_VERSION_NUMBER >= 0x04000000)
+#define MBEDTLS_PSA_CRYPTO
+#endif
+
 #include "crypto_hash_sha512.h"
-#include "mbedtls/sha512.h"
 #include <string.h>
 
+#ifdef MBEDTLS_PSA_CRYPTO
+#include "psa/crypto.h"
+#else
+#include "mbedtls/sha512.h"
+#endif
+
+#ifndef MBEDTLS_PSA_CRYPTO
 #ifdef MBEDTLS_SHA512_ALT
 /* Wrapper only works if the libsodium context structure can be mapped
    directly to the mbedTLS context structure.
@@ -65,10 +76,42 @@ static void sha512_libsodium_to_mbedtls(mbedtls_sha512_context *mb_ctx, crypto_h
     memcpy(mb_ctx->buffer, ls_state->buf, sizeof(mb_ctx->buffer));
     mb_ctx->is384 = 0;
 }
+#endif /* !MBEDTLS_PSA_CRYPTO */
 
 int
 crypto_hash_sha512_init(crypto_hash_sha512_state *state)
 {
+    if (state == NULL) {
+        return -1;
+    }
+#ifdef MBEDTLS_PSA_CRYPTO
+    psa_status_t status;
+
+    status = psa_crypto_init();
+    if (status != PSA_SUCCESS) {
+        return -1;
+    }
+
+    psa_hash_operation_t *operation;
+
+    /* Store PSA hash operation in the state buffer
+     * The libsodium state structure is large enough to hold psa_hash_operation_t.
+     * Ensure this is safe with respect to both size and alignment.
+     */
+    _Static_assert(sizeof(crypto_hash_sha512_state) >= sizeof(psa_hash_operation_t),
+                   "crypto_hash_sha512_state too small for psa_hash_operation_t");
+    _Static_assert(_Alignof(crypto_hash_sha512_state) >= _Alignof(psa_hash_operation_t),
+                   "crypto_hash_sha512_state alignment insufficient for psa_hash_operation_t");
+    memset(state, 0, sizeof(*state));
+    operation = (psa_hash_operation_t *)state;
+    *operation = psa_hash_operation_init();
+
+    status = psa_hash_setup(operation, PSA_ALG_SHA_512);
+    if (status != PSA_SUCCESS) {
+        return -1;
+    }
+    return 0;
+#else
     mbedtls_sha512_context ctx;
     mbedtls_sha512_init(&ctx);
 #ifdef MBEDTLS_2_X_COMPAT
@@ -81,12 +124,27 @@ crypto_hash_sha512_init(crypto_hash_sha512_state *state)
     }
     sha512_mbedtls_to_libsodium(state, &ctx);
     return 0;
+#endif /* !MBEDTLS_PSA_CRYPTO */
 }
 
 int
 crypto_hash_sha512_update(crypto_hash_sha512_state *state,
                           const unsigned char *in, unsigned long long inlen)
 {
+    if (state == NULL || (inlen > 0 && in == NULL)) {
+        return -1;
+    }
+#ifdef MBEDTLS_PSA_CRYPTO
+    psa_hash_operation_t *operation = (psa_hash_operation_t *)state;
+    psa_status_t status;
+
+    status = psa_hash_update(operation, in, inlen);
+    if (status != PSA_SUCCESS) {
+        psa_hash_abort(operation);
+        return -1;
+    }
+    return 0;
+#else
     mbedtls_sha512_context ctx;
     sha512_libsodium_to_mbedtls(&ctx, state);
 #ifdef MBEDTLS_2_X_COMPAT
@@ -99,11 +157,27 @@ crypto_hash_sha512_update(crypto_hash_sha512_state *state,
     }
     sha512_mbedtls_to_libsodium(state, &ctx);
     return 0;
+#endif /* !MBEDTLS_PSA_CRYPTO */
 }
 
 int
 crypto_hash_sha512_final(crypto_hash_sha512_state *state, unsigned char *out)
 {
+    if (state == NULL || out == NULL) {
+        return -1;
+    }
+#ifdef MBEDTLS_PSA_CRYPTO
+    psa_hash_operation_t *operation = (psa_hash_operation_t *)state;
+    psa_status_t status;
+    size_t hash_len;
+
+    status = psa_hash_finish(operation, out, crypto_hash_sha512_BYTES, &hash_len);
+    if (status != PSA_SUCCESS || hash_len != crypto_hash_sha512_BYTES) {
+        psa_hash_abort(operation);
+        return -1;
+    }
+    return 0;
+#else
     mbedtls_sha512_context ctx;
     sha512_libsodium_to_mbedtls(&ctx, state);
 #ifdef MBEDTLS_2_X_COMPAT
@@ -111,15 +185,31 @@ crypto_hash_sha512_final(crypto_hash_sha512_state *state, unsigned char *out)
 #else
     return mbedtls_sha512_finish(&ctx, out);
 #endif /* MBEDTLS_2_X_COMPAT */
+#endif /* !MBEDTLS_PSA_CRYPTO */
 }
 
 int
 crypto_hash_sha512(unsigned char *out, const unsigned char *in,
                    unsigned long long inlen)
 {
+    if (out == NULL || (inlen > 0 && in == NULL)) {
+        return -1;
+    }
+#ifdef MBEDTLS_PSA_CRYPTO
+    psa_status_t status;
+    size_t hash_len;
+
+    status = psa_hash_compute(PSA_ALG_SHA_512, in, inlen, out,
+                              crypto_hash_sha512_BYTES, &hash_len);
+    if (status != PSA_SUCCESS || hash_len != crypto_hash_sha512_BYTES) {
+        return -1;
+    }
+    return 0;
+#else
 #ifdef MBEDTLS_2_X_COMPAT
     return mbedtls_sha512_ret(in, inlen, out, 0);
 #else
     return mbedtls_sha512(in, inlen, out, 0);
 #endif /* MBEDTLS_2_X_COMPAT */
+#endif /* !MBEDTLS_PSA_CRYPTO */
 }

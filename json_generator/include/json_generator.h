@@ -297,6 +297,23 @@ int json_gen_obj_set_bool(json_gen_str_t *jstr, const char *name, bool val);
  */
 int json_gen_obj_set_int(json_gen_str_t *jstr, const char *name, int val);
 
+/** Add a 64 bit integer element to an object
+ *
+ * \note This must be called between json_gen_start_object()/json_gen_push_object()
+ * and json_gen_end_object()/json_gen_pop_object()
+ *
+ * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
+ * json_gen_str_start()
+ * \param[in] name Name of the element
+ * \param[in] val 64 bit integer value of the element
+ *
+ * \return 0 on Success
+ * \return -1 if buffer is out of space (possible only if no callback function
+ * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
+ * added after that
+ */
+int json_gen_obj_set_int64(json_gen_str_t *jstr, const char *name, int64_t val);
+
 /** Add a float element to an object
  *
  * This adds a float element to an object. Eg. "float_val":23.8
@@ -384,6 +401,22 @@ int json_gen_arr_set_bool(json_gen_str_t *jstr, bool val);
  * added after that
  */
 int json_gen_arr_set_int(json_gen_str_t *jstr, int val);
+
+/** Add a 64 bit integer element to an array
+ *
+ * \note This must be called between json_gen_start_array()/json_gen_push_array()
+ * and json_gen_end_array()/json_gen_pop_array()
+ *
+ * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
+ * json_gen_str_start()
+ * \param[in] val 64 bit integer value of the element
+ *
+ * \return 0 on Success
+ * \return -1 if buffer is out of space (possible only if no callback function
+ * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
+ * added after that
+ */
+int json_gen_arr_set_int64(json_gen_str_t *jstr, int64_t val);
 
 /** Add a float element to an array
  *

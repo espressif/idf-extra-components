@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include "esp_log.h"
 #include "cbor.h"
+#include "cborjson.h"
 
 static const char *TAG = "example";
 

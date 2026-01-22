@@ -5,23 +5,30 @@
  */
 
 #include <string.h>
-#include "esp_encrypted_img.h"
 #include <errno.h>
 #include <esp_log.h>
 #include <esp_err.h>
+#include "sys/param.h"
+
+#include "esp_encrypted_img.h"
+#include "esp_encrypted_img_priv.h"
 
 #include "mbedtls/version.h"
 #include "mbedtls/pk.h"
+#include "sdkconfig.h"
+
+#if !defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
-#include "mbedtls/gcm.h"
-#include "sys/param.h"
+#endif
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
+#if !defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
 #include "mbedtls/ecp.h"
 #include "mbedtls/ecdh.h"
-#include "mbedtls/pkcs5.h"
 #include "mbedtls/hkdf.h"
+#include "mbedtls/pkcs5.h"
+#endif
 #include "esp_random.h"
 #include "esp_encrypted_img_utilities.h"
 
@@ -44,68 +51,153 @@
 
 static const char *TAG = "esp_encrypted_img";
 
-typedef enum {
-    ESP_PRE_ENC_IMG_READ_MAGIC,
-    ESP_PRE_ENC_IMG_READ_GCM,
-    ESP_PRE_ENC_IMG_READ_IV,
-    ESP_PRE_ENC_IMG_READ_BINSIZE,
-    ESP_PRE_ENC_IMG_READ_AUTH,
-    ESP_PRE_ENC_IMG_READ_EXTRA_HEADER,
-    ESP_PRE_ENC_DATA_DECODE_STATE,
-} esp_encrypted_img_state;
+/*
+ * GCM Abstraction Layer Implementations
+ */
+static esp_err_t gcm_init_and_set_key(esp_encrypted_img_t *handle, const unsigned char *key, size_t key_bits)
+{
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_status_t status;
 
-#define GCM_KEY_SIZE        32
+    psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_DECRYPT);
+    psa_set_key_algorithm(&attributes, PSA_ALG_GCM);
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_AES);
+    psa_set_key_bits(&attributes, key_bits);
 
-#define CACHE_BUF_SIZE        16
+    status = psa_import_key(&attributes, key, key_bits / 8, &handle->psa_gcm_key_id);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_import_key for GCM failed: %d", (int)status);
+        psa_reset_key_attributes(&attributes);
+        return ESP_FAIL;
+    }
 
-struct esp_encrypted_img_handle {
-#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
-#if !defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
-    char *rsa_pem;
-    size_t rsa_len;
+    handle->psa_aead_op = psa_aead_operation_init();
+    status = psa_aead_decrypt_setup(&handle->psa_aead_op, handle->psa_gcm_key_id, PSA_ALG_GCM);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_aead_decrypt_setup failed: %d", (int)status);
+        psa_aead_abort(&handle->psa_aead_op);
+        psa_destroy_key(handle->psa_gcm_key_id);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+#else
+    mbedtls_gcm_init(&handle->gcm_ctx);
+    int ret = mbedtls_gcm_setkey(&handle->gcm_ctx, MBEDTLS_CIPHER_ID_AES, key, key_bits);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Error: mbedtls_gcm_set_key: -0x%04x", (unsigned int) - ret);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 #endif
-#elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
-    hmac_key_id_t hmac_key;
-#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
-    uint32_t binary_file_len;
-    uint32_t binary_file_read;
-    char gcm_key[GCM_KEY_SIZE];
-    char iv[IV_SIZE];
-    char auth_tag[AUTH_SIZE];
-    esp_encrypted_img_state state;
-    mbedtls_gcm_context gcm_ctx;
-    size_t cache_buf_len;
-    char *cache_buf;
-};
+}
 
-typedef struct {
-    char magic[MAGIC_SIZE];
-#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
-    char enc_gcm[ENC_GCM_KEY_SIZE];
-#elif defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
-    unsigned char server_ecc_pub_key[SERVER_ECC_KEY_LEN];
-    unsigned char kdf_salt[KDF_SALT_SIZE];
-    unsigned char reserved[RESERVED_SIZE];
-#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
-    char iv[IV_SIZE];
-    char bin_size[BIN_SIZE_DATA];
-    char auth[AUTH_SIZE];
-    char extra_header[RESERVED_HEADER];
-} pre_enc_bin_header;
-#define HEADER_DATA_SIZE    sizeof(pre_enc_bin_header)
+static esp_err_t gcm_start(esp_encrypted_img_t *handle, const unsigned char *iv, size_t iv_len)
+{
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    psa_status_t status = psa_aead_set_nonce(&handle->psa_aead_op, iv, iv_len);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_aead_set_nonce failed: %d", (int)status);
+        psa_aead_abort(&handle->psa_aead_op);
+        psa_destroy_key(handle->psa_gcm_key_id);
+        return ESP_FAIL;
+    }
+    handle->psa_initialized = true;
+    return ESP_OK;
+#else
+    int ret;
+#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
+    ret = mbedtls_gcm_starts(&handle->gcm_ctx, MBEDTLS_GCM_DECRYPT, iv, iv_len, NULL, 0);
+#else
+    ret = mbedtls_gcm_starts(&handle->gcm_ctx, MBEDTLS_GCM_DECRYPT, iv, iv_len);
+#endif
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Error: mbedtls_gcm_starts: -0x%04x", (unsigned int) - ret);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+#endif
+}
 
-// Magic Byte is created using command: echo -n "esp_encrypted_img" | sha256sum
-static uint32_t esp_enc_img_magic = 0x0788b6cf;
+static esp_err_t gcm_update(esp_encrypted_img_t *handle, const unsigned char *input, size_t input_len,
+                            unsigned char *output, size_t output_size, size_t *output_len)
+{
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    psa_status_t status = psa_aead_update(&handle->psa_aead_op, input, input_len,
+                                          output, output_size, output_len);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_aead_update failed: %d", (int)status);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+#else
+    int ret;
+#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
+    ret = mbedtls_gcm_update(&handle->gcm_ctx, input_len, input, output);
+    if (output_len) {
+        *output_len = input_len;
+    }
+#else
+    size_t olen;
+    ret = mbedtls_gcm_update(&handle->gcm_ctx, input, input_len, output, output_size, &olen);
+    if (output_len) {
+        *output_len = olen;
+    }
+#endif
+    if (ret != 0) {
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+#endif
+}
 
-#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES)
-#define HMAC_OUTPUT_SIZE    32
-#define PBKDF2_ITERATIONS   2048
-#define HKDF_INFO_SIZE      16
-#define DER_ASN1_OVERHEAD 30
-#define SECP256R1_COORD_SIZE 32
-#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
+static esp_err_t gcm_finish_and_verify(esp_encrypted_img_t *handle, const unsigned char *tag, size_t tag_len)
+{
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    size_t output_len = 0;
+    psa_status_t status = psa_aead_verify(&handle->psa_aead_op, NULL, 0, &output_len, tag, tag_len);
+    if (status != PSA_SUCCESS) {
+        if (status == PSA_ERROR_INVALID_SIGNATURE) {
+            ESP_LOGE(TAG, "Invalid Auth Tag");
+        } else {
+            ESP_LOGE(TAG, "psa_aead_verify failed: %d", (int)status);
+        }
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+#else
+    unsigned char got_auth[AUTH_SIZE] = {0};
+    int ret;
+#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
+    ret = mbedtls_gcm_finish(&handle->gcm_ctx, got_auth, tag_len);
+#else
+    size_t olen;
+    ret = mbedtls_gcm_finish(&handle->gcm_ctx, NULL, 0, &olen, got_auth, tag_len);
+#endif
+    if (ret != 0) {
+        ESP_LOGE(TAG, "mbedtls_gcm_finish failed: %d", ret);
+        return ESP_FAIL;
+    }
+    if (memcmp(got_auth, tag, tag_len) != 0) {
+        ESP_LOGE(TAG, "Invalid Auth");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+#endif
+}
 
-typedef struct esp_encrypted_img_handle esp_encrypted_img_t;
+static void gcm_cleanup(esp_encrypted_img_t *handle)
+{
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    if (handle->psa_initialized) {
+        psa_aead_abort(&handle->psa_aead_op);
+        psa_destroy_key(handle->psa_gcm_key_id);
+        handle->psa_initialized = false;
+    }
+#else
+    mbedtls_gcm_free(&handle->gcm_ctx);
+#endif
+}
 
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
 #define RSA_MPI_ASN1_HEADER_SIZE 11
@@ -160,6 +252,113 @@ static int decipher_gcm_key(const char *enc_gcm, esp_encrypted_img_t *handle)
 {
     int ret = 1;
     size_t olen = 0;
+
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    psa_key_id_t rsa_key_id = PSA_KEY_ID_NULL;
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_status_t status;
+    mbedtls_pk_context *pk = calloc(1, sizeof(mbedtls_pk_context));
+    if (pk == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for mbedtls_pk_context");
+        return ESP_ERR_NO_MEM;
+    }
+    unsigned char *key_buf = NULL;
+    size_t key_buf_size = MBEDTLS_MPI_MAX_SIZE * 2;
+
+    ESP_LOGI(TAG, "Reading RSA private key (PSA)");
+
+    mbedtls_pk_init(pk);
+
+    /* Parse RSA key from PEM using mbedtls */
+    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)handle->rsa_pem, handle->rsa_len, NULL, 0);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_key returned -0x%04x\n", (unsigned int) - ret);
+        goto exit;
+    }
+
+    /* Export to DER format for PSA import */
+    key_buf = calloc(1, key_buf_size);
+    if (key_buf == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for key buffer");
+        ret = ESP_ERR_NO_MEM;
+        goto exit;
+    }
+
+    ret = mbedtls_pk_write_key_der(pk, key_buf, key_buf_size);
+    if (ret < 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_write_key_der returned -0x%04x\n", (unsigned int) - ret);
+        goto exit;
+    }
+
+    /* DER is written at the end of the buffer */
+    size_t key_len = ret;
+    unsigned char *key_start = key_buf + key_buf_size - key_len;
+
+    /* Import RSA key to PSA */
+    psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_DECRYPT);
+    psa_set_key_algorithm(&attributes, PSA_ALG_RSA_PKCS1V15_CRYPT);
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_RSA_KEY_PAIR);
+
+    status = psa_import_key(&attributes, key_start, key_len, &rsa_key_id);
+    mbedtls_pk_free(pk);
+    free(pk);
+    pk = NULL;
+
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_import_key failed: %d", (int)status);
+        ret = ESP_FAIL;
+        goto exit;
+    }
+
+    /* Perform RSA PKCS#1 v1.5 decryption */
+    status = psa_asymmetric_decrypt(rsa_key_id,
+                                    PSA_ALG_RSA_PKCS1V15_CRYPT,
+                                    (const unsigned char *)enc_gcm,
+                                    ENC_GCM_KEY_SIZE,
+                                    NULL, 0,  /* No salt */
+                                    (unsigned char *)handle->gcm_key,
+                                    GCM_KEY_SIZE,
+                                    &olen);
+
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_asymmetric_decrypt failed: %d", (int)status);
+        ret = ESP_FAIL;
+        goto exit;
+    }
+
+    ret = 0;
+
+    void *tmp_buf = realloc(handle->cache_buf, CACHE_BUF_SIZE);
+    if (!tmp_buf) {
+        ESP_LOGE(TAG, "Failed to reallocate memory for cache buffer");
+        ret = ESP_ERR_NO_MEM;
+        goto exit;
+    }
+    handle->cache_buf = tmp_buf;
+    handle->state = ESP_PRE_ENC_IMG_READ_IV;
+    handle->binary_file_read = 0;
+    handle->cache_buf_len = 0;
+
+exit:
+    if (pk) {
+        mbedtls_pk_free(pk);
+        free(pk);
+    }
+    if (rsa_key_id != PSA_KEY_ID_NULL) {
+        psa_destroy_key(rsa_key_id);
+    }
+    if (key_buf) {
+        mbedtls_platform_zeroize(key_buf, key_buf_size);
+        free(key_buf);
+    }
+    if (handle->rsa_pem) {
+        mbedtls_platform_zeroize(handle->rsa_pem, handle->rsa_len);
+        free(handle->rsa_pem);
+        handle->rsa_pem = NULL;
+    }
+    return ret;
+
+#else /* !CONFIG_MBEDTLS_VER_4_X_SUPPORT */
     mbedtls_pk_context pk;
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
@@ -212,6 +411,7 @@ exit:
     mbedtls_entropy_free( &entropy );
     mbedtls_ctr_drbg_free( &ctr_drbg );
     return (ret);
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 }
 
 static esp_err_t esp_encrypted_img_export_rsa_pub_key(const char *rsa_pem, size_t rsa_len, uint8_t **pub_key, size_t *pub_key_len)
@@ -224,6 +424,115 @@ static esp_err_t esp_encrypted_img_export_rsa_pub_key(const char *rsa_pem, size_
     mbedtls_pk_context pk;
     mbedtls_pk_init(&pk);
 
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    /* For mbedtls 4.x, use PSA-based key parsing */
+    ret = mbedtls_pk_parse_key(&pk, (const unsigned char *)rsa_pem, rsa_len, NULL, 0);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_key returned -0x%04x\n", (unsigned int) - ret);
+        goto exit;
+    }
+
+    /* Export public key in DER SubjectPublicKeyInfo format first */
+    size_t max_pub_key_size = MBEDTLS_MPI_MAX_SIZE * 2;
+    unsigned char *der_buf = calloc(1, max_pub_key_size);
+    if (der_buf == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for DER buffer");
+        goto exit;
+    }
+
+    ret = mbedtls_pk_write_pubkey_der(&pk, der_buf, max_pub_key_size);
+    if (ret < 0) {
+        ESP_LOGE(TAG, "Failed to write public key DER: -0x%04x", (unsigned int) - ret);
+        free(der_buf);
+        goto exit;
+    }
+
+    /* DER is written at the end of the buffer */
+    size_t der_len = ret;
+    unsigned char *der_start = der_buf + max_pub_key_size - der_len;
+
+    /* Parse SubjectPublicKeyInfo to extract raw public key (BIT STRING content)
+     * Structure: SEQUENCE { SEQUENCE { OID, params }, BIT STRING { raw_key } }
+     * We need to skip the outer SEQUENCE and algorithm SEQUENCE to get the BIT STRING */
+    unsigned char *p = der_start;
+    size_t len;
+
+    /* Skip outer SEQUENCE tag and length */
+    if (*p++ != 0x30) { /* SEQUENCE */
+        ESP_LOGE(TAG, "Invalid DER: expected SEQUENCE");
+        free(der_buf);
+        goto exit;
+    }
+    /* Skip length (may be 1 or more bytes) */
+    if (*p & 0x80) {
+        size_t len_bytes = *p++ & 0x7f;
+        p += len_bytes;
+    } else {
+        p++;
+    }
+
+    /* Skip algorithm SEQUENCE */
+    if (*p++ != 0x30) { /* SEQUENCE */
+        ESP_LOGE(TAG, "Invalid DER: expected algorithm SEQUENCE");
+        free(der_buf);
+        goto exit;
+    }
+    /* Get algorithm sequence length and skip it */
+    if (*p & 0x80) {
+        size_t len_bytes = *p++ & 0x7f;
+        len = 0;
+        for (size_t i = 0; i < len_bytes; i++) {
+            len = (len << 8) | *p++;
+        }
+    } else {
+        len = *p++;
+    }
+    p += len; /* Skip algorithm sequence content */
+
+    /* Now at BIT STRING */
+    if (*p++ != 0x03) { /* BIT STRING */
+        ESP_LOGE(TAG, "Invalid DER: expected BIT STRING");
+        free(der_buf);
+        goto exit;
+    }
+    /* Get BIT STRING length */
+    if (*p & 0x80) {
+        size_t len_bytes = *p++ & 0x7f;
+        len = 0;
+        for (size_t i = 0; i < len_bytes; i++) {
+            len = (len << 8) | *p++;
+        }
+    } else {
+        len = *p++;
+    }
+    /* Skip unused bits byte (should be 0x00) */
+    p++;
+    len--;
+
+    /* p now points to raw public key, len is its length */
+    *pub_key = calloc(1, len);
+    if (*pub_key == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for public key");
+        free(der_buf);
+        goto exit;
+    }
+    memcpy(*pub_key, p, len);
+    *pub_key_len = len;
+
+    free(der_buf);
+    mbedtls_pk_free(&pk);
+    return ESP_OK;
+
+exit:
+    if (*pub_key) {
+        free(*pub_key);
+        *pub_key = NULL;
+        *pub_key_len = 0;
+    }
+    mbedtls_pk_free(&pk);
+    return ESP_FAIL;
+
+#else /* !CONFIG_MBEDTLS_VER_4_X_SUPPORT */
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
 
@@ -297,6 +606,7 @@ exit:
     mbedtls_ctr_drbg_free(&ctr_drbg);
     mbedtls_pk_free(&pk);
     return ESP_FAIL;
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 }
 #endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA */
@@ -308,11 +618,69 @@ static uint8_t pbkdf2_salt[32] = {
     0x9f, 0x3b, 0x1e, 0xce, 0xb8, 0x8e, 0x57, 0x3a, 0x4e, 0x8f, 0x7f, 0xb9, 0x4f, 0xf0, 0xc8, 0x69
 };
 
+#if !defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
 static int mbedtls_esp_random(void *ctx, unsigned char *buf, size_t len)
 {
     esp_fill_random(buf, len);
     return 0;
 }
+#else
+static int psa_hkdf_derive(const uint8_t *ikm, size_t ikm_len,
+                           const uint8_t *salt, size_t salt_len,
+                           const uint8_t *info, size_t info_len,
+                           uint8_t *okm, size_t okm_len)
+{
+    psa_key_derivation_operation_t operation = PSA_KEY_DERIVATION_OPERATION_INIT;
+    psa_status_t status;
+
+    status = psa_key_derivation_setup(&operation, PSA_ALG_HKDF(PSA_ALG_SHA_256));
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_key_derivation_setup failed: %d", (int)status);
+        return ESP_FAIL;
+    }
+
+    /* Input salt */
+    status = psa_key_derivation_input_bytes(&operation,
+                                            PSA_KEY_DERIVATION_INPUT_SALT,
+                                            salt, salt_len);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_key_derivation_input_bytes (salt) failed: %d", (int)status);
+        goto abort;
+    }
+
+    /* Input IKM (shared secret) */
+    status = psa_key_derivation_input_bytes(&operation,
+                                            PSA_KEY_DERIVATION_INPUT_SECRET,
+                                            ikm, ikm_len);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_key_derivation_input_bytes (secret) failed: %d", (int)status);
+        goto abort;
+    }
+
+    /* Input info */
+    status = psa_key_derivation_input_bytes(&operation,
+                                            PSA_KEY_DERIVATION_INPUT_INFO,
+                                            info, info_len);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_key_derivation_input_bytes (info) failed: %d", (int)status);
+        goto abort;
+    }
+
+    /* Output derived key */
+    status = psa_key_derivation_output_bytes(&operation, okm, okm_len);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_key_derivation_output_bytes failed: %d", (int)status);
+        goto abort;
+    }
+
+    psa_key_derivation_abort(&operation);
+    return ESP_OK;
+
+abort:
+    psa_key_derivation_abort(&operation);
+    return ESP_FAIL;
+}
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 
 static esp_err_t compute_ecc_key_with_hmac(hmac_key_id_t hmac_key, mbedtls_mpi *ecc_priv_key)
 {
@@ -457,6 +825,7 @@ static int derive_gcm_key(const char *data, esp_encrypted_img_t *handle)
     }
     mbedtls_ecp_point *server_public_point = NULL;
     unsigned char *kdf_salt = NULL;
+    uint8_t shared_secret_bytes[32] = {0};
 
     mbedtls_ecp_group grp;
     mbedtls_ecp_group_init(&grp);
@@ -480,42 +849,109 @@ static int derive_gcm_key(const char *data, esp_encrypted_img_t *handle)
         goto exit;
     }
 
-    uint8_t shared_secret_bytes[32] = {0};
-    mbedtls_mpi shared_secret;
-    mbedtls_mpi_init(&shared_secret);
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    {
+        psa_key_id_t device_key_id = PSA_KEY_ID_NULL;
+        psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+        psa_status_t status;
+        uint8_t priv_key_buf[32];
+        uint8_t server_pub_key_buf[65];  /* 0x04 || X || Y */
+        size_t shared_secret_len = 0;
 
-    ret = mbedtls_ecdh_compute_shared(&grp, &shared_secret, server_public_point, &device_private_mpi,
-                                      mbedtls_esp_random, NULL);
-    mbedtls_mpi_free(&device_private_mpi);
-    if (ret != 0) {
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_ecdh_compute_shared returned -0x%04x\n", (unsigned int) - ret);
-        goto exit;
-    }
+        /* Convert device private key MPI to raw bytes */
+        ret = mbedtls_mpi_write_binary(&device_private_mpi, priv_key_buf, sizeof(priv_key_buf));
+        mbedtls_mpi_free(&device_private_mpi);
+        if (ret != 0) {
+            ESP_LOGE(TAG, "failed\n  ! mbedtls_mpi_write_binary returned -0x%04x\n", (unsigned int) - ret);
+            goto exit;
+        }
 
-    ret = mbedtls_mpi_write_binary(&shared_secret, shared_secret_bytes, sizeof(shared_secret_bytes));
-    mbedtls_mpi_free(&shared_secret);
-    if (ret != 0) {
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_mpi_write_binary returned -0x%04x\n", (unsigned int) - ret);
-        goto exit;
-    }
+        /* Import private key to PSA */
+        psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&attributes, PSA_ALG_ECDH);
+        psa_set_key_type(&attributes, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&attributes, 256);
 
-    unsigned char *hkdf_info = calloc(1, HKDF_INFO_SIZE);
-    if (hkdf_info == NULL) {
-        ESP_LOGE(TAG, "failed to allocate memory for hkdf_info");
-        ret = ESP_ERR_NO_MEM;
-        goto exit;
-    }
-    memcpy(hkdf_info, "_esp_enc_img_ecc", HKDF_INFO_SIZE);
+        status = psa_import_key(&attributes, priv_key_buf, sizeof(priv_key_buf), &device_key_id);
+        mbedtls_platform_zeroize(priv_key_buf, sizeof(priv_key_buf));
 
-    ret = mbedtls_hkdf(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), kdf_salt, KDF_SALT_SIZE,
-                       (const unsigned char *)shared_secret_bytes, sizeof(shared_secret_bytes),
-                       hkdf_info, HKDF_INFO_SIZE, derived_key, GCM_KEY_SIZE);
-    mbedtls_platform_zeroize(hkdf_info, HKDF_INFO_SIZE);
-    free(hkdf_info);
-    if (ret != 0) {
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_hkdf returned -0x%04x\n", (unsigned int) - ret);
-        goto exit;
+        if (status != PSA_SUCCESS) {
+            ESP_LOGE(TAG, "psa_import_key failed: %d", (int)status);
+            ret = ESP_FAIL;
+            goto exit;
+        }
+
+        /* Prepare server public key in uncompressed format */
+        server_pub_key_buf[0] = 0x04;  /* Uncompressed point */
+        mbedtls_mpi_write_binary(&server_public_point->MBEDTLS_PRIVATE(X),
+                                 server_pub_key_buf + 1, 32);
+        mbedtls_mpi_write_binary(&server_public_point->MBEDTLS_PRIVATE(Y),
+                                 server_pub_key_buf + 33, 32);
+
+        /* Perform ECDH using PSA */
+        status = psa_raw_key_agreement(PSA_ALG_ECDH,
+                                       device_key_id,
+                                       server_pub_key_buf, sizeof(server_pub_key_buf),
+                                       shared_secret_bytes, sizeof(shared_secret_bytes),
+                                       &shared_secret_len);
+
+        psa_destroy_key(device_key_id);
+
+        if (status != PSA_SUCCESS) {
+            ESP_LOGE(TAG, "psa_raw_key_agreement failed: %d", (int)status);
+            ret = ESP_FAIL;
+            goto exit;
+        }
+
+        /* Perform HKDF using PSA */
+        ret = psa_hkdf_derive(shared_secret_bytes, sizeof(shared_secret_bytes),
+                              kdf_salt, KDF_SALT_SIZE,
+                              (const uint8_t *)"_esp_enc_img_ecc", HKDF_INFO_SIZE,
+                              derived_key, GCM_KEY_SIZE);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "psa_hkdf_derive failed");
+            goto exit;
+        }
     }
+#else /* !CONFIG_MBEDTLS_VER_4_X_SUPPORT */
+    {
+        mbedtls_mpi shared_secret;
+        mbedtls_mpi_init(&shared_secret);
+
+        ret = mbedtls_ecdh_compute_shared(&grp, &shared_secret, server_public_point, &device_private_mpi,
+                                          mbedtls_esp_random, NULL);
+        mbedtls_mpi_free(&device_private_mpi);
+        if (ret != 0) {
+            ESP_LOGE(TAG, "failed\n  ! mbedtls_ecdh_compute_shared returned -0x%04x\n", (unsigned int) - ret);
+            goto exit;
+        }
+
+        ret = mbedtls_mpi_write_binary(&shared_secret, shared_secret_bytes, sizeof(shared_secret_bytes));
+        mbedtls_mpi_free(&shared_secret);
+        if (ret != 0) {
+            ESP_LOGE(TAG, "failed\n  ! mbedtls_mpi_write_binary returned -0x%04x\n", (unsigned int) - ret);
+            goto exit;
+        }
+
+        unsigned char *hkdf_info = calloc(1, HKDF_INFO_SIZE);
+        if (hkdf_info == NULL) {
+            ESP_LOGE(TAG, "failed to allocate memory for hkdf_info");
+            ret = ESP_ERR_NO_MEM;
+            goto exit;
+        }
+        memcpy(hkdf_info, "_esp_enc_img_ecc", HKDF_INFO_SIZE);
+
+        ret = mbedtls_hkdf(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), kdf_salt, KDF_SALT_SIZE,
+                           (const unsigned char *)shared_secret_bytes, sizeof(shared_secret_bytes),
+                           hkdf_info, HKDF_INFO_SIZE, derived_key, GCM_KEY_SIZE);
+        mbedtls_platform_zeroize(hkdf_info, HKDF_INFO_SIZE);
+        free(hkdf_info);
+        if (ret != 0) {
+            ESP_LOGE(TAG, "failed\n  ! mbedtls_hkdf returned -0x%04x\n", (unsigned int) - ret);
+            goto exit;
+        }
+    }
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 
     memcpy(handle->gcm_key, derived_key, GCM_KEY_SIZE);
     ESP_LOGI(TAG, "GCM key derived successfully");
@@ -548,6 +984,91 @@ exit:
     return ret;
 }
 
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+static esp_err_t esp_encrypted_img_export_ecies_pub_key(hmac_key_id_t hmac_key, uint8_t **pub_key, size_t *pub_key_len)
+{
+    esp_err_t err = ESP_FAIL;
+    psa_status_t status;
+    psa_key_id_t key_id = 0;
+    mbedtls_mpi ecc_priv_key;
+    uint8_t priv_key_bytes[32];
+    uint8_t raw_pub_key[65];  // 1 byte prefix + 32 bytes x + 32 bytes y
+    size_t raw_pub_key_len;
+
+    mbedtls_mpi_init(&ecc_priv_key);
+
+    int ret = derive_ota_ecc_device_key(hmac_key, &ecc_priv_key);
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to derive ECC device key: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    // Convert MPI to bytes
+    ret = mbedtls_mpi_write_binary(&ecc_priv_key, priv_key_bytes, sizeof(priv_key_bytes));
+    if (ret != 0) {
+        ESP_LOGE(TAG, "Failed to convert private key to bytes: -0x%04x", (unsigned int) - ret);
+        goto exit;
+    }
+
+    // Import private key to PSA
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_EXPORT);
+    psa_set_key_algorithm(&attributes, PSA_ALG_ECDH);
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+    psa_set_key_bits(&attributes, 256);
+
+    status = psa_import_key(&attributes, priv_key_bytes, sizeof(priv_key_bytes), &key_id);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "Failed to import ECC key to PSA: %d", (int)status);
+        goto exit;
+    }
+
+    // Export public key (raw format: 0x04 || X || Y for uncompressed point)
+    status = psa_export_public_key(key_id, raw_pub_key, sizeof(raw_pub_key), &raw_pub_key_len);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "Failed to export public key: %d", (int)status);
+        goto exit;
+    }
+
+    // Convert raw public key to DER SubjectPublicKeyInfo format
+    // Fixed ASN.1 header for secp256r1 EC public key
+    static const uint8_t der_header[] = {
+        0x30, 0x59,  // SEQUENCE, length 89
+        0x30, 0x13,  // SEQUENCE, length 19
+        0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,  // OID ecPublicKey (1.2.840.10045.2.1)
+        0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,  // OID secp256r1 (1.2.840.10045.3.1.7)
+        0x03, 0x42, 0x00  // BIT STRING, length 66, no unused bits
+    };
+
+    size_t der_len = sizeof(der_header) + raw_pub_key_len;
+    *pub_key = calloc(1, der_len);
+    if (*pub_key == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for public key");
+        err = ESP_ERR_NO_MEM;
+        goto exit;
+    }
+
+    memcpy(*pub_key, der_header, sizeof(der_header));
+    memcpy(*pub_key + sizeof(der_header), raw_pub_key, raw_pub_key_len);
+    *pub_key_len = der_len;
+
+    ESP_LOGI(TAG, "ECC public key derived successfully");
+    err = ESP_OK;
+
+exit:
+    if (key_id != 0) {
+        psa_destroy_key(key_id);
+    }
+    mbedtls_mpi_free(&ecc_priv_key);
+    mbedtls_platform_zeroize(priv_key_bytes, sizeof(priv_key_bytes));
+    if (err != ESP_OK && *pub_key) {
+        free(*pub_key);
+        *pub_key = NULL;
+        *pub_key_len = 0;
+    }
+    return err;
+}
+#else /* !CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 static esp_err_t esp_encrypted_img_export_ecies_pub_key(hmac_key_id_t hmac_key, uint8_t **pub_key, size_t *pub_key_len)
 {
     esp_err_t err = ESP_FAIL;
@@ -650,6 +1171,7 @@ exit:
     }
     return err;
 }
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_ECIES */
 
@@ -752,6 +1274,15 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
         ESP_LOGE(TAG, "Couldn't allocate memory to handle->cache_buf");
         goto failure;
     }
+
+#if defined(CONFIG_MBEDTLS_VER_4_X_SUPPORT)
+    psa_status_t status = psa_crypto_init();
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_crypto_init failed: %d", (int)status);
+        goto failure;
+    }
+#endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
+
     handle->state = ESP_PRE_ENC_IMG_READ_MAGIC;
 
     esp_decrypt_handle_t ctx = (esp_decrypt_handle_t)handle;
@@ -775,9 +1306,8 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
 {
     size_t data_len = args->data_in_len;
     size_t data_out_size = args->data_out_len;
-#if !(MBEDTLS_VERSION_NUMBER < 0x03000000)
-    size_t olen;
-#endif
+    size_t output_len = 0;
+
     handle->binary_file_read += data_len - curr_index;
     int dec_len = 0;
     if (handle->binary_file_read != handle->binary_file_len) {
@@ -798,11 +1328,8 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
                 args->data_out_len = 0;
                 return ESP_ERR_NOT_FINISHED;
             }
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-            if (mbedtls_gcm_update(&handle->gcm_ctx, CACHE_BUF_SIZE, (const unsigned char *)handle->cache_buf, (unsigned char *) args->data_out) != 0) {
-#else
-            if (mbedtls_gcm_update(&handle->gcm_ctx, (const unsigned char *)handle->cache_buf, CACHE_BUF_SIZE, (unsigned char *) args->data_out, data_out_size, &olen) != 0) {
-#endif
+            if (gcm_update(handle, (const unsigned char *)handle->cache_buf, CACHE_BUF_SIZE,
+                           (unsigned char *)args->data_out, data_out_size, &output_len) != ESP_OK) {
                 return ESP_FAIL;
             }
             dec_len = CACHE_BUF_SIZE;
@@ -814,11 +1341,10 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
         }
 
         if (data_len - copy_len - curr_index > 0) {
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-            if (mbedtls_gcm_update(&handle->gcm_ctx, data_len - copy_len - curr_index, (const unsigned char *)args->data_in + curr_index + copy_len, (unsigned char *)args->data_out + dec_len) != 0) {
-#else
-            if (mbedtls_gcm_update(&handle->gcm_ctx, (const unsigned char *)args->data_in + curr_index + copy_len, data_len - copy_len - curr_index, (unsigned char *)args->data_out + dec_len, data_out_size - dec_len, &olen) != 0) {
-#endif
+            if (gcm_update(handle, (const unsigned char *)args->data_in + curr_index + copy_len,
+                           data_len - copy_len - curr_index,
+                           (unsigned char *)args->data_out + dec_len,
+                           data_out_size - dec_len, &output_len) != ESP_OK) {
                 return ESP_FAIL;
             }
         }
@@ -826,28 +1352,38 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
         return ESP_ERR_NOT_FINISHED;
     }
     data_out_size = handle->cache_buf_len + data_len - curr_index;
-    args->data_out = realloc(args->data_out, data_out_size);
-    if (!args->data_out) {
+
+    /* Handle zero-size allocation edge case to avoid undefined behavior */
+    if (data_out_size == 0) {
+        if (args->data_out) {
+            free(args->data_out);
+            args->data_out = NULL;
+        }
+        args->data_out_len = 0;
+        return ESP_OK;
+    }
+
+    /* Use temporary pointer to prevent memory leak if realloc fails */
+    void *temp = realloc(args->data_out, data_out_size);
+    if (!temp) {
+        /* Original pointer remains valid, caller should free it */
         return ESP_ERR_NO_MEM;
     }
+    args->data_out = temp;
     size_t copy_len = 0;
 
     copy_len = MIN(CACHE_BUF_SIZE - handle->cache_buf_len, data_len - curr_index);
     memcpy(handle->cache_buf + handle->cache_buf_len, args->data_in + curr_index, copy_len);
     handle->cache_buf_len += copy_len;
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-    if (mbedtls_gcm_update(&handle->gcm_ctx, handle->cache_buf_len, (const unsigned char *)handle->cache_buf, (unsigned char *)args->data_out) != 0) {
-#else
-    if (mbedtls_gcm_update(&handle->gcm_ctx,  (const unsigned char *)handle->cache_buf, handle->cache_buf_len, (unsigned char *)args->data_out, data_out_size, &olen) != 0) {
-#endif
+    if (gcm_update(handle, (const unsigned char *)handle->cache_buf, handle->cache_buf_len,
+                   (unsigned char *)args->data_out, data_out_size, &output_len) != ESP_OK) {
         return ESP_FAIL;
     }
     if (data_len - curr_index - copy_len > 0) {
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-        if (mbedtls_gcm_update(&handle->gcm_ctx, data_len - curr_index - copy_len, (const unsigned char *)(args->data_in + curr_index + copy_len), (unsigned char *)(args->data_out + CACHE_BUF_SIZE)) != 0) {
-#else
-        if (mbedtls_gcm_update(&handle->gcm_ctx,  (const unsigned char *)(args->data_in + curr_index + copy_len), data_len - curr_index - copy_len, (unsigned char *)(args->data_out + CACHE_BUF_SIZE), data_out_size - CACHE_BUF_SIZE, &olen) != 0) {
-#endif
+        if (gcm_update(handle, (const unsigned char *)(args->data_in + curr_index + copy_len),
+                       data_len - curr_index - copy_len,
+                       (unsigned char *)(args->data_out + CACHE_BUF_SIZE),
+                       data_out_size - CACHE_BUF_SIZE, &output_len) != ESP_OK) {
             return ESP_FAIL;
         }
     }
@@ -977,17 +1513,12 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
             handle->state = ESP_PRE_ENC_IMG_READ_BINSIZE;
             handle->binary_file_read = 0;
             handle->cache_buf_len = 0;
-            mbedtls_gcm_init(&handle->gcm_ctx);
-            if ((err = mbedtls_gcm_setkey(&handle->gcm_ctx, MBEDTLS_CIPHER_ID_AES, (const unsigned char *)handle->gcm_key, GCM_KEY_SIZE * 8)) != 0) {
-                ESP_LOGE(TAG, "Error: mbedtls_gcm_set_key: -0x%04x\n", (unsigned int) - err);
+
+            /* Initialize GCM with key and IV using abstraction layer */
+            if (gcm_init_and_set_key(handle, (const unsigned char *)handle->gcm_key, GCM_KEY_SIZE * 8) != ESP_OK) {
                 return ESP_FAIL;
             }
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-            if (mbedtls_gcm_starts(&handle->gcm_ctx, MBEDTLS_GCM_DECRYPT, (const unsigned char *)handle->iv, IV_SIZE, NULL, 0) != 0) {
-#else
-            if (mbedtls_gcm_starts(&handle->gcm_ctx, MBEDTLS_GCM_DECRYPT, (const unsigned char *)handle->iv, IV_SIZE) != 0) {
-#endif
-                ESP_LOGE(TAG, "Error: mbedtls_gcm_starts: -0x%04x\n", (unsigned int) - err);
+            if (gcm_start(handle, (const unsigned char *)handle->iv, IV_SIZE) != ESP_OK) {
                 return ESP_FAIL;
             }
         } else {
@@ -1038,7 +1569,7 @@ esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decry
             return ESP_ERR_NOT_FINISHED;
         }
     }
-/* falls through */
+    /* falls through */
     case ESP_PRE_ENC_DATA_DECODE_STATE:
         err = process_bin(handle, args, curr_index);
         return err;
@@ -1064,20 +1595,8 @@ esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t ctx)
             goto exit;
         }
 
-        unsigned char got_auth[AUTH_SIZE] = {0};
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-        err = mbedtls_gcm_finish(&handle->gcm_ctx, got_auth, AUTH_SIZE);
-#else
-        size_t olen;
-        err = mbedtls_gcm_finish(&handle->gcm_ctx, NULL, 0, &olen, got_auth, AUTH_SIZE);
-#endif
-        if (err != 0) {
-            ESP_LOGE(TAG, "Error: %d", err);
-            err = ESP_FAIL;
-            goto exit;
-        }
-        if (memcmp(got_auth, handle->auth_tag, AUTH_SIZE) != 0) {
-            ESP_LOGE(TAG, "Invalid Auth");
+        /* Verify authentication tag using abstraction layer */
+        if (gcm_finish_and_verify(handle, (const unsigned char *)handle->auth_tag, AUTH_SIZE) != ESP_OK) {
             err = ESP_FAIL;
             goto exit;
         }
@@ -1090,7 +1609,7 @@ esp_err_t esp_encrypted_img_decrypt_end(esp_decrypt_handle_t ctx)
     }
     err = ESP_OK;
 exit:
-    mbedtls_gcm_free(&handle->gcm_ctx);
+    gcm_cleanup(handle);
     free(handle->cache_buf);
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
 #if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
@@ -1117,7 +1636,7 @@ esp_err_t esp_encrypted_img_decrypt_abort(esp_decrypt_handle_t ctx)
         ESP_LOGE(TAG, "esp_encrypted_img_decrypt_abort: Invalid argument");
         return ESP_ERR_INVALID_ARG;
     }
-    mbedtls_gcm_free(&handle->gcm_ctx);
+    gcm_cleanup(handle);
     free(handle->cache_buf);
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
 #if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)

@@ -32,12 +32,18 @@ body:
         - eigen
         - esp_daylight
         - esp_delta_ota
+        - esp_cli_commands
         - esp_encrypted_img
+        - esp_flash_dispatcher
+        - esp_ext_part_tables
         - esp_gcov
         - esp_isotp
         - esp_jpeg
         - esp_lcd_qemu_rgb
+        - esp_schedule
+        - esp_cli
         - esp_serial_slave_link
+        - esp_sysview
         - expat
         - fmt
         - freetype
@@ -48,6 +54,7 @@ body:
         - led_strip
         - libpng
         - libsodium
+        - esp_linenoise
         - network_provisioning
         - nghttp
         - onewire_bus

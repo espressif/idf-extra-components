@@ -24,6 +24,11 @@ esp_encrypted_img/examples/pre_encrypted_ota:
     - if: IDF_TARGET in ["esp32", "esp32s3"]
       reason: ESP32 runs RSA OTA encryption test, ESP32-S3 runs ECC OTA encryption test
 
+esp_ext_part_tables/test_apps:
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR >= 6)) and IDF_TARGET == "linux"
+      reason: Host test is enough
+
 sh2lib/examples/http2_request:
   enable:
     - if: IDF_VERSION_MAJOR > 4 and INCLUDE_DEFAULT == 1
@@ -33,6 +38,11 @@ esp_jpeg/examples/get_started:
   enable:
     - if: IDF_VERSION_MAJOR > 4 and IDF_TARGET in ["esp32", "esp32s2", "esp32s3"]
       reason: Example depends on BSP, which is supported only for IDF >= 5.0 and limited targets
+
+esp_schedule/examples/get_started:
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5)) and SOC_WIFI_SUPPORTED == 1
+      reason: Network provisioning component has dependencies IDF >= 5.1; example only supports Wi-Fi enabled targets
 
 catch2/examples/catch2-test:
   enable:

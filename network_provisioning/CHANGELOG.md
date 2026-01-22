@@ -1,3 +1,19 @@
+# 1.2.2 (18-Dec-2025)
+
+- Fix connection attempts counter not being reset on state reset or new credentials
+  - Reset `connection_attempts_completed` to 0 in `network_prov_mgr_reset_wifi_sm_state_on_failure()`
+    and `network_prov_mgr_configure_wifi_sta()` to ensure full `wifi_conn_attempts` retries
+    after reset or when applying new credentials.
+
+# 1.2.1 (15-Dec-2025)
+
+- Fix prov-ctrl reset handler to return success when device is already in provisioning mode
+  - If firmware has already called `network_prov_mgr_reset_wifi_sm_state_on_failure()` or
+    `network_prov_mgr_reset_thread_sm_state_on_failure()`, the device state is already reset
+    to provisioning mode. The prov-ctrl handler now returns success in this case instead of
+    an invalid state error, allowing phone apps to successfully reset even if firmware has
+    already performed the reset operation.
+
 # 07-October-2025
 
 - Use managed cJSON component for IDF v6.0 and above
