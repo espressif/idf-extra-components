@@ -155,13 +155,13 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
                 .level0 = 1,
                 .duration0 = 0.3 * config->resolution / 1000000, // T0H=0.3us
                 .level1 = 0,
-                .duration1 = 0.9 * config->resolution / 1000000, // T0L=0.9us
+                .duration1 = 0.95 * config->resolution / 1000000, // T0L=0.95us
             },
             .bit1 = {
                 .level0 = 1,
-                .duration0 = 0.6 * config->resolution / 1000000, // T1H=0.6us
+                .duration0 = 0.75 * config->resolution / 1000000, // T1H=0.75us
                 .level1 = 0,
-                .duration1 = 0.6 * config->resolution / 1000000, // T1L=0.6us
+                .duration1 = 0.5 * config->resolution / 1000000, // T1L=0.5us
             },
             .flags.msb_first = 1
         };
