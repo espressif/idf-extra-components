@@ -42,15 +42,15 @@ static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uin
     struct format_layout format = rmt_strip->component_fmt.format;
     uint32_t start = index * rmt_strip->bytes_per_pixel;
     uint8_t *pixel_buf = rmt_strip->pixel_buf;
-    uint8_t pos_mult = format.bytes_per_color;
+    uint8_t pos_bytes = format.bytes_per_color;
 
     for (uint8_t i = 0; i < format.bytes_per_color; i++) {
         uint8_t color_shift = 8 * (format.bytes_per_color - 1 - i);
-        pixel_buf[start + format.r_pos * pos_mult + i] = (red >> color_shift) & 0xFF;
-        pixel_buf[start + format.g_pos * pos_mult + i] = (green >> color_shift) & 0xFF;
-        pixel_buf[start + format.b_pos * pos_mult + i] = (blue >> color_shift) & 0xFF;
+        pixel_buf[start + format.r_pos * pos_bytes + i] = (red >> color_shift) & 0xFF;
+        pixel_buf[start + format.g_pos * pos_bytes + i] = (green >> color_shift) & 0xFF;
+        pixel_buf[start + format.b_pos * pos_bytes + i] = (blue >> color_shift) & 0xFF;
         if (format.num_components > 3) {
-            pixel_buf[start + format.w_pos * pos_mult + i] = 0;
+            pixel_buf[start + format.w_pos * pos_bytes + i] = 0;
         }
     }
     return ESP_OK;
@@ -65,14 +65,14 @@ static esp_err_t led_strip_rmt_set_pixel_rgbw(led_strip_t *strip, uint32_t index
 
     uint32_t start = index * rmt_strip->bytes_per_pixel;
     uint8_t *pixel_buf = rmt_strip->pixel_buf;
-    uint8_t pos_mult = format.bytes_per_color;
+    uint8_t pos_bytes = format.bytes_per_color;
 
     for (uint8_t i = 0; i < format.bytes_per_color; i++) {
         uint8_t color_shift = 8 * (format.bytes_per_color - 1 - i);
-        pixel_buf[start + format.r_pos * pos_mult + i] = (red >> color_shift) & 0xFF;
-        pixel_buf[start + format.g_pos * pos_mult + i] = (green >> color_shift) & 0xFF;
-        pixel_buf[start + format.b_pos * pos_mult + i] = (blue >> color_shift) & 0xFF;
-        pixel_buf[start + format.w_pos * pos_mult + i] = (white >> color_shift) & 0xFF;
+        pixel_buf[start + format.r_pos * pos_bytes + i] = (red >> color_shift) & 0xFF;
+        pixel_buf[start + format.g_pos * pos_bytes + i] = (green >> color_shift) & 0xFF;
+        pixel_buf[start + format.b_pos * pos_bytes + i] = (blue >> color_shift) & 0xFF;
+        pixel_buf[start + format.w_pos * pos_bytes + i] = (white >> color_shift) & 0xFF;
     }
     return ESP_OK;
 }
