@@ -13,8 +13,6 @@ from typing import Callable
 import pexpect
 import pytest
 from pytest_embedded import Dut
-from pytest_embedded_idf.app import FlashFile
-from pytest_embedded_idf.serial import IdfSerial
 
 enc_bin_name = 'pre_encrypted_ota_secure.bin'
 host_ip = '127.0.0.1'
