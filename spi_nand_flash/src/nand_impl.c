@@ -95,20 +95,21 @@ static uint16_t get_column_address(spi_nand_flash_device_t *handle, uint32_t blo
 esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_bad_status)
 {
     uint32_t first_block_page = block * (1 << handle->chip.log2_ppb);
-    uint16_t bad_block_indicator;
+    // Markers layout: [bad_block_marker (bytes 0-1)][page_used_marker (bytes 2-3)]
+    uint8_t markers[4];
     esp_err_t ret = ESP_OK;
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
     uint16_t column_addr = get_column_address(handle, block, handle->chip.page_size);
 
-    // Read the first 2 bytes on the OOB of the first page in the block. This should be 0xFFFF for a good block
-    ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *) handle->read_buffer, column_addr, 2),
+    // Read 4 bytes to include both bad block marker and page status
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *) handle->read_buffer, column_addr, 4),
                       fail, TAG, "");
 
-    memcpy(&bad_block_indicator, handle->read_buffer, sizeof(bad_block_indicator));
-    ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", block, first_block_page, bad_block_indicator);
-    *is_bad_status = (bad_block_indicator != 0xFFFF);
+    memcpy(&markers, handle->read_buffer, sizeof(markers));
+    ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
+    *is_bad_status = (markers[0] != 0xFF || markers[1] != 0xFF);
     return ret;
 
 fail:
@@ -121,9 +122,10 @@ esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t block)
     esp_err_t ret = ESP_OK;
 
     uint32_t first_block_page = block * (1 << handle->chip.log2_ppb);
-    uint16_t bad_block_indicator = 0;
+    // Markers layout: [bad_block_marker (bytes 0-1)][page_used_marker (bytes 2-3)]
+    const uint8_t markers[4] = { 0x00, 0x00, 0xFF, 0xFF }; //// 0x0000 (bad block), 0xFFFF (free)
     uint8_t status;
-    ESP_LOGD(TAG, "mark_bad, block=%"PRIu32", page=%"PRIu32",indicator = %04x", block, first_block_page, bad_block_indicator);
+    ESP_LOGD(TAG, "mark_bad, block=%"PRIu32", page=%"PRIu32"", block, first_block_page);
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
     ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
@@ -140,12 +142,13 @@ esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t block)
 
     uint16_t column_addr = get_column_address(handle, block, handle->chip.page_size);
 
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (const uint8_t *) &bad_block_indicator,
-                                            column_addr, 2), fail, TAG, "");
+    // Write 4 bytes: bad block marker (0x0000) + page used marker (0xFFFF)
+    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (const uint8_t *) &markers,
+                                            column_addr, 4), fail, TAG, "");
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
-    ret = s_verify_write(handle, (uint8_t *)&bad_block_indicator, column_addr, 2);
+    ret = s_verify_write(handle, (uint8_t *)&markers, column_addr, 4);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: mark_bad write verification failed for block=%"PRIu32" and page=%"PRIu32"", __func__, block, first_block_page);
     }
@@ -207,7 +210,9 @@ esp_err_t nand_prog(spi_nand_flash_device_t *handle, uint32_t page, const uint8_
 {
     ESP_LOGV(TAG, "prog, page=%"PRIu32",", page);
     esp_err_t ret = ESP_OK;
-    uint16_t used_marker = 0;
+    // Markers layout: [bad_block_marker (bytes 0-1)][page_used_marker (bytes 2-3)]
+    // For good block with used page: bad=0xFFFF, used=0x0000
+    uint8_t markers[4] = { 0xFF, 0xFF, 0x00, 0x00 };
     uint8_t status;
 
     uint32_t block = page >> handle->chip.log2_ppb;
@@ -217,13 +222,14 @@ esp_err_t nand_prog(spi_nand_flash_device_t *handle, uint32_t page, const uint8_
     ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
     ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, data, column_addr, handle->chip.page_size),
                       fail, TAG, "");
-    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (uint8_t *)&used_marker,
-                                            column_addr + handle->chip.page_size + 2, 2), fail, TAG, "");
+    // Write 4 bytes: bad block marker (0xFFFF - good block) + page used marker (0x0000 - used)
+    ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (uint8_t *)&markers,
+                                            column_addr + handle->chip.page_size, 4), fail, TAG, "");
 
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, page, &status), fail, TAG, "");
 
     if ((status & STAT_PROGRAM_FAILED) != 0) {
-        ESP_LOGD(TAG, "prog failed, page=%"PRIu32",", page);
+        ESP_LOGE(TAG, "prog failed, page=%"PRIu32", status=0x%02x", page, status);
         return ESP_ERR_NOT_FINISHED;
     }
 
@@ -232,9 +238,9 @@ esp_err_t nand_prog(spi_nand_flash_device_t *handle, uint32_t page, const uint8_
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: prog page=%"PRIu32" write verification failed", __func__, page);
     }
-    ret = s_verify_write(handle, (uint8_t *)&used_marker, column_addr + handle->chip.page_size + 2, 2);
+    ret = s_verify_write(handle, (uint8_t *)&markers, column_addr + handle->chip.page_size, 4);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "%s: prog page=%"PRIu32" used marker write verification failed", __func__, page);
+        ESP_LOGE(TAG, "%s: prog page=%"PRIu32" markers write verification failed", __func__, page);
     }
 #endif //CONFIG_NAND_FLASH_VERIFY_WRITE
 
@@ -247,19 +253,21 @@ fail:
 esp_err_t nand_is_free(spi_nand_flash_device_t *handle, uint32_t page, bool *is_free_status)
 {
     esp_err_t ret = ESP_OK;
-    uint16_t used_marker;
+    // Markers layout: [bad_block_marker (bytes 0-1)][page_used_marker (bytes 2-3)]
+    uint8_t markers[4];
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, NULL), fail, TAG, "");
 
     uint32_t block = page >> handle->chip.log2_ppb;
-    uint16_t column_addr = get_column_address(handle, block, handle->chip.page_size + 2);
+    uint16_t column_addr = get_column_address(handle, block, handle->chip.page_size);
 
+    // Read 4 bytes to get both bad block marker and page used marker
     ESP_GOTO_ON_ERROR(spi_nand_read(handle, (uint8_t *)handle->read_buffer,
-                                    column_addr, 2), fail, TAG, "");
+                                    column_addr, 4), fail, TAG, "");
 
-    memcpy(&used_marker, handle->read_buffer, sizeof(used_marker));
-    ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%04x,", page, used_marker);
-    *is_free_status = (used_marker == 0xFFFF);
+    memcpy(&markers, handle->read_buffer, sizeof(markers));
+    ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%02x,%02x,", page, markers[2], markers[3]);
+    *is_free_status = (markers[2] == 0xFF && markers[3] == 0xFF);
     return ret;
 fail:
     ESP_LOGE(TAG, "Error in nand_is_free %d", ret);
@@ -351,9 +359,10 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
         ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, copy_buf, dst_column_addr, handle->chip.page_size),
                           fail, TAG, "");
 
-        uint16_t used_marker = 0;
-        ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (uint8_t *)&used_marker,
-                                                dst_column_addr + handle->chip.page_size + 2, 2), fail, TAG, "");
+        // Write 4 bytes: bad block marker (0xFFFF - good block) + page used marker (0x0000 - used)
+        uint8_t markers[4] = { 0xFF, 0xFF, 0x00, 0x00 };
+        ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (uint8_t *)&markers,
+                                                dst_column_addr + handle->chip.page_size, 4), fail, TAG, "");
         ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, dst, &status), fail, TAG, "");
 
         if ((status & STAT_PROGRAM_FAILED) != 0) {

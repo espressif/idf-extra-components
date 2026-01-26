@@ -11,9 +11,9 @@
 #include <stdint.h>
 #include "spi_nand_flash.h"
 #ifdef CONFIG_IDF_TARGET_LINUX
-#include "freertos/FreeRTOS.h"
 #include "nand_linux_mmap_emul.h"
 #endif
+#include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
 #ifdef __cplusplus

@@ -102,12 +102,18 @@ esp_err_t spi_nand_read_page(spi_nand_flash_device_t *handle, uint32_t page)
     return spi_nand_execute_transaction(handle, &t);
 }
 
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
 static uint16_t check_length_alignment(spi_nand_flash_device_t *handle, uint16_t length)
 {
     size_t alignment;
     uint16_t data_len = length;
+
+#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
     esp_cache_get_alignment(MALLOC_CAP_DMA, &alignment);
+#else
+    // For non-L1CACHE targets, use DMA alignment of 4 bytes
+    alignment = 4;
+#endif
+
     bool is_length_unaligned = (length & (alignment - 1)) ? true : false;
     if (is_length_unaligned) {
         if (length < alignment) {
@@ -121,7 +127,6 @@ static uint16_t check_length_alignment(spi_nand_flash_device_t *handle, uint16_t
     }
     return data_len;
 }
-#endif
 
 static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
 {
@@ -131,10 +136,13 @@ static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *da
 
     uint8_t *data_read = data;
     uint16_t data_read_len = length;
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
-    data_read = handle->temp_buffer;
-    data_read_len = check_length_alignment(handle, length);
-#endif
+
+    // Check if length needs alignment for DMA
+    uint16_t aligned_len = check_length_alignment(handle, length);
+    if (aligned_len != length) {
+        data_read = handle->temp_buffer;
+        data_read_len = aligned_len;
+    }
 
     if (handle->config.io_mode == SPI_NAND_IO_MODE_QIO) {
         spi_flags |= SPI_TRANS_MULTILINE_ADDR;
@@ -157,9 +165,10 @@ static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *da
 #endif
     esp_err_t ret =  spi_nand_execute_transaction(handle, &t);
 
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
-    memcpy(data, data_read, length);
-#endif
+    if (ret == ESP_OK && aligned_len != length) {
+        memcpy(data, data_read, length);
+    }
+
     return ret;
 }
 
@@ -171,10 +180,13 @@ static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *da
 
     uint8_t *data_read = data;
     uint16_t data_read_len = length;
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
-    data_read = handle->temp_buffer;
-    data_read_len = check_length_alignment(handle, length);
-#endif
+
+    // Check if length needs alignment for DMA
+    uint16_t aligned_len = check_length_alignment(handle, length);
+    if (aligned_len != length) {
+        data_read = handle->temp_buffer;
+        data_read_len = aligned_len;
+    }
 
     if (handle->config.io_mode == SPI_NAND_IO_MODE_DIO) {
         spi_flags |= SPI_TRANS_MULTILINE_ADDR;
@@ -197,9 +209,10 @@ static esp_err_t spi_nand_dual_read(spi_nand_flash_device_t *handle, uint8_t *da
 #endif
     esp_err_t ret =  spi_nand_execute_transaction(handle, &t);
 
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
-    memcpy(data, data_read, length);
-#endif
+    if (ret == ESP_OK && aligned_len != length) {
+        memcpy(data, data_read, length);
+    }
+
     return ret;
 }
 
@@ -208,15 +221,13 @@ static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *da
     uint8_t *data_read = data;
     uint16_t data_read_len = length;
     uint8_t half_duplex = handle->config.flags & SPI_DEVICE_HALFDUPLEX;
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
-    data_read = handle->temp_buffer;
-    data_read_len = check_length_alignment(handle, length);
-#else
-    if (!half_duplex) {
-        data_read_len = length + 1;
+
+    // Check if length needs alignment for DMA
+    uint16_t aligned_len = check_length_alignment(handle, length);
+    if (aligned_len != length) {
         data_read = handle->temp_buffer;
+        data_read_len = aligned_len;
     }
-#endif
 
     spi_nand_transaction_t t = {
         .command = CMD_READ_FAST,
@@ -224,10 +235,11 @@ static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *da
         .address = column,
         .miso_len = data_read_len,
         .miso_data = data_read,
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
-        .flags = SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL,
-#endif
     };
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+    t.flags = SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
+#endif
 
     if (half_duplex) {
         t.dummy_bits = 8;
@@ -237,17 +249,13 @@ static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *da
         goto fail;
     }
 
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
-    if (!half_duplex) {
-        memcpy(data, data_read + 1, length);
-    } else {
-        memcpy(data, data_read, length);
+    if (aligned_len != length) {
+        if (!half_duplex) {
+            memcpy(data, data_read + 1, length);
+        } else {
+            memcpy(data, data_read, length);
+        }
     }
-#else
-    if (!half_duplex) {
-        memcpy(data, data_read + 1, length);
-    }
-#endif
 
 fail:
     return ret;
@@ -283,27 +291,25 @@ esp_err_t spi_nand_program_load(spi_nand_flash_device_t *handle, const uint8_t *
         spi_flags = SPI_TRANS_MODE_QIO;
     }
 
+    const uint8_t *data_write = data;
     uint16_t data_write_len = length;
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
-    memcpy(handle->temp_buffer, data, length);
-    const uint8_t *data_write = handle->temp_buffer;
-    data_write_len = check_length_alignment(handle, length);
-#endif
 
     spi_nand_transaction_t t = {
         .command = cmd,
         .address_bytes = 2,
         .address = column,
         .mosi_len = data_write_len,
-#if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
         .mosi_data = data_write,
-#else
-        .mosi_data = data,
-#endif
         .flags = spi_flags,
     };
+
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
-    t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
+    // Check if length needs alignment for DMA
+    uint16_t aligned_len = check_length_alignment(handle, length);
+
+    if (aligned_len == length) {
+        t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
+    }
 #endif
 
     return spi_nand_execute_transaction(handle, &t);
