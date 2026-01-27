@@ -295,7 +295,13 @@ jobs:
         shell: bash
         run: |
           python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
+      - name: Run apps
+        shell: bash
+        run: |
           cat pytest-args.txt
+      - name: Run apps
+        shell: bash
+        run: |
           pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }} ${{ matrix.runner.pytest_args }}
       - name: Upload test results
         uses: actions/upload-artifact@v4
