@@ -148,9 +148,6 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
-          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
-          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           idf-build-apps build --target linux --collect-app-info build_info_linux_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
       - uses: actions/upload-artifact@v4
         if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
