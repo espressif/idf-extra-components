@@ -1,0 +1,9 @@
+esp_delta_ota/examples:
+  enable:
+    - if: IDF_TARGET == "esp32"
+      reason: Delta OTA example currently only tested on ESP32
+
+esp_delta_ota/test_apps:
+  enable:
+    - if: IDF_TARGET == "esp32"
+      reason: Delta OTA test app currently only tested on ESP32
