@@ -22,3 +22,7 @@ cve-exclude-list:
     reason: Resolved in version 1.6.54
   - cve: CVE-2026-22695
     reason: Resolved in version 1.6.54
+  - cve: CVE-2025-28164
+    reason: Resolved in version 1.6.47
+  - cve: CVE-2025-28162
+    reason: Resolved in version 1.6.47
