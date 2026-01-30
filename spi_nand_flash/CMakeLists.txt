@@ -8,16 +8,24 @@ set(srcs "src/nand.c"
          "src/nand_impl_wrap.c"
          "diskio/diskio_nand.c")
 
+# Conditionally add BDL support
+if(CONFIG_NAND_FLASH_ENABLE_BDL)
+    list(APPEND reqs esp_blockdev)
+    list(APPEND srcs "src/nand_flash_blockdev.c"
+                     "src/nand_wl_blockdev.c"
+                     "diskio/diskio_nand_blockdev.c")
+endif()
+
 if(${target} STREQUAL "linux")
     list(APPEND srcs "src/nand_impl_linux.c"
                  "src/nand_linux_mmap_emul.c")
 else()
-    list(APPEND srcs "src/nand_winbond.c"
-                 "src/nand_gigadevice.c"
-                 "src/nand_alliance.c"
-                 "src/nand_micron.c"
-                 "src/nand_zetta.c"
-                 "src/nand_xtx.c"
+    list(APPEND srcs "src/devices/nand_winbond.c"
+                 "src/devices/nand_gigadevice.c"
+                 "src/devices/nand_alliance.c"
+                 "src/devices/nand_micron.c"
+                 "src/devices/nand_zetta.c"
+                 "src/devices/nand_xtx.c"
                  "src/nand_impl.c"
                  "src/nand_impl_wrap.c"
                  "src/nand_diag_api.c"
