@@ -92,6 +92,7 @@ jobs:
           ${IDF_PATH}/install.sh --enable-ci
           . ${IDF_PATH}/export.sh
           pip install --upgrade 'idf-build-apps~=2.12'
+          pip install --prefer-binary idf-ci
       - name: Build apps
         shell: bash
         run: |
@@ -144,6 +145,7 @@ jobs:
           ${IDF_PATH}/install.sh --enable-ci
           . ${IDF_PATH}/export.sh
           pip install --upgrade 'idf-build-apps~=2.12'
+          pip install --prefer-binary idf-ci
       - name: Build apps for Linux
         shell: bash
         run: |
@@ -225,7 +227,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: |
-          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-qemu pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
+          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-qemu pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
       - name: Setup QEMU
         if: matrix.runner.marker == 'qemu'
         run: |
@@ -282,7 +284,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: |
-          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code
+          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
       - name: Make .elf files executable
         if: matrix.runner.target == 'linux'
         continue-on-error: true
