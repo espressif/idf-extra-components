@@ -1,10 +1,10 @@
 name: libexpat
-version: 2.7.2
+version: 2.7.4
 cpe: cpe:2.3:a:libexpat_project:libexpat:{}:*:*:*:*:*:*:*
 supplier: 'Organization: libexpat_project'
 description: Fast streaming XML parser written in C99
 url: https://github.com/libexpat/libexpat/
-hash: 7643f96bd5b9f5d3b26ea112519e05e17ef91cfb
+hash: f5c2890d8ff91f88a018173d293a9bd02f76389e
 cve-exclude-list:
   - cve: CVE-2024-28757
     reason: Resolved in version 2.6.2
@@ -14,3 +14,7 @@ cve-exclude-list:
     reason: Resolved in version 2.7.0, please see https://github.com/libexpat/libexpat/pull/973
   - cve: CVE-2025-59375
     reason: Resolved in version 2.7.2, please see https://github.com/libexpat/libexpat/pull/1034
+  - cve: CVE-2026-24515
+    reason: Resolved in version 2.7.4, please see https://github.com/libexpat/libexpat/pull/1131
+  - cve: CVE-2026-25210
+    reason: Resolved in version 2.7.4, please see https://github.com/libexpat/libexpat/pull/1075
