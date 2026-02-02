@@ -1,3 +1,7 @@
+## 1.1.2
+
+- Fixed the read stuck issue after deep sleep by resetting the hardware while initializing
+
 ## 1.1.1
 
 - Fixed the incorrect interrupt mask
