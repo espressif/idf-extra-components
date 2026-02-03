@@ -113,7 +113,7 @@ def test_examples_protocol_pre_encrypted_ota_example(dut: Dut) -> None:
 
 @pytest.mark.generic
 @pytest.mark.parametrize('config', ['partial_download',], indirect=True)
-def test_examples_protocol_pre_encrypted_ota_example_partial_request(dut: Dut, config) -> None:
+def test_examples_protocol_pre_encrypted_ota_example_partial_download(dut: Dut, config) -> None:
     # Size of partial HTTP request
     request_size = int(dut.app.sdkconfig.get('EXAMPLE_HTTP_REQUEST_SIZE'))
     # File to be downloaded. This file is generated after compilation
