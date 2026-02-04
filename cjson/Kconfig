@@ -1,0 +1,11 @@
+menu "cJSON"
+
+    config CJSON_NESTING_LIMIT
+        int "Maximum nesting depth for JSON parsing"
+        default 1000
+        help
+            Limits how deeply nested arrays/objects can be before cJSON
+            rejects to parse them. This is to prevent stack overflows.
+            Lower values use less stack, higher values allow deeper nesting.
+
+endmenu
