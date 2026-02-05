@@ -22,6 +22,7 @@
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
+#include "esp_idf_version.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
@@ -126,8 +127,10 @@ void pre_encrypted_ota_task(void *pvParameter)
         .cert_pem = (char *)server_cert_pem_start,
 #endif /* CONFIG_EXAMPLE_USE_CERT_BUNDLE */
         .keep_alive_enable = true,
-#ifdef CONFIG_EXAMPLE_ENABLE_PARTIAL_HTTP_DOWNLOAD
+#if ESP_IDF_VERSION_MAJOR > 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 2)
+#ifdef CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS
         .save_client_session = true,
+#endif
 #endif
     };
     esp_decrypt_cfg_t cfg = {0};
