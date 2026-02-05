@@ -8,4 +8,13 @@ menu "cJSON"
             rejects to parse them. This is to prevent stack overflows.
             Lower values use less stack, higher values allow deeper nesting.
 
+    config CJSON_CIRCULAR_LIMIT
+        int "Maximum depth for circular reference detection"
+        default 10000
+        help
+            Limits the depth for circular reference detection during
+            printing/comparison operations. This prevents infinite loops
+            and stack overflows when processing JSON structures with
+            circular references. Lower values use less stack.
+
 endmenu
