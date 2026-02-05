@@ -148,6 +148,23 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             .flags.msb_first = 1
         };
         reset_ticks = config->resolution / 1000000 * 50 / 2; // divide by 2... signal is sent twice
+    } else if (config->led_model == LED_MODEL_WS2816) {
+        // different led strip might have its own timing requirements, following parameter is for WS2816
+        bytes_encoder_config = (rmt_bytes_encoder_config_t) {
+            .bit0 = {
+                .level0 = 1,
+                .duration0 = 0.3 * config->resolution / 1000000, // T0H=0.3us
+                .level1 = 0,
+                .duration1 = 0.95 * config->resolution / 1000000, // T0L=0.95us
+            },
+            .bit1 = {
+                .level0 = 1,
+                .duration0 = 0.75 * config->resolution / 1000000, // T1H=0.75us
+                .level1 = 0,
+                .duration1 = 0.5 * config->resolution / 1000000, // T1L=0.5us
+            },
+            .flags.msb_first = 1
+        };
     } else {
         assert(false);
     }

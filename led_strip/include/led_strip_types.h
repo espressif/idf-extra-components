@@ -24,6 +24,7 @@ typedef enum {
     LED_MODEL_WS2812, /*!< LED strip model: WS2812 */
     LED_MODEL_SK6812, /*!< LED strip model: SK6812 */
     LED_MODEL_WS2811, /*!< LED strip model: WS2811 */
+    LED_MODEL_WS2816, /*!< LED strip model: WS2816 */
     LED_MODEL_INVALID /*!< Invalid LED strip model */
 } led_model_t;
 
@@ -33,21 +34,26 @@ typedef enum {
  */
 typedef union {
     struct format_layout {
-        uint32_t r_pos: 2;          /*!< Position of the red channel in the color order: 0~3 */
-        uint32_t g_pos: 2;          /*!< Position of the green channel in the color order: 0~3 */
-        uint32_t b_pos: 2;          /*!< Position of the blue channel in the color order: 0~3 */
-        uint32_t w_pos: 2;          /*!< Position of the white channel in the color order: 0~3 */
-        uint32_t reserved: 21;      /*!< Reserved */
-        uint32_t num_components: 3; /*!< Number of color components per pixel: 3 or 4. If set to 0, it will fallback to 3 */
-    } format;                       /*!< Format layout */
-    uint32_t format_id;             /*!< Format ID */
+        uint32_t r_pos: 2;           /*!< Position of the red channel in the color order: 0~3 */
+        uint32_t g_pos: 2;           /*!< Position of the green channel in the color order: 0~3 */
+        uint32_t b_pos: 2;           /*!< Position of the blue channel in the color order: 0~3 */
+        uint32_t w_pos: 2;           /*!< Position of the white channel in the color order: 0~3 */
+        uint32_t reserved: 19;       /*!< Reserved */
+        uint32_t bytes_per_color: 2; /*!< Bytes per color component: 1 or 2. If set to 0, it will fallback to 1 */
+        uint32_t num_components: 3;  /*!< Number of color components per pixel: 3 or 4. If set to 0, it will fallback to 3 */
+    } format;                        /*!< Format layout */
+    uint32_t format_id;              /*!< Format ID */
 } led_color_component_format_t;
 
 /// Helper macros to set the color component format
-#define LED_STRIP_COLOR_COMPONENT_FMT_GRB (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 3}}
-#define LED_STRIP_COLOR_COMPONENT_FMT_GRBW (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 4}}
-#define LED_STRIP_COLOR_COMPONENT_FMT_RGB (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 3}}
-#define LED_STRIP_COLOR_COMPONENT_FMT_RGBW (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .num_components = 4}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_GRB (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 3}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_GRB_16 (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 2, .num_components = 3}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_GRBW (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 4}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_GRBW_16 (led_color_component_format_t){.format = {.r_pos = 1, .g_pos = 0, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 2, .num_components = 4}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_RGB (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 3}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_RGB_16 (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 2, .num_components = 3}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_RGBW (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 1, .num_components = 4}}
+#define LED_STRIP_COLOR_COMPONENT_FMT_RGBW_16 (led_color_component_format_t){.format = {.r_pos = 0, .g_pos = 1, .b_pos = 2, .w_pos = 3, .reserved = 0, .bytes_per_color = 2, .num_components = 4}}
 
 /**
  * @brief LED Strip common configurations
