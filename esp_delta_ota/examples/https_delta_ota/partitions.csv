@@ -4,3 +4,4 @@ otadata,  data, ota,      ,         8K
 phy_init, data, phy,      ,         4K
 ota_0,    app,  ota_0,    ,         1280K
 ota_1,    app,  ota_1,    ,         1280K
+patch_data, data, 0x40,   ,         512K

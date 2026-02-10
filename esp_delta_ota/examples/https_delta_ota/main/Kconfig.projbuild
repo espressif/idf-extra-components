@@ -28,4 +28,10 @@ menu "Example Configuration"
         bool
         default y if EXAMPLE_FIRMWARE_UPG_URL = "FROM_STDIN"
 
+    config EXAMPLE_ENABLE_CI_TEST
+        bool "Enable the CI test code"
+        default n
+        help
+            This enables the CI test code i.e. https local server code.
+
 endmenu
