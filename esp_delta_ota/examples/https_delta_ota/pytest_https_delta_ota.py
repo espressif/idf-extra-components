@@ -12,6 +12,7 @@ import esptool
 import pytest
 from pytest_embedded import Dut
 
+PATCH_DATA_PARTITION_OFFSET = 0x2A0000 # Hardcoded offset for patch_data partition from partitions.csv
 
 def get_env_config_variable(env_name, var_name):
     return os.environ.get(f'{env_name}_{var_name}'.upper())
@@ -128,13 +129,10 @@ def write_patch_to_partition(dut: Dut, patch_file: str):
     """
     patch_size = os.path.getsize(patch_file)
 
-    # Get the partition offset from the parsed partition table
-    partition_table = dut.app.partition_table
-    if 'patch_data' not in partition_table:
-        raise Exception(f'patch_data partition not found in partition table. '
-                        f'Available: {list(partition_table.keys())}')
-
-    offset = partition_table['patch_data']['offset']
+    # Hardcoded offset for patch_data partition from partitions.csv
+    # OTA partitions must be aligned to 0x10000 boundaries
+    # Calculated as: phy_init ends at 0x11000, ota_0 aligned to 0x20000, ota_1 at 0x160000, patch_data at 0x2A0000
+    offset = PATCH_DATA_PARTITION_OFFSET
     print(f'Writing patch ({patch_size} bytes) to patch_data partition at offset {hex(offset)}')
 
     serial = dut.serial
