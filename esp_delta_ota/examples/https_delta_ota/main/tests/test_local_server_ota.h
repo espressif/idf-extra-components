@@ -10,8 +10,9 @@
 /**
  * @brief starts the https server
  *
- * @param patch_size the size of patch file which will be exposed
- *                   by the server. NOTE - patch_size cannot be 0.
+ * The server will serve the patch file from the patch_data partition.
+ * The patch_size must be set via delta_ota_test_firmware_data_from_stdin()
+ * before starting the server. NOTE - patch_size cannot be 0.
  */
 esp_err_t delta_ota_test_start_webserver(void);
 

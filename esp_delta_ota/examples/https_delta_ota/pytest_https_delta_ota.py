@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Unlicense OR CC0-1.0
 
 import contextlib
+import io
 import os
 import subprocess
 import sys
@@ -24,11 +25,19 @@ def _ensure_requirements_installed():
     if not os.path.exists(requirements_path):
         raise Exception(f'Requirements file not found at {requirements_path}')
 
-    subprocess.run(
-        ['pip', 'install', '-r', 'requirements.txt'],
+    result = subprocess.run(
+        [sys.executable, '-m', 'pip', 'install', '-r', requirements_path],
         cwd=os.path.dirname(requirements_path),
-        check=False
+        check=False,
+        capture_output=True,
+        text=True,
     )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f'Failed to install requirements from {requirements_path} (exit code {result.returncode}):\n'
+            f'{result.stderr}'
+        )
 
 def setting_connection(dut: Dut, env_name: str | None = None) -> Any:
     if env_name is not None and dut.app.sdkconfig.get('EXAMPLE_WIFI_SSID_PWD_FROM_STDIN') is True:
@@ -44,15 +53,16 @@ def setting_connection(dut: Dut, env_name: str | None = None) -> Any:
     return ip_address
 
 
-def find_hello_world_binary(example_dir, chip_target='esp32'):
+def find_hello_world_binary(base_dir, chip_target='esp32'):
     """
     Find the pre-built hello_world binary for the target chip.
     
-    This function looks for hello_world_<target>.bin in the tests directory.
+    This function looks for hello_world_<target>.bin in the tests directory
+    under the given base directory (e.g., main/tests/).
     These binaries are pre-built and checked into the repository for testing.
     
     Args:
-        example_dir: Path to the example directory
+        base_dir: Base directory that contains the tests subdirectory (e.g., main/)
         chip_target: Target chip (default: 'esp32')
     
     Returns:
@@ -60,7 +70,7 @@ def find_hello_world_binary(example_dir, chip_target='esp32'):
     """
     # Look for hello_world binary in tests directory
     binary_name = f'hello_world_{chip_target}.bin'
-    binary_path = os.path.join(example_dir, 'tests', binary_name)
+    binary_path = os.path.join(base_dir, 'tests', binary_name)
     
     if os.path.exists(binary_path):
         return binary_path
@@ -141,8 +151,10 @@ def write_patch_to_partition(dut: Dut, patch_file: str):
     #   1. stop the serial redirect thread (releases the pyserial port)
     #   2. let esptool reuse the existing connection
     #   3. resume the redirect thread when done
+    # Use a local buffer instead of private attribute to avoid brittleness
     with serial.disable_redirect_thread():
-        with contextlib.redirect_stdout(serial._q):
+        esptool_output = io.StringIO()
+        with contextlib.redirect_stdout(esptool_output):
             settings = serial.proc.get_settings() # Save the current serial settings
             serial.esp.connect() # Connect to the device using esptool
             esptool.main(
@@ -150,6 +162,10 @@ def write_patch_to_partition(dut: Dut, patch_file: str):
                 esp=serial.esp,
             )
             serial.proc.apply_settings(settings) # Restore the original serial settings
+        # Log esptool output for debugging
+        output = esptool_output.getvalue()
+        if output:
+            print(f'esptool output: {output}')
 
     print('Successfully wrote patch to patch_data partition')
 
@@ -170,11 +186,8 @@ def test_esp_delta_ota(dut: Dut):
         if not os.path.exists(base_binary):
             raise Exception(f'Base binary not found at {base_binary}. Device was flashed from build directory: {build_dir}')
 
-        binary_name = f'hello_world_{chip_target}.bin'
-        new_binary = os.path.join(example_dir, 'main', 'tests', binary_name)
-
-        if not os.path.exists(new_binary):
-            raise Exception(f'New binary not found at {new_binary}. Expected pre-built binary: {binary_name} in tests/ directory. Example dir: {example_dir}')
+        # Use find_hello_world_binary helper to locate the test binary
+        new_binary = find_hello_world_binary(os.path.join(example_dir, 'main'), chip_target)
 
         # Step 2: Generate patch
         patch_file = os.path.join(build_dir, 'patch.bin')
