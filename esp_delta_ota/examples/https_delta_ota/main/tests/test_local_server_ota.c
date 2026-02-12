@@ -19,6 +19,7 @@
 #include "esp_partition.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define OTA_URL_SIZE 256
 #define PARTITION_READ_BUFFER_SIZE 256
@@ -39,13 +40,22 @@ void delta_ota_test_firmware_data_from_stdin(const char **data)
         char *saveptr;
         int token_count = 0;
 
-        fgets(input_buf, OTA_URL_SIZE, stdin);
+        if (fgets(input_buf, OTA_URL_SIZE, stdin) == NULL) {
+            ESP_LOGE(TAG, "Failed to read URL from stdin");
+            abort();
+        }
         int len = strlen(input_buf);
-        if (len > 0 && input_buf[len - 1] == '\n') {
+        if (len == 0) {
+            ESP_LOGE(TAG, "Empty URL read from stdin");
+            abort();
+        }
+        if (input_buf[len - 1] == '\n') {
             input_buf[len - 1] = '\0';
+            len--;
         }
         char *token = strtok_r(input_buf, " ", &saveptr);
         if (token == NULL) {
+            ESP_LOGE(TAG, "No URL token found in input");
             return;
         }
         // First token is the URL
@@ -55,8 +65,9 @@ void delta_ota_test_firmware_data_from_stdin(const char **data)
         while ((token = strtok_r(NULL, " ", &saveptr)) != NULL) {
             tokens[token_count++] = token;
         }
-        // Return if no further data is captured
-        if (strchr(input_buf, ' ') != NULL) {
+        // Require patch_size to be provided (at least 2 tokens: URL and patch_size)
+        if (token_count < 2) {
+            ESP_LOGE(TAG, "Expected URL and patch_size, but only got %d token(s)", token_count);
             return;
         }
         *data = strdup(tokens[0]);
