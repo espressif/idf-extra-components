@@ -65,6 +65,7 @@ body:
         - sh2lib
         - spi_nand_flash
         - supertinycron
+        - swift
         - thorvg
         - touch_element
         - unit-test-app
