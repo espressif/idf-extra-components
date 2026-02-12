@@ -1,28 +1,12 @@
 name: libpng
-version: 1.6.54
+version: 1.6.55
 cpe:
  - cpe:2.3:a:pnggroup:libpng:{}:*:*:*:*:*:*:*
  - cpe:2.3:a:libpng:libpng:{}:*:*:*:*:*:*:*
 supplier: 'Organization: pnggroup'
 description: Portable Network Graphics support, official PNG reference library
 url: https://github.com/pnggroup/libpng
-hash: 02f2b4f4699f0ef9111a6534f093b53732df4452
+hash: c3e304954a9cfd154bc0dfbfea2b01cd61d6546d
 cve-exclude-list:
-  - cve: CVE-2025-64720
-    reason: Resolved in version 1.6.51
-  - cve: CVE-2025-65018
-    reason: Resolved in version 1.6.51
-  - cve: CVE-2025-64505
-    reason: Resolved in version 1.6.51
-  - cve: CVE-2025-64506
-    reason: Resolved in version 1.6.51
-  - cve: CVE-2025-66293
-    reason: Resolved in version 1.6.52
-  - cve: CVE-2026-22801
-    reason: Resolved in version 1.6.54
-  - cve: CVE-2026-22695
-    reason: Resolved in version 1.6.54
-  - cve: CVE-2025-28164
-    reason: Resolved in version 1.6.47
-  - cve: CVE-2025-28162
-    reason: Resolved in version 1.6.47
+  - cve: CVE-2026-25646
+    reason: Resolved in version 1.6.55
