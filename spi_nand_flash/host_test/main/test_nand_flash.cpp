@@ -15,6 +15,27 @@
 
 #define PATTERN_SEED    0x12345678
 
+static void fill_buffer(uint32_t seed, uint8_t *dst, size_t count)
+{
+    srand(seed);
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t val = rand();
+        memcpy(dst + i * sizeof(uint32_t), &val, sizeof(val));
+    }
+}
+
+static void check_buffer(uint32_t seed, const uint8_t *src, size_t count)
+{
+    srand(seed);
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t val;
+        memcpy(&val, src + i * sizeof(uint32_t), sizeof(val));
+        if (!(rand() == val)) {
+            printf("Val not equal\n");
+        }
+    }
+}
+
 TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
 {
     nand_file_mmap_emul_config_t conf = {"", 50 * 1024 * 1024, true};
@@ -40,15 +61,6 @@ TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
     }
 
     spi_nand_flash_deinit_device(device_handle);
-}
-
-static void fill_buffer(uint32_t seed, uint8_t *dst, size_t count)
-{
-    srand(seed);
-    for (size_t i = 0; i < count; ++i) {
-        uint32_t val = rand();
-        memcpy(dst + i * sizeof(uint32_t), &val, sizeof(val));
-    }
 }
 
 TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_nand_flash]")
@@ -85,8 +97,12 @@ TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_na
         REQUIRE(is_page_free == false);
 
         REQUIRE(nand_wrap_read(device_handle, test_page, 0, sector_size, temp_buf) == 0);
+        check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
+
         REQUIRE(nand_wrap_copy(device_handle, test_page, dst_page) == 0);
+
         REQUIRE(nand_wrap_read(device_handle, dst_page, 0, sector_size, temp_buf) == 0);
+        check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
     }
     free(pattern_buf);
     free(temp_buf);

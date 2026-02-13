@@ -20,36 +20,57 @@ SPI NAND Flash combines the benefits of NAND Flash technology with the simplicit
 
 ### Implementation Architecture
 
+The component now features a layered architecture for better maintainability and modularity:
+
 ```mermaid
 graph TD
-    A[Application] --> B[FATFS]
-    B --> C[Dhara Library]
-    C --> Hardware_Path[Hardware Path]
-    C --> Linux_Path[Linux Path]
-
-    subgraph Hardware_Path [Hardware Path]
-        HP1[NAND Flash Layer]
-        HP1 --> HP2[SPI NAND Flash Driver]
-        HP2 --> HP3["SPI Driver (ESP-IDF)"]
-        HP3 --> HP4[Hardware via SPI]
+    A[Application/FS] --> B[SPI NAND Flash API]
+    B --> C[NAND Wear-Leveling BDL]
+    C --> D[NAND Flash BDL] 
+    D --> E{Target}
+    E -->|ESP Chips| F[SPI NAND Operations]
+    F --> G[Hardware via SPI]
+    E -->|Linux| H[NAND Emulation]
+    H --> I[Memory-Mapped File]
+    
+    subgraph "Layered Architecture"
+        B["spi_nand_flash.h<br/>(Backward Compatible)"]
+        C["nand_wl_bdl<br/>(Wear Leveling)"]
+        D["nand_flash_bdl<br/>(Physical Flash)"]
     end
-
-    subgraph Linux_Path [Linux Path]
-        LP1[NAND Flash Layer]
-        LP1 --> LP2[NAND Emulation Layer]
-        LP2 --> LP3[Memory Mapped File]
+    
+    subgraph "Hardware Layer"
+        F["spi_nand_oper<br/>(SPI Commands)"]
+        H["nand_linux_mmap_emul<br/>(Host Test)"]
     end
 ```
+
+**Key Benefits:**
+- **Backward Compatible**: Existing code works unchanged
+- **Modular Design**: Clear separation between wear-leveling and flash management
+- **Enhanced Features**: Direct access to flash and wear-leveling layers
+
+**📖 Architecture Documentation:**
+For detailed information about the layered architecture, implementation details, API usage, and migration guide, see:
+- [Layered Architecture Guide](layered_architecture.md) - Complete architecture documentation
+
 ## Supported SPI NAND Flash chips
 
 At present, `spi_nand_flash` component is compatible with the chips produced by the following manufacturers and and their respective model numbers:
 
-* Winbond - W25N01GVxxxG/T/R, W25N512GVxIG/IT, W25N512GWxxR/T, W25N01JWxxxG/T, W25N01JWxxxG/T, W25N02KVxxIR/U, W25N04KVxxIR/U
-* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG
+* Winbond - W25N01GVxxxG/T/R, W25N512GVxIG/IT, W25N512GWxxR/T, W25N01JWxxxG/T, W25N02KVxxIR/U, W25N04KVxxIR/U
+* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG
 * Alliance - AS5F31G04SND-08LIN, AS5F32G04SND-08LIN, AS5F12G04SND-10LIN, AS5F34G04SND-08LIN, AS5F14G04SND-10LIN, AS5F38G04SND-08LIN, AS5F18G04SND-10LIN
 * Micron - MT29F4G01ABAFDWB, MT29F1G01ABAFDSF-AAT:F, MT29F2G01ABAGDWB-IT:G
 * Zetta - ZD35Q1GC
 * XTX - XT26G08D
+
+## FATFS Integration
+
+For FATFS filesystem support, use the separate [`spi_nand_flash_vfs`](../spi_nand_flash_vfs) component:
+- Provides diskio adapters and VFS mount helpers
+- Supports both legacy API and BDL API
+- See [`spi_nand_flash_vfs/README.md`](../spi_nand_flash_vfs/README.md) for usage examples
 
 ## Troubleshooting
 
