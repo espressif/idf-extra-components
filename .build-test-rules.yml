@@ -79,22 +79,14 @@ esp_lcd_qemu_rgb/examples/lcd_qemu_rgb_panel:
     - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3) or (IDF_VERSION_MAJOR > 5)) and (IDF_TARGET in ["esp32", "esp32c3"])
       reason: Example is meant to be run under QEMU, which currently only supports ESP32 and ESP32-C3
 
-spi_nand_flash/examples/nand_flash:
-  disable:
-    - if: IDF_VERSION_MAJOR < 5
-      reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
-
 spi_nand_flash/test_app:
   disable:
-    - if: IDF_VERSION_MAJOR < 5
-      reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+    - if: IDF_VERSION_MAJOR < 6
+      reason: The spi_nand_flash component uses the esp_blockdev interface, which is supported starting from IDF version v6.0. It is not available in older IDF versions.
 
 spi_nand_flash/host_test:
   enable:
     - if: IDF_TARGET == "linux"
   disable:
-    - if: IDF_VERSION_MAJOR < 5
-      reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
-  disable:
-    - if: IDF_VERSION_MAJOR == 5 and (IDF_VERSION_MINOR < 3)
-      reason: Fails to build on older versions of IDF
+    - if: IDF_VERSION_MAJOR < 6
+      reason: The spi_nand_flash component uses the esp_blockdev interface, which is supported starting from IDF version v6.0. It is not available in older IDF versions.

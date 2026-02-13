@@ -1,4 +1,10 @@
-set(src "test_app_main.c" "test_spi_nand_flash.c")
+set(src "test_app_main.c")
+
+if(CONFIG_NAND_FLASH_ENABLE_BDL)
+    list(APPEND src "test_spi_nand_flash_bdl.c")
+else()
+    list(APPEND src "test_spi_nand_flash.c")
+endif()
 
 set(priv_reqs unity esp_timer)
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER "5.3")
