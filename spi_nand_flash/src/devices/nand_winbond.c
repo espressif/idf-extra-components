@@ -12,27 +12,24 @@
 
 static const char *TAG = "nand_winbond";
 
+#define SWAP_BYTES(x)  (uint16_t)((((x) & 0xFF) << 8) | (((x) >> 8) & 0xFF))
+
 esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
 {
     esp_err_t ret = ESP_OK;
-    uint8_t device_id_buf[2] = {0};
-    spi_nand_transaction_t t = {
-        .command = CMD_READ_ID,
-        .address = 0,
-        .address_bytes = 2,
-        .miso_len = 2,
-        .miso_data = device_id_buf,
-        .flags = SPI_TRANS_USE_RXDATA,
-    };
-    ESP_RETURN_ON_ERROR(spi_nand_execute_transaction(dev, &t), TAG, "%s, Failed to get the device ID %d", __func__, ret);
+    uint16_t device_id;
+    ESP_RETURN_ON_ERROR(spi_nand_read_device_id(dev, (uint8_t *)&device_id, sizeof(device_id)), TAG, "%s, Failed to get the device ID %d", __func__, ret);
+    device_id = SWAP_BYTES(device_id);
+    dev->device_info.device_id = device_id;
+    char *name = "winbond";
+    strncpy(dev->device_info.chip_name, name, strlen(name) + 1);
+    ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);
 
     dev->chip.has_quad_enable_bit = 0;
     dev->chip.quad_enable_bit_pos = 0;
-    uint16_t device_id = (device_id_buf[0] << 8) + device_id_buf[1];
     dev->chip.read_page_delay_us = 10;
     dev->chip.erase_block_delay_us = 2500;
     dev->chip.program_page_delay_us = 320;
-    ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);
     switch (device_id) {
     case WINBOND_DI_AA20:
     case WINBOND_DI_BA20:

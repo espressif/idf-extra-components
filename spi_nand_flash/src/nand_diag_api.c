@@ -14,6 +14,7 @@
 #include "nand_private/nand_impl_wrap.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#include "nand_device_types.h"
 
 static const char *TAG = "nand_diag";
 
@@ -42,11 +43,11 @@ static bool is_ecc_exceed_threshold(spi_nand_flash_device_t *handle)
 {
     uint8_t min_bits_corrected = 0;
     bool ret = false;
-    if (handle->chip.ecc_data.ecc_corrected_bits_status == STAT_ECC_1_TO_3_BITS_CORRECTED) {
+    if (handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_1_TO_3_BITS_CORRECTED) {
         min_bits_corrected = 1;
-    } else if (handle->chip.ecc_data.ecc_corrected_bits_status == STAT_ECC_4_TO_6_BITS_CORRECTED) {
+    } else if (handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_4_TO_6_BITS_CORRECTED) {
         min_bits_corrected = 4;
-    } else if (handle->chip.ecc_data.ecc_corrected_bits_status == STAT_ECC_7_8_BITS_CORRECTED) {
+    } else if (handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_7_8_BITS_CORRECTED) {
         min_bits_corrected = 7;
     }
 
@@ -67,6 +68,12 @@ esp_err_t nand_get_ecc_stats(spi_nand_flash_device_t *flash)
     spi_nand_flash_get_sector_size(flash, &sector_size);
     spi_nand_flash_get_block_size(flash, &block_size);
     spi_nand_flash_get_block_num(flash, &num_blocks);
+
+    if (sector_size == 0) {
+        ESP_LOGE(TAG, "Invalid sector size (0)");
+        return ESP_ERR_INVALID_SIZE;
+    }
+
     uint32_t pages_per_block = block_size / sector_size;
     uint32_t num_pages = num_blocks * pages_per_block;
 
@@ -81,7 +88,7 @@ esp_err_t nand_get_ecc_stats(spi_nand_flash_device_t *flash)
             }
             if (flash->chip.ecc_data.ecc_corrected_bits_status) {
                 ecc_err_total_count++;
-                if (flash->chip.ecc_data.ecc_corrected_bits_status == STAT_ECC_NOT_CORRECTED) {
+                if (flash->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
                     ecc_err_not_corrected_count++;
                     ESP_LOGD(TAG, "ecc error not corrected for page=%" PRIu32 "", page);
                 } else if (is_ecc_exceed_threshold(flash)) {

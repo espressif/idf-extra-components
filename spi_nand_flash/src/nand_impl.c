@@ -10,12 +10,131 @@
 #include "esp_check.h"
 #include "esp_err.h"
 #include "spi_nand_oper.h"
-#include "spi_nand_flash.h"
 #include "nand.h"
+#include "nand_flash_devices.h"
+#include "nand_device_types.h"
 
 #define ROM_WAIT_THRESHOLD_US 1000
 
-static const char *TAG = "spi_nand";
+static const char *TAG = "nand_hal"; //nand_spi_driver
+
+static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
+{
+    uint8_t manufacturer_id;
+    esp_err_t ret = ESP_OK;
+    ESP_RETURN_ON_ERROR(spi_nand_read_manufacturer_id(dev, &manufacturer_id), TAG, "%s, Failed to get the manufacturer ID %d", __func__, ret);
+    ESP_LOGD(TAG, "%s: manufacturer_id: %x\n", __func__, manufacturer_id);
+    dev->device_info.manufacturer_id = manufacturer_id;
+
+    switch (manufacturer_id) {
+    case SPI_NAND_FLASH_ALLIANCE_MI: // Alliance
+        return spi_nand_alliance_init(dev);
+    case SPI_NAND_FLASH_WINBOND_MI: // Winbond
+        return spi_nand_winbond_init(dev);
+    case SPI_NAND_FLASH_GIGADEVICE_MI: // GigaDevice
+        return spi_nand_gigadevice_init(dev);
+    case SPI_NAND_FLASH_MICRON_MI: // Micron
+        return spi_nand_micron_init(dev);
+    case SPI_NAND_FLASH_ZETTA_MI: // Zetta
+        return spi_nand_zetta_init(dev);
+    case SPI_NAND_FLASH_XTX_MI: // XTX
+        return spi_nand_xtx_init(dev);
+    default:
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+}
+
+static esp_err_t enable_quad_io_mode(spi_nand_flash_device_t *dev)
+{
+    uint8_t io_config;
+    esp_err_t ret = spi_nand_read_register(dev, REG_CONFIG, &io_config);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    io_config |= (1 << dev->chip.quad_enable_bit_pos);
+    ESP_LOGD(TAG, "%s: quad config register value: 0x%x", __func__, io_config);
+
+    if (io_config != 0x00) {
+        ret = spi_nand_write_register(dev, REG_CONFIG, io_config);
+    }
+
+    return ret;
+}
+
+static esp_err_t unprotect_chip(spi_nand_flash_device_t *dev)
+{
+    uint8_t status;
+    esp_err_t ret = spi_nand_read_register(dev, REG_PROTECT, &status);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    if (status != 0x00) {
+        ret = spi_nand_write_register(dev, REG_PROTECT, 0);
+    }
+
+    return ret;
+}
+
+esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_device_t **handle)
+{
+    esp_err_t ret = ESP_OK;
+    ESP_RETURN_ON_FALSE(config->device_handle != NULL, ESP_ERR_INVALID_ARG, TAG, "Spi device pointer can not be NULL");
+
+    *handle = heap_caps_calloc(1, sizeof(spi_nand_flash_device_t), MALLOC_CAP_DEFAULT);
+    if (*handle == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    memcpy(&(*handle)->config, config, sizeof(spi_nand_flash_config_t));
+
+    (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
+    (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
+    (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
+    (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
+    (*handle)->chip.num_planes = 1;
+    (*handle)->chip.flags = 0;
+
+    ESP_GOTO_ON_ERROR(detect_chip(*handle), fail, TAG, "Failed to detect nand chip");
+    ESP_GOTO_ON_ERROR(unprotect_chip(*handle), fail, TAG, "Failed to clear protection register");
+
+    if (((*handle)->config.io_mode ==  SPI_NAND_IO_MODE_QOUT || (*handle)->config.io_mode ==  SPI_NAND_IO_MODE_QIO)
+            && (*handle)->chip.has_quad_enable_bit) {
+        ESP_GOTO_ON_ERROR(enable_quad_io_mode(*handle), fail, TAG, "Failed to enable quad mode");
+    }
+
+    (*handle)->chip.page_size = 1 << (*handle)->chip.log2_page_size;
+    (*handle)->chip.block_size = (1 << (*handle)->chip.log2_ppb) * (*handle)->chip.page_size;
+
+    (*handle)->work_buffer = heap_caps_malloc((*handle)->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    ESP_GOTO_ON_FALSE((*handle)->work_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+
+    (*handle)->read_buffer = heap_caps_malloc((*handle)->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    ESP_GOTO_ON_FALSE((*handle)->read_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+
+    (*handle)->temp_buffer = heap_caps_malloc((*handle)->chip.page_size + 4, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    ESP_GOTO_ON_FALSE((*handle)->temp_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+
+    (*handle)->mutex = xSemaphoreCreateMutex();
+    if (!(*handle)->mutex) {
+        ret = ESP_ERR_NO_MEM;
+        goto fail;
+    }
+    return ret;
+
+fail:
+    free((*handle)->work_buffer);
+    free((*handle)->read_buffer);
+    free((*handle)->temp_buffer);
+    if ((*handle)->mutex) {
+        vSemaphoreDelete((*handle)->mutex);
+    }
+    free(*handle);
+    return ret;
+}
+
+/***************************************************************************************/
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
 static esp_err_t s_verify_write(spi_nand_flash_device_t *handle, const uint8_t *expected_buffer, uint16_t offset, uint16_t length)
@@ -83,6 +202,10 @@ static uint16_t get_column_address(spi_nand_flash_device_t *handle, uint32_t blo
     uint16_t column_addr = offset;
 
     if ((handle->chip.flags & NAND_FLAG_HAS_READ_PLANE_SELECT) || (handle->chip.flags & NAND_FLAG_HAS_PROG_PLANE_SELECT)) {
+        if (handle->chip.num_planes == 0) {
+            ESP_LOGE(TAG, "Invalid number of planes (0)");
+            return column_addr;  // Return offset without plane selection
+        }
         uint32_t plane = block % handle->chip.num_planes;
         // The plane index is the bit following the most significant bit (MSB) of the address.
         // For a 2048-byte page (2^11), the plane select bit is the 12th bit, and
@@ -280,20 +403,20 @@ fail:
 static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
 {
     bool is_ecc_err = false;
-    ecc_status_t bits_corrected_status = STAT_ECC_OK;
+    nand_ecc_status_t bits_corrected_status = NAND_ECC_OK;
     if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 2) {
         bits_corrected_status = PACK_2BITS_STATUS(status, STAT_ECC1, STAT_ECC0);
     } else if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 3) {
         bits_corrected_status = PACK_3BITS_STATUS(status, STAT_ECC2, STAT_ECC1, STAT_ECC0);
     } else {
-        bits_corrected_status = STAT_ECC_MAX;
+        bits_corrected_status = NAND_ECC_MAX;
     }
     dev->chip.ecc_data.ecc_corrected_bits_status = bits_corrected_status;
     if (bits_corrected_status) {
-        if (bits_corrected_status == STAT_ECC_MAX) {
+        if (bits_corrected_status == NAND_ECC_MAX) {
             ESP_LOGE(TAG, "%s: Error while initializing value of ecc_status_reg_len_in_bits", __func__);
             is_ecc_err = true;
-        } else if (bits_corrected_status == STAT_ECC_NOT_CORRECTED) {
+        } else if (bits_corrected_status == NAND_ECC_NOT_CORRECTED) {
             is_ecc_err = true;
         }
     }

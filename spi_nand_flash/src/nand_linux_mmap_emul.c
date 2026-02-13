@@ -16,7 +16,7 @@
 #include "nand_linux_mmap_emul.h"
 #include "nand.h"
 
-static const char *TAG = "linux_nandflash";
+static const char *TAG = "nand_linux_emul";
 
 // Initialize NAND flash Emulation
 // Exposes direct pointer to the memory mapped file created by nand_partition_mmap
@@ -105,7 +105,7 @@ static esp_err_t nand_emul_mmap_deinit(nand_mmap_emul_handle_t *emul_handle)
 
 esp_err_t nand_emul_init(spi_nand_flash_device_t *handle, nand_file_mmap_emul_config_t *cfg)
 {
-    nand_mmap_emul_handle_t *emul_handle = calloc(1, sizeof(nand_mmap_emul_handle_t));
+    nand_mmap_emul_handle_t *emul_handle = heap_caps_calloc(1, sizeof(nand_mmap_emul_handle_t), MALLOC_CAP_DEFAULT);
     if (emul_handle == NULL) {
         return ESP_ERR_NO_MEM;
     }
