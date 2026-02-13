@@ -1,4 +1,7 @@
- ## [0.17.0]                                                                                                                                                                                                                                                                                                       
+## [1.0.0]
+- feat: added block device support, which is available from IDF version v6.0
+
+## [0.17.0]                                                                                                                                                                                                                                                                                                       
 - fix: fix a compilation error caused by the missing freertos/FreeRTOS.h header when building with ESP-IDF v6.0 and later.
 - update: improvements to the lower-level APIs following updates in esp_driver_spi.
 
