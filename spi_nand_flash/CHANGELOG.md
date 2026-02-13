@@ -1,3 +1,6 @@
+## [1.0.0]
+- feat: added block device support, which is available from IDF version v6.0
+
 ## [0.18.0]                                                                                                                                                                                                                                                                                                       
 - fix: Update esp_vfs_fat_register prototype to esp_vfs_fat_register_cfg to align with ESP-IDF v6.0.
        The cfg version is now the primary API and remains aliased for compatibility.
