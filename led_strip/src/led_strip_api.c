@@ -145,3 +145,9 @@ esp_err_t led_strip_del(led_strip_handle_t strip)
     ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     return strip->del(strip);
 }
+
+esp_err_t led_strip_switch_gpio(led_strip_handle_t strip, gpio_num_t new_gpio_num, bool invert_output)
+{
+    ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    return strip->switch_gpio(strip, new_gpio_num, invert_output);
+}
