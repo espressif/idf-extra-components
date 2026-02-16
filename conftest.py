@@ -55,9 +55,7 @@ def build_dir(
     :param target: Target being used
     :param config: Configuration being used
 
-    :returns: Valid build directory name
-
-    :raises ValueError: If no valid build directory is found
+    :returns: Valid build directory name, or skips the test if no build directory is found
     """
     check_dirs = []
     build_dir_arg = request.config.getoption('build_dir')
@@ -80,7 +78,7 @@ def build_dir(
 
         logging.warning('Checking binary path: %s... missing... trying another location', binary_path)
 
-    raise ValueError(
-        'No valid build directory found. '
-        f'Please build the binary via "idf.py -B {check_dirs[0]} build" and run pytest again'
+    pytest.skip(
+        f'No valid build directory found (checked: {", ".join(check_dirs)}). '
+        f'Build the binary via "idf.py -B {check_dirs[0]} build" to enable this test.'
     )

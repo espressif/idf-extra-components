@@ -19,6 +19,9 @@ menu "SPI NAND Flash configuration"
             - Advanced layered API (spi_nand_flash_init_with_layers)
             When disabled, only the legacy API is available.
 
+            Note: This option requires ESP-IDF >= 6.0 (esp_blockdev component).
+            Enabling this on ESP-IDF < 6.0 will result in a build error.
+
     config NAND_ENABLE_STATS
         bool "Host test statistics enabled"
         depends on IDF_TARGET_LINUX
