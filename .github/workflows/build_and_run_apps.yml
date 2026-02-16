@@ -81,6 +81,8 @@ jobs:
         parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ matrix.idf_ver }}
+    env:
+      SWIFT_ENABLED: ${{ !contains(fromJSON('["release-v5.1","release-v5.2","release-v5.3"]'), matrix.idf_ver) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,9 +94,21 @@ jobs:
           ${IDF_PATH}/install.sh --enable-ci
           . ${IDF_PATH}/export.sh
           pip install --upgrade 'idf-build-apps~=2.12'
+          if [ "$SWIFT_ENABLED" = "true" ]; then
+            echo "fetching swift version"
+            curl -sL https://raw.githubusercontent.com/swiftlang/swift-embedded-examples/main/.swift-version -o .swift-version
+            echo "swift version: $(cat .swift-version)"
+          fi
+      - name: Install Swift
+        if: env.SWIFT_ENABLED == 'true'
+        uses: swiftlang/swift-embedded-examples/.github/actions/install-swift@main
       - name: Build apps
         shell: bash
         run: |
+          if [ "$SWIFT_ENABLED" = "true" ]; then
+            echo "exporting swift environment variables"
+            . $HOME/.local/share/swiftly/env.sh
+          fi
           . ${IDF_PATH}/export.sh
           export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
