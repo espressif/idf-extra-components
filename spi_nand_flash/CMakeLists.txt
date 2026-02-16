@@ -44,5 +44,9 @@ idf_component_register(SRCS ${srcs}
         PRIV_REQUIRES ${priv_reqs})
 
 if(CONFIG_NAND_FLASH_ENABLE_BDL)
-   idf_component_optional_requires(PUBLIC esp_blockdev)
+    if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_LESS "6.0")
+    message(FATAL_ERROR "Block Device Layer (BDL) support (CONFIG_NAND_FLASH_ENABLE_BDL) requires ESP-IDF >= 6.0. "
+         "Please disable CONFIG_NAND_FLASH_ENABLE_BDL or upgrade your ESP-IDF version.")
+    endif()
+    idf_component_optional_requires(PUBLIC esp_blockdev)
 endif()
