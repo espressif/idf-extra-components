@@ -11,6 +11,3 @@ dependencies:
   espressif/spi_nand_flash:
     version: "*"
     override_path: "../spi_nand_flash"
-  dhara:
-    version: "0.1.*"
-    override_path: "../dhara"
