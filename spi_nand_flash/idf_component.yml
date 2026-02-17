@@ -8,7 +8,7 @@ dependencies:
   idf:
     version: ">=5.0"
     require: public
-  dhara:
+  espressif/dhara:
     version: "0.1.*"
     override_path: "../dhara"
     require: public
