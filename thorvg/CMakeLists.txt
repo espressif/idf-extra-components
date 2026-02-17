@@ -70,6 +70,9 @@ function(expand_response_file input_flags output_var)
         separate_arguments(flags)
     endif()
     list(FILTER flags EXCLUDE REGEX "^$")
+    # Strip surrounding double quotes from each flag e.g. "-specs=path" -> -specs=path)
+    # Response files from ESP-IDF v6 may contain quoted flags which cause issues with Meson
+    list(TRANSFORM flags REPLACE "^\"(.*)\"$" "\\1")
     set(${output_var} ${flags} PARENT_SCOPE)
 endfunction()
 
