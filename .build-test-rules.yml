@@ -92,3 +92,13 @@ spi_nand_flash/host_test:
   disable:
     - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+
+spi_nand_flash_vfs/examples/nand_flash:
+  disable:
+    - if: IDF_VERSION_MAJOR < 5
+      reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+
+spi_nand_flash_vfs/examples/nand_flash_bdl:
+  disable:
+    - if: IDF_VERSION_MAJOR < 6
+      reason: BDL support requires the esp_blockdev interface, available starting from IDF version v6.0.
