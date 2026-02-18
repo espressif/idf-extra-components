@@ -3,16 +3,21 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2025 Espressif Systems (Shanghai) CO LTD
  */
 
 #pragma once
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "nand_device_types.h"
 #ifndef CONFIG_IDF_TARGET_LINUX
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
+#endif
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+#include "esp_blockdev.h"
 #endif
 
 #ifdef __cplusplus
@@ -151,12 +156,50 @@ esp_err_t spi_nand_erase_chip(spi_nand_flash_device_t *handle);
  */
 esp_err_t spi_nand_flash_get_block_num(spi_nand_flash_device_t *handle, uint32_t *number_of_blocks);
 
+/** @brief Perform explicit garbage collection step
+ *
+ * This function triggers one garbage collection step in the wear-leveling layer.
+ * It reclaims blocks with garbage pages by copying valid data and erasing physical blocks.
+ *
+ * Note: Garbage collection happens automatically during write operations based on
+ * the gc_factor setting. This function is useful when you want to proactively
+ * reclaim space during idle time.
+ *
+ * @param handle The handle to the SPI nand flash chip.
+ * @return ESP_OK on success, or a flash error code if the operation failed.
+ */
+esp_err_t spi_nand_flash_gc(spi_nand_flash_device_t *handle);
+
 /** @brief De-initialize the handle, releasing any resources reserved.
  *
  * @param handle The handle to the SPI nand flash chip.
  * @return ESP_OK on success, or a flash error code if the de-initialization failed.
  */
 esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle);
+
+//---------------------------------------------------------------------------------------------------------------------------------------------
+// NEW LAYERED ARCHITECTURE API
+//---------------------------------------------------------------------------------------------------------------------------------------------
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+
+/** @brief Initialize SPI NAND Flash with separate layer block devices
+ *
+ * This function provides direct access to the layered architecture, allowing
+ * users to work with the flash and wear-leveling layers separately.
+ * Both layers are exposed as standard esp_blockdev_t interfaces.
+ *
+ * @param config Configuration for the SPI NAND flash
+ * @param[out] wl_bdl Pointer to store the Wear-Leveling Block Device Layer handle
+ * @return
+ *         - ESP_OK: Success
+ *         - ESP_ERR_INVALID_ARG: Invalid configuration or NULL pointers
+ *         - ESP_ERR_NO_MEM: Insufficient memory
+ *         - ESP_ERR_NOT_FOUND: NAND device not detected
+ */
+esp_err_t spi_nand_flash_init_with_layers(spi_nand_flash_config_t *config,
+        esp_blockdev_handle_t *wl_bdl);
+#endif // CONFIG_NAND_FLASH_ENABLE_BDL
 
 #ifdef __cplusplus
 }

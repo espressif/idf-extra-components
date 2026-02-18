@@ -66,6 +66,7 @@ jobs:
             quirc
             sh2lib
             spi_nand_flash
+            spi_nand_flash_vfs
             supertinycron
             thorvg
             touch_element
