@@ -279,11 +279,11 @@ void esp_cli(esp_cli_handle_t handle)
     /* free the memory allocated for the cmd_line buffer */
     free(cmd_line);
 
-    /* release the semaphore to indicate esp_cli_stop that the esp_cli returned */
-    xSemaphoreGive(state->mux);
-
     /* call the on_exit callback before returning from esp_cli */
     if (config->on_exit.func != NULL) {
         config->on_exit.func(config->on_exit.ctx, handle);
     }
+
+    /* release the semaphore to indicate esp_cli_stop that the esp_cli returned */
+    xSemaphoreGive(state->mux);
 }
