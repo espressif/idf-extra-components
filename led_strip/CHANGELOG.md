@@ -1,3 +1,7 @@
+## 3.0.3
+
+- Support WS2816 with 16-bit color
+
 ## 3.0.1
 
 - Support WS2811 bit timing

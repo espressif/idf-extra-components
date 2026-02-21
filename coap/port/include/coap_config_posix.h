@@ -6,7 +6,7 @@
  *
  * coap.h -- main header file for CoAP stack of libcoap
  *
- * Copyright (C) 2010-2012,2015-2024 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2010-2012,2015-2025 Olaf Bergmann <bergmann@tzi.org>
  *               2015 Carsten Schoenert <c.schoenert@t-online.de>
  *
  * Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
@@ -56,7 +56,7 @@ struct in6_pktinfo {
 #define PACKAGE_VERSION "4.3.5"
 
 #ifdef CONFIG_MBEDTLS_TLS_ENABLED
-#define COAP_WITH_LIBMBEDTLS
+#define COAP_WITH_LIBMBEDTLS 1
 #endif /* CONFIG_MBEDTLS_TLS_ENABLED */
 
 #define COAP_DEFAULT_MAX_PDU_RX_SIZE CONFIG_LWIP_TCP_MSL

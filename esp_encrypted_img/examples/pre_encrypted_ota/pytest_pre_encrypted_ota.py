@@ -111,6 +111,32 @@ def test_examples_protocol_pre_encrypted_ota_example(dut: Dut) -> None:
     finally:
         pass
 
+@pytest.mark.generic
+@pytest.mark.parametrize('config', ['partial_download',], indirect=True)
+def test_examples_protocol_pre_encrypted_ota_example_partial_download(dut: Dut, config) -> None:
+    # Size of partial HTTP request
+    request_size = int(dut.app.sdkconfig.get('EXAMPLE_HTTP_REQUEST_SIZE'))
+    # File to be downloaded. This file is generated after compilation
+    bin_path = os.path.join(dut.app.binary_path, enc_bin_name)
+    bin_size = os.path.getsize(bin_path)
+
+    uri = f'https://{host_ip}:{server_port}/'
+
+    http_requests = int((bin_size / request_size) - 1)
+    assert http_requests > 1
+
+    try:
+        dut.expect('Loaded app from partition at offset', timeout=30)
+        dut.expect('Starting Pre Encrypted OTA example', timeout=30)
+        dut.write(f'{uri} {bin_size}\n')
+        dut.expect('Magic Verified', timeout=60)
+        dut.expect('Reading RSA private key', timeout=30)
+        dut.expect('upgrade successful. Rebooting', timeout=60)
+        # after reboot
+        dut.expect('Loaded app from partition at offset', timeout=30)
+    finally:
+        pass
+
 if __name__ == '__main__':
     if sys.argv[2:]: # if two or more arguments are provided
         # Usage: python pytest_pre_encrypted_ota.py <image_dir> <server_port> <cert_dir>

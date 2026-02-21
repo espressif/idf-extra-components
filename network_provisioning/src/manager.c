@@ -1311,6 +1311,8 @@ esp_err_t network_prov_mgr_configure_wifi_sta(wifi_config_t *wifi_cfg)
 
     /* Reset Wi-Fi station state for provisioning app */
     prov_ctx->wifi_state = NETWORK_PROV_WIFI_STA_CONNECTING;
+    /* Reset connection attempts counter for new credentials */
+    prov_ctx->connection_attempts_completed = 0;
     prov_ctx->prov_state = NETWORK_PROV_STATE_CRED_RECV;
     /* Execute user registered callback handler */
     execute_event_cb(NETWORK_PROV_WIFI_CRED_RECV, (void *)&wifi_cfg->sta, sizeof(wifi_cfg->sta));
@@ -2350,6 +2352,13 @@ esp_err_t network_prov_mgr_reset_wifi_sm_state_on_failure(void)
     ACQUIRE_LOCK(prov_ctx_lock);
 
     esp_err_t err = ESP_OK;
+    /* If already in STARTED state, reset has already been performed (e.g., by firmware).
+     * Return success as the device is effectively already reset and in provisioning mode. */
+    if (prov_ctx->prov_state == NETWORK_PROV_STATE_STARTED) {
+        ESP_LOGD(TAG, "Reset already performed, device already in provisioning mode");
+        goto exit;
+    }
+
     if (prov_ctx->prov_state != NETWORK_PROV_STATE_FAIL) {
         ESP_LOGE(TAG, "Trying reset when not in failure state. Current state: %d", prov_ctx->prov_state);
         err = ESP_ERR_INVALID_STATE;
@@ -2364,6 +2373,8 @@ esp_err_t network_prov_mgr_reset_wifi_sm_state_on_failure(void)
         goto exit;
     }
 
+    /* Reset connection attempts counter to allow full wifi_conn_attempts retries */
+    prov_ctx->connection_attempts_completed = 0;
     prov_ctx->prov_state = NETWORK_PROV_STATE_STARTED;
 
 exit:
@@ -2448,6 +2459,13 @@ esp_err_t network_prov_mgr_reset_thread_sm_state_on_failure(void)
     otInstance *instance = esp_openthread_get_instance();
 
     esp_openthread_lock_acquire(portMAX_DELAY);
+    /* If already in STARTED state, reset has already been performed (e.g., by firmware).
+     * Return success as the device is effectively already reset and in provisioning mode. */
+    if (prov_ctx->prov_state == NETWORK_PROV_STATE_STARTED) {
+        ESP_LOGD(TAG, "Reset already performed, device already in provisioning mode");
+        goto exit;
+    }
+
     if (prov_ctx->prov_state != NETWORK_PROV_STATE_FAIL) {
         ESP_LOGE(TAG, "Trying reset when not in failure state. Current state: %d", prov_ctx->prov_state);
         err = ESP_ERR_INVALID_STATE;

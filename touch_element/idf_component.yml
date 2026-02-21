@@ -1,4 +1,4 @@
-version: "1.0.0"
+version: "1.1.2"
 description: Touch Element Library
 url: https://github.com/espressif/idf-extra-components/tree/master/touch_element
 repository: https://github.com/espressif/idf-extra-components.git

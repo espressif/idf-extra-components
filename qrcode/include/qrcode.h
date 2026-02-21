@@ -21,9 +21,13 @@ typedef const uint8_t *esp_qrcode_handle_t;
   * @brief  QR Code configuration options
   */
 typedef struct {
-    void (*display_func)(esp_qrcode_handle_t qrcode);   /**< Function called for displaying the QR Code after encoding is complete */
+    union {
+        void (*display_func)(esp_qrcode_handle_t qrcode);                    /**< Function called for displaying the QR Code (without user_data, for backward compatibility) */
+        void (*display_func_with_cb)(esp_qrcode_handle_t qrcode, void *user_data);   /**< Function called for displaying the QR Code with user_data callback */
+    };                                                                        /**< Display function union for QR Code display */
     int max_qrcode_version;                             /**< Max QR Code Version to be used. Range: 2 - 40 */
     int qrcode_ecc_level;                               /**< Error Correction Level for QR Code */
+    void *user_data;                                    /**< User data */
 } esp_qrcode_config_t;
 
 /**
@@ -90,6 +94,7 @@ bool esp_qrcode_get_module(esp_qrcode_handle_t qrcode, int x, int y);
     .display_func = esp_qrcode_print_console, \
     .max_qrcode_version = 10, \
     .qrcode_ecc_level = ESP_QRCODE_ECC_LOW, \
+    .user_data = NULL, \
 }
 
 #ifdef __cplusplus

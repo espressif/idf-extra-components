@@ -1,3 +1,35 @@
 esp_cli_commands/test_apps:
   enable:
-    - if: (IDF_TARGET in ["esp32", "linux"]) and (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 3)
+    - if: IDF_TARGET in ["esp32", "linux"]
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3
+
+esp_cli_commands/examples/command_set:
+  enable:
+    - if: IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3
+
+esp_cli_commands/examples/command_with_arg:
+  enable:
+    - if: IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3
+
+esp_cli_commands/examples/dynamic_registration:
+  enable:
+    - if: IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3
+
+esp_cli_commands/examples/integration_with_argtable:
+  enable:
+    - if: IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3
+
+esp_cli_commands/examples/static_registration:
+  enable:
+    - if: IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 3

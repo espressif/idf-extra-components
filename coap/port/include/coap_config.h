@@ -1,12 +1,9 @@
 /*
  * libcoap configure implementation for ESP32 platform.
  *
- * Uses libcoap software implementation for failover when concurrent
- * configure operations are in use.
- *
  * coap.h -- main header file for CoAP stack of libcoap
  *
- * Copyright (C) 2010-2012,2015-2024 Olaf Bergmann <bergmann@tzi.org>
+ * Copyright (C) 2010-2012,2015-2025 Olaf Bergmann <bergmann@tzi.org>
  *               2015 Carsten Schoenert <c.schoenert@t-online.de>
  *
  * Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
@@ -15,8 +12,8 @@
  * of use.
  */
 
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#ifndef COAP_CONFIG_H_
+#define COAP_CONFIG_H_
 
 /* Always enabled in ESP-IDF */
 #ifndef WITH_POSIX
@@ -56,11 +53,30 @@
 
 #ifdef CONFIG_LWIP_IPV4
 #define COAP_IPV4_SUPPORT 1
-#endif /* CONFIG_LWIP_IPV4 */
+#else /* ! CONFIG_LWIP_IPV4 */
+struct sockaddr_in {
+    u8_t            sin_len;
+    sa_family_t     sin_family;
+    in_port_t       sin_port;
+    struct in_addr  sin_addr;
+};
+#endif /* ! CONFIG_LWIP_IPV4 */
 
 #ifdef CONFIG_LWIP_IPV6
 #define COAP_IPV6_SUPPORT 1
-#endif /* CONFIG_LWIP_IPV6 */
+#else /* ! CONFIG_LWIP_IPV6 */
+struct sockaddr_in6 {
+    u8_t            sin6_len;
+    sa_family_t     sin6_family;
+    in_port_t       sin6_port;
+    u32_t           sin6_flowinfo;
+    struct in_addr  sin6_addr;
+    u32_t           sin6_scope_id;
+};
+#ifndef INET6_ADDRSTRLEN
+#define INET6_ADDRSTRLEN 40
+#endif /* INET6_ADDRSTRLEN */
+#endif /* ! CONFIG_LWIP_IPV6 */
 
 #ifdef CONFIG_COAP_ASYNC_SUPPORT
 #define COAP_ASYNC_SUPPORT 1
@@ -114,4 +130,4 @@
 #define COAP_MAX_LOGGING_LEVEL 0
 #endif /* ! CONFIG_COAP_DEBUGGING */
 
-#endif /* _CONFIG_H_ */
+#endif /* COAP_CONFIG_H_ */

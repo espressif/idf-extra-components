@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include "esp_tls.h"
 #include <nghttp2/nghttp2.h>
 
@@ -33,6 +34,7 @@ struct sh2lib_handle {
     char            *hostname;     /*!< The hostname we are connected to */
     struct esp_tls  *http2_tls;    /*!< Pointer to the TLS session handle */
     int             http2_tls_rc;  /*!< Error code from http2_tls */
+    bool            http2_goaway;  /*!< HTTP2 server sent GOAWAY */
 };
 
 /**
@@ -200,6 +202,38 @@ int sh2lib_do_put(struct sh2lib_handle *hd, const char *path,
  *             - Negative error code from nghttp2 on failure
  */
 int sh2lib_execute(struct sh2lib_handle *hd);
+
+/**
+ * @brief Execute receive on an HTTP/2 connection
+ *
+ * While the API sh2lib_do_get(), sh2lib_do_post() setup the requests to be
+ * initiated with the server, this API performs the actual data send/receive
+ * operations on the HTTP/2 connection. The callback functions are accordingly
+ * called during the processing of these requests.
+ *
+ * @param[in] hd      Pointer to a variable of the type 'struct sh2lib_handle'
+ *
+ * @return
+ *             - 0 if it succeeds
+ *             - Negative error code from nghttp2 on failure
+ */
+int sh2lib_execute_recv(struct sh2lib_handle *hd);
+
+/**
+ * @brief Execute send on an HTTP/2 connection
+ *
+ * While the API sh2lib_do_get(), sh2lib_do_post() setup the requests to be
+ * initiated with the server, this API performs the actual data send/receive
+ * operations on the HTTP/2 connection. The callback functions are accordingly
+ * called during the processing of these requests.
+ *
+ * @param[in] hd      Pointer to a variable of the type 'struct sh2lib_handle'
+ *
+ * @return
+ *             - 0 if it succeeds
+ *             - Negative error code from nghttp2 on failure
+ */
+int sh2lib_execute_send(struct sh2lib_handle *hd);
 
 #define SH2LIB_MAKE_NV(NAME, VALUE)                                    \
   {                                                                    \

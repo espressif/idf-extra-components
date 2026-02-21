@@ -16,7 +16,6 @@
 #include "driver/rtc_io.h"
 #include "esp_private/rtc_ctrl.h"
 #include "esp_private/gpio.h"
-#include "soc/touch_sensor_periph.h"
 #include "soc/rtc_cntl_reg.h"
 #include "esp_private/touch_sensor_legacy_hal.h"
 #include "esp_private/touch_element_private.h"
@@ -81,10 +80,10 @@
 #define TOUCH_GET_IO_NUM(channel) (touch_sensor_channel_io_map[channel])
 
 typedef enum {
-    TE_INTR_PRESS = 0,          //Touch sensor press interrupt(TOUCH_PAD_INTR_MASK_ACTIVE)
-    TE_INTR_RELEASE,            //Touch sensor release interrupt(TOUCH_PAD_INTR_MASK_INACTIVE)
-    TE_INTR_TIMEOUT,            //Touch sensor scan timeout interrupt(TOUCH_PAD_INTR_MASK_TIMEOUT)
-    TE_INTR_SCAN_DONE,          //Touch sensor scan done interrupt(TOUCH_PAD_INTR_MASK_SCAN_DONE), now just use for setting threshold
+    TE_INTR_PRESS = 0,          //Touch sensor press interrupt(TOUCH_LL_INTR_MASK_DONE)
+    TE_INTR_RELEASE,            //Touch sensor release interrupt(TOUCH_LL_INTR_MASK_DONE)
+    TE_INTR_TIMEOUT,            //Touch sensor scan timeout interrupt(TOUCH_LL_INTR_MASK_TIMEOUT)
+    TE_INTR_SCAN_DONE,          //Touch sensor scan done interrupt(TOUCH_LL_INTR_MASK_SCAN_DONE), now just use for setting threshold
     TE_INTR_MAX
 } te_intr_t;
 
@@ -109,6 +108,12 @@ typedef struct {
 
 static te_obj_t *s_te_obj = NULL;
 RTC_FAST_ATTR uint32_t threshold_shadow[TOUCH_PAD_MAX - 1] = {0};
+
+/* Store IO number corresponding to the Touch Sensor channel number. */
+/* Note: T0 is an internal channel that does not have a corresponding external GPIO. */
+const int touch_sensor_channel_io_map[TOUCH_LL_CHAN_NUM] = {
+    -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+    };
 
 /**
  * Internal de-noise channel(Touch channel 0) equivalent capacitance table, depends on hardware design
@@ -200,7 +205,7 @@ esp_err_t touch_element_start(void)
         if (ret != ESP_OK) {
             break;
         }
-        touch_ll_intr_enable(TOUCH_PAD_INTR_MASK_SCAN_DONE); //Use scan done interrupt to set threshold
+        touch_ll_intr_enable((touch_pad_intr_mask_t)TOUCH_LL_INTR_MASK_SCAN_DONE); //Use scan done interrupt to set threshold
         touch_ll_start_fsm();
         xQueueReset(s_te_obj->event_msg_queue);
         xQueueReset(s_te_obj->intr_msg_queue);
@@ -219,7 +224,7 @@ esp_err_t touch_element_stop(void)
     esp_err_t ret = ESP_OK;
     xSemaphoreTake(s_te_obj->mutex, portMAX_DELAY);
     touch_ll_stop_fsm();
-    touch_ll_intr_disable(TOUCH_PAD_INTR_MASK_SCAN_DONE);
+    touch_ll_intr_disable((touch_pad_intr_mask_t)TOUCH_LL_INTR_MASK_SCAN_DONE);
     ret = esp_timer_stop(s_te_obj->proc_timer);
     if (ret != ESP_OK) {
         return ret;
@@ -243,7 +248,7 @@ void touch_element_uninstall(void)
     if (ret != ESP_OK) {
         abort();
     }
-    touch_ll_intr_disable(TOUCH_PAD_INTR_MASK_ACTIVE | TOUCH_PAD_INTR_MASK_INACTIVE | TOUCH_PAD_INTR_MASK_TIMEOUT);
+    touch_ll_intr_disable((touch_pad_intr_mask_t)(TOUCH_LL_INTR_MASK_ACTIVE | TOUCH_LL_INTR_MASK_INACTIVE | TOUCH_LL_INTR_MASK_TIMEOUT));
     ret = rtc_isr_deregister(te_intr_cb, NULL);
     if (ret != ESP_OK) {
         abort();
@@ -356,14 +361,14 @@ static void te_intr_cb(void *arg)
 #if CONFIG_IDF_TARGET_ESP32S2
     /*< Workaround: For ESP32S2, the scan done interrupt may occur earlier,
         so we need to ignore the fake scan done interrupt */
-    if (intr_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    if (intr_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         uint32_t curr_pad = touch_ll_get_current_meas_channel();
         uint16_t ch_mask = 0;
         touch_ll_get_channel_mask(&ch_mask);
         /* If the current channel is not the last channel, it means the scan done interrupt is fake */
         if (__builtin_clz((uint32_t)ch_mask) != __builtin_clz(BIT(curr_pad))) {
-            touch_ll_intr_clear(TOUCH_PAD_INTR_MASK_SCAN_DONE);
-            intr_mask &= ~TOUCH_PAD_INTR_MASK_SCAN_DONE;
+            touch_ll_intr_clear((touch_pad_intr_mask_t)TOUCH_LL_INTR_MASK_SCAN_DONE);
+            intr_mask &= ~TOUCH_LL_INTR_MASK_SCAN_DONE;
         }
     }
 #endif
@@ -397,17 +402,17 @@ static void te_intr_cb(void *arg)
         touch_trig_diff >>= 1;
     }
 
-    if (intr_mask & TOUCH_PAD_INTR_MASK_TIMEOUT) {
+    if (intr_mask & TOUCH_LL_INTR_MASK_TIMEOUT) {
         te_intr_msg.channel_state = TE_STATE_IDLE;
         te_intr_msg.intr_type = TE_INTR_TIMEOUT;
-    } else if (intr_mask & TOUCH_PAD_INTR_MASK_SCAN_DONE) {
+    } else if (intr_mask & TOUCH_LL_INTR_MASK_SCAN_DONE) {
         te_intr_msg.channel_state = TE_STATE_IDLE;
         te_intr_msg.intr_type = TE_INTR_SCAN_DONE;
         need_send_queue = false;
         /*< Due to a hardware issue, all of the data read operation(read raw, read smooth, read benchmark) */
         /*< must be after the second times of measure_done interrupt. */
         if (++scan_done_cnt >= 5) {
-            touch_ll_intr_disable(TOUCH_PAD_INTR_MASK_SCAN_DONE);  //TODO: remove hal
+            touch_ll_intr_disable((touch_pad_intr_mask_t)TOUCH_LL_INTR_MASK_SCAN_DONE);  //TODO: remove hal
             scan_done_cnt = 0;
             need_send_queue = true;
         }
@@ -705,15 +710,15 @@ static esp_err_t te_hw_init(const touch_elem_hw_config_t *hardware_init)
                          RTC_CNTL_TOUCH_TIMEOUT_INT_ST_M | RTC_CNTL_TOUCH_SCAN_DONE_INT_ST_M;
     ret = rtc_isr_register(te_intr_cb, NULL, intr_mask, 0);
     TE_CHECK(ret == ESP_OK, ret);
-    touch_ll_intr_enable(TOUCH_PAD_INTR_MASK_ACTIVE | TOUCH_PAD_INTR_MASK_SCAN_DONE |
-                         TOUCH_PAD_INTR_MASK_INACTIVE | TOUCH_PAD_INTR_MASK_TIMEOUT);
+    touch_ll_intr_enable((touch_pad_intr_mask_t)(TOUCH_LL_INTR_MASK_ACTIVE | TOUCH_LL_INTR_MASK_SCAN_DONE |
+                         TOUCH_LL_INTR_MASK_INACTIVE | TOUCH_LL_INTR_MASK_TIMEOUT));
     TE_CHECK(ret == ESP_OK, ret);
     /*< Internal de-noise configuration */
     touch_pad_denoise_t denoise_config;
     denoise_config.grade = hardware_init->denoise_level;
     denoise_config.cap_level = hardware_init->denoise_equivalent_cap;
-    touch_ll_set_slope(TOUCH_LL_DENOISE_CHANNEL, TOUCH_PAD_SLOPE_DEFAULT);
-    touch_ll_set_tie_option(TOUCH_LL_DENOISE_CHANNEL, TOUCH_PAD_TIE_OPT_DEFAULT);
+    touch_ll_set_slope((touch_pad_t)TOUCH_LL_DENOISE_CHANNEL, TOUCH_PAD_SLOPE_DEFAULT);
+    touch_ll_set_tie_option((touch_pad_t)TOUCH_LL_DENOISE_CHANNEL, TOUCH_PAD_TIE_OPT_DEFAULT);
     touch_hal_denoise_set_config(&denoise_config);
     touch_hal_denoise_enable();
 

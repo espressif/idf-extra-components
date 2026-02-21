@@ -55,36 +55,42 @@ static esp_err_t led_strip_spi_set_pixel(led_strip_t *strip, uint32_t index, uin
     // 3 pixels take 72bits(9bytes)
     uint32_t start = index * spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE;
     uint8_t *pixel_buf = spi_strip->pixel_buf;
-    led_color_component_format_t component_fmt = spi_strip->component_fmt;
+    struct format_layout format = spi_strip->component_fmt.format;
     memset(pixel_buf + start, 0, spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE);
 
-    __led_strip_spi_bit(red, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.r_pos]);
-    __led_strip_spi_bit(green, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.g_pos]);
-    __led_strip_spi_bit(blue, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.b_pos]);
-    if (component_fmt.format.num_components > 3) {
-        __led_strip_spi_bit(0, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.w_pos]);
+    uint8_t pos_bytes = format.bytes_per_color;
+    for (uint8_t i = 0; i < format.bytes_per_color; i++) {
+        uint8_t color_shift = 8 * (format.bytes_per_color - 1 - i);
+        __led_strip_spi_bit((red >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.r_pos * pos_bytes + i)]);
+        __led_strip_spi_bit((green >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.g_pos * pos_bytes + i)]);
+        __led_strip_spi_bit((blue >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.b_pos * pos_bytes + i)]);
+        if (format.num_components > 3) {
+            __led_strip_spi_bit(0, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.w_pos * pos_bytes + i)]);
+        }
     }
-
     return ESP_OK;
 }
 
 static esp_err_t led_strip_spi_set_pixel_rgbw(led_strip_t *strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue, uint32_t white)
 {
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
-    led_color_component_format_t component_fmt = spi_strip->component_fmt;
+    struct format_layout format = spi_strip->component_fmt.format;
     ESP_RETURN_ON_FALSE(index < spi_strip->strip_len, ESP_ERR_INVALID_ARG, TAG, "index out of maximum number of LEDs");
-    ESP_RETURN_ON_FALSE(component_fmt.format.num_components == 4, ESP_ERR_INVALID_ARG, TAG, "led doesn't have 4 components");
+    ESP_RETURN_ON_FALSE(format.num_components == 4, ESP_ERR_INVALID_ARG, TAG, "led doesn't have 4 components");
 
     // LED_PIXEL_FORMAT_GRBW takes 96bits(12bytes)
     uint32_t start = index * spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE;
     uint8_t *pixel_buf = spi_strip->pixel_buf;
     memset(pixel_buf + start, 0, spi_strip->bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE);
 
-    __led_strip_spi_bit(red, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.r_pos]);
-    __led_strip_spi_bit(green, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.g_pos]);
-    __led_strip_spi_bit(blue, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.b_pos]);
-    __led_strip_spi_bit(white, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * component_fmt.format.w_pos]);
-
+    uint8_t pos_bytes = format.bytes_per_color;
+    for (uint8_t i = 0; i < format.bytes_per_color; i++) {
+        uint8_t color_shift = 8 * (format.bytes_per_color - 1 - i);
+        __led_strip_spi_bit((red >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.r_pos * pos_bytes + i)]);
+        __led_strip_spi_bit((green >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.g_pos * pos_bytes + i)]);
+        __led_strip_spi_bit((blue >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.b_pos * pos_bytes + i)]);
+        __led_strip_spi_bit((white >> color_shift) & 0xFF, &pixel_buf[start + SPI_BYTES_PER_COLOR_BYTE * (format.w_pos * pos_bytes + i)]);
+    }
     return ESP_OK;
 }
 
@@ -137,7 +143,12 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     if (component_fmt.format_id == 0) {
         component_fmt = LED_STRIP_COLOR_COMPONENT_FMT_GRB;
     }
-    // check the validation of the color component format
+    if (led_config->led_model == LED_MODEL_WS2816) {
+        component_fmt.format.bytes_per_color = 2;
+    }
+    if (component_fmt.format.bytes_per_color == 0) {
+        component_fmt.format.bytes_per_color = 1;
+    }
     uint8_t mask = 0;
     if (component_fmt.format.num_components == 3) {
         mask = BIT(component_fmt.format.r_pos) | BIT(component_fmt.format.g_pos) | BIT(component_fmt.format.b_pos);
@@ -150,8 +161,10 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     } else {
         ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "invalid number of color components: %d", component_fmt.format.num_components);
     }
-    // TODO: we assume each color component is 8 bits, may need to support other configurations in the future, e.g. 10bits per color component?
     uint8_t bytes_per_pixel = component_fmt.format.num_components;
+    if (component_fmt.format.bytes_per_color > 1) {
+        bytes_per_pixel *= component_fmt.format.bytes_per_color;
+    }
     uint32_t mem_caps = MALLOC_CAP_DEFAULT;
     if (spi_config->flags.with_dma) {
         // DMA buffer must be placed in internal SRAM

@@ -4,10 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "sdkconfig.h"
+#include "esp_idf_version.h"
 #include "esp_check.h"
+#include "esp_attr.h"
 #include "led_strip_rmt_encoder.h"
 
 static const char *TAG = "led_rmt_encoder";
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 5, 0)
+#if CONFIG_RMT_ISR_IRAM_SAFE
+#define RMT_ENCODER_FUNC_ATTR IRAM_ATTR
+#else
+#define RMT_ENCODER_FUNC_ATTR
+#endif // CONFIG_RMT_ISR_IRAM_SAFE
+#endif // ESP_IDF_VERSION
 
 typedef struct {
     rmt_encoder_t base;
@@ -17,6 +28,7 @@ typedef struct {
     rmt_symbol_word_t reset_code;
 } rmt_led_strip_encoder_t;
 
+RMT_ENCODER_FUNC_ATTR
 static size_t rmt_encode_led_strip(rmt_encoder_t *encoder, rmt_channel_handle_t channel, const void *primary_data, size_t data_size, rmt_encode_state_t *ret_state)
 {
     rmt_led_strip_encoder_t *led_encoder = __containerof(encoder, rmt_led_strip_encoder_t, base);
@@ -62,6 +74,7 @@ static esp_err_t rmt_del_led_strip_encoder(rmt_encoder_t *encoder)
     return ESP_OK;
 }
 
+RMT_ENCODER_FUNC_ATTR
 static esp_err_t rmt_led_strip_encoder_reset(rmt_encoder_t *encoder)
 {
     rmt_led_strip_encoder_t *led_encoder = __containerof(encoder, rmt_led_strip_encoder_t, base);
@@ -135,6 +148,23 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
             .flags.msb_first = 1
         };
         reset_ticks = config->resolution / 1000000 * 50 / 2; // divide by 2... signal is sent twice
+    } else if (config->led_model == LED_MODEL_WS2816) {
+        // different led strip might have its own timing requirements, following parameter is for WS2816
+        bytes_encoder_config = (rmt_bytes_encoder_config_t) {
+            .bit0 = {
+                .level0 = 1,
+                .duration0 = 0.3 * config->resolution / 1000000, // T0H=0.3us
+                .level1 = 0,
+                .duration1 = 0.95 * config->resolution / 1000000, // T0L=0.95us
+            },
+            .bit1 = {
+                .level0 = 1,
+                .duration0 = 0.75 * config->resolution / 1000000, // T1H=0.75us
+                .level1 = 0,
+                .duration1 = 0.5 * config->resolution / 1000000, // T1L=0.5us
+            },
+            .flags.msb_first = 1
+        };
     } else {
         assert(false);
     }

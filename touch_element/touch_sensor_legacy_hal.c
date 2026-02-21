@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "soc/soc_caps.h"
-#include "soc/touch_sensor_pins.h"
 #include "esp_private/touch_sensor_legacy_ll.h"
 #include "esp_private/touch_sensor_legacy_hal.h"
 #include "touch_element/touch_sensor_legacy_types.h"
@@ -16,8 +14,9 @@ static int s_meas_times = -1;
 void touch_hal_init(void)
 {
     touch_ll_stop_fsm();
-    touch_ll_intr_disable(TOUCH_PAD_INTR_MASK_ALL);
-    touch_ll_intr_clear(TOUCH_PAD_INTR_MASK_ALL);
+    touch_ll_reset();   // Reset the touch sensor FSM.
+    touch_ll_intr_disable((touch_pad_intr_mask_t)TOUCH_LL_INTR_MASK_ALL);
+    touch_ll_intr_clear((touch_pad_intr_mask_t)TOUCH_LL_INTR_MASK_ALL);
     touch_ll_clear_channel_mask(TOUCH_PAD_BIT_MASK_ALL);
     touch_ll_clear_trigger_status_mask();
     touch_ll_set_meas_times(TOUCH_PAD_MEASURE_CYCLE_DEFAULT);
@@ -45,11 +44,11 @@ void touch_hal_deinit(void)
     touch_ll_clkgate(false);
     touch_ll_clear_channel_mask(TOUCH_PAD_BIT_MASK_ALL);
     touch_ll_clear_trigger_status_mask();
-    touch_ll_intr_disable(TOUCH_PAD_INTR_MASK_ALL);
+    touch_ll_intr_disable((touch_pad_intr_mask_t)TOUCH_LL_INTR_MASK_ALL);
     touch_ll_timeout_disable();
     touch_ll_waterproof_enable(false);
     touch_ll_denoise_enable(false);
-    touch_pad_t prox_pad[SOC_TOUCH_PROXIMITY_CHANNEL_NUM] = {[0 ... (SOC_TOUCH_PROXIMITY_CHANNEL_NUM - 1)] = 0};
+    touch_pad_t prox_pad[TOUCH_LL_PROXIMITY_CHANNEL_NUM] = {[0 ... (TOUCH_LL_PROXIMITY_CHANNEL_NUM - 1)] = 0};
     touch_ll_proximity_set_channel_num((const touch_pad_t *)prox_pad);
     touch_ll_sleep_set_channel_num(0);
     touch_ll_sleep_enable_proximity_sensing(false);
@@ -121,7 +120,7 @@ void touch_hal_denoise_get_config(touch_pad_denoise_t *denoise)
 
 void touch_hal_denoise_enable(void)
 {
-    touch_ll_clear_channel_mask(1U << SOC_TOUCH_DENOISE_CHANNEL);
+    touch_ll_clear_channel_mask(1U << TOUCH_LL_DENOISE_CHANNEL);
     touch_ll_denoise_enable(true);
 }
 
@@ -139,27 +138,27 @@ void touch_hal_waterproof_get_config(touch_pad_waterproof_t *waterproof)
 
 void touch_hal_waterproof_enable(void)
 {
-    touch_ll_clear_channel_mask(1U << SOC_TOUCH_SHIELD_CHANNEL);
+    touch_ll_clear_channel_mask(1U << TOUCH_LL_SHIELD_CHANNEL);
     touch_ll_waterproof_enable(true);
 }
 
 bool touch_hal_enable_proximity(touch_pad_t touch_num, bool enabled)
 {
     int i = 0;
-    touch_pad_t ch_num[SOC_TOUCH_PROXIMITY_CHANNEL_NUM] = {0};
+    touch_pad_t ch_num[TOUCH_LL_PROXIMITY_CHANNEL_NUM] = {0};
     touch_ll_proximity_get_channel_num(ch_num);
     if (enabled) {
-        for (i = 0; i < SOC_TOUCH_PROXIMITY_CHANNEL_NUM; i++) {
+        for (i = 0; i < TOUCH_LL_PROXIMITY_CHANNEL_NUM; i++) {
             if (ch_num[i] == TOUCH_PAD_NUM0 || ch_num[i] >= TOUCH_PAD_MAX || ch_num[i] == touch_num) {
                 ch_num[i] = touch_num;
                 break;
             }
         }
-        if (i == SOC_TOUCH_PROXIMITY_CHANNEL_NUM) {
+        if (i == TOUCH_LL_PROXIMITY_CHANNEL_NUM) {
             return false;
         }
     } else {
-        for (i = 0; i < SOC_TOUCH_PROXIMITY_CHANNEL_NUM; i++) {
+        for (i = 0; i < TOUCH_LL_PROXIMITY_CHANNEL_NUM; i++) {
             if (ch_num[i] == touch_num) {
                 ch_num[i] = TOUCH_PAD_NUM0;
                 break;

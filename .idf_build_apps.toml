@@ -16,7 +16,9 @@ manifest_file = [
     "esp_linenoise/.build-test-rules.yml",
     "esp_schedule/.build-test-rules.yml",
     "esp_cli/.build-test-rules.yml",
+    "esp_ext_part_tables/.build-test-rules.yml",
     "esp_serial_slave_link/.build-test-rules.yml",
+    "esp_sysview/.build-test-rules.yml",
     "expat/.build-test-rules.yml",
     "iqmath/.build-test-rules.yml",
     "esp_isotp/.build-test-rules.yml",
@@ -40,5 +42,5 @@ check_warnings = true
 
 # build related options
 build_dir = "build_@t_@w"
-config = "sdkconfig.ci"
+config = ["sdkconfig.ci","sdkconfig.ci.*="]
 ignore_warning_file = ".ignore_build_warnings.txt"

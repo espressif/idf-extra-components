@@ -51,16 +51,36 @@ idf_component_register(
     PRIV_REQUIRES pthread)
 
 
-# Convert argument strings to lists, for easier processing
-set(linker_args ${CMAKE_EXE_LINKER_FLAGS})
-separate_arguments(linker_args)
-list(FILTER linker_args EXCLUDE REGEX "^$")
-set(compiler_args ${CMAKE_CXX_FLAGS})
-separate_arguments(compiler_args)
-list(FILTER compiler_args EXCLUDE REGEX "^$")
+# Expands CMake flags that may contain response files (@"file" syntax) into a list.
+# ESP-IDF v6 uses @"file" syntax for response files, but Meson doesn't support this.
+# We need to expand the response file contents because:
+# 1. CMake expands @"file" internally, but Meson passes it literally to GCC
+# 2. GCC only supports @file (without quotes), not @"file"
+# 3. We can't just remove quotes because paths may contain spaces (especially on Windows)
+function(expand_response_file input_flags output_var)
+    set(flags ${input_flags})
+    if(flags MATCHES "@\"(.+)\"")
+        set(response_file "${CMAKE_MATCH_1}")
+        if(EXISTS "${response_file}")
+            file(STRINGS "${response_file}" flags)
+        else()
+            set(flags "")
+        endif()
+    else()
+        separate_arguments(flags)
+    endif()
+    list(FILTER flags EXCLUDE REGEX "^$")
+    # Strip surrounding double quotes from each flag e.g. "-specs=path" -> -specs=path)
+    # Response files from ESP-IDF v6 may contain quoted flags which cause issues with Meson
+    list(TRANSFORM flags REPLACE "^\"(.*)\"$" "\\1")
+    set(${output_var} ${flags} PARENT_SCOPE)
+endfunction()
 
-message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${linker_args}")
+expand_response_file("${CMAKE_CXX_FLAGS}" compiler_args)
+expand_response_file("${CMAKE_EXE_LINKER_FLAGS}" linker_args)
+
 message(STATUS "CMAKE_CXX_FLAGS: ${compiler_args}")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${linker_args}")
 
 # Add pthread library path to the linker flags if threads are enabled
 if(TVG_THREADS STREQUAL "true")

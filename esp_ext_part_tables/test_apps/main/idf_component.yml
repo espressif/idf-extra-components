@@ -1,4 +1,5 @@
 dependencies:
-  espressif/argtable3:
+  idf: ">=5.1"
+  espressif/esp_ext_part_tables:
     version: "*"
     override_path: "../.."

@@ -314,9 +314,9 @@ static void test_nand_operations(spi_nand_flash_io_mode_t mode, uint8_t flags)
     TEST_ESP_OK(spi_nand_flash_get_block_size(nand_flash_device_handle, &block_size));
     printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
 
-    uint8_t *pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    uint8_t *pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
     TEST_ASSERT_NOT_NULL(pattern_buf);
-    uint8_t *temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    uint8_t *temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
     TEST_ASSERT_NOT_NULL(temp_buf);
 
     fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));

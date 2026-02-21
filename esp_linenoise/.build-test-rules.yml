@@ -5,3 +5,35 @@ esp_linenoise/test_apps:
   disable:
     - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 4
       reason: "those versions of esp-idf do not support eventfd for linux target"
+
+esp_linenoise/examples/basic_line_reading:
+  enable:
+    - if: IDF_TARGET == "esp32"
+      reason: "Sufficient to run on esp32 target"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 2
+      reason: "UART component renamed to esp_driver_uart from 5.3 onwards"
+
+esp_linenoise/examples/history_usage:
+  enable:
+    - if: IDF_TARGET == "linux"
+      reason: "Sufficient to run on linux target"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 4
+      reason: "those versions of esp-idf do not support eventfd for linux target"
+
+esp_linenoise/examples/completion:
+  enable:
+    - if: IDF_TARGET == "esp32"
+      reason: "Sufficient to run on esp32 target"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 2
+      reason: "UART component renamed to esp_driver_uart from 5.3 onwards"
+
+esp_linenoise/examples/multi_instance:
+  enable:
+    - if: IDF_TARGET == "esp32"
+      reason: "Sufficient to run on esp32 target"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 2
+      reason: "UART component renamed to esp_driver_uart from 5.3 onwards"
