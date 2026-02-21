@@ -238,7 +238,7 @@ static int json_gen_set_int64(json_gen_str_t *jstr, int64_t val)
     bool negative = false;
 
     if (val < 0) {
-        abs_val = (uint64_t)(-val);
+        abs_val = val == INT64_MIN ? (uint64_t)(INT64_MAX) + 1 : (uint64_t)(-val);
         negative = true;
     } else {
         abs_val = (uint64_t)val;
@@ -249,7 +249,7 @@ static int json_gen_set_int64(json_gen_str_t *jstr, int64_t val)
 
     // Handle zero case
     if (abs_val == 0) {
-        *ptr = '0';
+        *(--ptr) = '0';
     } else {
         // Extract digits from right to left using modulo 10
         while (abs_val > 0) {
