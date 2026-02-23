@@ -226,7 +226,7 @@ esp_err_t esp_cli_commands_register_cmd(esp_cli_command_t *cmd)
     } else {
         /* an item with matching name was found in the list of dynamically
          * registered commands. Replace the command on spot with the new esp_cli_command_t. */
-        ret_val = esp_cli_dynamic_commands_replace(cmd);
+        ret_val = esp_cli_dynamic_commands_replace(list_item_cmd, cmd);
     }
 
     return ret_val;
@@ -520,7 +520,8 @@ static bool call_completion_cb(void *caller_ctx, esp_cli_command_t *cmd)
     call_completion_cb_ctx_t *ctx = (call_completion_cb_ctx_t *)caller_ctx;
 
     /* Check if command starts with buf */
-    if (strncmp(ctx->buf, cmd->name, ctx->buf_len) == 0) {
+    if ((strlen(cmd->name) >= ctx->buf_len) &&
+            (strncmp(ctx->buf, cmd->name, ctx->buf_len) == 0)) {
         ctx->completion_cb(ctx->cb_ctx, cmd->name);
     }
     return true;
