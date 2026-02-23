@@ -44,8 +44,17 @@ esp_err_t esp_vfs_fat_nand_mount(const char *base_path, spi_nand_flash_device_t 
 
     ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(nand_device, &sector_size), fail, TAG, "");
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+    esp_vfs_fat_conf_t conf = {
+        .base_path = base_path,
+        .fat_drive = drv,
+        .max_files = mount_config->max_files,
+    };
+    ESP_GOTO_ON_ERROR(esp_vfs_fat_register_cfg(&conf, &fs), fail, TAG, "esp_vfs_fat_register failed");
+#else
     ESP_GOTO_ON_ERROR(esp_vfs_fat_register(base_path, drv, mount_config->max_files, &fs),
                       fail, TAG, "esp_vfs_fat_register failed");
+#endif
 
     // Try to mount partition
     FRESULT fresult = f_mount(fs, drv, 1);
@@ -138,8 +147,17 @@ esp_err_t esp_vfs_fat_nand_mount_bdl(const char *base_path, esp_blockdev_handle_
 
     sector_size = blockdev->geometry.read_size;
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+    esp_vfs_fat_conf_t conf = {
+        .base_path = base_path,
+        .fat_drive = drv,
+        .max_files = mount_config->max_files,
+    };
+    ESP_GOTO_ON_ERROR(esp_vfs_fat_register_cfg(&conf, &fs), fail, TAG, "esp_vfs_fat_register failed");
+#else
     ESP_GOTO_ON_ERROR(esp_vfs_fat_register(base_path, drv, mount_config->max_files, &fs),
                       fail, TAG, "esp_vfs_fat_register failed");
+#endif
 
     // Try to mount partition
     FRESULT fresult = f_mount(fs, drv, 1);
