@@ -81,9 +81,6 @@ static void sha512_libsodium_to_mbedtls(mbedtls_sha512_context *mb_ctx, crypto_h
 int
 crypto_hash_sha512_init(crypto_hash_sha512_state *state)
 {
-    if (state == NULL) {
-        return -1;
-    }
 #ifdef MBEDTLS_PSA_CRYPTO
     psa_status_t status;
 
@@ -131,7 +128,7 @@ int
 crypto_hash_sha512_update(crypto_hash_sha512_state *state,
                           const unsigned char *in, unsigned long long inlen)
 {
-    if (state == NULL || (inlen > 0 && in == NULL)) {
+    if (inlen > 0 && in == NULL) {
         return -1;
     }
 #ifdef MBEDTLS_PSA_CRYPTO
@@ -163,9 +160,6 @@ crypto_hash_sha512_update(crypto_hash_sha512_state *state,
 int
 crypto_hash_sha512_final(crypto_hash_sha512_state *state, unsigned char *out)
 {
-    if (state == NULL || out == NULL) {
-        return -1;
-    }
 #ifdef MBEDTLS_PSA_CRYPTO
     psa_hash_operation_t *operation = (psa_hash_operation_t *)state;
     psa_status_t status;
@@ -192,7 +186,7 @@ int
 crypto_hash_sha512(unsigned char *out, const unsigned char *in,
                    unsigned long long inlen)
 {
-    if (out == NULL || (inlen > 0 && in == NULL)) {
+    if (inlen > 0 && in == NULL) {
         return -1;
     }
 #ifdef MBEDTLS_PSA_CRYPTO

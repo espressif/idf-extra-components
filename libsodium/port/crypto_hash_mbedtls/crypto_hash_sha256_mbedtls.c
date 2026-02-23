@@ -77,9 +77,6 @@ static void sha256_libsodium_to_mbedtls(mbedtls_sha256_context *mb_ctx, crypto_h
 int
 crypto_hash_sha256_init(crypto_hash_sha256_state *state)
 {
-    if (state == NULL) {
-        return -1;
-    }
 #ifdef MBEDTLS_PSA_CRYPTO
     psa_status_t status;
 
@@ -127,7 +124,7 @@ int
 crypto_hash_sha256_update(crypto_hash_sha256_state *state,
                           const unsigned char *in, unsigned long long inlen)
 {
-    if (state == NULL || (in == NULL && inlen > 0)) {
+    if (in == NULL && inlen > 0) {
         return -1;
     }
 #ifdef MBEDTLS_PSA_CRYPTO
@@ -159,9 +156,6 @@ crypto_hash_sha256_update(crypto_hash_sha256_state *state,
 int
 crypto_hash_sha256_final(crypto_hash_sha256_state *state, unsigned char *out)
 {
-    if (state == NULL || out == NULL) {
-        return -1;
-    }
 #ifdef MBEDTLS_PSA_CRYPTO
     psa_hash_operation_t *operation = (psa_hash_operation_t *)state;
     psa_status_t status;
@@ -188,7 +182,7 @@ int
 crypto_hash_sha256(unsigned char *out, const unsigned char *in,
                    unsigned long long inlen)
 {
-    if (out == NULL || (in == NULL && inlen > 0)) {
+    if (in == NULL && inlen > 0) {
         return -1;
     }
 #ifdef MBEDTLS_PSA_CRYPTO
