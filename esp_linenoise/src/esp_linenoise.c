@@ -1297,8 +1297,10 @@ void esp_linenoise_add_completion(void *ctx, const char *str)
         free(copy);
         return;
     }
+
+    cvec[lc->len] = copy;  // Store copy in new slot before updating struct
     lc->cvec = cvec;
-    lc->cvec[lc->len++] = copy;
+    lc->len++;
 }
 
 esp_err_t esp_linenoise_history_add(esp_linenoise_handle_t handle, const char *line)
