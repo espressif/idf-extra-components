@@ -310,16 +310,16 @@ esp_err_t nand_flash_get_blockdev(spi_nand_flash_config_t *config, esp_blockdev_
     blockdev->ops = &nand_flash_blockdev_ops;
 
     // Set up geometry information
-    uint32_t sector_size = handle->chip.page_size;
+    uint32_t page_size = handle->chip.page_size;
     uint32_t block_size = handle->chip.block_size;
     uint32_t num_blocks = handle->chip.num_blocks;
 
     blockdev->geometry.disk_size = num_blocks * block_size;
-    blockdev->geometry.write_size = sector_size;
-    blockdev->geometry.read_size = sector_size;
+    blockdev->geometry.write_size = page_size;
+    blockdev->geometry.read_size = page_size;
     blockdev->geometry.erase_size = block_size;
-    blockdev->geometry.recommended_write_size = sector_size;
-    blockdev->geometry.recommended_read_size = sector_size;
+    blockdev->geometry.recommended_write_size = page_size;
+    blockdev->geometry.recommended_read_size = page_size;
     blockdev->geometry.recommended_erase_size = block_size;
 
     return ESP_OK;

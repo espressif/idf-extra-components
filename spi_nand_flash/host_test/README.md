@@ -48,9 +48,13 @@ spi_nand_flash_config_t nand_flash_config = {&cfg, 0, SPI_NAND_IO_MODE_SIO, 0};
 spi_nand_flash_device_t *handle;
 spi_nand_flash_init_device(&nand_flash_config, &handle);
 
-// Use direct NAND operations
-spi_nand_flash_read_sector(handle, buffer, sector_id);
-spi_nand_flash_write_sector(handle, buffer, sector_id);
+// Use direct NAND operations (page API preferred; sector API is also supported)
+uint32_t page_size;
+spi_nand_flash_get_page_size(handle, &page_size);
+uint8_t *buffer = malloc(page_size);
+uint32_t page_id = 0;
+spi_nand_flash_read_page(handle, buffer, page_id);
+spi_nand_flash_write_page(handle, buffer, page_id);
 
 // Cleanup
 spi_nand_flash_deinit_device(handle);
@@ -69,7 +73,8 @@ esp_blockdev_handle_t nand_bdl;
 nand_flash_get_blockdev(&nand_flash_config, &device_handle, &nand_bdl);
 
 // Use block device operations
-nand_bdl->ops->read(nand_bdl, buffer, sector_size, offset, size);
+uint32_t page_size = nand_bdl->geometry.read_size;  // BDL geometry uses page size
+nand_bdl->ops->read(nand_bdl, buffer, page_size, offset, size);
 nand_bdl->ops->write(nand_bdl, buffer, offset, size);
 
 // Cleanup

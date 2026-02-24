@@ -60,21 +60,21 @@ static bool is_ecc_exceed_threshold(spi_nand_flash_device_t *handle)
 esp_err_t nand_get_ecc_stats(spi_nand_flash_device_t *flash)
 {
     esp_err_t ret = ESP_OK;
-    uint32_t sector_size, block_size, num_blocks;
+    uint32_t page_size, block_size, num_blocks;
     uint32_t ecc_err_total_count = 0;
     uint32_t ecc_err_exceeding_threshold_count = 0;
     uint32_t ecc_err_not_corrected_count = 0;
 
-    spi_nand_flash_get_sector_size(flash, &sector_size);
+    spi_nand_flash_get_page_size(flash, &page_size);
     spi_nand_flash_get_block_size(flash, &block_size);
     spi_nand_flash_get_block_num(flash, &num_blocks);
 
-    if (sector_size == 0) {
-        ESP_LOGE(TAG, "Invalid sector size (0)");
+    if (page_size == 0) {
+        ESP_LOGE(TAG, "Invalid page size (0)");
         return ESP_ERR_INVALID_SIZE;
     }
 
-    uint32_t pages_per_block = block_size / sector_size;
+    uint32_t pages_per_block = block_size / page_size;
     uint32_t num_pages = num_blocks * pages_per_block;
 
     bool is_free = true;

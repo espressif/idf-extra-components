@@ -34,10 +34,10 @@ DRESULT ff_blockdev_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
     esp_blockdev_handle_t bdl = ff_blockdev_handles[pdrv];
     assert(bdl);
 
-    size_t sector_size = bdl->geometry.read_size;
+    size_t page_size = bdl->geometry.read_size;
 
     for (uint32_t i = 0; i < count; i++) {
-        ret = bdl->ops->read(bdl, buff + i * sector_size, sector_size, (sector + i) * sector_size, sector_size);
+        ret = bdl->ops->read(bdl, buff + i * page_size, page_size, (sector + i) * page_size, page_size);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "ff_blockdev_read failed with error 0x%X", ret);
             return RES_ERROR;
@@ -54,10 +54,10 @@ DRESULT ff_blockdev_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
     esp_blockdev_handle_t bdl = ff_blockdev_handles[pdrv];
     assert(bdl);
 
-    size_t sector_size = bdl->geometry.write_size;
+    size_t page_size = bdl->geometry.write_size;
 
     for (uint32_t i = 0; i < count; i++) {
-        ret = bdl->ops->write(bdl, buff + i * sector_size, (sector + i) * sector_size, sector_size);
+        ret = bdl->ops->write(bdl, buff + i * page_size, (sector + i) * page_size, page_size);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "ff_blockdev_write failed with error 0x%X", ret);
             return RES_ERROR;
@@ -74,15 +74,15 @@ DRESULT ff_blockdev_trim(BYTE pdrv, DWORD start_sector, DWORD sector_count)
     esp_blockdev_handle_t bdl = ff_blockdev_handles[pdrv];
     assert(bdl);
 
-    uint32_t num_sectors;
-    ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &num_sectors);
+    uint32_t num_pages;
+    ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &num_pages);
 
-    if ((start_sector > num_sectors) || ((start_sector + sector_count) > num_sectors)) {
+    if ((start_sector > num_pages) || ((start_sector + sector_count) > num_pages)) {
         return RES_PARERR;
     }
 
-    for (uint32_t sector = start_sector; sector < (start_sector + sector_count); sector++) {
-        ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_TRIM_SECTOR, &sector);
+    for (uint32_t page_id = start_sector; page_id < (start_sector + sector_count); page_id++) {
+        ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_TRIM_SECTOR, &page_id);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "ff_blockdev_trim failed with error 0x%X", ret);
             return RES_ERROR;
@@ -110,26 +110,29 @@ DRESULT ff_blockdev_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         }
         break;
 
-    case GET_SECTOR_COUNT:
-        uint32_t sector_count;
-        ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &sector_count);
+    case GET_SECTOR_COUNT: {
+        uint32_t num_pages;
+        ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &num_pages);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "ioctl for GET_SECTOR_COUNT failed  with error 0x%X", ret);
+            ESP_LOGE(TAG, "ioctl for GET_SECTOR_COUNT failed with error 0x%X", ret);
             return RES_ERROR;
         }
-        *((DWORD *)buff) = sector_count;
-        ESP_LOGV(TAG, "capacity=%lu sectors", (unsigned long)(*((DWORD *)buff)));
+        *((DWORD *)buff) = num_pages;
+        ESP_LOGV(TAG, "capacity=%lu pages", (unsigned long)num_pages);
         break;
+    }
 
-    case GET_SECTOR_SIZE:
-        *((WORD *)buff) = (WORD)bdl->geometry.read_size;
-        ESP_LOGV(TAG, "sector size=%u", (unsigned int)(*((WORD *)buff)));
+    case GET_SECTOR_SIZE: {
+        uint32_t page_size = bdl->geometry.read_size;
+        *((WORD *)buff) = (WORD)page_size;
+        ESP_LOGV(TAG, "page size=%u", (unsigned int)page_size);
         break;
+    }
 
     case GET_BLOCK_SIZE: {
-        uint32_t sec_per_block = bdl->geometry.erase_size / bdl->geometry.read_size;
-        *((DWORD *)buff) = sec_per_block;
-        ESP_LOGV(TAG, "block size=%lu sectors", (unsigned long)(*((DWORD *)buff)));
+        uint32_t pages_per_block = bdl->geometry.erase_size / bdl->geometry.read_size;
+        *((DWORD *)buff) = pages_per_block;
+        ESP_LOGV(TAG, "block size=%lu pages", (unsigned long)pages_per_block);
         break;
     }
 #if FF_USE_TRIM
