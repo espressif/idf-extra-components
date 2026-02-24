@@ -11,6 +11,7 @@
 #include "esp_system.h"
 #include "soc/spi_pins.h"
 #include "spi_nand_flash.h"
+#include "spi_nand_flash_test_helpers.h"
 #include "nand_diag_api.h"
 #include "nand_private/nand_impl_wrap.h"
 #include "esp_log.h"
@@ -19,7 +20,6 @@
 #include "esp_heap_caps.h"
 
 #define EXAMPLE_FLASH_FREQ_KHZ      40000
-#define PATTERN_SEED    0x12345678
 
 static const char *TAG = "debug_app";
 
@@ -94,61 +94,52 @@ static void example_deinit_nand_flash(spi_nand_flash_device_t *flash, spi_device
     ESP_ERROR_CHECK(spi_bus_free(HOST_ID));
 }
 
-static void fill_buffer(uint32_t seed, uint8_t *dst, size_t count)
-{
-    srand(seed);
-    for (size_t i = 0; i < count; ++i) {
-        uint32_t val = rand();
-        memcpy(dst + i * sizeof(uint32_t), &val, sizeof(val));
-    }
-}
-
-static esp_err_t read_write_sectors_tp(spi_nand_flash_device_t *flash, uint32_t start_sec, uint16_t sec_count, bool get_raw_tp)
+static esp_err_t read_write_pages_tp(spi_nand_flash_device_t *flash, uint32_t start_page, uint16_t page_count, bool get_raw_tp)
 {
     esp_err_t ret = ESP_OK;
     uint8_t *temp_buf = NULL;
     uint8_t *pattern_buf = NULL;
-    uint32_t sector_size, sector_num;
+    uint32_t page_size, num_pages;
 
-    ESP_ERROR_CHECK(spi_nand_flash_get_capacity(flash, &sector_num));
-    ESP_ERROR_CHECK(spi_nand_flash_get_sector_size(flash, &sector_size));
+    ESP_ERROR_CHECK(spi_nand_flash_get_page_count(flash, &num_pages));
+    ESP_ERROR_CHECK(spi_nand_flash_get_page_size(flash, &page_size));
 
-    ESP_RETURN_ON_FALSE((start_sec + sec_count) < sector_num, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    ESP_RETURN_ON_FALSE((start_page + page_count) < num_pages, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
 
-    pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
+    pattern_buf = (uint8_t *)heap_caps_malloc(page_size, MALLOC_CAP_DMA);
     ESP_RETURN_ON_FALSE(pattern_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
+    temp_buf = (uint8_t *)heap_caps_malloc(page_size, MALLOC_CAP_DMA);
     ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
 
-    fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
+    spi_nand_flash_fill_buffer(pattern_buf, page_size / sizeof(uint32_t));
 
     int64_t read_time = 0;
     int64_t write_time = 0;
 
-    for (int i = start_sec; i < (start_sec + sec_count); i++) {
+    for (uint32_t i = start_page; i < (start_page + page_count); i++) {
         int64_t start = esp_timer_get_time();
         if (get_raw_tp) {
             ESP_ERROR_CHECK(nand_wrap_prog(flash, i, pattern_buf));
         } else {
-            ESP_ERROR_CHECK(spi_nand_flash_write_sector(flash, pattern_buf, i));
+            ESP_ERROR_CHECK(spi_nand_flash_write_page(flash, pattern_buf, i));
         }
         write_time += esp_timer_get_time() - start;
 
-        memset((void *)temp_buf, 0x00, sector_size);
+        memset((void *)temp_buf, 0x00, page_size);
 
         start = esp_timer_get_time();
         if (get_raw_tp) {
-            ESP_ERROR_CHECK(nand_wrap_read(flash, i, 0, sector_size, temp_buf));
+            ESP_ERROR_CHECK(nand_wrap_read(flash, i, 0, page_size, temp_buf));
         } else {
-            ESP_ERROR_CHECK(spi_nand_flash_read_sector(flash, temp_buf, i));
+            ESP_ERROR_CHECK(spi_nand_flash_read_page(flash, temp_buf, i));
         }
         read_time += esp_timer_get_time() - start;
     }
     free(pattern_buf);
     free(temp_buf);
 
-    ESP_LOGI(TAG, "Wrote %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s", sector_size * sec_count, write_time, (float)sector_size * sec_count / write_time * 1000);
-    ESP_LOGI(TAG, "Read %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", sector_size * sec_count, read_time, (float)sector_size * sec_count / read_time * 1000);
+    ESP_LOGI(TAG, "Wrote %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s", page_size * page_count, write_time, (float)page_size * page_count / write_time * 1000);
+    ESP_LOGI(TAG, "Read %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", page_size * page_count, read_time, (float)page_size * page_count / read_time * 1000);
     return ret;
 }
 
@@ -173,18 +164,18 @@ void app_main(void)
              num_blocks, bad_block_count, num_blocks - bad_block_count);
 
     // Calculate read and write throughput via Dhara
-    uint32_t start_sec = 1;
-    uint16_t sector_count = 1000;
+    uint32_t start_page = 1;
+    uint16_t page_count = 1000;
     bool get_raw_tp = false;
     ESP_LOGI(TAG, "Read-Write Throughput via Dhara:");
-    ESP_ERROR_CHECK(read_write_sectors_tp(flash, start_sec, sector_count, get_raw_tp));
+    ESP_ERROR_CHECK(read_write_pages_tp(flash, start_page, page_count, get_raw_tp));
 
-    // Calculate read and write throughput via Dhara
-    start_sec = 1001;
-    sector_count = 1000;
+    // Calculate read and write throughput at lower level (bypassing Dhara)
+    start_page = 1001;
+    page_count = 1000;
     get_raw_tp = true;
     ESP_LOGI(TAG, "Read-Write Throughput at lower level (bypassing Dhara):");
-    ESP_ERROR_CHECK(read_write_sectors_tp(flash, start_sec, sector_count, get_raw_tp));
+    ESP_ERROR_CHECK(read_write_pages_tp(flash, start_page, page_count, get_raw_tp));
 
     // Get ECC error statistics
     ESP_LOGI(TAG, "ECC errors statistics:");

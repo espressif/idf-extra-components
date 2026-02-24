@@ -15,7 +15,8 @@ endif()
 
 if(${target} STREQUAL "linux")
     list(APPEND srcs "src/nand_impl_linux.c"
-                     "src/nand_linux_mmap_emul.c")
+                     "src/nand_linux_mmap_emul.c"
+                     "src/spi_nand_flash_test_helpers.c")
 else()
     list(APPEND srcs "src/devices/nand_winbond.c"
                      "src/devices/nand_gigadevice.c"
@@ -25,6 +26,7 @@ else()
                      "src/devices/nand_xtx.c"
                      "src/nand_impl.c"
                      "src/nand_diag_api.c"
+                     "src/spi_nand_flash_test_helpers.c"
                      "src/spi_nand_oper.c")
     
     set(priv_reqs esp_mm)

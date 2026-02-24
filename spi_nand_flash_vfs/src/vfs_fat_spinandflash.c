@@ -30,7 +30,7 @@ esp_err_t esp_vfs_fat_nand_mount(const char *base_path, spi_nand_flash_device_t 
     esp_err_t ret = ESP_OK;
     void *workbuf = NULL;
     FATFS *fs = NULL;
-    uint32_t sector_size;
+    uint32_t page_size;
     const size_t workbuf_size = 4096;
 
     // connect driver to FATFS
@@ -42,7 +42,7 @@ esp_err_t esp_vfs_fat_nand_mount(const char *base_path, spi_nand_flash_device_t 
     ESP_GOTO_ON_ERROR(ff_diskio_register_nand(pdrv, nand_device),
                       fail, TAG, "ff_diskio_register_nand failed drv=%i", pdrv);
 
-    ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(nand_device, &sector_size), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_flash_get_page_size(nand_device, &page_size), fail, TAG, "");
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
     esp_vfs_fat_conf_t conf = {
@@ -72,7 +72,7 @@ esp_err_t esp_vfs_fat_nand_mount(const char *base_path, spi_nand_flash_device_t 
             goto fail;
         }
         size_t alloc_unit_size = esp_vfs_fat_get_allocation_unit_size(
-                                     sector_size,
+                                     page_size,
                                      mount_config->allocation_unit_size);
         ESP_LOGI(TAG, "Formatting FATFS partition, allocation unit size=%d", alloc_unit_size);
         const MKFS_PARM opt = {(BYTE)FM_ANY, 0, 0, 0, alloc_unit_size};
@@ -129,7 +129,7 @@ esp_err_t esp_vfs_fat_nand_mount_bdl(const char *base_path, esp_blockdev_handle_
     esp_err_t ret = ESP_OK;
     void *workbuf = NULL;
     FATFS *fs = NULL;
-    size_t sector_size;
+    size_t page_size;
     const size_t workbuf_size = 4096;
 
     if (blockdev == NULL || blockdev->ops == NULL) {
@@ -145,7 +145,7 @@ esp_err_t esp_vfs_fat_nand_mount_bdl(const char *base_path, esp_blockdev_handle_
     ESP_GOTO_ON_ERROR(ff_diskio_register_blockdev(pdrv, blockdev),
                       fail, TAG, "ff_diskio_register_blockdev failed drv=%i", pdrv);
 
-    sector_size = blockdev->geometry.read_size;
+    page_size = blockdev->geometry.read_size;
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
     esp_vfs_fat_conf_t conf = {
@@ -175,7 +175,7 @@ esp_err_t esp_vfs_fat_nand_mount_bdl(const char *base_path, esp_blockdev_handle_
             goto fail;
         }
         size_t alloc_unit_size = esp_vfs_fat_get_allocation_unit_size(
-                                     sector_size,
+                                     page_size,
                                      mount_config->allocation_unit_size);
         ESP_LOGI(TAG, "Formatting FATFS partition, allocation unit size=%d", alloc_unit_size);
         const MKFS_PARM opt = {(BYTE)FM_ANY, 0, 0, 0, alloc_unit_size};

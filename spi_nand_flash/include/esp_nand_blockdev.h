@@ -97,7 +97,7 @@ extern "C" {
  * esp_err_t ret = wl_bdl->ops->ioctl(wl_bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &available_sectors);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS    (ESP_BLOCKDEV_CMD_USER_BASE + 1)
+#define ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS    (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 14)
 
 /** @brief Trim/discard a logical sector (WL layer only)
  *
@@ -109,7 +109,7 @@ extern "C" {
  * esp_err_t ret = wl_bdl->ops->ioctl(wl_bdl, ESP_BLOCKDEV_CMD_TRIM_SECTOR, &sector_id);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_TRIM_SECTOR              (ESP_BLOCKDEV_CMD_USER_BASE + 2)
+#define ESP_BLOCKDEV_CMD_TRIM_SECTOR              (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 15)
 
 /** @brief Get count of bad blocks in flash
  *
@@ -119,7 +119,7 @@ extern "C" {
  * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_GET_BAD_BLOCKS_COUNT, &bad_block_count);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_GET_BAD_BLOCKS_COUNT     (ESP_BLOCKDEV_CMD_USER_BASE + 3)
+#define ESP_BLOCKDEV_CMD_GET_BAD_BLOCKS_COUNT     (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 16)
 
 /** @brief Get ECC error statistics
  *
@@ -129,7 +129,7 @@ extern "C" {
  * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_GET_ECC_STATS, &ecc_stats);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_GET_ECC_STATS            (ESP_BLOCKDEV_CMD_USER_BASE + 4)
+#define ESP_BLOCKDEV_CMD_GET_ECC_STATS            (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 17)
 
 /** @brief Get complete NAND flash information (device ID + geometry)
  *
@@ -142,7 +142,7 @@ extern "C" {
  *        flash_info.device_info.device_id);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_GET_NAND_FLASH_INFO      (ESP_BLOCKDEV_CMD_USER_BASE + 5)
+#define ESP_BLOCKDEV_CMD_GET_NAND_FLASH_INFO      (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 18)
 
 /** @brief Copy a page from source to destination (Flash BDL only)
  *
@@ -156,7 +156,7 @@ extern "C" {
  * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_COPY_PAGE, &copy_cmd);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_COPY_PAGE                (ESP_BLOCKDEV_CMD_USER_BASE + 6)
+#define ESP_BLOCKDEV_CMD_COPY_PAGE                (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 19)
 
 /** @} */ // end of nand_ioctl_commands
 
@@ -173,7 +173,8 @@ extern "C" {
  */
 typedef struct {
     uint32_t num;               /*!< IN:  Block number or page number */
-    bool status;                /*!< OUT: Bad block status or page free status (true/false) */
+    bool status;                /*!< OUT: Bad block status (True: bad block or False: good block)
+                                  or Page free status (True: free page or False: occupied page)*/
 } esp_blockdev_cmd_arg_status_t;
 
 typedef esp_blockdev_cmd_arg_status_t esp_blockdev_cmd_arg_is_bad_block_t;

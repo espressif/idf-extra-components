@@ -19,7 +19,7 @@ The component supports two modes of operation controlled by Kconfig:
 When enabled, provides:
 - Standard `esp_blockdev_t` interface for layered architecture
 - Flash Block Device Layer (raw NAND flash access)
-- Wear-Leveling Block Device Layer (logical sector access with wear leveling)
+- Wear-Leveling Block Device Layer (logical page access with wear leveling)
 - Advanced layered API (`spi_nand_flash_init_with_layers`)
 
 When disabled, only the legacy API is available.
@@ -40,11 +40,12 @@ Application
 ┌────────────────────────────────────────┐
 │ spi_nand_flash.h (Public API)         │ ← Legacy Interface
 │ - spi_nand_flash_init_device()        │
-│ - spi_nand_flash_read_sector()        │
-│ - spi_nand_flash_write_sector()       │
+│ - spi_nand_flash_read_page()          │
+│ - spi_nand_flash_write_page()         │
 │ - spi_nand_flash_trim()                │
 │ - spi_nand_flash_sync()                │
 │ - spi_nand_flash_gc()                  │
+│ (+ sector-named aliases for compat)   │
 └────────────────────────────────────────┘
      ↓
 ┌────────────────────────────────────────┐
@@ -149,20 +150,26 @@ Application / Filesystem
 ### Public Headers (`include/`)
 
 - **`spi_nand_flash.h`** - Main public API
-  - **Legacy API** (Always available):
+  - **Page API** (Always available, preferred):
     - `spi_nand_flash_init_device()` - Initialize NAND flash device
-    - `spi_nand_flash_read_sector()` - Read logical sector
-    - `spi_nand_flash_write_sector()` - Write logical sector
-    - `spi_nand_flash_trim()` - Trim/discard logical sector
+    - `spi_nand_flash_read_page()` - Read logical page
+    - `spi_nand_flash_write_page()` - Write logical page
+    - `spi_nand_flash_copy_page()` - Copy page
+    - `spi_nand_flash_trim()` - Trim/discard logical page
+    - `spi_nand_flash_get_page_count()` - Get number of logical pages
+    - `spi_nand_flash_get_page_size()` - Get page size in bytes
     - `spi_nand_flash_sync()` - Synchronize cache to device
     - `spi_nand_flash_gc()` - Explicit garbage collection
-    - `spi_nand_flash_copy_sector()` - Copy sector
-    - `spi_nand_flash_get_capacity()` - Get number of sectors
-    - `spi_nand_flash_get_sector_size()` - Get sector size
     - `spi_nand_flash_get_block_size()` - Get block size
     - `spi_nand_flash_get_block_num()` - Get number of blocks
     - `spi_nand_erase_chip()` - Erase entire chip
     - `spi_nand_flash_deinit_device()` - De-initialize device
+  - **Sector API** (Backward-compatible aliases; equivalent to page API):
+    - `spi_nand_flash_read_sector()` → `spi_nand_flash_read_page()`
+    - `spi_nand_flash_write_sector()` → `spi_nand_flash_write_page()`
+    - `spi_nand_flash_copy_sector()` → `spi_nand_flash_copy_page()`
+    - `spi_nand_flash_get_capacity()` → `spi_nand_flash_get_page_count()`
+    - `spi_nand_flash_get_sector_size()` → `spi_nand_flash_get_page_size()`
   - **BDL API** (Conditional - requires `CONFIG_NAND_FLASH_ENABLE_BDL`):
     - `spi_nand_flash_init_with_layers()` - Initialize with BDL handles
 
@@ -215,11 +222,10 @@ Application / Filesystem
 src/
 ├── nand.c                      # Public API implementation (Always compiled)
 │                               # - spi_nand_flash_init_device()
-│                               # - spi_nand_flash_read_sector()
-│                               # - spi_nand_flash_write_sector()
-│                               # - spi_nand_flash_trim()
-│                               # - spi_nand_flash_sync()
-│                               # - spi_nand_flash_gc()
+│                               # - spi_nand_flash_read_page() / write_page() / copy_page()
+│                               # - spi_nand_flash_get_page_count() / get_page_size()
+│                               # - spi_nand_flash_trim() / sync() / gc()
+│                               # - Sector-named aliases (backward compatible)
 │                               # - spi_nand_flash_init_with_layers() [BDL only]
 │
 ├── dhara_glue.c                # Wear-Leveling implementation (Always compiled)
@@ -255,7 +261,7 @@ src/
 │                               # - spi_nand_flash_wl_get_blockdev()
 │                               # - esp_blockdev_t interface implementation
 │                               # - Wear-leveling operations
-│                               # - Sector read/write/trim
+│                               # - Page read/write/trim
 │                               # - Function pointer validation
 │
 ├── nand_diag_api.c             # Diagnostic and statistics API
@@ -277,9 +283,9 @@ src/
 
 ## API Usage
 
-### Legacy API (Always Available)
+### Page API (Always Available, Preferred)
 
-The legacy API provides a simple interface for reading and writing logical sectors with automatic wear-leveling. This API is always available regardless of Kconfig settings.
+The public API uses **page** terminology to align with NAND flash (logical pages with wear-leveling). This API is always available regardless of Kconfig settings. Sector-named functions remain available as backward-compatible aliases.
 
 ```c
 #include "spi_nand_flash.h"
@@ -300,15 +306,17 @@ if (ret != ESP_OK) {
     return ret;
 }
 
-// Read/write sectors
-uint8_t buffer[2048];
-uint32_t sector_id = 0;
+// Read/write pages
+uint32_t page_size;
+spi_nand_flash_get_page_size(handle, &page_size);
+uint8_t *buffer = malloc(page_size);
+uint32_t page_id = 0;
 
-ret = spi_nand_flash_read_sector(handle, buffer, sector_id);
-ret = spi_nand_flash_write_sector(handle, buffer, sector_id);
+ret = spi_nand_flash_read_page(handle, buffer, page_id);
+ret = spi_nand_flash_write_page(handle, buffer, page_id);
 
-// TRIM (mark sector as free for garbage collection)
-ret = spi_nand_flash_trim(handle, sector_id);
+// TRIM (mark page as free for garbage collection)
+ret = spi_nand_flash_trim(handle, page_id);
 
 // Explicit garbage collection (optional - happens automatically)
 ret = spi_nand_flash_gc(handle);
@@ -317,14 +325,16 @@ ret = spi_nand_flash_gc(handle);
 ret = spi_nand_flash_sync(handle);
 
 // Get capacity information
-uint32_t num_sectors, sector_size;
-spi_nand_flash_get_capacity(handle, &num_sectors);
-spi_nand_flash_get_sector_size(handle, &sector_size);
-ESP_LOGI(TAG, "Capacity: %u sectors of %u bytes", num_sectors, sector_size);
+uint32_t num_pages;
+spi_nand_flash_get_page_count(handle, &num_pages);
+spi_nand_flash_get_page_size(handle, &page_size);
+ESP_LOGI(TAG, "Capacity: %u pages of %u bytes", num_pages, page_size);
 
 // Cleanup
 spi_nand_flash_deinit_device(handle);
 ```
+
+**Backward compatibility:** The sector-named API (`spi_nand_flash_read_sector`, `spi_nand_flash_write_sector`, `spi_nand_flash_get_capacity`, `spi_nand_flash_get_sector_size`, etc.) is still supported and behaves identically to the page API.
 
 ### BDL API (Requires CONFIG_NAND_FLASH_ENABLE_BDL=y)
 
@@ -392,16 +402,16 @@ if (ret != ESP_OK) {
     return ret;
 }
 
-// Use wear-leveling layer for sector-based operations
-uint8_t sector_buffer[2048];
-uint32_t sector_id = 0;
-wl_bdl->ops->read(wl_bdl, sector_buffer, sizeof(sector_buffer), sector_id, sizeof(sector_buffer));
-wl_bdl->ops->write(wl_bdl, sector_buffer, sector_id, sizeof(sector_buffer));
+// Use wear-leveling layer for page-based operations (BDL reports these as "sectors")
+uint8_t page_buffer[2048];
+uint32_t page_id = 0;
+wl_bdl->ops->read(wl_bdl, page_buffer, sizeof(page_buffer), page_id, sizeof(page_buffer));
+wl_bdl->ops->write(wl_bdl, page_buffer, page_id, sizeof(page_buffer));
 
-// Get available sectors
-uint32_t avail_sectors;
-wl_bdl->ops->ioctl(wl_bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &avail_sectors);
-ESP_LOGI(TAG, "Available sectors: %u", avail_sectors);
+// Get available pages (via BDL ioctl)
+uint32_t num_pages;
+wl_bdl->ops->ioctl(wl_bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &num_pages);
+ESP_LOGI(TAG, "Available pages: %u", num_pages);
 
 // Cleanup (releases both WL and Flash layers)
 wl_bdl->ops->release(wl_bdl);
@@ -429,7 +439,7 @@ if (ret != ESP_OK) {
     return ret;
 }
 
-// Use wear-leveling BDL for sector-based operations
+// Use wear-leveling BDL for page-based operations
 uint8_t buffer[2048];
 wl_bdl->ops->read(wl_bdl, buffer, sizeof(buffer), 0, sizeof(buffer));
 wl_bdl->ops->write(wl_bdl, buffer, 0, sizeof(buffer));
@@ -459,12 +469,12 @@ These commands operate on the Flash Block Device Layer for low-level hardware ac
 
 ### WL BDL Commands
 
-These commands operate on the Wear-Leveling Block Device Layer for logical sector management:
+These commands operate on the Wear-Leveling Block Device Layer for logical page management (BDL API uses "sector" in command names; each unit is one logical page):
 
 | Command | Description | Argument Type | Example |
 |---------|-------------|---------------|---------|
-| `ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS` | Get number of usable logical sectors | `uint32_t*` | Check filesystem capacity |
-| `ESP_BLOCKDEV_CMD_TRIM_SECTOR` | Mark logical sector as unused (TRIM) | `uint32_t*` (sector number) | Optimize after file deletion |
+| `ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS` | Get number of usable logical pages | `uint32_t*` | Check filesystem capacity |
+| `ESP_BLOCKDEV_CMD_TRIM_SECTOR` | Mark logical page as unused (TRIM) | `uint32_t*` (page index) | Optimize after file deletion |
 
 ### Example: Using IOCTL Commands
 
@@ -563,15 +573,15 @@ All division and modulo operations include zero-divisor checks:
 
 ```c
 // Example from nand_wl_blockdev.c
-if (sector_size == 0) {
-    ESP_LOGE(TAG, "Invalid sector size (0)");
+if (page_size == 0) {
+    ESP_LOGE(TAG, "Invalid page size (0)");
     return ESP_ERR_INVALID_SIZE;
 }
-uint32_t sector_count = erase_len / sector_size;
+uint32_t page_count = erase_len / page_size;
 ```
 
 **Protected operations:**
-- Sector size calculations
+- Page size calculations
 - Block size calculations
 - Page count calculations
 - Plane selection (modulo operations)
@@ -582,13 +592,13 @@ Read, write, and erase operations validate address and length alignment:
 
 ```c
 // Example: Erase alignment check
-if ((start_addr % sector_size) != 0) {
-    ESP_LOGE(TAG, "Start address not aligned to sector size");
+if ((start_addr % page_size) != 0) {
+    ESP_LOGE(TAG, "Start address not aligned to page size");
     return ESP_ERR_INVALID_ARG;
 }
 
-if ((erase_len % sector_size) != 0) {
-    ESP_LOGE(TAG, "Erase length not aligned to sector size");
+if ((erase_len % page_size) != 0) {
+    ESP_LOGE(TAG, "Erase length not aligned to page size");
     return ESP_ERR_INVALID_ARG;
 }
 ```

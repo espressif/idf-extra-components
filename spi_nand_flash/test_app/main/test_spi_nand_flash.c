@@ -22,6 +22,7 @@
 #include "unity.h"
 #include "soc/spi_pins.h"
 #include "sdkconfig.h"
+#include "spi_nand_flash_test_helpers.h"
 
 
 // Pin mapping
@@ -46,9 +47,7 @@
 #define SPI_DMA_CHAN SPI_DMA_CH_AUTO
 #endif
 
-#define PATTERN_SEED    0x12345678
-
-static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_sec, uint16_t sec_count);
+static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_page, uint16_t page_count);
 static void setup_bus(spi_host_device_t host_id)
 {
     spi_bus_config_t spi_bus_cfg = {
@@ -117,235 +116,214 @@ TEST_CASE("verify mark_bad_block works", "[spi_nand_flash]")
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
     setup_nand_flash(&nand_flash_device_handle, &spi, SPI_NAND_IO_MODE_SIO, SPI_DEVICE_HALFDUPLEX);
-    uint32_t sector_num, sector_size;
+    uint32_t block_num;
 
-    TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
-    TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
-    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
+    TEST_ESP_OK(spi_nand_flash_get_block_num(nand_flash_device_handle, &block_num));
 
     uint32_t test_block = 15;
-    if (test_block < sector_num) {
-        bool is_bad_status = false;
-        // Verify if test_block is not bad block
-        TEST_ESP_OK(nand_wrap_is_bad(nand_flash_device_handle, test_block, &is_bad_status));
-        TEST_ASSERT_TRUE(is_bad_status == false);
-        // mark test_block as a bad block
-        TEST_ESP_OK(nand_wrap_mark_bad(nand_flash_device_handle, test_block));
-        // Verify if test_block is marked as bad block
-        TEST_ESP_OK(nand_wrap_is_bad(nand_flash_device_handle, test_block, &is_bad_status));
-        TEST_ASSERT_TRUE(is_bad_status == true);
-    }
+    TEST_ASSERT_TRUE(test_block < block_num);
+    bool is_bad_status = false;
+    // Verify if test_block is not bad block
+    TEST_ESP_OK(nand_wrap_is_bad(nand_flash_device_handle, test_block, &is_bad_status));
+    TEST_ASSERT_TRUE(is_bad_status == false);
+    // mark test_block as a bad block
+    TEST_ESP_OK(nand_wrap_mark_bad(nand_flash_device_handle, test_block));
+    // Verify if test_block is marked as bad block
+    TEST_ESP_OK(nand_wrap_is_bad(nand_flash_device_handle, test_block, &is_bad_status));
+    TEST_ASSERT_TRUE(is_bad_status == true);
 
     deinit_nand_flash(nand_flash_device_handle, spi);
 }
 
-static void check_buffer(uint32_t seed, const uint8_t *src, size_t count)
-{
-    srand(seed);
-    for (size_t i = 0; i < count; ++i) {
-        uint32_t val;
-        memcpy(&val, src + i * sizeof(uint32_t), sizeof(val));
-        TEST_ASSERT_EQUAL_HEX32(rand(), val);
-    }
-}
-
-static void fill_buffer(uint32_t seed, uint8_t *dst, size_t count)
-{
-    srand(seed);
-    for (size_t i = 0; i < count; ++i) {
-        uint32_t val = rand();
-        memcpy(dst + i * sizeof(uint32_t), &val, sizeof(val));
-    }
-}
-
-static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_sec, uint16_t sec_count)
+static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_page, uint16_t page_count)
 {
     uint8_t *temp_buf = NULL;
     uint8_t *pattern_buf = NULL;
-    uint32_t sector_size, sector_num;
+    uint32_t page_size, num_pages;
 
-    TEST_ESP_OK(spi_nand_flash_get_capacity(flash, &sector_num));
-    TEST_ESP_OK(spi_nand_flash_get_sector_size(flash, &sector_size));
+    TEST_ESP_OK(spi_nand_flash_get_page_count(flash, &num_pages));
+    TEST_ESP_OK(spi_nand_flash_get_page_size(flash, &page_size));
 
-    TEST_ESP_OK((start_sec + sec_count) > sector_num);
+    TEST_ESP_OK((start_page + page_count) > num_pages);
 
-    pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    pattern_buf = (uint8_t *)heap_caps_malloc(page_size, MALLOC_CAP_DEFAULT);
     TEST_ASSERT_NOT_NULL(pattern_buf);
-    temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DEFAULT);
+    temp_buf = (uint8_t *)heap_caps_malloc(page_size, MALLOC_CAP_DEFAULT);
     TEST_ASSERT_NOT_NULL(temp_buf);
 
-    fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
+    spi_nand_flash_fill_buffer(pattern_buf, page_size / sizeof(uint32_t));
 
     int64_t read_time = 0;
     int64_t write_time = 0;
 
-    for (int i = start_sec; i < (start_sec + sec_count); i++) {
+    for (uint32_t i = start_page; i < (start_page + page_count); i++) {
         int64_t start = esp_timer_get_time();
-        TEST_ESP_OK(spi_nand_flash_write_sector(flash, pattern_buf, i));
+        TEST_ESP_OK(spi_nand_flash_write_page(flash, pattern_buf, i));
         write_time += esp_timer_get_time() - start;
 
-        memset((void *)temp_buf, 0x00, sector_size);
+        memset((void *)temp_buf, 0x00, page_size);
 
         start = esp_timer_get_time();
-        TEST_ESP_OK(spi_nand_flash_read_sector(flash, temp_buf, i));
+        TEST_ESP_OK(spi_nand_flash_read_page(flash, temp_buf, i));
         read_time += esp_timer_get_time() - start;
 
-        check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
+        TEST_ASSERT_EQUAL(0, spi_nand_flash_check_buffer(temp_buf, page_size / sizeof(uint32_t)));
     }
     free(pattern_buf);
     free(temp_buf);
 
-    printf("Wrote %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", sector_size * sec_count, write_time, (float)sector_size * sec_count / write_time * 1000);
-    printf("Read %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", sector_size * sec_count, read_time, (float)sector_size * sec_count / read_time * 1000);
+    printf("Wrote %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", page_size * page_count, write_time, (float)page_size * page_count / write_time * 1000);
+    printf("Read %" PRIu32 " bytes in %" PRId64 " us, avg %.2f kB/s\n", page_size * page_count, read_time, (float)page_size * page_count / read_time * 1000);
 }
 
-static void test_write_nand_flash_sectors(spi_nand_flash_io_mode_t mode, uint8_t flags)
+static void test_write_nand_flash_pages(spi_nand_flash_io_mode_t mode, uint8_t flags)
 {
-    uint32_t sector_num, sector_size;
+    uint32_t num_pages, page_size;
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
     setup_nand_flash(&nand_flash_device_handle, &spi, mode, flags);
 
-    TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
-    TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
-    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
+    TEST_ESP_OK(spi_nand_flash_get_page_count(nand_flash_device_handle, &num_pages));
+    TEST_ESP_OK(spi_nand_flash_get_page_size(nand_flash_device_handle, &page_size));
+    printf("Number of pages: %" PRIu32 ", Page size: %" PRIu32 "\n", num_pages, page_size);
 
     do_single_write_test(nand_flash_device_handle, 1, 16);
     do_single_write_test(nand_flash_device_handle, 16, 32);
     do_single_write_test(nand_flash_device_handle, 32, 64);
     do_single_write_test(nand_flash_device_handle, 64, 128);
-    do_single_write_test(nand_flash_device_handle, sector_num / 2, 32);
-    do_single_write_test(nand_flash_device_handle, sector_num / 2, 256);
-    do_single_write_test(nand_flash_device_handle, sector_num - 20, 16);
+    do_single_write_test(nand_flash_device_handle, num_pages / 2, 32);
+    do_single_write_test(nand_flash_device_handle, num_pages / 2, 256);
+    do_single_write_test(nand_flash_device_handle, num_pages - 20, 16);
 
     deinit_nand_flash(nand_flash_device_handle, spi);
 }
 
-TEST_CASE("read and write nand flash sectors (sio half-duplex)", "[spi_nand_flash]")
+TEST_CASE("read and write nand flash pages (sio half-duplex)", "[spi_nand_flash]")
 {
-    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_SIO, SPI_DEVICE_HALFDUPLEX);
+    test_write_nand_flash_pages(SPI_NAND_IO_MODE_SIO, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("read and write nand flash sectors (sio full-duplex)", "[spi_nand_flash]")
+TEST_CASE("read and write nand flash pages (sio full-duplex)", "[spi_nand_flash]")
 {
-    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_SIO, 0); //set flags 0 for full-duplex mode
+    test_write_nand_flash_pages(SPI_NAND_IO_MODE_SIO, 0); //set flags 0 for full-duplex mode
 }
 
-TEST_CASE("read and write nand flash sectors (dio)", "[spi_nand_flash]")
+TEST_CASE("read and write nand flash pages (dio)", "[spi_nand_flash]")
 {
-    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_DIO, SPI_DEVICE_HALFDUPLEX);
+    test_write_nand_flash_pages(SPI_NAND_IO_MODE_DIO, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("read and write nand flash sectors (dout)", "[spi_nand_flash]")
+TEST_CASE("read and write nand flash pages (dout)", "[spi_nand_flash]")
 {
-    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_DOUT, SPI_DEVICE_HALFDUPLEX);
+    test_write_nand_flash_pages(SPI_NAND_IO_MODE_DOUT, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("read and write nand flash sectors (qio)", "[spi_nand_flash]")
+TEST_CASE("read and write nand flash pages (qio)", "[spi_nand_flash]")
 {
-    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_QIO, SPI_DEVICE_HALFDUPLEX);
+    test_write_nand_flash_pages(SPI_NAND_IO_MODE_QIO, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("read and write nand flash sectors (qout)", "[spi_nand_flash]")
+TEST_CASE("read and write nand flash pages (qout)", "[spi_nand_flash]")
 {
-    test_write_nand_flash_sectors(SPI_NAND_IO_MODE_QOUT, SPI_DEVICE_HALFDUPLEX);
+    test_write_nand_flash_pages(SPI_NAND_IO_MODE_QOUT, SPI_DEVICE_HALFDUPLEX);
 }
 
-static void test_copy_nand_flash_sectors(spi_nand_flash_io_mode_t mode, uint8_t flags)
+static void test_copy_nand_flash_pages(spi_nand_flash_io_mode_t mode, uint8_t flags)
 {
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
     setup_nand_flash(&nand_flash_device_handle, &spi, mode, flags);
-    uint32_t sector_num, sector_size;
-    uint32_t src_sec = 10;
-    uint32_t dst_sec = 11;
+    uint32_t num_pages, page_size;
+    uint32_t src_page = 10;
+    uint32_t dst_page = 11;
 
-    TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
-    TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
-    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
+    TEST_ESP_OK(spi_nand_flash_get_page_count(nand_flash_device_handle, &num_pages));
+    TEST_ESP_OK(spi_nand_flash_get_page_size(nand_flash_device_handle, &page_size));
+    printf("Number of pages: %" PRIu32 ", Page size: %" PRIu32 "\n", num_pages, page_size);
 
-    if (src_sec < sector_num && dst_sec < sector_num) {
-        do_single_write_test(nand_flash_device_handle, src_sec, 1);
-        TEST_ESP_OK(spi_nand_flash_copy_sector(nand_flash_device_handle, src_sec, dst_sec));
+    if (src_page < num_pages && dst_page < num_pages) {
+        do_single_write_test(nand_flash_device_handle, src_page, 1);
+        TEST_ESP_OK(spi_nand_flash_copy_page(nand_flash_device_handle, src_page, dst_page));
     }
     deinit_nand_flash(nand_flash_device_handle, spi);
 }
 
-TEST_CASE("copy nand flash sectors (sio half-duplex)", "[spi_nand_flash]")
+TEST_CASE("copy nand flash pages (sio half-duplex)", "[spi_nand_flash]")
 {
-    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_SIO, SPI_DEVICE_HALFDUPLEX);
+    test_copy_nand_flash_pages(SPI_NAND_IO_MODE_SIO, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("copy nand flash sectors (sio full-duplex)", "[spi_nand_flash]")
+TEST_CASE("copy nand flash pages (sio full-duplex)", "[spi_nand_flash]")
 {
-    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_SIO, 0);
+    test_copy_nand_flash_pages(SPI_NAND_IO_MODE_SIO, 0);
 }
 
-TEST_CASE("copy nand flash sectors (dio)", "[spi_nand_flash]")
+TEST_CASE("copy nand flash pages (dio)", "[spi_nand_flash]")
 {
-    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_DIO, SPI_DEVICE_HALFDUPLEX);
+    test_copy_nand_flash_pages(SPI_NAND_IO_MODE_DIO, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("copy nand flash sectors (dout)", "[spi_nand_flash]")
+TEST_CASE("copy nand flash pages (dout)", "[spi_nand_flash]")
 {
-    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_DOUT, SPI_DEVICE_HALFDUPLEX);
+    test_copy_nand_flash_pages(SPI_NAND_IO_MODE_DOUT, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("copy nand flash sectors (qio)", "[spi_nand_flash]")
+TEST_CASE("copy nand flash pages (qio)", "[spi_nand_flash]")
 {
-    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_QIO, SPI_DEVICE_HALFDUPLEX);
+    test_copy_nand_flash_pages(SPI_NAND_IO_MODE_QIO, SPI_DEVICE_HALFDUPLEX);
 }
 
-TEST_CASE("copy nand flash sectors (qout)", "[spi_nand_flash]")
+TEST_CASE("copy nand flash pages (qout)", "[spi_nand_flash]")
 {
-    test_copy_nand_flash_sectors(SPI_NAND_IO_MODE_QOUT, SPI_DEVICE_HALFDUPLEX);
+    test_copy_nand_flash_pages(SPI_NAND_IO_MODE_QOUT, SPI_DEVICE_HALFDUPLEX);
 }
 
 static void test_nand_operations(spi_nand_flash_io_mode_t mode, uint8_t flags)
 {
     spi_nand_flash_device_t *nand_flash_device_handle;
     spi_device_handle_t spi;
-    uint32_t sector_num, sector_size, block_size;
+    uint32_t num_pages, page_size, block_size;
 
     setup_nand_flash(&nand_flash_device_handle, &spi, mode, flags);
 
-    TEST_ESP_OK(spi_nand_flash_get_capacity(nand_flash_device_handle, &sector_num));
-    TEST_ESP_OK(spi_nand_flash_get_sector_size(nand_flash_device_handle, &sector_size));
+    TEST_ESP_OK(spi_nand_flash_get_page_count(nand_flash_device_handle, &num_pages));
+    TEST_ESP_OK(spi_nand_flash_get_page_size(nand_flash_device_handle, &page_size));
     TEST_ESP_OK(spi_nand_flash_get_block_size(nand_flash_device_handle, &block_size));
-    printf("Number of sectors: %" PRIu32 ", Sector size: %" PRIu32 "\n", sector_num, sector_size);
+    printf("Number of pages: %" PRIu32 ", Page size: %" PRIu32 "\n", num_pages, page_size);
 
-    uint8_t *pattern_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
+    uint8_t *pattern_buf = (uint8_t *)heap_caps_malloc(page_size, MALLOC_CAP_DMA);
     TEST_ASSERT_NOT_NULL(pattern_buf);
-    uint8_t *temp_buf = (uint8_t *)heap_caps_malloc(sector_size, MALLOC_CAP_DMA);
+    uint8_t *temp_buf = (uint8_t *)heap_caps_malloc(page_size, MALLOC_CAP_DMA);
     TEST_ASSERT_NOT_NULL(temp_buf);
 
-    fill_buffer(PATTERN_SEED, pattern_buf, sector_size / sizeof(uint32_t));
+    spi_nand_flash_fill_buffer(pattern_buf, page_size / sizeof(uint32_t));
 
     bool is_page_free = true;
     uint32_t src_block = 20;
     uint32_t dst_block = 21;
-    uint32_t test_page = src_block * (block_size / sector_size); //(block_num * pages_per_block)
-    uint32_t dst_page = dst_block * (block_size / sector_size);
+    uint32_t test_page = src_block * (block_size / page_size); // pages_per_block
+    uint32_t dst_page = dst_block * (block_size / page_size);
     TEST_ESP_OK(nand_wrap_erase_block(nand_flash_device_handle, src_block));
     TEST_ESP_OK(nand_wrap_erase_block(nand_flash_device_handle, dst_block));
-    if (test_page < sector_num) {
-        // Verify if test_page is free
-        TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
-        TEST_ASSERT_TRUE(is_page_free == true);
-        // Write/program test_page
-        TEST_ESP_OK(nand_wrap_prog(nand_flash_device_handle, test_page, pattern_buf));
-        // Verify if test_page is used/programmed
-        TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
-        TEST_ASSERT_TRUE(is_page_free == false);
-        // read test_page and verify with pattern_buf
-        TEST_ESP_OK(nand_wrap_read(nand_flash_device_handle, test_page, 0, sector_size, temp_buf));
-        check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
-        // Copy test_page to dst_page
-        TEST_ESP_OK(nand_wrap_copy(nand_flash_device_handle, test_page, dst_page));
-        // read dst_page and verify with pattern_buf
-        TEST_ESP_OK(nand_wrap_read(nand_flash_device_handle, dst_page, 0, sector_size, temp_buf));
-        check_buffer(PATTERN_SEED, temp_buf, sector_size / sizeof(uint32_t));
-    }
+    TEST_ASSERT_TRUE(test_page < num_pages);
+
+    // Verify if test_page is free
+    TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
+    TEST_ASSERT_TRUE(is_page_free == true);
+    // Write/program test_page
+    TEST_ESP_OK(nand_wrap_prog(nand_flash_device_handle, test_page, pattern_buf));
+    // Verify if test_page is used/programmed
+    TEST_ESP_OK(nand_wrap_is_free(nand_flash_device_handle, test_page, &is_page_free));
+    TEST_ASSERT_TRUE(is_page_free == false);
+    // read test_page and verify with pattern_buf
+    TEST_ESP_OK(nand_wrap_read(nand_flash_device_handle, test_page, 0, page_size, temp_buf));
+    TEST_ASSERT_EQUAL(0, spi_nand_flash_check_buffer(temp_buf, page_size / sizeof(uint32_t)));
+    // Copy test_page to dst_page
+    TEST_ESP_OK(nand_wrap_copy(nand_flash_device_handle, test_page, dst_page));
+    // read dst_page and verify with pattern_buf
+    TEST_ESP_OK(nand_wrap_read(nand_flash_device_handle, dst_page, 0, page_size, temp_buf));
+    TEST_ASSERT_EQUAL(0, spi_nand_flash_check_buffer(temp_buf, page_size / sizeof(uint32_t)));
+
     free(pattern_buf);
     free(temp_buf);
     deinit_nand_flash(nand_flash_device_handle, spi);

@@ -29,18 +29,18 @@ DSTATUS ff_nand_status(BYTE pdrv)
 
 DRESULT ff_nand_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
 {
-    ESP_LOGV(TAG, "ff_nand_read - pdrv=%i, sector=%i, count=%i", (unsigned int) pdrv, (unsigned int) sector,
+    ESP_LOGV(TAG, "ff_nand_read - pdrv=%i, sector=%lu, count=%u", (unsigned int) pdrv, (unsigned long) sector,
              (unsigned int) count);
     esp_err_t ret;
-    uint32_t sector_size;
+    uint32_t page_size;
     spi_nand_flash_device_t *dev = ff_nand_handles[pdrv];
     assert(dev);
 
-    ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &sector_size), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_flash_get_page_size(dev, &page_size), fail, TAG, "");
 
     for (uint32_t i = 0; i < count; i++) {
-        ESP_GOTO_ON_ERROR(spi_nand_flash_read_sector(dev, buff + i * sector_size, sector + i),
-                          fail, TAG, "spi_nand_flash_read failed");
+        ESP_GOTO_ON_ERROR(spi_nand_flash_read_page(dev, buff + i * page_size, sector + i),
+                          fail, TAG, "spi_nand_flash_read_page failed");
     }
 
     return RES_OK;
@@ -52,18 +52,18 @@ fail:
 
 DRESULT ff_nand_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
 {
-    ESP_LOGV(TAG, "ff_nand_write - pdrv=%i, sector=%i, count=%i", (unsigned int) pdrv, (unsigned int) sector,
+    ESP_LOGV(TAG, "ff_nand_write - pdrv=%i, sector=%lu, count=%u", (unsigned int) pdrv, (unsigned long) sector,
              (unsigned int) count);
     esp_err_t ret;
-    uint32_t sector_size;
+    uint32_t page_size;
     spi_nand_flash_device_t *dev = ff_nand_handles[pdrv];
     assert(dev);
 
-    ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &sector_size), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_flash_get_page_size(dev, &page_size), fail, TAG, "");
 
     for (uint32_t i = 0; i < count; i++) {
-        ESP_GOTO_ON_ERROR(spi_nand_flash_write_sector(dev, buff + i * sector_size, sector + i),
-                          fail, TAG, "spi_nand_flash_write failed");
+        ESP_GOTO_ON_ERROR(spi_nand_flash_write_page(dev, buff + i * page_size, sector + i),
+                          fail, TAG, "spi_nand_flash_write_page failed");
     }
     return RES_OK;
 
@@ -79,11 +79,11 @@ DRESULT ff_nand_trim(BYTE pdrv, DWORD start_sector, DWORD sector_count)
     spi_nand_flash_device_t *dev = ff_nand_handles[pdrv];
     assert(dev);
 
-    uint32_t num_sectors;
-    ESP_GOTO_ON_ERROR(spi_nand_flash_get_capacity(dev, &num_sectors),
-                      fail, TAG, "get_capacity failed");
+    uint32_t num_pages;
+    ESP_GOTO_ON_ERROR(spi_nand_flash_get_page_count(dev, &num_pages),
+                      fail, TAG, "get_page_count failed");
 
-    if ((start_sector > num_sectors) || ((start_sector + sector_count) > num_sectors)) {
+    if ((start_sector > num_pages) || ((start_sector + sector_count) > num_pages)) {
         return RES_PARERR;
     }
 
@@ -111,20 +111,20 @@ DRESULT ff_nand_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         ESP_GOTO_ON_ERROR(spi_nand_flash_sync(dev), fail, TAG, "sync failed");
         break;
     case GET_SECTOR_COUNT: {
-        uint32_t num_sectors;
-        ESP_GOTO_ON_ERROR(spi_nand_flash_get_capacity(dev, &num_sectors),
-                          fail, TAG, "get_capacity failed");
-        *((DWORD *)buff) = num_sectors;
-        ESP_LOGV(TAG, "capacity=%"PRIu32"", *((DWORD *) buff));
+        uint32_t num_pages;
+        ESP_GOTO_ON_ERROR(spi_nand_flash_get_page_count(dev, &num_pages),
+                          fail, TAG, "get_page_count failed");
+        *((DWORD *)buff) = num_pages;
+        ESP_LOGV(TAG, "capacity=%"PRIu32" pages", num_pages);
         break;
     }
     case GET_SECTOR_SIZE: {
-        uint32_t sector_size;
-        ESP_GOTO_ON_ERROR(spi_nand_flash_get_sector_size(dev, &sector_size),
-                          fail, TAG, "get_sector_size failed");
+        uint32_t page_size;
+        ESP_GOTO_ON_ERROR(spi_nand_flash_get_page_size(dev, &page_size),
+                          fail, TAG, "get_page_size failed");
 
-        *((WORD *)buff) = sector_size;
-        ESP_LOGV(TAG, "sector size=%d", *((WORD *)buff));
+        *((WORD *)buff) = (WORD)page_size;
+        ESP_LOGV(TAG, "page size=%u", (unsigned)page_size);
         break;
     }
 #if FF_USE_TRIM

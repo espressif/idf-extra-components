@@ -46,7 +46,8 @@ graph TD
 ```
 
 **Key Benefits:**
-- **Backward Compatible**: Existing code works unchanged
+- **Backward Compatible**: Existing code works unchanged; sector-named APIs are retained as aliases of the page API
+- **Page terminology**: Public API uses *page* (read_page, write_page, get_page_count, get_page_size) to align with NAND flash; sector names remain for compatibility
 - **Modular Design**: Clear separation between wear-leveling and flash management
 - **Enhanced Features**: Direct access to flash and wear-leveling layers
 

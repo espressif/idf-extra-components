@@ -80,14 +80,14 @@ static bool s_need_data_refresh(spi_nand_flash_device_t *handle)
         min_bits_corrected = 7;
     }
 
-    // if number of corrected bits is greater than refresh threshold then rewrite the sector
+    // if number of corrected bits is greater than refresh threshold then rewrite the page
     if (min_bits_corrected >= handle->chip.ecc_data.ecc_data_refresh_threshold) {
         ret = true;
     }
     return ret;
 }
 
-esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, uint32_t sector_id)
+esp_err_t spi_nand_flash_read_page(spi_nand_flash_device_t *handle, uint8_t *buffer, uint32_t page_id)
 {
     esp_err_t ret = ESP_OK;
 
@@ -96,12 +96,12 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
     }
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
-    ret = handle->ops->read(handle, buffer, sector_id);
+    ret = handle->ops->read(handle, buffer, page_id);
     // After a successful read operation, check the ECC corrected bit status; if the read fails, return an error
     if (ret == ESP_OK && handle->chip.ecc_data.ecc_corrected_bits_status) {
-        // This indicates a soft ECC error, we rewrite the sector to recover if corrected bits are greater than refresh threshold
+        // This indicates a soft ECC error, we rewrite the page to recover if corrected bits are greater than refresh threshold
         if (s_need_data_refresh(handle)) {
-            ret = handle->ops->write(handle, buffer, sector_id);
+            ret = handle->ops->write(handle, buffer, page_id);
         }
     }
     xSemaphoreGive(handle->mutex);
@@ -109,7 +109,12 @@ esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *b
     return ret;
 }
 
-esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, uint32_t src_sec, uint32_t dst_sec)
+esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, uint32_t sector_id)
+{
+    return spi_nand_flash_read_page(handle, buffer, sector_id);
+}
+
+esp_err_t spi_nand_flash_copy_page(spi_nand_flash_device_t *handle, uint32_t src_page, uint32_t dst_page)
 {
     esp_err_t ret = ESP_OK;
 
@@ -118,13 +123,18 @@ esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, uint32_t s
     }
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
-    ret = handle->ops->copy_sector(handle, src_sec, dst_sec);
+    ret = handle->ops->copy_sector(handle, src_page, dst_page);
     xSemaphoreGive(handle->mutex);
 
     return ret;
 }
 
-esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint32_t sector_id)
+esp_err_t spi_nand_flash_copy_sector(spi_nand_flash_device_t *handle, uint32_t src_sec, uint32_t dst_sec)
+{
+    return spi_nand_flash_copy_page(handle, src_sec, dst_sec);
+}
+
+esp_err_t spi_nand_flash_write_page(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint32_t page_id)
 {
     esp_err_t ret = ESP_OK;
 
@@ -133,13 +143,18 @@ esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uin
     }
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
-    ret = handle->ops->write(handle, buffer, sector_id);
+    ret = handle->ops->write(handle, buffer, page_id);
     xSemaphoreGive(handle->mutex);
 
     return ret;
 }
 
-esp_err_t spi_nand_flash_trim(spi_nand_flash_device_t *handle, uint32_t sector_id)
+esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint32_t sector_id)
+{
+    return spi_nand_flash_write_page(handle, buffer, sector_id);
+}
+
+esp_err_t spi_nand_flash_trim(spi_nand_flash_device_t *handle, uint32_t page_id)
 {
     esp_err_t ret = ESP_OK;
 
@@ -148,7 +163,7 @@ esp_err_t spi_nand_flash_trim(spi_nand_flash_device_t *handle, uint32_t sector_i
     }
 
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
-    ret = handle->ops->trim(handle, sector_id);
+    ret = handle->ops->trim(handle, page_id);
     xSemaphoreGive(handle->mutex);
 
     return ret;
@@ -184,19 +199,29 @@ esp_err_t spi_nand_flash_gc(spi_nand_flash_device_t *handle)
     return ret;
 }
 
-esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, uint32_t *number_of_sectors)
+esp_err_t spi_nand_flash_get_page_count(spi_nand_flash_device_t *handle, uint32_t *number_of_pages)
 {
     if (handle->ops->get_capacity == NULL) {
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    return handle->ops->get_capacity(handle, number_of_sectors);
+    return handle->ops->get_capacity(handle, number_of_pages);
+}
+
+esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, uint32_t *number_of_sectors)
+{
+    return spi_nand_flash_get_page_count(handle, number_of_sectors);
+}
+
+esp_err_t spi_nand_flash_get_page_size(spi_nand_flash_device_t *handle, uint32_t *page_size)
+{
+    *page_size = handle->chip.page_size;
+    return ESP_OK;
 }
 
 esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint32_t *sector_size)
 {
-    *sector_size = handle->chip.page_size;
-    return ESP_OK;
+    return spi_nand_flash_get_page_size(handle, sector_size);
 }
 
 esp_err_t spi_nand_flash_get_block_size(spi_nand_flash_device_t *handle, uint32_t *block_size)
