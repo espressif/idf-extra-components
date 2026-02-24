@@ -87,12 +87,12 @@ esp_err_t esp_cli_dynamic_commands_add(esp_cli_command_t *cmd)
     return ESP_OK;
 }
 
-esp_err_t esp_cli_dynamic_commands_replace(esp_cli_command_t *item_cmd)
+esp_err_t esp_cli_dynamic_commands_replace(esp_cli_command_t *old_cmd, esp_cli_command_t *new_cmd)
 {
     esp_cli_dynamic_commands_lock();
 
-    esp_cli_command_internal_t *list_item = CONTAINER_OF(item_cmd, esp_cli_command_internal_t, cmd);
-    memcpy(&list_item->cmd, item_cmd, sizeof(esp_cli_command_t));
+    esp_cli_command_internal_t *list_item = CONTAINER_OF(old_cmd, esp_cli_command_internal_t, cmd);
+    memcpy(&list_item->cmd, new_cmd, sizeof(esp_cli_command_t));
 
     esp_cli_dynamic_commands_unlock();
 

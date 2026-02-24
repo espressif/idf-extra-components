@@ -110,12 +110,13 @@ esp_err_t esp_cli_dynamic_commands_add(esp_cli_command_t *cmd);
  *
  * If a command with the same name exists, it will be replaced.
  *
- * @param item_cmd Pointer to the new command data.
+ * @param old_cmd Pointer to the existing command to be replaced.
+ * @param new_cmd Pointer to the new command data.
  * @return
  *      - `ESP_OK` on success.
  *      - Appropriate error code on failure.
  */
-esp_err_t esp_cli_dynamic_commands_replace(esp_cli_command_t *item_cmd);
+esp_err_t esp_cli_dynamic_commands_replace(esp_cli_command_t *old_cmd, esp_cli_command_t *new_cmd);
 
 /**
  * @brief Remove a command from the dynamic command list.
