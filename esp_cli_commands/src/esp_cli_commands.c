@@ -129,11 +129,11 @@ void go_through_commands(esp_cli_command_sets_t *cmd_sets, void *cmd_walker_ctx,
     }
 
     esp_cli_command_set_t *dynamic_set = cmd_sets ? &cmd_sets->dynamic_set : NULL;
-    /* it is possible that the set is empty, in which case set dynamic_set to NULL
-     * to prevent the for loop to try to access a list of commands pointer set to NULL */
-    if (dynamic_set && !dynamic_set->cmd_ptr_set) {
-        dynamic_set = NULL;
-    }
+    /* Note: unlike FOR_EACH_STATIC_COMMAND which uses the comma operator,
+     * FOR_EACH_DYNAMIC_COMMAND uses && short-circuit evaluation, so it is safe
+     * to pass a set with cmd_ptr_set == NULL and cmd_set_size == 0.
+     * We must NOT null out the set here, because FOR_EACH_DYNAMIC_COMMAND(NULL, ...)
+     * means "walk ALL dynamic commands", bypassing the set filter. */
     esp_cli_dynamic_commands_lock();
     FOR_EACH_DYNAMIC_COMMAND(dynamic_set, cmd) {
         continue_walk = cmd_walker(cmd_walker_ctx, cmd);
@@ -324,6 +324,13 @@ esp_cli_command_t *esp_cli_commands_find_command(esp_cli_command_set_handle_t cm
 
     find_cmd_ctx_t ctx = { .cmd = NULL, .name = name };
     go_through_commands(cmd_set, &ctx, compare_command_name);
+
+    /* The "help" command is a built-in registered by esp_cli_commands itself.
+     * It must always be found regardless of the command set passed by the user.
+     * If not found in the filtered set, search all commands. */
+    if (!ctx.cmd && cmd_set != NULL && strcmp(name, "help") == 0) {
+        go_through_commands(NULL, &ctx, compare_command_name);
+    }
 
     /* if command was found during the walk, cmd field will be populated with
      * the command matching the name given in parameter, otherwise it will still
@@ -541,6 +548,12 @@ void esp_cli_commands_get_completion(esp_cli_command_set_handle_t cmd_set, const
         .completion_cb = completion_cb
     };
     go_through_commands(cmd_set, &ctx, call_completion_cb);
+
+    /* The "help" command is a built-in that must always be completable
+     * regardless of the command set */
+    if (cmd_set != NULL && len <= 4 && strncmp(buf, "help", len) == 0) {
+        completion_cb(cb_ctx, "help");
+    }
 }
 
 const char *esp_cli_commands_get_hint(esp_cli_command_set_handle_t cmd_set, const char *buf, int *color, bool *bold)
@@ -739,6 +752,22 @@ static int help_command(void *context, esp_cli_commands_exec_arg_t *cmd_args, in
         .command_found = false
     };
     go_through_commands(cmd_sets, &ctx, call_command_funcs);
+
+    /* The "help" command is a built-in that must always appear in listings
+     * regardless of the command set */
+    if (cmd_sets != NULL) {
+        esp_cli_command_t *help_cmd = esp_cli_commands_find_command(NULL, "help");
+        if (help_cmd) {
+            if (!command_name) {
+                /* Listing all commands: also print the help entry */
+                print_verbose_level_arr[verbose_level](cmd_args, help_cmd);
+            } else if (strcmp(command_name, "help") == 0) {
+                /* User asked specifically for "help help" */
+                print_verbose_level_arr[verbose_level](cmd_args, help_cmd);
+                ctx.command_found = true;
+            }
+        }
+    }
 
     if (command_name && !ctx.command_found) {
         ESP_CLI_COMMANDS_FD_PRINT(cmd_args->out_fd, cmd_args->write_func, "help: invalid command name %s\n", command_name);
