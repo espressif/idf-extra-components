@@ -24,56 +24,6 @@
 #include "crypto_hash_sha256.h"
 #include <string.h>
 
-#ifdef MBEDTLS_PSA_CRYPTO
-#include "psa/crypto.h"
-#else
-#include "mbedtls/sha256.h"
-#endif
-
-#ifndef MBEDTLS_PSA_CRYPTO
-#ifdef MBEDTLS_SHA256_ALT
-/* Wrapper only works if the libsodium context structure can be mapped
-   directly to the mbedTLS context structure.
-
-   See extended comments in crypto_hash_sha512_mbedtls.c
-*/
-#error "This wrapper only support standard software mbedTLS SHA"
-#endif
-
-/* Sanity check that all the context fields have identical sizes
-   (this should be more or less given from the SHA256 algorithm)
-
-   Note that the meaning of the fields is *not* all the same. In libsodium, SHA256 'count' is a 64-bit *bit* count. In
-   mbedTLS, 'total' is a 2x32-bit *byte* count (count[0] == MSB).
-
-   For this implementation, we don't convert so the libsodium state structure actually holds a binary copy of the
-   mbedTLS totals. This doesn't matter inside libsodium's documented API, but would matter if any callers try to use
-   the state's bit count.
-*/
-_Static_assert(sizeof(((crypto_hash_sha256_state *)0)->state) == sizeof(((mbedtls_sha256_context *)0)->state), "state mismatch");
-_Static_assert(sizeof(((crypto_hash_sha256_state *)0)->count) == sizeof(((mbedtls_sha256_context *)0)->total), "count mismatch");
-_Static_assert(sizeof(((crypto_hash_sha256_state *)0)->buf) == sizeof(((mbedtls_sha256_context *)0)->buffer), "buf mismatch");
-
-/* Inline functions to convert between mbedTLS & libsodium
-   context structures
-*/
-
-static void sha256_mbedtls_to_libsodium(crypto_hash_sha256_state *ls_state, const mbedtls_sha256_context *mb_ctx)
-{
-    memcpy(&ls_state->count, mb_ctx->total, sizeof(ls_state->count));
-    memcpy(ls_state->state, mb_ctx->state, sizeof(ls_state->state));
-    memcpy(ls_state->buf, mb_ctx->buffer, sizeof(ls_state->buf));
-}
-
-static void sha256_libsodium_to_mbedtls(mbedtls_sha256_context *mb_ctx, crypto_hash_sha256_state *ls_state)
-{
-    memcpy(mb_ctx->total, &ls_state->count, sizeof(mb_ctx->total));
-    memcpy(mb_ctx->state, ls_state->state, sizeof(mb_ctx->state));
-    memcpy(mb_ctx->buffer, ls_state->buf, sizeof(mb_ctx->buffer));
-    mb_ctx->is224 = 0;
-}
-#endif /* !MBEDTLS_PSA_CRYPTO */
-
 int
 crypto_hash_sha256_init(crypto_hash_sha256_state *state)
 {
@@ -85,37 +35,23 @@ crypto_hash_sha256_init(crypto_hash_sha256_state *state)
         return -1;
     }
 
-    psa_hash_operation_t *operation;
+    state->_psa_op = psa_hash_operation_init();
 
-    /* Store PSA hash operation in the state buffer
-     * The libsodium state structure is large enough to hold psa_hash_operation_t.
-     * Ensure this is safe with respect to both size and alignment.
-     */
-    _Static_assert(sizeof(crypto_hash_sha256_state) >= sizeof(psa_hash_operation_t),
-                   "crypto_hash_sha256_state too small for psa_hash_operation_t");
-    _Static_assert(_Alignof(crypto_hash_sha256_state) >= _Alignof(psa_hash_operation_t),
-                   "crypto_hash_sha256_state alignment insufficient for psa_hash_operation_t");
-    memset(state, 0, sizeof(*state));
-    operation = (psa_hash_operation_t *)state;
-    *operation = psa_hash_operation_init();
-
-    status = psa_hash_setup(operation, PSA_ALG_SHA_256);
+    status = psa_hash_setup(&state->_psa_op, PSA_ALG_SHA_256);
     if (status != PSA_SUCCESS) {
         return -1;
     }
     return 0;
 #else
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init(&ctx);
+    mbedtls_sha256_init(&state->ctx);
 #ifdef MBEDTLS_2_X_COMPAT
-    int ret = mbedtls_sha256_starts_ret(&ctx, 0);
+    int ret = mbedtls_sha256_starts_ret(&state->ctx, 0);
 #else
-    int ret = mbedtls_sha256_starts(&ctx, 0);
+    int ret = mbedtls_sha256_starts(&state->ctx, 0);
 #endif /* MBEDTLS_2_X_COMPAT */
     if (ret != 0) {
         return ret;
     }
-    sha256_mbedtls_to_libsodium(state, &ctx);
     return 0;
 #endif /* !MBEDTLS_PSA_CRYPTO */
 }
@@ -128,27 +64,23 @@ crypto_hash_sha256_update(crypto_hash_sha256_state *state,
         return -1;
     }
 #ifdef MBEDTLS_PSA_CRYPTO
-    psa_hash_operation_t *operation = (psa_hash_operation_t *)state;
     psa_status_t status;
 
-    status = psa_hash_update(operation, in, inlen);
+    status = psa_hash_update(&state->_psa_op, in, inlen);
     if (status != PSA_SUCCESS) {
-        psa_hash_abort(operation);
+        psa_hash_abort(&state->_psa_op);
         return -1;
     }
     return 0;
 #else
-    mbedtls_sha256_context ctx;
-    sha256_libsodium_to_mbedtls(&ctx, state);
 #ifdef MBEDTLS_2_X_COMPAT
-    int ret = mbedtls_sha256_update_ret(&ctx, in, inlen);
+    int ret = mbedtls_sha256_update_ret(&state->ctx, in, inlen);
 #else
-    int ret = mbedtls_sha256_update(&ctx, in, inlen);
+    int ret = mbedtls_sha256_update(&state->ctx, in, inlen);
 #endif /* MBEDTLS_2_X_COMPAT */
     if (ret != 0) {
         return ret;
     }
-    sha256_mbedtls_to_libsodium(state, &ctx);
     return 0;
 #endif /* !MBEDTLS_PSA_CRYPTO */
 }
@@ -157,23 +89,20 @@ int
 crypto_hash_sha256_final(crypto_hash_sha256_state *state, unsigned char *out)
 {
 #ifdef MBEDTLS_PSA_CRYPTO
-    psa_hash_operation_t *operation = (psa_hash_operation_t *)state;
     psa_status_t status;
     size_t hash_len;
 
-    status = psa_hash_finish(operation, out, crypto_hash_sha256_BYTES, &hash_len);
+    status = psa_hash_finish(&state->_psa_op, out, crypto_hash_sha256_BYTES, &hash_len);
     if (status != PSA_SUCCESS || hash_len != crypto_hash_sha256_BYTES) {
-        psa_hash_abort(operation);
+        psa_hash_abort(&state->_psa_op);
         return -1;
     }
     return 0;
 #else
-    mbedtls_sha256_context ctx;
-    sha256_libsodium_to_mbedtls(&ctx, state);
 #ifdef MBEDTLS_2_X_COMPAT
-    return mbedtls_sha256_finish_ret(&ctx, out);
+    return mbedtls_sha256_finish_ret(&state->ctx, out);
 #else
-    return mbedtls_sha256_finish(&ctx, out);
+    return mbedtls_sha256_finish(&state->ctx, out);
 #endif /* MBEDTLS_2_X_COMPAT */
 #endif /* !MBEDTLS_PSA_CRYPTO */
 }
