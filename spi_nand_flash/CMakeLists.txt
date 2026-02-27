@@ -1,32 +1,36 @@
 idf_build_get_property(target IDF_TARGET)
 
-set(reqs fatfs)
-set(inc diskio include)
+set(reqs)
+set(inc include)
 set(priv_inc priv_include)
 set(srcs "src/nand.c"
          "src/dhara_glue.c"
-         "src/nand_impl_wrap.c"
-         "diskio/diskio_nand.c")
+         "src/nand_impl_wrap.c")
+
+# Conditionally add BDL support
+if(CONFIG_NAND_FLASH_ENABLE_BDL)
+    list(APPEND srcs "src/nand_flash_blockdev.c"
+                     "src/nand_wl_blockdev.c")
+endif()
 
 if(${target} STREQUAL "linux")
     list(APPEND srcs "src/nand_impl_linux.c"
-                 "src/nand_linux_mmap_emul.c")
+                     "src/nand_linux_mmap_emul.c"
+                     "src/spi_nand_flash_test_helpers.c")
 else()
-    list(APPEND srcs "src/nand_winbond.c"
-                 "src/nand_gigadevice.c"
-                 "src/nand_alliance.c"
-                 "src/nand_micron.c"
-                 "src/nand_zetta.c"
-                 "src/nand_xtx.c"
-                 "src/nand_impl.c"
-                 "src/nand_impl_wrap.c"
-                 "src/nand_diag_api.c"
-                 "src/spi_nand_oper.c"
-                 "vfs/vfs_fat_spinandflash.c")
-
-    set(priv_reqs vfs esp_mm)
-    list(APPEND inc vfs)
-
+    list(APPEND srcs "src/devices/nand_winbond.c"
+                     "src/devices/nand_gigadevice.c"
+                     "src/devices/nand_alliance.c"
+                     "src/devices/nand_micron.c"
+                     "src/devices/nand_zetta.c"
+                     "src/devices/nand_xtx.c"
+                     "src/nand_impl.c"
+                     "src/nand_diag_api.c"
+                     "src/spi_nand_flash_test_helpers.c"
+                     "src/spi_nand_oper.c")
+    
+    set(priv_reqs esp_mm)
+    
     if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER "5.3")
         list(APPEND reqs esp_driver_spi)
     else()
@@ -40,3 +44,11 @@ idf_component_register(SRCS ${srcs}
         PRIV_INCLUDE_DIRS ${priv_inc}
         REQUIRES ${reqs}
         PRIV_REQUIRES ${priv_reqs})
+
+if(CONFIG_NAND_FLASH_ENABLE_BDL)
+    if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_LESS "6.0")
+    message(FATAL_ERROR "Block Device Layer (BDL) support (CONFIG_NAND_FLASH_ENABLE_BDL) requires ESP-IDF >= 6.0. "
+         "Please disable CONFIG_NAND_FLASH_ENABLE_BDL or upgrade your ESP-IDF version.")
+    endif()
+    idf_component_optional_requires(PUBLIC esp_blockdev)
+endif()
