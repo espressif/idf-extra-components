@@ -24,4 +24,14 @@ menu "Example Configuration"
         help
             Maximum time for reception
 
+    config EXAMPLE_FIRMWARE_UPG_URL_FROM_STDIN
+        bool
+        default y if EXAMPLE_FIRMWARE_UPG_URL = "FROM_STDIN"
+
+    config EXAMPLE_ENABLE_CI_TEST
+        bool "Enable the CI test code"
+        default n
+        help
+            This enables the CI test code i.e. https local server code.
+
 endmenu

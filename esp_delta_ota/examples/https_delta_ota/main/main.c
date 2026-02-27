@@ -36,13 +36,18 @@
 #define BUFFSIZE 1024
 #define PATCH_HEADER_SIZE 64
 #define DIGEST_SIZE 32
+#define OTA_URL_SIZE 256
 static uint32_t esp_delta_ota_magic = 0xfccdde10;
 
 static const char *TAG = "https_delta_ota_example";
 
 static char ota_write_data[BUFFSIZE + 1] = { 0 };
-extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
-extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
+extern const uint8_t server_cert_pem_start[] asm("_binary_servercert_pem_start");
+extern const uint8_t server_cert_pem_end[] asm("_binary_servercert_pem_end");
+
+#ifdef CONFIG_EXAMPLE_ENABLE_CI_TEST
+#include "test_local_server_ota.h"
+#endif
 
 const esp_partition_t *current_partition, *destination_partition;
 static esp_ota_handle_t ota_handle;
@@ -154,6 +159,29 @@ static void ota_example_task(void *pvParameter)
     };
 #ifdef CONFIG_EXAMPLE_SKIP_COMMON_NAME_CHECK
     config.skip_cert_common_name_check = true;
+#endif
+
+#ifdef CONFIG_EXAMPLE_FIRMWARE_UPG_URL_FROM_STDIN
+    if (strcmp(config.url, "FROM_STDIN") == 0) {
+        ESP_LOGI(TAG, "Reading OTA URL from stdin");
+#ifdef CONFIG_EXAMPLE_ENABLE_CI_TEST
+        delta_ota_test_firmware_data_from_stdin(&config.url);
+        if (config.url == NULL) {
+            ESP_LOGE(TAG, "Failed to read URL from stdin");
+            abort();
+        }
+#else
+        char url_buf[OTA_URL_SIZE];
+        example_configure_stdin_stdout();
+        fgets(url_buf, OTA_URL_SIZE, stdin);
+        int len = strlen(url_buf);
+        url_buf[len - 1] = '\0';
+        config.url = url_buf;
+#endif
+    } else {
+        ESP_LOGE(TAG, "Configuration mismatch: wrong firmware upgrade image url");
+        abort();
+    }
 #endif
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -273,5 +301,12 @@ void app_main(void)
      * examples/protocols/README.md for more information about this function.
      */
     ESP_ERROR_CHECK(example_connect());
+
+#ifdef CONFIG_EXAMPLE_ENABLE_CI_TEST
+    /* Start the local HTTPS server for CI test */
+    ESP_ERROR_CHECK(delta_ota_test_start_webserver());
+    ESP_LOGI(TAG, "Local HTTPS server started for CI test");
+#endif
+
     xTaskCreate(&ota_example_task, "ota_example_task", 8192, NULL, 5, NULL);
 }
