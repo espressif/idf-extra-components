@@ -1,0 +1,6 @@
+swift/test_apps:
+  disable:
+    - if: IDF_VERSION_MAJOR < 5 or (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 4)
+      reason: Swift is not supported on IDF v5.3 and below
+    - if: IDF_TARGET in ["esp32", "esp32s2", "esp32s3"]
+      reason: Swift is only supported on RISC-V targets
