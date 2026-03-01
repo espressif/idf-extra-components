@@ -66,9 +66,9 @@ esp_err_t onewire_device_iter_get_next(onewire_device_iter_handle_t iter, onewir
     }, 1), TAG, "send ONEWIRE_CMD_SEARCH_NORMAL failed");
 
     uint8_t last_zero = 0;
-    for (uint16_t rom_bit_index = 0; rom_bit_index < sizeof(onewire_device_address_t) * 8; rom_bit_index ++) {
-        uint8_t rom_byte_index = rom_bit_index / 8;
-        uint8_t rom_bit_mask = 1 << (rom_bit_index % 8); // calculate byte index and bit mask in advance for convenience
+    for (uint16_t rom_bit_index = 1; rom_bit_index < ((sizeof(onewire_device_address_t) * 8) + 1); rom_bit_index++) {
+        uint8_t rom_byte_index = (rom_bit_index - 1) / 8;
+        uint8_t rom_bit_mask = 1 << ((rom_bit_index - 1) % 8); // calculate byte index and bit mask in advance for convenience
 
         uint8_t rom_bit = 0;
         uint8_t rom_bit_complement = 0;
