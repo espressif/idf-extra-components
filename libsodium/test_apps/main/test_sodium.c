@@ -9,6 +9,26 @@
 #include "sodium/crypto_hash_sha512.h"
 
 
+#ifdef CONFIG_LIBSODIUM_USE_MBEDTLS_SHA
+/*
+ * Added these static assert checks to verify that the port headers are being included
+ * and the state structs are the expected size. If these fail, it likely means that the
+ * port headers are not included correctly
+ */
+#ifdef MBEDTLS_PSA_CRYPTO
+_Static_assert(sizeof(crypto_hash_sha256_state) == sizeof(psa_hash_operation_t),
+               "crypto_hash_sha256_state must wrap psa_hash_operation_t on PSA path");
+_Static_assert(sizeof(crypto_hash_sha512_state) == sizeof(psa_hash_operation_t),
+               "crypto_hash_sha512_state must wrap psa_hash_operation_t on PSA path");
+#else
+_Static_assert(sizeof(crypto_hash_sha256_state) == sizeof(mbedtls_sha256_context),
+               "crypto_hash_sha256_state must wrap mbedtls_sha256_context on MbedTLS path");
+_Static_assert(sizeof(crypto_hash_sha512_state) == sizeof(mbedtls_sha512_context),
+               "crypto_hash_sha512_state must wrap mbedtls_sha512_context on MbedTLS path");
+#endif /* MBEDTLS_PSA_CRYPTO */
+#endif /* CONFIG_LIBSODIUM_USE_MBEDTLS_SHA */
+
+
 #define LIBSODIUM_TEST(name_) \
     extern int name_ ## _xmain(void);   \
     extern const uint8_t name_ ## _exp_start[] asm("_binary_" #name_ "_exp_start"); \
