@@ -161,23 +161,18 @@ static void ota_example_task(void *pvParameter)
     config.skip_cert_common_name_check = true;
 #endif
 
-#ifdef CONFIG_EXAMPLE_FIRMWARE_UPG_URL_FROM_STDIN
+#ifdef CONFIG_EXAMPLE_ENABLE_CI_TEST
+    ESP_LOGI(TAG, "Reading OTA URL from stdin");
+    delta_ota_test_firmware_data_from_stdin(&config.url);
+#elif defined(CONFIG_EXAMPLE_FIRMWARE_UPG_URL_FROM_STDIN)
     if (strcmp(config.url, "FROM_STDIN") == 0) {
         ESP_LOGI(TAG, "Reading OTA URL from stdin");
-#ifdef CONFIG_EXAMPLE_ENABLE_CI_TEST
-        delta_ota_test_firmware_data_from_stdin(&config.url);
-        if (config.url == NULL) {
-            ESP_LOGE(TAG, "Failed to read URL from stdin");
-            abort();
-        }
-#else
         char url_buf[OTA_URL_SIZE];
         example_configure_stdin_stdout();
         fgets(url_buf, OTA_URL_SIZE, stdin);
         int len = strlen(url_buf);
         url_buf[len - 1] = '\0';
         config.url = url_buf;
-#endif
     } else {
         ESP_LOGE(TAG, "Configuration mismatch: wrong firmware upgrade image url");
         abort();

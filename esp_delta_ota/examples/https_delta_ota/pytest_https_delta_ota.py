@@ -76,14 +76,14 @@ def find_hello_world_binary(base_dir, chip_target='esp32'):
         return binary_path
     
     # Fallback: try generic hello_world.bin
-    fallback_path = os.path.join(example_dir, 'tests', 'hello_world.bin')
+    fallback_path = os.path.join(base_dir, 'tests', 'hello_world.bin')
     if os.path.exists(fallback_path):
         print(f'Warning: Using generic hello_world.bin instead of {binary_name}')
         return fallback_path
     
     raise Exception(f'Hello world binary not found at {binary_path}. '
                    f'Expected pre-built binary: {binary_name} in tests/ directory. '
-                   f'Example dir: {example_dir}')
+                   f'Base dir: {base_dir}')
 
 
 def generate_patch(base_binary, new_binary, patch_output, chip='esp32'):
@@ -158,7 +158,7 @@ def write_patch_to_partition(dut: Dut, patch_file: str):
             settings = serial.proc.get_settings() # Save the current serial settings
             serial.esp.connect() # Connect to the device using esptool
             esptool.main(
-                ['write-flash', hex(offset), patch_file],
+                ['--after', 'no-reset', 'write-flash', hex(offset), patch_file],
                 esp=serial.esp,
             )
             serial.proc.apply_settings(settings) # Restore the original serial settings
@@ -167,14 +167,16 @@ def write_patch_to_partition(dut: Dut, patch_file: str):
         if output:
             print(f'esptool output: {output}')
 
-    print('Successfully wrote patch to patch_data partition')
+        # Hard-reset inside the disabled-redirect context so that when the redirect
+        # thread resumes, the pexpect buffer only contains messages from this new boot
+        # (no stale messages from earlier boots that would cause early pattern matches).
+        serial.hard_reset()
 
-    # Hard-reset so the device boots fresh (network + local server + stdin wait)
-    serial.hard_reset()
+    print('Successfully wrote patch to patch_data partition')
 
 
 @pytest.mark.parametrize('target', ['esp32'])
-@pytest.mark.ethernet
+@pytest.mark.generic
 def test_esp_delta_ota(dut: Dut):
     example_dir = os.path.dirname(os.path.abspath(__file__))
     build_dir = dut.app.binary_path
@@ -196,26 +198,17 @@ def test_esp_delta_ota(dut: Dut):
         # Step 3: Write patch to the patch_data partition
         write_patch_to_partition(dut, patch_file)
         
-        # Step 4: Connect device and get IP
-        env_name = 'wifi_high_traffic' if dut.app.sdkconfig.get('EXAMPLE_WIFI_SSID_PWD_FROM_STDIN') is True else None
-        device_ip = setting_connection(dut, env_name)
-        print(f'Device connected with IP: {device_ip}')
-        
-        # Step 5: Wait for local server to start
-        dut.expect('Local HTTPS server started for CI test', timeout=30)
-        print('Local HTTPS server started on device')
-
-        # Step 6: Provide OTA URL to device (using device's own IP)
+        # Step 4: Wait for device to boot, start local server, and signal ready for stdin.
+        # Same pattern as pre_encrypted_ota: expect the log right before fgets(), then write.
         patch_size = os.path.getsize(patch_file)
+        device_ip = '127.0.0.1'
         ota_url = f'https://{device_ip}:443/patch.bin'
+
+        dut.expect('Reading OTA URL from stdin', timeout=30)
         print(f'Providing OTA URL to device: {ota_url} {patch_size}')
-        dut.expect('Reading OTA URL from stdin', timeout=60)
         dut.write(f'{ota_url} {patch_size}\n')
 
-        # Step 7: Wait for OTA to start and complete
-        dut.expect('Rebooting in', timeout=90)  # Device preparing to reboot
-        
-        # Step 8: Wait for reboot and new firmware to boot
+        # Step 5: Wait for reboot and new firmware to boot
         dut.expect('Hello world!', timeout=60)
         
         print('Delta OTA test PASSED: Successfully updated from https_delta_ota to hello_world')
