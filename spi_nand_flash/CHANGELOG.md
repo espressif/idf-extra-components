@@ -1,4 +1,8 @@
- ## [0.17.0]                                                                                                                                                                                                                                                                                                       
+## [0.18.0]                                                                                                                                                                                                                                                                                                       
+- fix: Update esp_vfs_fat_register prototype to esp_vfs_fat_register_cfg to align with ESP-IDF v6.0.
+       The cfg version is now the primary API and remains aliased for compatibility.
+
+## [0.17.0]                                                                                                                                                                                                                                                                                                       
 - fix: fix a compilation error caused by the missing freertos/FreeRTOS.h header when building with ESP-IDF v6.0 and later.
 - update: improvements to the lower-level APIs following updates in esp_driver_spi.
 
