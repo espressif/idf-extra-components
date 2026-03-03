@@ -34,9 +34,7 @@ set(srcs
     "${SRC}/crypto_generichash/blake2b/ref/generichash_blake2b.c"
     "${SRC}/crypto_generichash/crypto_generichash.c"
     "${SRC}/crypto_hash/crypto_hash.c"
-    "${SRC}/crypto_hash/sha256/cp/hash_sha256_cp.c"
     "${SRC}/crypto_hash/sha256/hash_sha256.c"
-    "${SRC}/crypto_hash/sha512/cp/hash_sha512_cp.c"
     "${SRC}/crypto_hash/sha512/hash_sha512.c"
     "${SRC}/crypto_kdf/blake2b/kdf_blake2b.c"
     "${SRC}/crypto_kdf/crypto_kdf.c"
@@ -120,14 +118,16 @@ if(CONFIG_LIBSODIUM_USE_MBEDTLS_SHA)
     list(APPEND srcs
         "port/crypto_hash_mbedtls/crypto_hash_sha256_mbedtls.c"
         "port/crypto_hash_mbedtls/crypto_hash_sha512_mbedtls.c")
+    set(include_dirs port_include ${SRC}/include)
+    set(priv_include_dirs port port_include/sodium ${SRC}/include/sodium)
 else()
     list(APPEND srcs
         "${SRC}/crypto_hash/sha256/cp/hash_sha256_cp.c"
         "${SRC}/crypto_hash/sha512/cp/hash_sha512_cp.c")
+    set(include_dirs ${SRC}/include port_include)
+    set(priv_include_dirs ${SRC}/include/sodium port_include/sodium port)
 endif()
 
-set(include_dirs ${SRC}/include port_include)
-set(priv_include_dirs ${SRC}/include/sodium port_include/sodium port)
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS "${include_dirs}"
                     PRIV_INCLUDE_DIRS "${priv_include_dirs}"
@@ -176,6 +176,12 @@ set_source_files_properties(
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-function)
+
+if(CONFIG_LIBSODIUM_USE_MBEDTLS_SHA)
+    target_compile_options(${COMPONENT_LIB} PRIVATE
+        "$<$<COMPILE_LANGUAGE:C>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/port_include/sodium/crypto_hash_sha256.h>"
+        "$<$<COMPILE_LANGUAGE:C>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/port_include/sodium/crypto_hash_sha512.h>")
+endif()
 
 if(CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE)
     # some libsodium variables are only used for asserts

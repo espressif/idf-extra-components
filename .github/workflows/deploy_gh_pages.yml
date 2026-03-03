@@ -52,7 +52,9 @@ jobs:
           args: >-
             --no-progress
             --include-fragments
-            './docs_build_output/**/*.html'
+            --root-dir docs_build_output
+            --exclude-path '.*/404\.html$'
+            docs_build_output/**/*.html
           # Fail the action if broken links are found
           fail: true
 
