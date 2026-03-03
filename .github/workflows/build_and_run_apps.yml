@@ -222,10 +222,13 @@ jobs:
           pattern: app_binaries_${{ matrix.idf_ver }}_*
           merge-multiple: true
       - name: Install Python packages
-        env:
-          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: |
-          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-qemu pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
+          # Install cryptography from Espressif's PyPI with more available binary wheels in comparison with upstream
+          # PyPI. Note that with --prefer-binary and PIP_EXTRA_INDEX_URL all package dependencies must be available in
+          # wheel format at PIP_EXTRA_INDEX_URL.
+          PIP_EXTRA_INDEX_URL="https://dl.espressif.com/pypi/" pip install --prefer-binary cryptography
+          # No need to request binary wheels for pure Python packages.
+          pip install pytest-embedded pytest-embedded-qemu pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
       - name: Setup QEMU
         if: matrix.runner.marker == 'qemu'
         run: |
@@ -279,10 +282,13 @@ jobs:
           pattern: app_binaries_${{ matrix.idf_ver }}_*
           merge-multiple: true
       - name: Install Python packages
-        env:
-          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: |
-          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
+          # Install cryptography from Espressif's PyPI with more available binary wheels in comparison with upstream
+          # PyPI. Note that with --prefer-binary and PIP_EXTRA_INDEX_URL all package dependencies must be available in
+          # wheel format at PIP_EXTRA_INDEX_URL.
+          PIP_EXTRA_INDEX_URL="https://dl.espressif.com/pypi/" pip install --prefer-binary cryptography
+          # No need to request binary wheels for pure Python packages.
+          pip install pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
       - name: Make .elf files executable
         if: matrix.runner.target == 'linux'
         continue-on-error: true
