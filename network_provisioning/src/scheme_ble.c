@@ -311,11 +311,11 @@ void network_prov_scheme_ble_event_cb_free_bt(void *user_data, network_prov_cb_e
 void network_prov_scheme_ble_event_cb_free_ble(void *user_data, network_prov_cb_event_t event, void *event_data)
 {
 #ifdef CONFIG_BT_CONTROLLER_ENABLED
-    esp_err_t err;
     switch (event) {
     case NETWORK_PROV_DEINIT:
 #ifndef CONFIG_NETWORK_PROV_KEEP_BLE_ON_AFTER_PROV
         /* Release memory used by BLE stack */
+        esp_err_t err;
         err = esp_bt_mem_release(ESP_BT_MODE_BLE);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "bt_mem_release of BLE failed %d", err);
