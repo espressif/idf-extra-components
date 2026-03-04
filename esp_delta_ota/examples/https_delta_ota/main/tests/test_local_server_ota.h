@@ -1,0 +1,26 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
+#pragma once
+
+#ifdef CONFIG_EXAMPLE_ENABLE_CI_TEST
+
+/**
+ * @brief starts the https server
+ *
+ * The server will serve the patch file from the patch_data partition.
+ * The patch_size must be set via delta_ota_test_firmware_data_from_stdin()
+ * before starting the server. NOTE - patch_size cannot be 0.
+ */
+esp_err_t delta_ota_test_start_webserver(void);
+
+/**
+ * @brief Takes the firmware URL from the STDIN (if want to send
+ *         other data write the data in just one line by adding " " delimiter).
+ *
+ * @param data pointer to the firmware URL (or URL including other data)
+ */
+void delta_ota_test_firmware_data_from_stdin(const char **data);
+#endif
