@@ -1,3 +1,19 @@
+# 1.4.0 (14-October-2026)
+
+- Add `NETWORK_PROV_MODE_SESSION_ONLY`, selected through the new `mode` field
+  of `network_prov_mgr_config_t`. With the BLE scheme, the transport and the
+  protocomm session stay up after provisioning, and on already-provisioned
+  boots, until `network_prov_mgr_deinit()`, so the application can serve its
+  own endpoints on the same secure session. The default
+  `NETWORK_PROV_MODE_FULL` keeps the existing behaviour.
+- Add `network_prov_mgr_enable_provisioning()` to turn on the provisioning
+  endpoints (`prov-config`, `prov-scan`, `prov-ctrl`) and capabilities in
+  SESSION_ONLY mode. Until it is called, these are neither registered nor
+  advertised in `proto-ver`.
+- Add `network_prov_mgr_get_mode()`, which can be called from event handlers
+  even after `network_prov_mgr_deinit()`.
+- Add the `wifi_prov_ext_protocomm` example.
+
 # 1.3.2 (20-October-2026)
 - Updates teardown behaviour to stop transport before protocomm state.
 

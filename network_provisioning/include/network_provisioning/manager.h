@@ -205,6 +205,57 @@ typedef struct network_prov_scheme {
 } network_prov_scheme_t;
 
 /**
+ * @brief   Operating mode of the provisioning manager
+ */
+typedef enum {
+    /**
+     * Full provisioning mode (default, backward compatible).
+     * The manager registers all provisioning endpoints (prov-session, proto-ver,
+     * prov-config, prov-scan, prov-ctrl) and runs the full provisioning state
+     * machine.
+     */
+    NETWORK_PROV_MODE_FULL = 0,
+
+    /**
+     * Session-only mode: the provisioning transport is kept alive after
+     * provisioning completes (and on already-provisioned boots) so that
+     * the application can reuse the protocomm session for its own purposes.
+     * Only prov-session and proto-ver are registered by default; no
+     * provisioning endpoints or state machine are active.
+     *
+     * Call network_prov_mgr_enable_provisioning() between init() and
+     * start_provisioning() to optionally layer provisioning on top.
+     *
+     * Without it, network_prov_mgr_start_provisioning() only brings the
+     * transport up: NETWORK_PROV_START is delivered, the state machine is
+     * idle right away (network_prov_mgr_wait() returns at once and
+     * network_prov_mgr_is_sm_idle() is true) and NETWORK_PROV_END is never
+     * sent.
+     *
+     * With it, any non-blocking stop (auto-stop on completion,
+     * network_prov_mgr_done(), network_prov_mgr_stop_provisioning()) ends the
+     * provisioning state machine and removes the provisioning endpoints and
+     * capabilities, but keeps the transport and the protocomm session running.
+     *
+     * In both cases application endpoints can still be added and removed with
+     * network_prov_mgr_endpoint_register() / network_prov_mgr_endpoint_unregister().
+     * Only network_prov_mgr_deinit() tears the transport down. While the
+     * transport is alive, network_prov_mgr_start_provisioning(),
+     * network_prov_mgr_enable_provisioning() and network_prov_mgr_set_app_info()
+     * return ESP_ERR_INVALID_STATE, so provisioning again requires deinit()
+     * followed by init().
+     *
+     * Capabilities such as no_pop/no_sec are still set automatically based
+     * on the security parameters passed to start_provisioning(). Provisioning
+     * capabilities (wifi_scan, wifi_prov, etc.) are added only if
+     * enable_provisioning() has been called.
+     *
+     * Only supported with the BLE scheme (network_prov_scheme_ble).
+     */
+    NETWORK_PROV_MODE_SESSION_ONLY,
+} network_prov_mode_t;
+
+/**
  * @brief   Structure for specifying the manager configuration
  */
 typedef struct {
@@ -239,6 +290,16 @@ typedef struct {
      */
     network_prov_wifi_conn_cfg_t network_prov_wifi_conn_cfg;
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+
+    /**
+     * Operating mode. Set to NETWORK_PROV_MODE_SESSION_ONLY to keep the
+     * transport alive after provisioning for application reuse of the
+     * protocomm session. Default (0) = NETWORK_PROV_MODE_FULL.
+     *
+     * Deliberately the last field, so that existing positional initializers
+     * of this structure keep working.
+     */
+    network_prov_mode_t mode;
 } network_prov_mgr_config_t;
 
 /**
@@ -394,6 +455,10 @@ bool network_prov_mgr_is_sm_idle(void);
  *
  * Event NETWORK_PROV_START is emitted right after provisioning starts without failure
  *
+ * In NETWORK_PROV_MODE_SESSION_ONLY without network_prov_mgr_enable_provisioning()
+ * only the transport is started: the state machine is idle as soon as this
+ * returns and NETWORK_PROV_END is never emitted (see network_prov_mode_t).
+ *
  * @note   This API will start provisioning service even if device is found to be
  *         already provisioned, i.e. network_prov_mgr_is_wifi_provisioned() yields true
  *
@@ -411,6 +476,9 @@ bool network_prov_mgr_is_sm_idle(void);
  *                          and network_prov_security2_params_t for protocomm security 2 respectively.
  *                          This pointer and its contents should be valid till the provisioning service is
  *                          running and has not been stopped or de-inited.
+ *                          In NETWORK_PROV_MODE_SESSION_ONLY the security handler keeps
+ *                          serving new sessions after provisioning stops, so the
+ *                          parameters must stay valid until network_prov_mgr_deinit().
  * @param[in] service_name  Unique name of the service. This translates to:
  *                              - Wi-Fi SSID when provisioning mode is softAP
  *                              - Device name when provisioning mode is BLE
@@ -422,7 +490,8 @@ bool network_prov_mgr_is_sm_idle(void);
  * @return
  *  - ESP_OK      : Provisioning started successfully
  *  - ESP_FAIL    : Failed to start provisioning service
- *  - ESP_ERR_INVALID_STATE : Provisioning manager not initialized or already started
+ *  - ESP_ERR_INVALID_STATE : Provisioning manager not initialized or already started,
+ *                            or the transport is kept alive in NETWORK_PROV_MODE_SESSION_ONLY
  */
 esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, const void *network_prov_sec_params, const char *service_name, const char *service_key);
 
@@ -521,13 +590,52 @@ esp_err_t network_prov_mgr_disable_auto_stop(uint32_t cleanup_delay);
  *
  * @return
  *  - ESP_OK : Success
- *  - ESP_ERR_INVALID_STATE : Manager not initialized or
- *                            provisioning service already started
+ *  - ESP_ERR_INVALID_STATE : Manager not initialized, provisioning service
+ *                            already started, or the transport is kept alive
+ *                            in NETWORK_PROV_MODE_SESSION_ONLY
  *  - ESP_ERR_NO_MEM : Failed to allocate memory for version string
  *  - ESP_ERR_INVALID_ARG : Null argument, or a string that is not valid UTF-8
  */
 esp_err_t network_prov_mgr_set_app_info(const char *label, const char *version,
                                         const char **capabilities, size_t total_capabilities);
+
+/**
+ * @brief   Enable provisioning endpoints in SESSION_ONLY mode
+ *
+ * In NETWORK_PROV_MODE_SESSION_ONLY, the manager does not register the
+ * provisioning endpoints (prov-config, prov-scan, prov-ctrl) or run the
+ * provisioning state machine by default. Call this API between
+ * network_prov_mgr_init() and network_prov_mgr_start_provisioning() to
+ * opt-in to full provisioning on this boot.
+ *
+ * After this call, start_provisioning() behaves identically to
+ * NETWORK_PROV_MODE_FULL: it registers all provisioning handlers, adds
+ * wifi_scan/wifi_prov capabilities to proto-ver, and runs the state machine.
+ *
+ * Has no effect (returns ESP_OK) in NETWORK_PROV_MODE_FULL, since
+ * provisioning is always enabled in that mode.
+ *
+ * Must be called while the manager is in the idle state (after init, before
+ * start_provisioning). Once the transport has been started, or is being kept
+ * alive after a stop, it is too late: deinit() and init() again first.
+ *
+ * @return
+ *  - ESP_OK              : Success
+ *  - ESP_ERR_INVALID_STATE : Manager not initialized, already started, or the
+ *                            transport from an earlier session is still alive
+ */
+esp_err_t network_prov_mgr_enable_provisioning(void);
+
+/**
+ * @brief   Get the provisioning manager mode configured at initialization
+ *
+ * May be called from any provisioning event handler, including NETWORK_PROV_DEINIT
+ * (where the manager context has already been freed). In that case the cached
+ * mode from the last initialization is returned.
+ *
+ * @return  NETWORK_PROV_MODE_FULL or NETWORK_PROV_MODE_SESSION_ONLY
+ */
+network_prov_mode_t network_prov_mgr_get_mode(void);
 
 /**
  * @brief   Create an additional endpoint and allocate internal resources for it
@@ -552,6 +660,13 @@ esp_err_t network_prov_mgr_set_app_info(const char *label, const char *version,
  *
  * @param[in] ep_name  unique name of the endpoint
  *
+ * @note    In NETWORK_PROV_MODE_SESSION_ONLY, endpoints must be created before
+ *          the first call to network_prov_mgr_start_provisioning(). The transport
+ *          takes its endpoint table when it starts and keeps running after
+ *          provisioning stops, so this API fails while the session is alive.
+ *          Only endpoints created before the start can be registered or
+ *          unregistered later.
+ *
  * @return
  *  - ESP_OK      : Success
  *  - ESP_FAIL    : Failure
@@ -574,6 +689,10 @@ esp_err_t network_prov_mgr_endpoint_create(const char *ep_name);
  *          first by the client side application before sending Wi-Fi/Thread configuration,
  *          because once Wi-Fi/Thread configuration finishes the provisioning service is
  *          stopped and hence all endpoints are unregistered
+ *
+ * @note    In NETWORK_PROV_MODE_SESSION_ONLY the endpoints stay registered after
+ *          provisioning stops, and this API can also be called on the kept-alive
+ *          session, for endpoints created before the transport was started
  *
  * @param[in] ep_name   Name of the endpoint
  * @param[in] handler   Endpoint handler function
