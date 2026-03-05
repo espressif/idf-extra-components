@@ -7,10 +7,12 @@ set(srcs "src/nand.c"
          "src/dhara_glue.c"
          "src/nand_impl_wrap.c")
 
-# Conditionally add BDL support
-if(CONFIG_NAND_FLASH_ENABLE_BDL)
-    list(APPEND srcs "src/nand_flash_blockdev.c"
-                     "src/nand_wl_blockdev.c")
+if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" GREATER_EQUAL "6.0")
+    list(APPEND reqs esp_blockdev)
+    if(CONFIG_NAND_FLASH_ENABLE_BDL)
+        list(APPEND srcs "src/nand_flash_blockdev.c"
+                         "src/nand_wl_blockdev.c")
+    endif()
 endif()
 
 if(${target} STREQUAL "linux")
@@ -44,11 +46,3 @@ idf_component_register(SRCS ${srcs}
         PRIV_INCLUDE_DIRS ${priv_inc}
         REQUIRES ${reqs}
         PRIV_REQUIRES ${priv_reqs})
-
-if(CONFIG_NAND_FLASH_ENABLE_BDL)
-    if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_LESS "6.0")
-    message(FATAL_ERROR "Block Device Layer (BDL) support (CONFIG_NAND_FLASH_ENABLE_BDL) requires ESP-IDF >= 6.0. "
-         "Please disable CONFIG_NAND_FLASH_ENABLE_BDL or upgrade your ESP-IDF version.")
-    endif()
-    idf_component_optional_requires(PUBLIC esp_blockdev)
-endif()

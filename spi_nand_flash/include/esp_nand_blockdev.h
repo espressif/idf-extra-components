@@ -99,17 +99,6 @@ extern "C" {
  */
 #define ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS    (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 14)
 
-/** @brief Trim/discard a logical sector (WL layer only)
- *
- * Marks a sector as unused, allowing wear leveling to reclaim space.
- *
- * Usage:
- * @code
- * uint32_t sector_id = 10;
- * esp_err_t ret = wl_bdl->ops->ioctl(wl_bdl, ESP_BLOCKDEV_CMD_TRIM_SECTOR, &sector_id);
- * @endcode
- */
-#define ESP_BLOCKDEV_CMD_TRIM_SECTOR              (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 15)
 
 /** @brief Get count of bad blocks in flash
  *
@@ -119,7 +108,7 @@ extern "C" {
  * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_GET_BAD_BLOCKS_COUNT, &bad_block_count);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_GET_BAD_BLOCKS_COUNT     (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 16)
+#define ESP_BLOCKDEV_CMD_GET_BAD_BLOCKS_COUNT     (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 15)
 
 /** @brief Get ECC error statistics
  *
@@ -129,7 +118,7 @@ extern "C" {
  * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_GET_ECC_STATS, &ecc_stats);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_GET_ECC_STATS            (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 17)
+#define ESP_BLOCKDEV_CMD_GET_ECC_STATS            (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 16)
 
 /** @brief Get complete NAND flash information (device ID + geometry)
  *
@@ -142,7 +131,7 @@ extern "C" {
  *        flash_info.device_info.device_id);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_GET_NAND_FLASH_INFO      (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 18)
+#define ESP_BLOCKDEV_CMD_GET_NAND_FLASH_INFO      (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 17)
 
 /** @brief Copy a page from source to destination (Flash BDL only)
  *
@@ -156,7 +145,7 @@ extern "C" {
  * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_COPY_PAGE, &copy_cmd);
  * @endcode
  */
-#define ESP_BLOCKDEV_CMD_COPY_PAGE                (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 19)
+#define ESP_BLOCKDEV_CMD_COPY_PAGE                (ESP_BLOCKDEV_CMD_SYSTEM_BASE + 18)
 
 /** @} */ // end of nand_ioctl_commands
 

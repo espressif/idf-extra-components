@@ -10,6 +10,7 @@ menu "SPI NAND Flash configuration"
 
     config NAND_FLASH_ENABLE_BDL
         bool "Enable Block Device Layer (BDL) support"
+        depends on IDF_INIT_VERSION >= "6.0"
         default n
         help
             Enable Block Device Layer (BDL) support for SPI NAND Flash. This provides:

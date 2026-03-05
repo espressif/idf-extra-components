@@ -74,19 +74,22 @@ DRESULT ff_blockdev_trim(BYTE pdrv, DWORD start_sector, DWORD sector_count)
     esp_blockdev_handle_t bdl = ff_blockdev_handles[pdrv];
     assert(bdl);
 
-    uint32_t num_pages;
-    ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &num_pages);
+    uint32_t page_size = bdl->geometry.read_size;
+    uint32_t num_pages = (uint32_t)(bdl->geometry.disk_size / page_size);
 
     if ((start_sector > num_pages) || ((start_sector + sector_count) > num_pages)) {
         return RES_PARERR;
     }
 
-    for (uint32_t page_id = start_sector; page_id < (start_sector + sector_count); page_id++) {
-        ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_TRIM_SECTOR, &page_id);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "ff_blockdev_trim failed with error 0x%X", ret);
-            return RES_ERROR;
-        }
+    esp_blockdev_cmd_arg_erase_t trim_arg = {
+        .start_addr = start_sector * page_size,
+        .erase_len = sector_count * page_size,
+    };
+
+    ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_MARK_DELETED, &trim_arg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "ff_blockdev_trim failed with error 0x%X", ret);
+        return RES_ERROR;
     }
 
     return RES_OK;
@@ -111,12 +114,8 @@ DRESULT ff_blockdev_ioctl(BYTE pdrv, BYTE cmd, void *buff)
         break;
 
     case GET_SECTOR_COUNT: {
-        uint32_t num_pages;
-        ret = bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_AVAILABLE_SECTORS, &num_pages);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "ioctl for GET_SECTOR_COUNT failed with error 0x%X", ret);
-            return RES_ERROR;
-        }
+        size_t read_size = bdl->geometry.read_size;
+        uint32_t num_pages = (uint32_t)(bdl->geometry.disk_size / read_size);
         *((DWORD *)buff) = num_pages;
         ESP_LOGV(TAG, "capacity=%lu pages", (unsigned long)num_pages);
         break;

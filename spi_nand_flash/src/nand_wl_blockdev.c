@@ -115,9 +115,19 @@ static esp_err_t spi_nand_flash_wl_blockdev_ioctl(esp_blockdev_handle_t handle, 
     }
     break;
 
-    case ESP_BLOCKDEV_CMD_TRIM_SECTOR: {
-        uint32_t *page_id = (uint32_t *)args;
-        ret = spi_nand_flash_trim(dev_handle, *page_id);
+    case ESP_BLOCKDEV_CMD_MARK_DELETED: {
+        esp_blockdev_cmd_arg_erase_t *trim_arg = (esp_blockdev_cmd_arg_erase_t *)args;
+        uint32_t page_size = handle->geometry.write_size;
+        if ((trim_arg->start_addr % page_size) != 0 ||
+                (trim_arg->erase_len % page_size != 0)) {
+            ESP_LOGE(TAG, "Start address/length 0x%llx/0x%llx not aligned to page size %u", trim_arg->start_addr, trim_arg->erase_len, page_size);
+            return ESP_ERR_INVALID_ARG;
+        }
+        uint32_t start_page = trim_arg->start_addr / page_size;
+        uint32_t page_count = trim_arg->erase_len / page_size;
+        for (uint32_t page_id = start_page; page_id <= (start_page + page_count); page_id++) {
+            ret = spi_nand_flash_trim(dev_handle, page_id);
+        }
     }
 
     break;
