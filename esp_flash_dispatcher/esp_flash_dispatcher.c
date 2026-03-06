@@ -15,6 +15,7 @@
 #include "esp_private/startup_internal.h"
 #include "esp_check.h"
 #include "esp_flash_dispatcher.h"
+#include "spi_flash_mmap.h"
 
 static const char *TAG = "flash_dispatcher";
 
@@ -23,6 +24,9 @@ extern esp_err_t __real_esp_flash_write(esp_flash_t *chip, const void *buffer, u
 extern esp_err_t __real_esp_flash_erase_region(esp_flash_t *chip, uint32_t start_address, uint32_t size);
 extern esp_err_t __real_esp_flash_erase_chip(esp_flash_t *chip);
 extern esp_err_t __real_esp_flash_write_encrypted(esp_flash_t *chip, uint32_t address, const void *buffer, uint32_t length);
+extern esp_err_t __real_spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t memory,
+                                       const void **out_ptr, spi_flash_mmap_handle_t *out_handle);
+extern esp_err_t __real_spi_flash_munmap(spi_flash_mmap_handle_t handle);
 
 // Operation type for flash requests
 typedef enum {
@@ -31,6 +35,8 @@ typedef enum {
     FLASH_OP_WRITE_ENCRYPTED,
     FLASH_OP_ERASE_REGION,
     FLASH_OP_ERASE_CHIP,
+    FLASH_OP_MMAP,
+    FLASH_OP_MUNMAP,
 } flash_operation_t;
 
 // Structure to hold flash operation requests
@@ -57,6 +63,16 @@ typedef struct {
             uint32_t start_address;
             size_t size;
         } erase_region;                 // for FLASH_OP_ERASE_REGION
+        struct {
+            size_t src_addr;
+            size_t size;
+            spi_flash_mmap_memory_t memory;
+            const void **out_ptr;
+            spi_flash_mmap_handle_t *out_handle;
+        } mmap;                         // for FLASH_OP_MMAP
+        struct {
+            spi_flash_mmap_handle_t handle;
+        } munmap;                       // for FLASH_OP_MUNMAP
     } args;
 } flash_operation_request_t;
 
@@ -105,6 +121,16 @@ static void flash_dispatcher_task(void *arg)
                 break;
             case FLASH_OP_ERASE_CHIP:
                 result = __real_esp_flash_erase_chip(request.chip);
+                break;
+            case FLASH_OP_MMAP:
+                result = __real_spi_flash_mmap(request.args.mmap.src_addr,
+                                               request.args.mmap.size,
+                                               request.args.mmap.memory,
+                                               request.args.mmap.out_ptr,
+                                               request.args.mmap.out_handle);
+                break;
+            case FLASH_OP_MUNMAP:
+                result = __real_spi_flash_munmap(request.args.munmap.handle);
                 break;
             default:
                 ESP_EARLY_LOGE(TAG, "Unsupported flash operation type: %d", (int)request.op);
@@ -263,4 +289,53 @@ esp_err_t __wrap_esp_flash_erase_chip(esp_flash_t *chip)
                                     NULL,
                                     NULL,
                                     "flash erase_chip");
+}
+
+esp_err_t __wrap_spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t memory,
+                                const void **out_ptr, spi_flash_mmap_handle_t *out_handle)
+{
+    ESP_RETURN_ON_FALSE(s_flash_dispatcher_ctx.dispatcher_initialized, ESP_ERR_INVALID_STATE, TAG, "flash dispatcher is not initialized");
+
+    flash_operation_request_t request = { 0 };
+    request.chip = NULL;
+    request.op = FLASH_OP_MMAP;
+    request.args.mmap.src_addr = src_addr;
+    request.args.mmap.size = size;
+    request.args.mmap.memory = memory;
+    request.args.mmap.out_ptr = out_ptr;
+    request.args.mmap.out_handle = out_handle;
+
+    if (xQueueSend(s_flash_dispatcher_ctx.queue, &request, portMAX_DELAY) != pdTRUE) {
+        ESP_EARLY_LOGE(TAG, "Failed to send spi_flash_mmap request to queue");
+        return ESP_ERR_TIMEOUT;
+    }
+
+    esp_err_t operation_result = ESP_FAIL;
+    if (xQueueReceive(s_flash_dispatcher_ctx.result_queue, &operation_result, portMAX_DELAY) != pdTRUE) {
+        ESP_EARLY_LOGE(TAG, "Failed to receive spi_flash_mmap result from queue");
+        return ESP_ERR_TIMEOUT;
+    }
+    return operation_result;
+}
+
+esp_err_t __wrap_spi_flash_munmap(spi_flash_mmap_handle_t handle)
+{
+    ESP_RETURN_ON_FALSE(s_flash_dispatcher_ctx.dispatcher_initialized, ESP_ERR_INVALID_STATE, TAG, "flash dispatcher is not initialized");
+
+    flash_operation_request_t request = { 0 };
+    request.chip = NULL;
+    request.op = FLASH_OP_MUNMAP;
+    request.args.munmap.handle = handle;
+
+    if (xQueueSend(s_flash_dispatcher_ctx.queue, &request, portMAX_DELAY) != pdTRUE) {
+        ESP_EARLY_LOGE(TAG, "Failed to send spi_flash_munmap request to queue");
+        return ESP_ERR_TIMEOUT;
+    }
+
+    esp_err_t operation_result = ESP_FAIL;
+    if (xQueueReceive(s_flash_dispatcher_ctx.result_queue, &operation_result, portMAX_DELAY) != pdTRUE) {
+        ESP_EARLY_LOGE(TAG, "Failed to receive spi_flash_munmap result from queue");
+        return ESP_ERR_TIMEOUT;
+    }
+    return operation_result;
 }
