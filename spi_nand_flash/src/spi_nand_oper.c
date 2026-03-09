@@ -9,6 +9,7 @@
 #include <string.h>
 #include "spi_nand_oper.h"
 #include "driver/spi_master.h"
+#include "esp_memory_utils.h"
 #if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
 #include "esp_private/esp_cache_private.h"
 #endif
@@ -102,17 +103,22 @@ esp_err_t spi_nand_read_page(spi_nand_flash_device_t *handle, uint32_t page)
     return spi_nand_execute_transaction(handle, &t);
 }
 
-static uint16_t check_length_alignment(spi_nand_flash_device_t *handle, uint16_t length)
+size_t spi_nand_get_dma_alignment(void)
 {
     size_t alignment;
-    uint16_t data_len = length;
-
 #if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE == 1
     esp_cache_get_alignment(MALLOC_CAP_DMA, &alignment);
 #else
     // For non-L1CACHE targets, use DMA alignment of 4 bytes
     alignment = 4;
 #endif
+    return alignment;
+}
+
+static uint16_t check_length_alignment(spi_nand_flash_device_t *handle, uint16_t length)
+{
+    uint16_t data_len = length;
+    size_t alignment = spi_nand_get_dma_alignment();
 
     bool is_length_unaligned = (length & (alignment - 1)) ? true : false;
     if (is_length_unaligned) {
@@ -294,6 +300,28 @@ esp_err_t spi_nand_program_load(spi_nand_flash_device_t *handle, const uint8_t *
     const uint8_t *data_write = data;
     uint16_t data_write_len = length;
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+    uint16_t aligned_len = check_length_alignment(handle, length);
+
+    if (aligned_len == length) {
+        // Length is already DMA-aligned. If the buffer address is not DMA-capable
+        // or not aligned, bounce through temp_buffer which is pre-allocated as
+        // DMA-capable. We can safely set SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL since
+        // both buffer and length now satisfy DMA requirements.
+        size_t alignment = spi_nand_get_dma_alignment();
+        bool buf_dma_ok = esp_ptr_dma_capable(data) && (((uintptr_t)data % alignment) == 0);
+        if (!buf_dma_ok) {
+            memcpy(handle->temp_buffer, data, length);
+            data_write = handle->temp_buffer;
+        }
+        spi_flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
+    }
+    // When length is not DMA-aligned, we do not set SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL.
+    // This lets the SPI driver internally allocate an aligned buffer and handle the
+    // DMA transfer. Unlike reads, we cannot pad the write length to aligned_len here
+    // because the extra bytes would be programmed into the NAND page, corrupting data.
+#endif
+
     spi_nand_transaction_t t = {
         .command = cmd,
         .address_bytes = 2,
@@ -302,15 +330,6 @@ esp_err_t spi_nand_program_load(spi_nand_flash_device_t *handle, const uint8_t *
         .mosi_data = data_write,
         .flags = spi_flags,
     };
-
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
-    // Check if length needs alignment for DMA
-    uint16_t aligned_len = check_length_alignment(handle, length);
-
-    if (aligned_len == length) {
-        t.flags |= SPI_TRANS_DMA_BUFFER_ALIGN_MANUAL;
-    }
-#endif
 
     return spi_nand_execute_transaction(handle, &t);
 }
