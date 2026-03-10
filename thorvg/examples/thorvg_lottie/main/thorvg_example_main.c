@@ -32,15 +32,15 @@ static const char *TAG = "example";
 #define EXAMPLE_PIN_NUM_LCD_DATA2   6
 #define EXAMPLE_PIN_NUM_LCD_DATA3   7
 
-#define EXAMPLE_LCD_PCLK_HZ         (40 * 1000 * 1000)
+#define EXAMPLE_LCD_PCLK_HZ         (20 * 1000 * 1000)
 #define EXAMPLE_LCD_BIT_PER_PIXEL   16  // RGB565
 
 #define EXAMPLE_LCD_SPI_HOST        SPI2_HOST
 
 #define EXAMPLE_FS_MOUNT_POINT     "/storage"
 #define EXAMPLE_LOTTIE_FILENAME     EXAMPLE_FS_MOUNT_POINT"/emoji-animation.json"
-#define EXAMPLE_LOTTIE_SIZE_HOR     320
-#define EXAMPLE_LOTTIE_SIZE_VER     320
+#define EXAMPLE_LOTTIE_SIZE_HOR     368
+#define EXAMPLE_LOTTIE_SIZE_VER     448
 
 
 static const sh8601_lcd_init_cmd_t lcd_init_cmds[] = {
