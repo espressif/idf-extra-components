@@ -1,8 +1,8 @@
-version: "0.15.16"
+version: "1.0.1"
 description: "ThorVG is an open-source graphics library designed for creating vector-based scenes and animations"
 url: https://github.com/espressif/idf-extra-components/tree/master/thorvg
 repository: "https://github.com/espressif/idf-extra-components.git"
-documentation: "https://github.com/thorvg/thorvg/blob/main/README.md"
+documentation: "https://www.thorvg.org/native-apis"
 issues: "https://github.com/espressif/idf-extra-components/issues"
 dependencies:
   idf: ">=5.1"
@@ -10,10 +10,3 @@ sbom:
   manifests:
     - path: sbom_thorvg.yml
       dest: thorvg
-files:
-  exclude:
-    - "thorvg/docs/**/*"
-    - "thorvg/examples/**/*"
-    - "thorvg/res/**/*"
-    - "thorvg/test/**/*"
-    - "thorvg/web/**/*"

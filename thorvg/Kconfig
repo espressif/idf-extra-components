@@ -18,10 +18,6 @@ menu "ThorVG Support Options"
             bool "Enable Lottie loader support"
             default y
 
-        config THORVG_TVG_LOADER_SUPPORT
-            bool "Enable tvg loader support"
-            default y
-
         config THORVG_SVG_LOADER_SUPPORT
             bool "Enable svg loader support"
             default y
