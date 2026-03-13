@@ -161,6 +161,8 @@ jobs:
             */examples/*/build_linux*/config/sdkconfig.json
             */test_app*/**/build_linux*/*.elf
             */test_app*/**/build_linux*/config/sdkconfig.json
+            */host_test/**/build_linux*/*.elf
+            */host_test/**/build_linux*/config/sdkconfig.json
             build_info*.json
 
   run-target:
@@ -291,6 +293,7 @@ jobs:
           chmod +x */examples/*/build_linux*/*.elf || echo "No example .elf files found"
           shopt -s globstar
           chmod +x */test_app*/**/build_linux*/*.elf || echo "No test_app .elf files found"
+          chmod +x */host_test/**/build_linux*/*.elf || echo "No host_test .elf files found"
       - name: Run apps
         shell: bash
         run: |

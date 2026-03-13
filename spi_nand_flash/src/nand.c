@@ -176,8 +176,11 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
     (*handle)->read_buffer = heap_caps_malloc((*handle)->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_GOTO_ON_FALSE((*handle)->read_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
 
-    (*handle)->temp_buffer = heap_caps_malloc((*handle)->chip.page_size + 4, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+#ifndef CONFIG_IDF_TARGET_LINUX
+    size_t dma_alignment = spi_nand_get_dma_alignment();
+    (*handle)->temp_buffer = heap_caps_aligned_alloc(dma_alignment, (*handle)->chip.page_size + dma_alignment, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_GOTO_ON_FALSE((*handle)->temp_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+#endif
 
     (*handle)->mutex = xSemaphoreCreateMutex();
     if (!(*handle)->mutex) {
@@ -199,7 +202,9 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
 fail:
     free((*handle)->work_buffer);
     free((*handle)->read_buffer);
+#ifndef CONFIG_IDF_TARGET_LINUX
     free((*handle)->temp_buffer);
+#endif
     if ((*handle)->mutex) {
         vSemaphoreDelete((*handle)->mutex);
     }
@@ -337,7 +342,9 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle)
     nand_unregister_dev(handle);
     free(handle->work_buffer);
     free(handle->read_buffer);
+#ifndef CONFIG_IDF_TARGET_LINUX
     free(handle->temp_buffer);
+#endif
     vSemaphoreDelete(handle->mutex);
     free(handle);
     return ret;
