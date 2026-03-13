@@ -221,7 +221,7 @@ static bool onewire_rmt_check_presence_pulse(rmt_symbol_word_t *rmt_symbols, siz
     return ret;
 }
 
-static void onewire_rmt_decode_data(rmt_symbol_word_t *rmt_symbols, size_t symbol_num, uint8_t *rx_buf, size_t start_bit)
+static void onewire_rmt_decode_data(rmt_symbol_word_t *rmt_symbols, size_t symbol_num, uint8_t *rx_buf, size_t rx_buf_size, size_t start_bit)
 {
     size_t byte_pos = start_bit / 8;
     size_t bit_pos = start_bit % 8;
@@ -235,6 +235,9 @@ static void onewire_rmt_decode_data(rmt_symbol_word_t *rmt_symbols, size_t symbo
         if (bit_pos >= 8) {
             bit_pos = 0;
             byte_pos ++;
+            if (byte_pos >= rx_buf_size) {
+                break;
+            }
         }
     }
 }
@@ -446,14 +449,15 @@ static esp_err_t onewire_bus_rmt_read_bytes(onewire_bus_handle_t bus, uint8_t *r
 
     // Read bytes in chunks up to the maximum hardware memory block size
     // to improve efficiency while avoiding RMT RX overflow.
-    size_t max_bytes_per_pass = ONEWIRE_RMT_DEFAULT_MEM_BLOCK_SYMBOLS / 8;
-    if (max_bytes_per_pass == 0) max_bytes_per_pass = 1;
-    size_t bytes_read = 0;
+    size_t max_bytes_per_chunk = ONEWIRE_RMT_DEFAULT_MEM_BLOCK_SYMBOLS / 8;
+    if (max_bytes_per_chunk == 0) max_bytes_per_chunk = 1;
+    if (max_bytes_per_chunk > rx_buf_size) max_bytes_per_chunk = rx_buf_size;
 
+    size_t bytes_read = 0;
     while (bytes_read < rx_buf_size) {
         size_t chunk_bytes = rx_buf_size - bytes_read;
-        if (chunk_bytes > max_bytes_per_pass) {
-            chunk_bytes = max_bytes_per_pass;
+        if (chunk_bytes > max_bytes_per_chunk) {
+            chunk_bytes = max_bytes_per_chunk;
         }
 
         uint8_t tx_buffer[chunk_bytes];
@@ -471,7 +475,7 @@ static esp_err_t onewire_bus_rmt_read_bytes(onewire_bus_handle_t bus, uint8_t *r
         rmt_rx_done_event_data_t rmt_rx_evt_data;
         ESP_GOTO_ON_FALSE(xQueueReceive(bus_rmt->receive_queue, &rmt_rx_evt_data, pdMS_TO_TICKS(1000)) == pdPASS, ESP_ERR_TIMEOUT,
                           err, TAG, "1-wire data receive timeout");
-        onewire_rmt_decode_data(rmt_rx_evt_data.received_symbols, rmt_rx_evt_data.num_symbols, rx_buf, bytes_read * 8);
+        onewire_rmt_decode_data(rmt_rx_evt_data.received_symbols, rmt_rx_evt_data.num_symbols, rx_buf, rx_buf_size, bytes_read * 8);
 
         bytes_read += chunk_bytes;
     }
@@ -518,7 +522,7 @@ static esp_err_t onewire_bus_rmt_read_bit(onewire_bus_handle_t bus, uint8_t *rx_
     ESP_GOTO_ON_FALSE(xQueueReceive(bus_rmt->receive_queue, &rmt_rx_evt_data, pdMS_TO_TICKS(1000)) == pdPASS, ESP_ERR_TIMEOUT,
                       err, TAG, "1-wire bit receive timeout");
     uint8_t rx_buffer = 0;
-    onewire_rmt_decode_data(rmt_rx_evt_data.received_symbols, rmt_rx_evt_data.num_symbols, &rx_buffer, 0);
+    onewire_rmt_decode_data(rmt_rx_evt_data.received_symbols, rmt_rx_evt_data.num_symbols, &rx_buffer, sizeof(rx_buffer), 0);
     *rx_bit = rx_buffer & 0x01;
 
 err:
