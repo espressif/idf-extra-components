@@ -37,6 +37,8 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
     case GIGADEVICE_DI_41:
     case GIGADEVICE_DI_31:
     case GIGADEVICE_DI_21:
+    case GIGADEVICE_DI_81:
+    case GIGADEVICE_DI_91:
         dev->chip.num_blocks = 1024;
         break;
     case GIGADEVICE_DI_52:

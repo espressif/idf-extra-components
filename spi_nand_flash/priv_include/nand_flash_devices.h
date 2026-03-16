@@ -32,6 +32,8 @@
 #define GIGADEVICE_DI_85              0x85
 #define GIGADEVICE_DI_92              0x92
 #define GIGADEVICE_DI_82              0x82
+#define GIGADEVICE_DI_91              0x91
+#define GIGADEVICE_DI_81              0x81
 
 #define ALLIANCE_DI_25                0x25   //AS5F31G04SND-08LIN
 #define ALLIANCE_DI_2E                0x2E   //AS5F32G04SND-08LIN

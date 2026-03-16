@@ -1,4 +1,10 @@
-## [0.18.0]                                                                                                                                                                                                                                                                                                       
+## [0.20.0]
+- feat: added support for Gigadevice (GD5F1GM7xExxG) NAND flash
+
+## [0.19.0]
+- fix: spi_nand_program_load fails in case buffer is not DMA aligned (https://github.com/espressif/idf-extra-components/issues/684)
+
+## [0.18.0]
 - fix: Update esp_vfs_fat_register prototype to esp_vfs_fat_register_cfg to align with ESP-IDF v6.0.
        The cfg version is now the primary API and remains aliased for compatibility.
 
