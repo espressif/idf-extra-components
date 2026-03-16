@@ -4,6 +4,7 @@ set(TVG_INC_DIR thorvg/src/bindings/capi)
 set(TVG_SUBDIR "${CMAKE_CURRENT_SOURCE_DIR}/thorvg")
 set(TVG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build")
 set(TVG_CROSS_CFG "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build/cross_file.txt")
+set(TVG_STATIC_LIB "${TVG_BUILD_DIR}/src/libthorvg-1.a")
 
 set(TVG_LOADERS_OPTION "")
 
@@ -13,10 +14,6 @@ endif()
 
 if(CONFIG_THORVG_SVG_LOADER_SUPPORT)
     list(APPEND TVG_LOADERS_OPTION "svg")
-endif()
-
-if(CONFIG_THORVG_TVG_LOADER_SUPPORT)
-    list(APPEND TVG_LOADERS_OPTION "tvg")
 endif()
 
 if(CONFIG_THORVG_PNG_LOADER_SUPPORT)
@@ -49,6 +46,10 @@ idf_component_register(
     SRCS dummy.c
     INCLUDE_DIRS "${TVG_INC_DIR}"
     PRIV_REQUIRES pthread)
+
+target_compile_options(${COMPONENT_LIB} INTERFACE
+    $<$<COMPILE_LANGUAGE:C>:-Wno-ignored-qualifiers>
+)
 
 
 # Expands CMake flags that may contain response files (@"file" syntax) into a list.
@@ -122,10 +123,10 @@ ExternalProject_Add(${TVG_LIB}_target
     -Dloaders=${TVG_LOADERS_OPTION}   # Pass the loaders option to Meson
     BUILD_COMMAND ninja -C ${TVG_BUILD_DIR}
     INSTALL_COMMAND ""
-    BUILD_BYPRODUCTS ${TVG_BUILD_DIR}/src/${TVG_LIB}.a
+    BUILD_BYPRODUCTS ${TVG_STATIC_LIB}
 )
 
-add_prebuilt_library(${TVG_LIB} ${TVG_BUILD_DIR}/src/${TVG_LIB}.a PRIV_REQUIRES ${TVG_REQUIRES})
+add_prebuilt_library(${TVG_LIB} ${TVG_STATIC_LIB} PRIV_REQUIRES ${TVG_REQUIRES})
 add_dependencies(${TVG_LIB} ${TVG_LIB}_target)
 
 if(TVG_THREADS STREQUAL "true")
