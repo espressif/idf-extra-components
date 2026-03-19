@@ -1,6 +1,9 @@
 /* expat_config.h.  Generated from expat_config.h.in by configure.  */
 /* expat_config.h.in.  Generated from configure.ac by autoheader.  */
 
+#ifndef EXPAT_CONFIG_H
+#define EXPAT_CONFIG_H 1
+
 /* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
 #define BYTEORDER 1234
 /* Define to 1 if you have the `bcopy' function. */
@@ -67,7 +70,7 @@
 #define PACKAGE_NAME "expat"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "expat 2.7.2"
+#define PACKAGE_STRING "expat 2.7.5"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "expat"
@@ -76,13 +79,13 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.7.2"
+#define PACKAGE_VERSION "2.7.5"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "2.7.2"
+#define VERSION "2.7.5"
 
 /* whether byteorder is bigendian */
 /* #undef WORDS_BIGENDIAN */
@@ -108,3 +111,5 @@
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
+
+#endif // ndef EXPAT_CONFIG_H
