@@ -57,6 +57,7 @@ jobs:
             json_parser
             led_strip
             libsodium
+            lua
             network_provisioning
             nghttp
             onewire_bus
