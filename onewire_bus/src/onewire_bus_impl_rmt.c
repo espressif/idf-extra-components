@@ -447,6 +447,7 @@ static esp_err_t onewire_bus_rmt_read_bytes(onewire_bus_handle_t bus, uint8_t *r
 
     xSemaphoreTake(bus_rmt->bus_mutex, portMAX_DELAY);
 
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
     // Read bytes in chunks up to the maximum hardware memory block size
     // to improve efficiency while avoiding RMT RX overflow.
     size_t max_bytes_per_chunk = ONEWIRE_RMT_DEFAULT_MEM_BLOCK_SYMBOLS / 8;
@@ -479,6 +480,24 @@ static esp_err_t onewire_bus_rmt_read_bytes(onewire_bus_handle_t bus, uint8_t *r
 
         bytes_read += chunk_bytes;
     }
+#else // CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
+    uint8_t tx_buffer[rx_buf_size];
+    memset(tx_buffer, 0xFF, rx_buf_size);
+
+    // receive rx_buf_size (rx_buf_size * 8 symbols)
+    ESP_GOTO_ON_ERROR(rmt_receive(bus_rmt->rx_channel, bus_rmt->rx_symbols_buf, rx_buf_size * 8 * sizeof(rmt_symbol_word_t), &onewire_rmt_rx_config),
+                      err, TAG, "1-wire data receive failed");
+
+    // transmit rx_buf_size (rx_buf_size * 8 symbols) of all ones to generate read clock
+    ESP_GOTO_ON_ERROR(rmt_transmit(bus_rmt->tx_channel, bus_rmt->tx_bytes_encoder, tx_buffer, sizeof(tx_buffer), &onewire_rmt_tx_config),
+                      err, TAG, "1-wire data transmit failed");
+
+    // wait for the transmission to finish and decode data
+    rmt_rx_done_event_data_t rmt_rx_evt_data;
+    ESP_GOTO_ON_FALSE(xQueueReceive(bus_rmt->receive_queue, &rmt_rx_evt_data, pdMS_TO_TICKS(1000)) == pdPASS, ESP_ERR_TIMEOUT,
+                      err, TAG, "1-wire data receive timeout");
+    onewire_rmt_decode_data(rmt_rx_evt_data.received_symbols, rmt_rx_evt_data.num_symbols, rx_buf, rx_buf_size, 0);
+#endif // CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2
 
 err:
     xSemaphoreGive(bus_rmt->bus_mutex);
