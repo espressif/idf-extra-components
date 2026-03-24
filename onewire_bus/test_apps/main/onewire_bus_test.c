@@ -10,7 +10,7 @@
 
 static const char *TAG = "test-app";
 
-#define EXAMPLE_ONEWIRE_BUS_GPIO   16
+#define EXAMPLE_ONEWIRE_BUS_GPIO    0
 #define EXAMPLE_ONEWIRE_MAX_DEVICES 2
 
 void app_main(void)
