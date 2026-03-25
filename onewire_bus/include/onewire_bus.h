@@ -7,8 +7,14 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "soc/soc_caps.h"
 #include "onewire_types.h"
+#if SOC_RMT_SUPPORTED
 #include "onewire_bus_impl_rmt.h"
+#endif
+#if SOC_UART_SUPPORTED
+#include "onewire_bus_impl_uart.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
