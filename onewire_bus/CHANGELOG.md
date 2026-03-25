@@ -1,3 +1,7 @@
+## 1.1.0
+
+- Add UART backend support for 1-Wire bus (`onewire_new_bus_uart`) alongside the existing RMT backend.
+
 ## 1.0.4
 
 - Support `en_pull_up` config option in `onewire_bus_config_t`, which can enable the internal pull-up resistor on the GPIO pin used for the one-wire bus. This is useful when using a GPIO pin that does not have a pull-up resistor connected externally.
