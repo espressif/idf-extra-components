@@ -13,6 +13,7 @@
 #define SPI_NAND_FLASH_MICRON_MI      0x2C
 #define SPI_NAND_FLASH_ZETTA_MI       0xBA
 #define SPI_NAND_FLASH_XTX_MI         0x0B
+#define SPI_NAND_FLASH_MACRONIX_MI    0xC2
 
 //Device ID (DI) for supported nand flash devices
 
@@ -59,3 +60,6 @@
 #define ZETTA_DI_71                   0x71
 
 #define XTX_DI_37                     0x37
+
+#define MACRONIX_DI_26                0x26   //MX35LF2GE4AD (2Gb)
+#define MACRONIX_DI_37                0x37   //MX35LF4GE4AD (4Gb)
