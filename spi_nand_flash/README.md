@@ -73,6 +73,7 @@ At present, `spi_nand_flash` component is compatible with the chips produced by 
 * Zetta - ZD35Q1GC
 * XTX - XT26G08D
 * Fudan Microelectronics (FMSH) - FM25S005BI3
+* Macronix - MX35LF2GE4AD, MX35LF4GE4AD
 
 **GigaDevice voltage classes:** Parts ending in **UExxG** are rated for 2.7–3.6 V and are suitable for typical ESP32 3.3 V SPI designs. Parts ending in **RExxG** are rated for 1.7–2.0 V and are not recommended for direct connection to 3.3 V ESP GPIO/SPI without level shifting and a 1.8 V supply. Some `RExx` variants remain in the driver from earlier releases for backward compatibility; new additions target the 3.3 V `UExx` parts only (for example, **GD5F4GM7UExxG**, not GD5F4GM7RExxG).
 

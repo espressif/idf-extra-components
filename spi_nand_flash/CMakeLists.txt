@@ -27,6 +27,7 @@ else()
                      "src/devices/nand_zetta.c"
                      "src/devices/nand_xtx.c"
                      "src/devices/nand_fm.c"
+                     "src/devices/nand_macronix.c"
                      "src/nand_impl.c"
                      "src/nand_diag_api.c"
                      "src/spi_nand_flash_test_helpers.c"

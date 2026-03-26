@@ -284,7 +284,8 @@ src/
     ├── nand_alliance.c         # Alliance NAND flash support
     ├── nand_micron.c           # Micron NAND flash support
     ├── nand_zetta.c            # Zetta NAND flash support
-    └── nand_xtx.c              # XTX NAND flash support
+    ├── nand_xtx.c              # XTX NAND flash support
+    └── nand_macronix.c         # Macronix NAND flash support
 ```
 
 ## API Usage
@@ -724,6 +725,7 @@ else()
                      "src/devices/nand_micron.c"
                      "src/devices/nand_zetta.c"
                      "src/devices/nand_xtx.c"
+                     "src/devices/nand_macronix.c"
                      "src/nand_impl.c"
                      "src/nand_diag_api.c"
                      "src/spi_nand_flash_test_helpers.c"
@@ -743,6 +745,7 @@ The component supports NAND flash chips from multiple manufacturers:
 | Micron | `src/devices/nand_micron.c` | MT29F1G01 |
 | Zetta | `src/devices/nand_zetta.c` | ZD35Q1GA |
 | XTX | `src/devices/nand_xtx.c` | XT26G01C |
+| Macronix | `src/devices/nand_macronix.c` | MX35LF2GE4AD, MX35LF4GE4AD |
 
 Device detection is automatic based on JEDEC manufacturer and device IDs.
 
