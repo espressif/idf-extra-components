@@ -61,6 +61,16 @@ static void solar_callback(esp_schedule_handle_t handle, void *priv_data)
 }
 #endif // CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
 
+#ifdef CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+static void cron_expr_callback(esp_schedule_handle_t handle, void *priv_data)
+{
+    ESP_LOGI(TAG, "CRON expression schedule triggered! Data: %s", (char *)priv_data);
+
+    // Example: Cron expression schedule triggered, etc.
+    // Your application logic here
+}
+#endif // CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+
 static void timestamp_callback(esp_schedule_handle_t handle, uint32_t next_timestamp, void *priv_data)
 {
     time_t timestamp = (time_t)next_timestamp;
@@ -79,6 +89,9 @@ static char *relative_data = "Timer schedule";
 #ifdef CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
 static char *solar_data = "Sunrise/Sunset schedule";
 #endif // CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
+#ifdef CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+static char *cron_expr_data = "CRON expression schedule";
+#endif // CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
 
 /**
  * @brief Create example schedules
@@ -214,6 +227,29 @@ static void create_example_schedules(void)
         esp_schedule_enable(sunset_handle);
     }
 #endif // CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
+
+    // Example 5: CRON expression schedule
+    // Note: This requires CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR to be enabled
+    // Triggers every day at every 10th minute
+#if CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+    esp_schedule_config_t cron_expr_schedule = {
+        .name = "cron_expr",
+        .trigger.type = ESP_SCHEDULE_TYPE_CRON_EXPR,
+        .trigger.cron_expr_str = "*/10 * * * *", // At every 10th minute
+        .trigger_cb = cron_expr_callback,
+        .timestamp_cb = timestamp_callback,
+        .priv_data = cron_expr_data,
+        .validity = {
+            .start_time = 0,  // Start immediately
+            .end_time = 0     // No end time
+        }
+    };
+    esp_schedule_handle_t cron_expr_handle = esp_schedule_create(&cron_expr_schedule);
+    if (cron_expr_handle) {
+        ESP_LOGI(TAG, "Created CRON expression schedule successfully");
+        esp_schedule_enable(cron_expr_handle);
+    }
+#endif // CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
 }
 
 void app_main(void)
