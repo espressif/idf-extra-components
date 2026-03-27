@@ -88,6 +88,8 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         return spi_nand_zetta_init(dev);
     case SPI_NAND_FLASH_XTX_MI: // XTX
         return spi_nand_xtx_init(dev);
+    case SPI_NAND_FLASH_MACRONIX_MI: // Macronix
+        return spi_nand_macronix_init(dev);
     default:
         return ESP_ERR_INVALID_RESPONSE;
     }
