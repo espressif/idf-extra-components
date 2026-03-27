@@ -1,4 +1,6 @@
 onewire_bus/test_apps:
   disable:
-    - if: SOC_RMT_SUPPORTED != 1
-      reason: Only RMT backend is implemented
+    - if: CONFIG_NAME == "CONFIG_RMT" and SOC_RMT_SUPPORTED != 1
+      reason: RMT backend variant requires SOC RMT support
+    - if: CONFIG_NAME == "CONFIG_UART" and SOC_UART_SUPPORTED != 1
+      reason: UART backend variant requires SOC UART support
