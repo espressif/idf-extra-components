@@ -15,6 +15,11 @@
 #endif
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "nand_device_types.h"
+
+#ifdef CONFIG_NAND_FLASH_ENABLE_BDL
+#include "esp_blockdev.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,45 +30,11 @@ extern "C" {
 #define NAND_FLAG_HAS_PROG_PLANE_SELECT       BIT(0)
 #define NAND_FLAG_HAS_READ_PLANE_SELECT       BIT(1)
 
-typedef enum {
-    STAT_ECC_OK = 0,
-    STAT_ECC_1_TO_3_BITS_CORRECTED = 1,
-    STAT_ECC_BITS_CORRECTED = STAT_ECC_1_TO_3_BITS_CORRECTED,
-    STAT_ECC_NOT_CORRECTED = 2,
-    STAT_ECC_4_TO_6_BITS_CORRECTED = 3,
-    STAT_ECC_MAX_BITS_CORRECTED = STAT_ECC_4_TO_6_BITS_CORRECTED,
-    STAT_ECC_7_8_BITS_CORRECTED = 5,
-    STAT_ECC_MAX
-} ecc_status_t;
+// Legacy typedef for compatibility - now uses nand_flash_geometry_t internally
+typedef nand_flash_geometry_t spi_nand_chip_t;
 
 typedef struct {
-    uint8_t ecc_status_reg_len_in_bits;
-    uint8_t ecc_data_refresh_threshold;
-    ecc_status_t ecc_corrected_bits_status;
-} ecc_data_t;
-
-typedef struct {
-    uint8_t log2_page_size; //is power of 2, log2_page_size shift (1<<log2_page_size) is stored to page_size
-    uint8_t log2_ppb;  //is power of 2, log2_ppb shift ((1<<log2_ppb) * page_size) will be stored in block size
-    uint32_t block_size;
-    uint32_t page_size;
-#ifdef CONFIG_IDF_TARGET_LINUX
-    uint32_t emulated_page_size;
-    uint32_t emulated_page_oob;
-#endif
-    uint32_t num_blocks;
-    uint32_t read_page_delay_us;
-    uint32_t erase_block_delay_us;
-    uint32_t program_page_delay_us;
-    uint32_t num_planes;
-    uint32_t flags;
-    ecc_data_t ecc_data;
-    uint8_t has_quad_enable_bit;    // 1 if the chip supports enabling QIO/QOUT mode using bit 0 of 0xB0 (REG_CONFIG), 0 otherwise
-    uint8_t quad_enable_bit_pos;
-} spi_nand_chip_t;
-
-typedef struct {
-    esp_err_t (*init)(spi_nand_flash_device_t *handle);
+    esp_err_t (*init)(spi_nand_flash_device_t *handle, void *bdl_handle); //if CONFIG_NAND_FLASH_ENABLE_BDL disabled, bdl_handle should be NULL
     esp_err_t (*deinit)(spi_nand_flash_device_t *handle);
     esp_err_t (*read)(spi_nand_flash_device_t *handle, uint8_t *buffer, uint32_t sector_id);
     esp_err_t (*write)(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint32_t sector_id);
@@ -73,11 +44,13 @@ typedef struct {
     esp_err_t (*sync)(spi_nand_flash_device_t *handle);
     esp_err_t (*copy_sector)(spi_nand_flash_device_t *handle, uint32_t src_sec, uint32_t dst_sec);
     esp_err_t (*get_capacity)(spi_nand_flash_device_t *handle, uint32_t *number_of_sectors);
+    esp_err_t (*gc)(spi_nand_flash_device_t *handle);
 } spi_nand_ops;
 
 struct spi_nand_flash_device_t {
     spi_nand_flash_config_t config;
-    spi_nand_chip_t chip;
+    spi_nand_chip_t chip;                  // Geometry (legacy typedef for nand_flash_geometry_t)
+    nand_device_info_t device_info;        // Device identification (manufacturer, device ID, chip name)
     const spi_nand_ops *ops;
     void *ops_priv_data;
     uint8_t *work_buffer;
@@ -89,8 +62,33 @@ struct spi_nand_flash_device_t {
 #endif
 };
 
-esp_err_t nand_register_dev(spi_nand_flash_device_t *handle);
-esp_err_t nand_unregister_dev(spi_nand_flash_device_t *handle);
+
+/**
+ * @brief Attach wear-leveling operations to NAND device (internal use only)
+ *
+ * This function attaches the Dhara wear-leveling operation callbacks to the
+ * device, enabling wear-leveling functionality.
+ *
+ * @param[in] handle  NAND device handle
+ *
+ * @return
+ *         - ESP_OK: Success
+ *         - ESP_ERR_INVALID_ARG: Invalid handle
+ */
+esp_err_t nand_wl_attach_ops(spi_nand_flash_device_t *handle);
+
+/**
+ * @brief Detach wear-leveling operations from NAND device (internal use only)
+ *
+ * This function detaches the wear-leveling operation callbacks and frees
+ * associated private data.
+ *
+ * @param[in] handle  NAND device handle
+ *
+ * @return
+ *         - ESP_OK: Success
+ */
+esp_err_t nand_wl_detach_ops(spi_nand_flash_device_t *handle);
 
 #ifdef __cplusplus
 }

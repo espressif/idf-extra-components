@@ -28,6 +28,8 @@ This example demonstrates how to use the SPI NAND Flash driver with FAT filesyst
 
 The example can be configured to format the filesystem if mounting fails. This can be enabled using the `CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED` configuration option.
 
+Keep **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled** (Component config → SPI NAND Flash). This example uses `spi_nand_flash_init_device()`, which is not available when BDL is enabled.
+
 ## How to Use Example
 
 Build the project and flash it to the board, then run monitor tool to view serial output:
