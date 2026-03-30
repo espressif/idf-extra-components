@@ -1,3 +1,6 @@
+## [0.21.0]
+- fix: spi_nand_read fails in case buffer is not DMA aligned (https://github.com/espressif/idf-extra-components/issues/708)
+
 ## [0.20.0]
 - feat: added support for Gigadevice (GD5F1GM7xExxG) NAND flash
 
