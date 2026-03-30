@@ -187,3 +187,9 @@ if(CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE)
     # some libsodium variables are only used for asserts
     target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-but-set-variable)
 endif()
+
+if(CONFIG_COMPILER_STATIC_ANALYZER AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    # GCC's -fanalyzer causes the compiler to hang on libsodium's elliptic curve code
+    # due to combinatorial state explosion in the interprocedural analysis
+    target_compile_options(${COMPONENT_LIB} PRIVATE "-fno-analyzer")
+endif()
