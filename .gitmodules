@@ -81,3 +81,7 @@
 [submodule "cjson/cJSON"]
 	path = cjson/cJSON
 	url = https://github.com/DaveGamble/cJSON.git
+
+[submodule "canopennode/CANopenNode"]
+	path = canopennode/CANopenNode
+	url = https://github.com/CANopenNode/CANopenNode.git

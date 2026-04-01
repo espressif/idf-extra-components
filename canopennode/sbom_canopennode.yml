@@ -1,0 +1,8 @@
+name: CANopenNode
+version: "4.0.0"
+cpe:
+ - cpe:2.3:a:canopennode:canopennode:{}:*:*:*:*:*:*:*
+supplier: 'Organization: CANopenNode'
+description: "CANopenNode: CANopen protocol stack"
+url: https://github.com/CANopenNode/CANopenNode
+hash: ac2140717c3c498d9b0351bce052bab630a74764

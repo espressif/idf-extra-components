@@ -1,0 +1,13 @@
+menu "CANopenNode Stack Config"
+
+    config CO_MULTIPLE_OD
+        bool "Enable MULTIPLE_OD"
+        default false
+        help
+            Enable support for using application-specific CANopen object
+            dictionary files (OD.c/OD.h) instead of a single default OD.
+            When this option is enabled, the application or build system
+            must provide the appropriate OD.c and OD.h files for each
+            configuration that is built.
+
+endmenu

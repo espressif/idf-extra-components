@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+dependencies:
+  idf:
+    version: ">=5.5.4"
+  espressif/canopennode:
+    version: "*"
+    override_path: "../../.."
