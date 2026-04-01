@@ -1,3 +1,20 @@
+## [1.0.0]
+### Breaking Changes
+- FATFS integration has been moved to a separate `spi_nand_flash_fatfs` component. Projects using FATFS with NAND flash must add `spi_nand_flash_fatfs` as a dependency. FatFs on SPI NAND still requires the **legacy** init path: keep **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled** for that use case (no FatFs-on-BDL support in this release).
+- When `CONFIG_NAND_FLASH_ENABLE_BDL` is enabled, the legacy `spi_nand_flash_init_device()` returns `ESP_ERR_NOT_SUPPORTED`. Use `spi_nand_flash_init_with_layers()` instead for block-device consumers.
+- `spi_nand_erase_chip()` performs a physical full-media erase. Previously, the driver incorrectly attempted to erase every block without checking bad-block markers, which could erase factory-marked bad blocks. It now skips bad blocks and physically erases only blocks that are not marked bad.
+
+### New Features
+- Added Block Device Layer (BDL) support, available from ESP-IDF v6.0. Provides standard `esp_blockdev_t` interfaces for both raw flash access and wear-leveling.
+- Added `spi_nand_flash_init_with_layers()` API for layered block device initialization.
+- Added page-based API terminology (`read_page`, `write_page`, `get_page_count`, `get_page_size`) with backward-compatible sector aliases.
+
+### Improvements
+- Refactor the component for improved structure, maintainability and readability
+- Sector API functions are now deprecated aliases for the page API equivalents.
+
+**Migration:** See **Migration Guide (0.x → 1.0.0)** in [layered_architecture.md](layered_architecture.md).
+
 ## [0.21.0]
 - fix: spi_nand_read fails in case buffer is not DMA aligned (https://github.com/espressif/idf-extra-components/issues/708)
 
@@ -8,10 +25,9 @@
 - fix: spi_nand_program_load fails in case buffer is not DMA aligned (https://github.com/espressif/idf-extra-components/issues/684)
 
 ## [0.18.0]
-- fix: Update esp_vfs_fat_register prototype to esp_vfs_fat_register_cfg to align with ESP-IDF v6.0.
-       The cfg version is now the primary API and remains aliased for compatibility.
+- fix: Update esp_vfs_fat_register prototype to esp_vfs_fat_register_cfg to align with ESP-IDF v6.0. The cfg version is now the primary API and remains aliased for compatibility.
 
-## [0.17.0]                                                                                                                                                                                                                                                                                                       
+## [0.17.0] 
 - fix: fix a compilation error caused by the missing freertos/FreeRTOS.h header when building with ESP-IDF v6.0 and later.
 - update: improvements to the lower-level APIs following updates in esp_driver_spi.
 
