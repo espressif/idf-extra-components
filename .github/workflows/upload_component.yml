@@ -25,6 +25,7 @@ jobs:
           components: |
             argtable3
             bdc_motor
+            canopennode
             catch2
             cbor
             ccomp_timer

@@ -1,0 +1,13 @@
+menu "CANopenNode Stack Config"
+
+    config CO_MULTIPLE_OD
+        bool "Enable MULTIPLE_OD"
+        default false
+        help
+            Enable CANopenNode support for multiple Object Dictionaries.
+            When enabled, CANopen parameters are provided through CO_config_t
+            at CO_new() time. When disabled, CANopenNode uses the default
+            OD.h definitions directly, which lowers memory consumption and
+            startup time.
+
+endmenu
