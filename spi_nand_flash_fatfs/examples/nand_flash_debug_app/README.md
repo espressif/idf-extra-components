@@ -7,7 +7,7 @@ This example is designed to gather diagnostic statistics for NAND flash, as outl
 
 1. Bad block statistics.
 2. ECC error statistics.
-3. Read-write NAND sector throughput (both at the lower level and through the Dhara library).
+3. Read-write NAND page throughput (both at the lower level and through the Dhara library).
 4. Verification of NAND write operations using the Kconfig option `CONFIG_NAND_FLASH_VERIFY_WRITE`.
 
 ## How to use example
