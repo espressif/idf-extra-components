@@ -162,6 +162,9 @@ struct network_prov_mgr_ctx {
 
     /* Total number of attempts done for connecting to Wi-Fi */
     uint32_t connection_attempts_completed;
+
+    /* Original Wi-Fi config received during provisioning (without auto-populated fields) */
+    wifi_config_t original_wifi_config;
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
 
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
@@ -1252,6 +1255,66 @@ static void wifi_connect_timer_cb(void *arg)
     }
 }
 
+#ifdef CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS
+/* Helper function to save Wi-Fi credentials to flash after successful connection.
+ * This function should only be called once per provisioning session, when
+ * IP_EVENT_STA_GOT_IP is received. The caller is responsible for ensuring
+ * this is only called once.
+ * Uses the original config stored when credentials were received, which contains
+ * only the fields set during provisioning (SSID, password, scan_method), not
+ * auto-populated fields like channel. */
+static void save_wifi_credentials_to_flash(void)
+{
+    /* Check if original config is valid */
+    if (strlen((const char *)prov_ctx->original_wifi_config.sta.ssid) == 0) {
+        ESP_LOGE(TAG, "Original WiFi config is empty, cannot save to flash");
+        return;
+    }
+
+    /* Create a clean config for saving to flash. Clear connection-specific fields
+     * that are auto-populated by the WiFi stack. These fields will be
+     * auto-populated on the next connection anyway. */
+    wifi_config_t config_to_save;
+    memcpy(&config_to_save, &prov_ctx->original_wifi_config, sizeof(wifi_config_t));
+
+    /* Clear connection-specific fields */
+    config_to_save.sta.channel = 0;  /* 0 means scan all channels */
+    config_to_save.sta.bssid_set = false;
+    memset(config_to_save.sta.bssid, 0, sizeof(config_to_save.sta.bssid));
+
+    /* Switch to FLASH storage mode */
+    esp_err_t ret = esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set Wi-Fi storage to flash, esp_wifi_set_storage returned: %s (0x%x)",
+                 esp_err_to_name(ret), ret);
+        return;
+    }
+
+    /* Force write by first clearing the config, then setting the new one.
+     * This ensures the config is written even if it matches what's in flash. */
+    wifi_config_t empty_cfg = {0};
+    esp_wifi_set_config(WIFI_IF_STA, &empty_cfg);
+
+    /* Small delay to ensure NVS write completes */
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    /* Now set the new config */
+    ret = esp_wifi_set_config(WIFI_IF_STA, &config_to_save);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Wi-Fi credentials saved to flash after successful connection");
+
+        /* Small delay to ensure NVS write completes */
+        vTaskDelay(pdMS_TO_TICKS(100));
+    } else {
+        ESP_LOGE(TAG, "Failed to save Wi-Fi credentials to flash, esp_wifi_set_config returned: %s (0x%x)",
+                 esp_err_to_name(ret), ret);
+    }
+
+    /* Note: We keep storage as FLASH here since credentials are now in flash.
+     * The device will use flash storage on next boot anyway. */
+}
+#endif /* CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS */
+
 esp_err_t network_prov_mgr_configure_wifi_sta(wifi_config_t *wifi_cfg)
 {
     if (!prov_ctx_lock) {
@@ -1275,6 +1338,13 @@ esp_err_t network_prov_mgr_configure_wifi_sta(wifi_config_t *wifi_cfg)
     }
     debug_print_wifi_credentials(wifi_cfg->sta, "Received");
 
+#ifdef CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS
+    /* Store original config for later saving to flash. This preserves only the
+     * fields set during provisioning (SSID, password, scan_method), not
+     * auto-populated fields like channel that may be set by the WiFi stack. */
+    memcpy(&prov_ctx->original_wifi_config, wifi_cfg, sizeof(wifi_config_t));
+#endif /* CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS */
+
     /* Configure Wi-Fi as both AP and/or Station */
     if (esp_wifi_set_mode(prov_ctx->mgr_config.scheme.wifi_mode) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi mode");
@@ -1287,8 +1357,19 @@ esp_err_t network_prov_mgr_configure_wifi_sta(wifi_config_t *wifi_cfg)
      * happens even before manager state is updated in the next
      * few lines causing the internal event handler to miss */
 
-    /* Set Wi-Fi storage again to flash to keep the newly
-     * provided credentials on NVS */
+#ifdef CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS
+    /* Set Wi-Fi storage to RAM initially to avoid persisting invalid
+     * credentials to flash. Credentials will be saved to flash only
+     * after successful connection (when IP_EVENT_STA_GOT_IP is received) */
+    if (esp_wifi_set_storage(WIFI_STORAGE_RAM) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set storage Wi-Fi to RAM");
+        RELEASE_LOCK(prov_ctx_lock);
+        return ESP_FAIL;
+    }
+    /* Configure Wi-Fi station with host credentials
+     * provided during provisioning (stored in RAM initially) */
+#else
+    /* Set Wi-Fi storage to flash to keep the newly provided credentials on NVS */
     if (esp_wifi_set_storage(WIFI_STORAGE_FLASH) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set storage Wi-Fi");
         RELEASE_LOCK(prov_ctx_lock);
@@ -1296,6 +1377,7 @@ esp_err_t network_prov_mgr_configure_wifi_sta(wifi_config_t *wifi_cfg)
     }
     /* Configure Wi-Fi station with host credentials
      * provided during provisioning */
+#endif /* CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS */
     if (esp_wifi_set_config(WIFI_IF_STA, wifi_cfg) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi configuration");
         RELEASE_LOCK(prov_ctx_lock);
@@ -1773,6 +1855,12 @@ static void network_prov_mgr_event_handler_internal(
         /* Station got IP. That means configuration is successful. */
         prov_ctx->wifi_state = NETWORK_PROV_WIFI_STA_CONNECTED;
         prov_ctx->prov_state = NETWORK_PROV_STATE_SUCCESS;
+
+#ifdef CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS
+        /* Now that connection is successful, save credentials to flash
+         * so they persist across reboots. */
+        save_wifi_credentials_to_flash();
+#endif /* CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS */
 
         /* If auto stop is enabled (default), schedule timer to
          * stop provisioning after configured timeout. */
