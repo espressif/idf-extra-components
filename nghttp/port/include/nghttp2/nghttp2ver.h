@@ -29,7 +29,7 @@
  * @macro
  * Version number of the nghttp2 library release
  */
-#define NGHTTP2_VERSION "1.68.0"
+#define NGHTTP2_VERSION "1.68.1"
 
 /**
  * @macro

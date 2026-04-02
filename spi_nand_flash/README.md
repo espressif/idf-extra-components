@@ -20,36 +20,62 @@ SPI NAND Flash combines the benefits of NAND Flash technology with the simplicit
 
 ### Implementation Architecture
 
+The component now features a layered architecture for better maintainability and modularity:
+
 ```mermaid
 graph TD
-    A[Application] --> B[FATFS]
-    B --> C[Dhara Library]
-    C --> Hardware_Path[Hardware Path]
-    C --> Linux_Path[Linux Path]
-
-    subgraph Hardware_Path [Hardware Path]
-        HP1[NAND Flash Layer]
-        HP1 --> HP2[SPI NAND Flash Driver]
-        HP2 --> HP3["SPI Driver (ESP-IDF)"]
-        HP3 --> HP4[Hardware via SPI]
+    A[Application/FS] --> B[SPI NAND Flash API]
+    B --> C[NAND Wear-Leveling BDL]
+    C --> D[NAND Flash BDL] 
+    D --> E{Target}
+    E -->|ESP Chips| F[SPI NAND Operations]
+    F --> G[Hardware via SPI]
+    E -->|Linux| H[NAND Emulation]
+    H --> I[Memory-Mapped File]
+    
+    subgraph "Layered Architecture"
+        B["spi_nand_flash.h<br/>(Backward Compatible)"]
+        C["nand_wl_bdl<br/>(Wear Leveling)"]
+        D["nand_flash_bdl<br/>(Physical Flash)"]
     end
-
-    subgraph Linux_Path [Linux Path]
-        LP1[NAND Flash Layer]
-        LP1 --> LP2[NAND Emulation Layer]
-        LP2 --> LP3[Memory Mapped File]
+    
+    subgraph "Hardware Layer"
+        F["spi_nand_oper<br/>(SPI Commands)"]
+        H["nand_linux_mmap_emul<br/>(Host Test)"]
     end
 ```
+
+**Key Benefits:**
+- **Backward Compatible**: Existing code works unchanged; sector-named APIs are retained as aliases of the page API
+- **Page terminology**: Public API uses *page* (read_page, write_page, get_page_count, get_page_size) to align with NAND flash; sector names remain for compatibility
+- **Modular Design**: Clear separation between wear-leveling and flash management
+- **Enhanced Features**: Direct access to flash and wear-leveling layers
+
+**📖 Architecture and migration:**
+For layered architecture, BDL usage, API details, and **upgrading from 0.x to 1.0.0** (including the FATFS component split and legacy vs BDL init), see:
+- [Layered Architecture Guide](layered_architecture.md) — includes the **Migration Guide (0.x → 1.0.0)** section
+
+## ESP-IDF version and API modes
+
+- **ESP-IDF 5.0–5.x:** Use the **legacy** API only (`spi_nand_flash_init_device()`, page/sector helpers). The BDL Kconfig option is not available on these IDF versions. Component **1.0.0** remains compatible with this range when BDL is not used.
+- **ESP-IDF 6.0 and newer:** You may enable **`CONFIG_NAND_FLASH_ENABLE_BDL`** and use **`spi_nand_flash_init_with_layers()`** with **`esp_blockdev_t`** for block-device consumers. If BDL is **disabled**, the legacy API behaves as on older IDF versions.
+
 ## Supported SPI NAND Flash chips
 
 At present, `spi_nand_flash` component is compatible with the chips produced by the following manufacturers and and their respective model numbers:
 
-* Winbond - W25N01GVxxxG/T/R, W25N512GVxIG/IT, W25N512GWxxR/T, W25N01JWxxxG/T, W25N01JWxxxG/T, W25N02KVxxIR/U, W25N04KVxxIR/U
-* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG, GD5F1GM7xExxG
+* Winbond - W25N01GVxxxG/T/R, W25N512GVxIG/IT, W25N512GWxxR/T, W25N01JWxxxG/T, W25N02KVxxIR/U, W25N04KVxxIR/U
+* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG, GD5F1GM7xExxG
 * Alliance - AS5F31G04SND-08LIN, AS5F32G04SND-08LIN, AS5F12G04SND-10LIN, AS5F34G04SND-08LIN, AS5F14G04SND-10LIN, AS5F38G04SND-08LIN, AS5F18G04SND-10LIN
 * Micron - MT29F4G01ABAFDWB, MT29F1G01ABAFDSF-AAT:F, MT29F2G01ABAGDWB-IT:G
 * Zetta - ZD35Q1GC
 * XTX - XT26G08D
+
+## FATFS Integration
+
+For FATFS filesystem support, use the separate [`spi_nand_flash_fatfs`](../spi_nand_flash_fatfs) component:
+- Provides diskio adapters and VFS mount helpers for the **legacy** `spi_nand_flash_device_t` path only
+- **Do not enable BDL** if you use this FatFs stack on the same NAND instance (see [`spi_nand_flash_fatfs/README.md`](../spi_nand_flash_fatfs/README.md))
 
 ## Troubleshooting
 

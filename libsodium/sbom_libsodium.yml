@@ -1,0 +1,10 @@
+name: libsodium
+version: "1.0.21"
+cpe: cpe:2.3:a:jedisct1:libsodium:{}:*:*:*:*:*:*:*
+supplier: 'Person: Frank Denis (jedisct1)'
+description: A modern, portable, easy to use crypto library
+url: https://github.com/jedisct1/libsodium
+hash: d24faf56214469b354b01c8ba36257e04737101e
+cve-exclude-list:
+  - cve: CVE-2025-69277
+    reason: Resolved in version 1.0.21 with commit f2da4cd8cb26
