@@ -7,6 +7,19 @@
 #pragma once
 
 #include "esp_err.h"
+#include "sdkconfig.h"
+
+#if CONFIG_PID_CTRL_NUM_TYPE_IQ
+#if defined(GLOBAL_IQ) && (GLOBAL_IQ != CONFIG_PID_CTRL_IQ_FORMAT)
+#error "GLOBAL_IQ must match CONFIG_PID_CTRL_IQ_FORMAT before including pid_ctrl.h"
+#endif
+
+#ifndef GLOBAL_IQ
+#define GLOBAL_IQ CONFIG_PID_CTRL_IQ_FORMAT
+#endif
+
+#include "IQmathLib.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +34,12 @@ typedef enum {
     PID_CAL_TYPE_POSITIONAL,  /*!< Positional PID control */
 } pid_calculate_type_t;
 
+#if CONFIG_PID_CTRL_NUM_TYPE_IQ
+typedef _iq pid_ctrl_num_t;
+#else
+typedef float pid_ctrl_num_t;
+#endif
+
 /**
  * @brief Type of PID control block handle
  *
@@ -32,13 +51,13 @@ typedef struct pid_ctrl_block_t *pid_ctrl_block_handle_t;
  *
  */
 typedef struct {
-    float kp;                      // PID Kp parameter
-    float ki;                      // PID Ki parameter
-    float kd;                      // PID Kd parameter
-    float max_output;              // PID maximum output limitation
-    float min_output;              // PID minimum output limitation
-    float max_integral;            // PID maximum integral value limitation
-    float min_integral;            // PID minimum integral value limitation
+    pid_ctrl_num_t kp;             // PID Kp parameter
+    pid_ctrl_num_t ki;             // PID Ki parameter
+    pid_ctrl_num_t kd;             // PID Kd parameter
+    pid_ctrl_num_t max_output;     // PID maximum output limitation
+    pid_ctrl_num_t min_output;     // PID minimum output limitation
+    pid_ctrl_num_t max_integral;   // PID maximum integral value limitation
+    pid_ctrl_num_t min_integral;   // PID minimum integral value limitation
     pid_calculate_type_t cal_type; // PID calculation type
 } pid_ctrl_parameter_t;
 
@@ -93,7 +112,7 @@ esp_err_t pid_update_parameters(pid_ctrl_block_handle_t pid, const pid_ctrl_para
  *      - ESP_OK: Run a PID compute successfully
  *      - ESP_ERR_INVALID_ARG: Run a PID compute failed because of invalid argument
  */
-esp_err_t pid_compute(pid_ctrl_block_handle_t pid, float input_error, float *ret_result);
+esp_err_t pid_compute(pid_ctrl_block_handle_t pid, pid_ctrl_num_t input_error, pid_ctrl_num_t *ret_result);
 
 /**
  * @brief Reset the accumulation in pid_ctrl_block
@@ -104,6 +123,22 @@ esp_err_t pid_compute(pid_ctrl_block_handle_t pid, float input_error, float *ret
  *      - ESP_ERR_INVALID_ARG: Reset failed because of invalid argument
  */
 esp_err_t pid_reset_ctrl_block(pid_ctrl_block_handle_t pid);
+
+/**
+ * @brief Convert float value to the configured pid_ctrl number type
+ *
+ * @param[in] value Float value to convert
+ * @return Number in the configured pid_ctrl number type
+ */
+pid_ctrl_num_t pid_ctrl_num_from_float(float value);
+
+/**
+ * @brief Convert the configured pid_ctrl number type to float
+ *
+ * @param[in] value Number in the configured pid_ctrl number type
+ * @return Float value
+ */
+float pid_ctrl_num_to_float(pid_ctrl_num_t value);
 
 #ifdef __cplusplus
 }

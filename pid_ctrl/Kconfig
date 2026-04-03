@@ -1,0 +1,26 @@
+menu "PID Controller"
+
+    choice PID_CTRL_NUM_TYPE
+        prompt "pid_ctrl numeric backend"
+        default PID_CTRL_NUM_TYPE_FLOAT
+        help
+            Select the numeric type used by the pid_ctrl public API and internal
+            calculations. This is a build-time choice; one build uses one backend.
+
+        config PID_CTRL_NUM_TYPE_FLOAT
+            bool "float"
+
+        config PID_CTRL_NUM_TYPE_IQ
+            bool "IQmath _iq"
+    endchoice
+
+    config PID_CTRL_IQ_FORMAT
+        int "IQmath GLOBAL_IQ format used by pid_ctrl"
+        depends on PID_CTRL_NUM_TYPE_IQ
+        default 24
+        range 1 30
+        help
+            Select the IQ format used by pid_ctrl when the IQmath backend is enabled.
+            This value must match the application's GLOBAL_IQ setting.
+
+endmenu
