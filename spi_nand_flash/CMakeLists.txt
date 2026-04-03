@@ -26,13 +26,14 @@ else()
                      "src/devices/nand_micron.c"
                      "src/devices/nand_zetta.c"
                      "src/devices/nand_xtx.c"
+                     "src/devices/nand_macronix.c"
                      "src/nand_impl.c"
                      "src/nand_diag_api.c"
                      "src/spi_nand_flash_test_helpers.c"
                      "src/spi_nand_oper.c")
-    
+
     set(priv_reqs esp_mm)
-    
+
     if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER "5.3")
         list(APPEND reqs esp_driver_spi)
     else()
