@@ -1,0 +1,8 @@
+version: "0.1.0"
+description: CANopenNode protocol implementation for ESP-IDF
+dependencies:
+  idf: ">=6.1.0"
+sbom:
+  manifests:
+    - path: sbom_canopennode.yml
+      dest: CANopenNode
