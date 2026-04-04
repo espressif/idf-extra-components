@@ -1,3 +1,8 @@
+# 1.2.3 (2-April-2026)
+- Fix possible NULL pointer dereference with malformed protobuf messages
+- Fix possible buffer overflow in Thread provisioning
+- Fix potential memory leaks
+
 # 1.2.2 (18-Dec-2025)
 
 - Fix connection attempts counter not being reset on state reset or new credentials
