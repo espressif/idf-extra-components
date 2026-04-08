@@ -59,7 +59,7 @@ def get_thread_dataset_tlvs(network_info, network_key):
     return dataset_tlvs
 
 
-async def get_transport(sel_transport, service_name):
+async def get_transport(sel_transport, service_name, ble_adapter=transport.DEFAULT_BLE_ADAPTER):
     try:
         tp = None
         if (sel_transport in ['softap', 'httpd']):
@@ -76,7 +76,7 @@ async def get_transport(sel_transport, service_name):
             # will fallback to using the provided UUIDs instead
             nu_lookup = {'prov-session': 'ff51', 'prov-config': 'ff52', 'proto-ver': 'ff53'}
             tp = transport.Transport_BLE(service_uuid='021a9004-0382-4aea-bff4-6b3f1c5adfb4',
-                                         nu_lookup=nu_lookup)
+                                         nu_lookup=nu_lookup, ble_adapter=ble_adapter)
             await tp.connect(devname=service_name)
         elif (sel_transport == 'console'):
             tp = transport.Transport_Console()
@@ -554,6 +554,11 @@ async def main():
 
     parser.add_argument('-v','--verbose', help='Increase output verbosity', action='store_true')
 
+    parser.add_argument('--ble_adapter', dest='ble_adapter', type=str, default=transport.DEFAULT_BLE_ADAPTER,
+                        help=desc_format(
+                            f'HCI adapter to use for BLE (default: {transport.DEFAULT_BLE_ADAPTER}).',
+                            'Use with vhci_bridge for emulated devices, e.g. --ble_adapter hci1'))
+
     args = parser.parse_args()
 
     if args.secver == 2 and args.sec2_gen_cred:
@@ -564,7 +569,7 @@ async def main():
         security.sec2_gen_salt_verifier(args.sec2_usr, args.sec2_pwd, args.sec2_salt_len)
         sys.exit()
 
-    obj_transport = await get_transport(args.mode.lower(), args.name)
+    obj_transport = await get_transport(args.mode.lower(), args.name, args.ble_adapter)
     if obj_transport is None:
         raise RuntimeError('Failed to establish connection')
 
