@@ -196,12 +196,14 @@ esp_err_t nand_emul_erase_block(spi_nand_flash_device_t *handle, size_t offset)
         return ESP_ERR_INVALID_STATE;
     }
 
-    if (offset + handle->chip.block_size > emul_handle->file_mmap_ctrl.flash_file_size) {
+    const size_t nbytes = (size_t)(1u << handle->chip.log2_ppb) * (size_t)handle->chip.emulated_page_size;
+
+    if (offset + nbytes > emul_handle->file_mmap_ctrl.flash_file_size) {
         return ESP_ERR_INVALID_SIZE;
     }
 
     void *dst_addr = emul_handle->mem_file_buf + offset;
-    memset(dst_addr, 0xFF,  handle->chip.block_size);
+    memset(dst_addr, 0xFF, nbytes);
 
 #ifdef CONFIG_NAND_ENABLE_STATS
     emul_handle->stats.erase_ops++;
