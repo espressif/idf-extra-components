@@ -1,3 +1,15 @@
+# 1.2.3 (TBD)
+
+- Add option to store Wi-Fi credentials in RAM initially and save to flash only after successful connection
+  - New config option `CONFIG_NETWORK_PROV_WIFI_SAVE_CREDENTIALS_ON_SUCCESS` (disabled by default)
+  - When enabled, credentials are stored in RAM when received during provisioning to prevent invalid
+    credentials from persisting in flash if the device reboots before connection succeeds
+  - Credentials are saved to flash only after successful IP address assignment
+    (`IP_EVENT_STA_GOT_IP`), ensuring only valid credentials persist across reboots
+  - This prevents the issue where wrong credentials persist in flash if the device reboots
+    before `network_prov_mgr_reset_wifi_sm_state_on_failure()` is called
+  - Legacy behavior (save to flash immediately) is preserved when the option is disabled
+
 # 1.2.2 (18-Dec-2025)
 
 - Fix connection attempts counter not being reset on state reset or new credentials
