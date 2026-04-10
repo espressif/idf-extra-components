@@ -1,0 +1,19 @@
+menu "LZ4 Configurations"
+
+    config LZ4_USE_PSRAM
+        bool "Prefer PSRAM for LZ4 internal allocations"
+        default n
+        help
+            Prefer PSRAM for LZ4 Block and HC compression workspaces when
+            available. Internal 8-bit RAM is used as a fallback when PSRAM is not
+            initialized or cannot satisfy an allocation.
+
+            This option enables LZ4_USER_MEMORY_FUNCTIONS. It affects allocations
+            made by the Block and HC implementations. Frame APIs use their own
+            custom-memory interface; use LZ4F_createCompressionContext_advanced()
+            or LZ4F_createDecompressionContext_advanced() when Frame allocations
+            must use a specific memory region. This option does not move
+            application-owned input, output, or explicitly allocated streaming
+            states automatically.
+
+endmenu

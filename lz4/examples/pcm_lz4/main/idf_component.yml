@@ -1,0 +1,4 @@
+dependencies:
+  espressif/lz4:
+    version: "*"
+    override_path: "../../.."

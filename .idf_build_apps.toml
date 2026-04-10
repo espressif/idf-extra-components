@@ -31,6 +31,7 @@ manifest_file = [
     "libpng/.build-test-rules.yml",
     "libsodium/.build-test-rules.yml",
     "lua/.build-test-rules.yml",
+    "lz4/.build-test-rules.yml",
     "onewire_bus/.build-test-rules.yml",
     "pcap/.build-test-rules.yml",
     "pid_ctrl/.build-test-rules.yml",

@@ -1,0 +1,12 @@
+version: "1.10.0"
+description: LZ4 lossless compression algorithm library
+url: https://github.com/espressif/idf-extra-components/tree/master/lz4
+repository: https://github.com/espressif/idf-extra-components.git
+documentation: https://lz4.org/
+issues: https://github.com/espressif/idf-extra-components/issues
+dependencies:
+  idf: ">=5.1"
+sbom:
+  manifests:
+    - path: sbom_lz4.yml
+      dest: lz4
