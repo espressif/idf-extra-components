@@ -2,7 +2,7 @@
 
 This driver is designed to support SPI NAND Flash with ESP chipsets.
 
-This component incorporates the [dhara library](https://github.com/dlbeer/dhara), licenced under the [LICENCE](https://github.com/dlbeer/dhara/blob/master/LICENSE)
+This component incorporates the [dhara library](https://github.com/dlbeer/dhara) via the `espressif/dhara` component (vendored in-tree; no separate submodule checkout required), licenced under the [LICENCE](https://github.com/dlbeer/dhara/blob/master/LICENSE)
 
 ## About SPI NAND Flash
 SPI NAND Flash combines the benefits of NAND Flash technology with the simplicity of the SPI interface, providing an efficient and cost-effective solution for non-volatile data storage in diverse applications. Its versatility, reliability, and affordability make it a popular choice for many embedded systems and electronic devices.
