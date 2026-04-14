@@ -1,3 +1,7 @@
+# 1.2.4 (14-April-2026)
+
+- Fix incorrect fail reason reported in `NETWORK_PROV_WIFI_CRED_FAIL` event.
+
 # 1.2.3 (2-April-2026)
 - Fix possible NULL pointer dereference with malformed protobuf messages
 - Fix possible buffer overflow in Thread provisioning
