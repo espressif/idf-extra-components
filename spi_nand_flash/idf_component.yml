@@ -9,6 +9,6 @@ dependencies:
     version: ">=5.0"
     require: public
   espressif/dhara:
-    version: "0.1.*"
+    version: "1.*"
     override_path: "../dhara"
     require: public
