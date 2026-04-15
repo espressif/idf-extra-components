@@ -76,6 +76,13 @@ static esp_err_t cmd_scan_start_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_wifi_start__init(resp_payload);
+
+        if (req->payload_case != NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_WIFI_START || !req->cmd_scan_wifi_start) {
+            ESP_LOGE(TAG, "Invalid WiFi scan start command");
+            resp->resp_scan_wifi_start = resp_payload;
+            return ESP_ERR_INVALID_ARG;
+        }
+
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (h->wifi_scan_start) {
             resp->status = (h->wifi_scan_start(req->cmd_scan_wifi_start->blocking,
@@ -98,6 +105,13 @@ static esp_err_t cmd_scan_start_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_thread_start__init(resp_payload);
+
+        if (req->payload_case != NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_THREAD_START || !req->cmd_scan_thread_start) {
+            ESP_LOGE(TAG, "Invalid Thread scan start command");
+            resp->resp_scan_thread_start = resp_payload;
+            return ESP_ERR_INVALID_ARG;
+        }
+
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (h->thread_scan_start) {
             resp->status = (h->thread_scan_start(req->cmd_scan_thread_start->blocking,
@@ -188,6 +202,21 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_wifi_result__init(resp_payload);
+
+        if (req->payload_case != NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_WIFI_RESULT || !req->cmd_scan_wifi_result) {
+            ESP_LOGE(TAG, "Invalid WiFi scan result command");
+            resp->resp_scan_wifi_result = resp_payload;
+            return ESP_ERR_INVALID_ARG;
+        }
+
+        if (req->cmd_scan_wifi_result->start_index >= CONFIG_NETWORK_PROV_SCAN_MAX_ENTRIES ||
+                req->cmd_scan_wifi_result->count >
+                CONFIG_NETWORK_PROV_SCAN_MAX_ENTRIES - req->cmd_scan_wifi_result->start_index) {
+            ESP_LOGE(TAG, "WiFi scan result count/start_index out of bounds");
+            resp->resp_scan_wifi_result = resp_payload;
+            return ESP_ERR_INVALID_ARG;
+        }
+
         resp->status = STATUS__Success;
         resp->payload_case = NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_WIFI_RESULT;
         resp->resp_scan_wifi_result = resp_payload;
@@ -210,14 +239,18 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
         /* If req->cmd_scan_wifi_result->count is 0, the below loop will
         * be skipped.
         */
-        for (uint16_t i = 0; i < req->cmd_scan_wifi_result->count; i++) {
+        for (uint32_t i = 0; i < req->cmd_scan_wifi_result->count; i++) {
             if (!h->wifi_scan_result) {
+                resp_payload->n_entries = i;
                 resp->status = STATUS__InternalError;
                 break;
             }
-            err = h->wifi_scan_result(i + req->cmd_scan_wifi_result->start_index,
-                                      &scan_result, &h->ctx);
+            /* start_index and count are validated above to sum to at most
+             * CONFIG_NETWORK_PROV_SCAN_MAX_ENTRIES (max 255), so this cast is safe. */
+            uint16_t result_index = (uint16_t)(i + req->cmd_scan_wifi_result->start_index);
+            err = h->wifi_scan_result(result_index, &scan_result, &h->ctx);
             if (err != ESP_OK) {
+                resp_payload->n_entries = i;
                 resp->status = STATUS__InternalError;
                 break;
             }
@@ -225,6 +258,8 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             results[i] = (WiFiScanResult *) malloc(sizeof(WiFiScanResult));
             if (!results[i]) {
                 ESP_LOGE(TAG, "Failed to allocate memory for result entry");
+                resp_payload->n_entries = i;
+                resp->status = STATUS__InternalError;
                 return ESP_ERR_NO_MEM;
             }
             wi_fi_scan_result__init(results[i]);
@@ -233,6 +268,9 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             results[i]->ssid.data = (uint8_t *) strndup(scan_result.ssid, 32);
             if (!results[i]->ssid.data) {
                 ESP_LOGE(TAG, "Failed to allocate memory for scan result entry SSID");
+                results[i]->ssid.len = 0;
+                resp_payload->n_entries = i + 1;
+                resp->status = STATUS__InternalError;
                 return ESP_ERR_NO_MEM;
             }
 
@@ -244,6 +282,9 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             results[i]->bssid.data = malloc(results[i]->bssid.len);
             if (!results[i]->bssid.data) {
                 ESP_LOGE(TAG, "Failed to allocate memory for scan result entry BSSID");
+                results[i]->bssid.len = 0;
+                resp_payload->n_entries = i + 1;
+                resp->status = STATUS__InternalError;
                 return ESP_ERR_NO_MEM;
             }
             memcpy(results[i]->bssid.data, scan_result.bssid, results[i]->bssid.len);
@@ -258,6 +299,21 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             return ESP_ERR_NO_MEM;
         }
         resp_scan_thread_result__init(resp_payload);
+
+        if (req->payload_case != NETWORK_SCAN_PAYLOAD__PAYLOAD_CMD_SCAN_THREAD_RESULT || !req->cmd_scan_thread_result) {
+            ESP_LOGE(TAG, "Invalid Thread scan result command");
+            resp->resp_scan_thread_result = resp_payload;
+            return ESP_ERR_INVALID_ARG;
+        }
+
+        if (req->cmd_scan_thread_result->start_index >= CONFIG_NETWORK_PROV_SCAN_MAX_ENTRIES ||
+                req->cmd_scan_thread_result->count >
+                CONFIG_NETWORK_PROV_SCAN_MAX_ENTRIES - req->cmd_scan_thread_result->start_index) {
+            ESP_LOGE(TAG, "Thread scan result count/start_index out of bounds");
+            resp->resp_scan_thread_result = resp_payload;
+            return ESP_ERR_INVALID_ARG;
+        }
+
         resp->status = STATUS__Success;
         resp->payload_case = NETWORK_SCAN_PAYLOAD__PAYLOAD_RESP_SCAN_THREAD_RESULT;
         resp->resp_scan_thread_result = resp_payload;
@@ -281,14 +337,18 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
         /* If req->cmd_scan_result->count is 0, the below loop will
         * be skipped.
         */
-        for (uint16_t i = 0; i < req->cmd_scan_thread_result->count; i++) {
+        for (uint32_t i = 0; i < req->cmd_scan_thread_result->count; i++) {
             if (!h->thread_scan_result) {
+                resp_payload->n_entries = i;
                 resp->status = STATUS__InternalError;
                 break;
             }
-            err = h->thread_scan_result(i + req->cmd_scan_thread_result->start_index,
-                                        &scan_result, &h->ctx);
+            /* start_index and count are validated above to sum to at most
+             * CONFIG_NETWORK_PROV_SCAN_MAX_ENTRIES (max 255), so this cast is safe. */
+            uint16_t result_index = (uint16_t)(i + req->cmd_scan_thread_result->start_index);
+            err = h->thread_scan_result(result_index, &scan_result, &h->ctx);
             if (err != ESP_OK) {
+                resp_payload->n_entries = i;
                 resp->status = STATUS__InternalError;
                 break;
             }
@@ -296,6 +356,8 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             results[i] = (ThreadScanResult *) malloc(sizeof(ThreadScanResult));
             if (!results[i]) {
                 ESP_LOGE(TAG, "Failed to allocate memory for result entry");
+                resp_payload->n_entries = i;
+                resp->status = STATUS__InternalError;
                 return ESP_ERR_NO_MEM;
             }
             thread_scan_result__init(results[i]);
@@ -308,6 +370,9 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             results[i]->ext_addr.data = (uint8_t *)malloc(results[i]->ext_addr.len);
             if (!results[i]->ext_addr.data) {
                 ESP_LOGE(TAG, "Failed to allocate memory for scan result entry extended address");
+                results[i]->ext_addr.len = 0;
+                resp_payload->n_entries = i + 1;
+                resp->status = STATUS__InternalError;
                 return ESP_ERR_NO_MEM;
             }
             memcpy(results[i]->ext_addr.data, scan_result.ext_addr, results[i]->ext_addr.len);
@@ -316,13 +381,19 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
             results[i]->ext_pan_id.data = (uint8_t *)malloc(results[i]->ext_pan_id.len);
             if (!results[i]->ext_pan_id.data) {
                 ESP_LOGE(TAG, "Failed to allocate memory for scan result entry extended PAN ID");
+                results[i]->ext_pan_id.len = 0;
+                resp_payload->n_entries = i + 1;
+                resp->status = STATUS__InternalError;
                 return ESP_ERR_NO_MEM;
             }
             memcpy(results[i]->ext_pan_id.data, scan_result.ext_pan_id, results[i]->ext_pan_id.len);
 
             results[i]->network_name = (char *)malloc(sizeof(scan_result.network_name));
             if (!results[i]->network_name) {
-                ESP_LOGE(TAG, "Failed to allocate memory for scan result entry networkname");
+                ESP_LOGE(TAG, "Failed to allocate memory for scan result entry network name");
+                resp_payload->n_entries = i + 1;
+                resp->status = STATUS__InternalError;
+                return ESP_ERR_NO_MEM;
             }
             memcpy(results[i]->network_name, scan_result.network_name, sizeof(scan_result.network_name));
         }
@@ -372,12 +443,13 @@ static void network_prov_scan_cmd_cleanup(NetworkScanPayload *resp, void *priv_d
         }
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         if (resp->resp_scan_wifi_result->entries) {
-            for (uint16_t i = 0; i < resp->resp_scan_wifi_result->n_entries; i++) {
+            for (uint32_t i = 0; i < resp->resp_scan_wifi_result->n_entries; i++) {
                 if (!resp->resp_scan_wifi_result->entries[i]) {
                     continue;
                 }
                 free(resp->resp_scan_wifi_result->entries[i]->ssid.data);
                 free(resp->resp_scan_wifi_result->entries[i]->bssid.data);
+                free(resp->resp_scan_wifi_result->entries[i]);
             }
             free(resp->resp_scan_wifi_result->entries);
         }
@@ -391,13 +463,15 @@ static void network_prov_scan_cmd_cleanup(NetworkScanPayload *resp, void *priv_d
         }
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
         if (resp->resp_scan_thread_result->entries) {
-            for (uint16_t i = 0; i < resp->resp_scan_thread_result->n_entries; i++) {
+            for (size_t i = 0; i < resp->resp_scan_thread_result->n_entries; i++) {
                 if (!resp->resp_scan_thread_result->entries[i]) {
                     continue;
                 }
                 free(resp->resp_scan_thread_result->entries[i]->ext_addr.data);
                 free(resp->resp_scan_thread_result->entries[i]->ext_pan_id.data);
-                free(resp->resp_scan_thread_result->entries[i]->network_name);
+                if (resp->resp_scan_thread_result->entries[i]->network_name != protobuf_c_empty_string) {
+                    free(resp->resp_scan_thread_result->entries[i]->network_name);
+                }
                 free(resp->resp_scan_thread_result->entries[i]);
             }
             free(resp->resp_scan_thread_result->entries);
@@ -449,14 +523,18 @@ esp_err_t network_prov_scan_handler(uint32_t session_id, const uint8_t *inbuf, s
     }
 
     network_scan_payload__init(&resp);
+    /* Validate req->msg before arithmetic to avoid signed overflow on attacker-controlled
+     * wire values. For unknown commands the dispatcher returns ESP_FAIL without calling
+     * any handler, so nothing is allocated and resp.msg = 0 is safe for cleanup. */
+    if (lookup_cmd_handler(req->msg) >= 0) {
+        resp.msg = req->msg + 1;
+    }
     ret = network_prov_scan_cmd_dispatcher(req, &resp, priv_data);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Command dispatcher error %d", ret);
         ret = ESP_FAIL;
         goto exit;
     }
-
-    resp.msg = req->msg + 1; /* Response is request + 1 */
     *outlen = network_scan_payload__get_packed_size(&resp);
     if (*outlen <= 0) {
         ESP_LOGE(TAG, "Invalid encoding for response");

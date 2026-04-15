@@ -1,0 +1,53 @@
+menu "Example Configuration"
+
+    choice EXAMPLE_ONEWIRE_BACKEND
+        prompt "1-Wire backend"
+        default EXAMPLE_ONEWIRE_BACKEND_RMT if SOC_RMT_SUPPORTED
+        default EXAMPLE_ONEWIRE_BACKEND_UART if SOC_UART_SUPPORTED
+        help
+            Select which low-level backend the test app uses.
+
+        config EXAMPLE_ONEWIRE_BACKEND_RMT
+            bool "RMT backend"
+            depends on SOC_RMT_SUPPORTED
+
+        config EXAMPLE_ONEWIRE_BACKEND_UART
+            bool "UART backend"
+            depends on SOC_UART_SUPPORTED
+    endchoice
+
+    config EXAMPLE_ONEWIRE_UART_PORT_NUM
+        int "UART port number"
+        depends on EXAMPLE_ONEWIRE_BACKEND_UART
+        default 1
+        range 0 2
+        help
+            UART port used by UART backend.
+            Valid UART port numbers differ across targets.
+            Note: UART0 is typically used by the console output.
+
+    config EXAMPLE_ONEWIRE_BUS_GPIO
+        int "1-Wire data GPIO"
+        default 0
+        range 0 63
+        help
+            GPIO number used for the 1-Wire data line.
+            Valid GPIO numbers depend on the selected target; choose a
+            data-capable GPIO within this range for your chip.
+
+    config EXAMPLE_ONEWIRE_ENABLE_INTERNAL_PULLUP
+        bool "Enable internal pull-up"
+        default y
+        help
+            Enable internal pull-up resistor on the GPIO pin used for the 1-Wire data line.
+            This is useful when no external pull-up resistor is present.
+
+    config EXAMPLE_ONEWIRE_MAX_DEVICES
+        int "Maximum devices to search"
+        default 2
+        range 1 64
+        help
+            Maximum number of devices to search on the 1-Wire bus.
+            This test app performs SEARCH ROM to collect device addresses (64-bit ROM IDs).
+
+endmenu

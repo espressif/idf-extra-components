@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,8 +7,14 @@
 
 #include <stdint.h>
 #include "esp_err.h"
+#include "soc/soc_caps.h"
 #include "onewire_types.h"
+#if SOC_RMT_SUPPORTED
 #include "onewire_bus_impl_rmt.h"
+#endif
+#if SOC_UART_SUPPORTED
+#include "onewire_bus_impl_uart.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,7 +49,7 @@ esp_err_t onewire_bus_read_bytes(onewire_bus_handle_t bus, uint8_t *rx_buf, size
 /**
  * @brief Write a bit to 1-wire bus, this is a blocking function
  *
- * @param[in] handle 1-wire bus handle
+ * @param[in] bus 1-wire bus handle
  * @param[in] tx_bit bit to transmit, 0 for zero bit, other for one bit
  * @return
  *         - ESP_OK                Write bit to 1-wire bus successfully.
@@ -54,7 +60,7 @@ esp_err_t onewire_bus_write_bit(onewire_bus_handle_t bus, uint8_t tx_bit);
 /**
  * @brief Read a bit from 1-wire bus
  *
- * @param[in] handle 1-wire bus handle
+ * @param[in] bus 1-wire bus handle
  * @param[out] rx_bit received bit, 0 for zero bit, 1 for one bit
  * @return
  *         - ESP_OK                Read bit from 1-wire bus successfully.
