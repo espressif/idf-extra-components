@@ -18,6 +18,7 @@
 #include "sdkconfig.h"
 #include "esp_flash_dispatcher.h"
 #include "esp_partition.h"
+#include "spi_flash_mmap.h"
 
 // Buffer for PSRAM task stack
 static StackType_t *s_psram_task_stack = NULL;
@@ -71,6 +72,20 @@ static void psram_flash_test_task(void *arg)
     // Verify data
     TEST_ASSERT_EQUAL_HEX8_ARRAY(write_buf, read_buf, TEST_FLASH_SIZE);
     ESP_LOGI("PSRAM_TASK", "Flash read data verified successfully.");
+
+    // mmap test
+    const void *mmap_ptr = NULL;
+    spi_flash_mmap_handle_t mmap_handle = 0;
+    ESP_LOGI("PSRAM_TASK", "Performing flash mmap at 0x%lx, size 0x%x", test_part->address, TEST_FLASH_SIZE);
+    ret = spi_flash_mmap(test_part->address, TEST_FLASH_SIZE, SPI_FLASH_MMAP_DATA, &mmap_ptr, &mmap_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, ret);
+    TEST_ASSERT_NOT_NULL(mmap_ptr);
+    TEST_ASSERT_NOT_EQUAL(0, mmap_handle);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(write_buf, mmap_ptr, TEST_FLASH_SIZE);
+    ESP_LOGI("PSRAM_TASK", "Flash mmap data verified successfully.");
+
+    spi_flash_munmap(mmap_handle);
+    ESP_LOGI("PSRAM_TASK", "Flash munmap successful.");
 
     heap_caps_free(write_buf);
     heap_caps_free(read_buf);

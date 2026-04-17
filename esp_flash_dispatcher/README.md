@@ -11,14 +11,25 @@ The `esp_flash_dispatcher` component intercepts common Flash APIs and executes t
 
     ```c
     #include "esp_flash_dispatcher.h"
-    
+
     const esp_flash_dispatcher_config_t cfg = {
         .task_stack_size = 2048,
         .task_priority = 10,
         .task_core_id = tskNO_AFFINITY,
-        .queue_size = 5,
+        .queue_size = 1, // deprecated, see note below
     };
     ESP_ERROR_CHECK(esp_flash_dispatcher_init(&cfg));
     ```
-    
+
+    > Note: `queue_size` is kept only for backward compatibility. The dispatcher
+    > serializes all requests with an internal mutex and uses a single shared
+    > slot between the caller and the worker task, so this field has no effect
+    > on behavior.
+
 3. Now you can call any API which writes or reads SPI Flash from a task with the stack in PSRAM, no other changes are required.
+
+The list of Flash APIs intercepted by the dispatcher is:
+
+- `esp_flash_read`, `esp_flash_write`, `esp_flash_write_encrypted`
+- `esp_flash_erase_region`, `esp_flash_erase_chip`
+- `spi_flash_mmap`, `spi_flash_munmap`

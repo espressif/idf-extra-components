@@ -20,7 +20,10 @@ typedef struct {
     uint32_t task_stack_size;   // Stack size for the dedicated flash task (in bytes)
     uint32_t task_priority;     // Priority for the dedicated flash task
     BaseType_t task_core_id;    // Core affinity (PRO_CPU_NUM, APP_CPU_NUM, or tskNO_AFFINITY)
-    uint32_t queue_size;        // Length of the request queue
+    uint32_t queue_size;        /*!< @deprecated Kept for backward compatibility only.
+                                 *   The dispatcher serializes requests with an internal mutex
+                                 *   and uses a single shared slot between caller and worker,
+                                 *   so this field has no effect on behavior. */
 } esp_flash_dispatcher_config_t;
 
 /**
