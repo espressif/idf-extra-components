@@ -81,6 +81,7 @@ typedef struct {
     TaskHandle_t task;
     bool dispatcher_initialized;
     QueueHandle_t result_queue;
+    SemaphoreHandle_t dispatch_mutex;
 } flash_dispatcher_context_t;
 
 // Configuration struct is declared in public header
@@ -155,10 +156,18 @@ esp_err_t esp_flash_dispatcher_init(const esp_flash_dispatcher_config_t *cfg)
     s_flash_dispatcher_ctx.queue = xQueueCreateWithCaps(cfg->queue_size, sizeof(flash_operation_request_t), MALLOC_CAP_INTERNAL);
     ESP_RETURN_ON_FALSE(s_flash_dispatcher_ctx.queue, ESP_ERR_NO_MEM, TAG, "create flash operation queue failed");
 
-    s_flash_dispatcher_ctx.result_queue = xQueueCreateWithCaps(cfg->queue_size, sizeof(esp_err_t), MALLOC_CAP_INTERNAL);
+    s_flash_dispatcher_ctx.result_queue = xQueueCreateWithCaps(1, sizeof(esp_err_t), MALLOC_CAP_INTERNAL);
     if (s_flash_dispatcher_ctx.result_queue == NULL) {
         vQueueDeleteWithCaps(s_flash_dispatcher_ctx.queue);
-        ESP_EARLY_LOGE(TAG, "Failed to create completion semaphore");
+        ESP_EARLY_LOGE(TAG, "Failed to create result queue");
+        return ESP_ERR_NO_MEM;
+    }
+
+    s_flash_dispatcher_ctx.dispatch_mutex = xSemaphoreCreateMutexWithCaps(MALLOC_CAP_INTERNAL);
+    if (s_flash_dispatcher_ctx.dispatch_mutex == NULL) {
+        vQueueDeleteWithCaps(s_flash_dispatcher_ctx.queue);
+        vQueueDeleteWithCaps(s_flash_dispatcher_ctx.result_queue);
+        ESP_EARLY_LOGE(TAG, "Failed to create dispatch mutex");
         return ESP_ERR_NO_MEM;
     }
 
@@ -172,11 +181,12 @@ esp_err_t esp_flash_dispatcher_init(const esp_flash_dispatcher_config_t *cfg)
                     MALLOC_CAP_INTERNAL);
 
     if (rc != pdPASS) {
-        // Cleanup resources if task creation failed
         vQueueDeleteWithCaps(s_flash_dispatcher_ctx.queue);
         s_flash_dispatcher_ctx.queue = NULL;
         vQueueDeleteWithCaps(s_flash_dispatcher_ctx.result_queue);
         s_flash_dispatcher_ctx.result_queue = NULL;
+        vSemaphoreDeleteWithCaps(s_flash_dispatcher_ctx.dispatch_mutex);
+        s_flash_dispatcher_ctx.dispatch_mutex = NULL;
         ESP_EARLY_LOGE(TAG, "create flash dispatcher task failed");
         return ESP_ERR_INVALID_STATE;
     }
@@ -229,15 +239,21 @@ static esp_err_t flash_dispatcher_execute(flash_operation_t op,
         break;
     }
 
+    xSemaphoreTake(s_flash_dispatcher_ctx.dispatch_mutex, portMAX_DELAY);
+
     if (xQueueSend(s_flash_dispatcher_ctx.queue, &request, portMAX_DELAY) != pdTRUE) {
+        xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
         ESP_EARLY_LOGE(TAG, "Failed to send %s request to queue", op_name ? op_name : "flash");
         return ESP_ERR_TIMEOUT;
     }
 
     if (xQueueReceive(s_flash_dispatcher_ctx.result_queue, &operation_result, portMAX_DELAY) != pdTRUE) {
+        xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
         ESP_EARLY_LOGE(TAG, "Failed to receive %s result from queue", op_name ? op_name : "flash");
         return ESP_ERR_TIMEOUT;
     }
+
+    xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
     return operation_result;
 }
 
@@ -305,16 +321,22 @@ esp_err_t __wrap_spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_mem
     request.args.mmap.out_ptr = out_ptr;
     request.args.mmap.out_handle = out_handle;
 
+    xSemaphoreTake(s_flash_dispatcher_ctx.dispatch_mutex, portMAX_DELAY);
+
     if (xQueueSend(s_flash_dispatcher_ctx.queue, &request, portMAX_DELAY) != pdTRUE) {
+        xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
         ESP_EARLY_LOGE(TAG, "Failed to send spi_flash_mmap request to queue");
         return ESP_ERR_TIMEOUT;
     }
 
     esp_err_t operation_result = ESP_FAIL;
     if (xQueueReceive(s_flash_dispatcher_ctx.result_queue, &operation_result, portMAX_DELAY) != pdTRUE) {
+        xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
         ESP_EARLY_LOGE(TAG, "Failed to receive spi_flash_mmap result from queue");
         return ESP_ERR_TIMEOUT;
     }
+
+    xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
     return operation_result;
 }
 
@@ -327,15 +349,21 @@ esp_err_t __wrap_spi_flash_munmap(spi_flash_mmap_handle_t handle)
     request.op = FLASH_OP_MUNMAP;
     request.args.munmap.handle = handle;
 
+    xSemaphoreTake(s_flash_dispatcher_ctx.dispatch_mutex, portMAX_DELAY);
+
     if (xQueueSend(s_flash_dispatcher_ctx.queue, &request, portMAX_DELAY) != pdTRUE) {
+        xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
         ESP_EARLY_LOGE(TAG, "Failed to send spi_flash_munmap request to queue");
         return ESP_ERR_TIMEOUT;
     }
 
     esp_err_t operation_result = ESP_FAIL;
     if (xQueueReceive(s_flash_dispatcher_ctx.result_queue, &operation_result, portMAX_DELAY) != pdTRUE) {
+        xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
         ESP_EARLY_LOGE(TAG, "Failed to receive spi_flash_munmap result from queue");
         return ESP_ERR_TIMEOUT;
     }
+
+    xSemaphoreGive(s_flash_dispatcher_ctx.dispatch_mutex);
     return operation_result;
 }
