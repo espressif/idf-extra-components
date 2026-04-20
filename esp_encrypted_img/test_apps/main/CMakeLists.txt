@@ -11,3 +11,7 @@ idf_component_register(SRCS "esp_encrypted_img_test.c" "test.c" "test_mocks.c"
                     EMBED_FILES "${EMBED_FILES}"
                     WHOLE_ARCHIVE
                     )
+
+if (CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=esp_efuse_get_key_purpose")
+endif()
