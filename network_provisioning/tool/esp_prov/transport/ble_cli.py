@@ -46,7 +46,7 @@ class BLE_Bleak_Client:
 
         print('Discovering...')
         try:
-            discovery = await bleak.BleakScanner.discover(return_adv=True)
+            discovery = await bleak.BleakScanner.discover(return_adv=True, adapter=self.iface)
             devices = list(discovery.values())
         except bleak.exc.BleakDBusError as e:
             if str(e) == '[org.bluez.Error.NotReady] Resource Not Ready':
@@ -80,7 +80,7 @@ class BLE_Bleak_Client:
                 if select != 0:
                     break
 
-                discovery = await bleak.BleakScanner.discover(return_adv=True)
+                discovery = await bleak.BleakScanner.discover(return_adv=True, adapter=self.iface)
                 devices = list(discovery.values())
 
             self.devname = devices[select - 1][0].name
@@ -103,7 +103,7 @@ class BLE_Bleak_Client:
             self.srv_uuid_adv = uuids[0]
 
         print('Connecting...')
-        self.device = bleak.BleakClient(found_device[0].address)
+        self.device = bleak.BleakClient(found_device[0].address, adapter=self.iface)
         await self.device.connect()
         # must be paired on Windows to access characteristics;
         # cannot be paired on Mac

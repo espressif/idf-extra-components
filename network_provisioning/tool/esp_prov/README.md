@@ -89,6 +89,11 @@ python esp_prov.py --transport < mode of provisioning : softap \ ble \ console >
 * `--reprov` (Optional)
     - Resets internal state machine of the device and clears provisioned credentials; to be used only in case the device is to be provisioned again for new credentials after a previous successful provisioning
 
+* `--ble_adapter <HCI adapter>` (Optional)
+    - For specifying the HCI adapter to use for Bluetooth LE transport (default: `hci0`).
+    - Useful when working with `vhci_bridge` for emulated devices, e.g. `--ble_adapter hci1`.
+    - Only relevant when transport mode is `ble`
+
 * `--custom_data <some string>` (Optional)
     An information string can be sent to the `custom-data` endpoint during provisioning using this argument.
     (Assumes the provisioning app has an endpoint called `custom-data` - see [wifi_prov](../../examples/wifi_prov/) example for implementation details).
