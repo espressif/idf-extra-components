@@ -1,3 +1,6 @@
+## [1.0.1]
+- fix: fix incorrect flash geometry parameter for flash GD5F4GM8xExxG
+
 ## [1.0.0]
 ### Breaking Changes
 - FATFS integration has been moved to a separate `spi_nand_flash_fatfs` component. Projects using FATFS with NAND flash must add `spi_nand_flash_fatfs` as a dependency. FatFs on SPI NAND still requires the **legacy** init path: keep **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled** for that use case (no FatFs-on-BDL support in this release).
