@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <inttypes.h>
 #include <string.h>
 #include "esp_check.h"
 #include "esp_err.h"
@@ -90,7 +91,8 @@ static esp_err_t nand_flash_blockdev_write(esp_blockdev_handle_t handle, const u
     }
 
     if ((dst_addr % handle->geometry.write_size) != 0) {
-        ESP_LOGE(TAG, "Write address 0x%" PRIx64 " not aligned to page size %zu", dst_addr, handle->geometry.write_size);
+        ESP_LOGE(TAG, "Write address 0x%" PRIx64 " not aligned to page size %" PRIu32, dst_addr,
+                 (uint32_t)handle->geometry.write_size);
         return ESP_ERR_INVALID_SIZE;
     }
 
@@ -129,12 +131,12 @@ static esp_err_t nand_flash_blockdev_erase(esp_blockdev_handle_t handle, uint64_
     }
 
     if ((start_addr % erase_size) != 0) {
-        ESP_LOGE(TAG, "Erase address 0x%" PRIx64 " not aligned to block size %zu", start_addr, erase_size);
+        ESP_LOGE(TAG, "Erase address 0x%" PRIx64 " not aligned to block size %" PRIu32, start_addr, erase_size);
         return ESP_ERR_INVALID_SIZE;
     }
 
     if (erase_len == 0 || (erase_len % erase_size) != 0) {
-        ESP_LOGE(TAG, "Erase length %zu must be non-zero and a multiple of block size %zu", erase_len, erase_size);
+        ESP_LOGE(TAG, "Erase length %zu must be non-zero and a multiple of block size %" PRIu32, erase_len, erase_size);
         return ESP_ERR_INVALID_SIZE;
     }
 

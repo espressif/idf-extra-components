@@ -1,3 +1,21 @@
+# Changelog
+
+Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.2]
+### Fixes
+- BDL error logging: correct format specifiers for size fields on 64-bit Linux (avoids undefined behavior and wrong log output).
+- Linux NAND emulation: OOB markers and free-page detection aligned with the real hardware path.
+- Linux mmap: correct backing file path selection for the emulated image.
+- Linux mmap layout: on-disk stride accounts for interleaved OOB vs user-visible erase block size (bad-block handling, erase, and OOB clearing).
+
+### Documentation
+- Linux mmap emulator config: note how backing file size maps to interleaved OOB and reported user capacity.
+
+### Testing
+- Linux host tests: broader FTL and BDL coverage.
+- Shared buffer pattern helpers (including seeded patterns) for host tests and the in-tree test application.
+
 ## [1.0.1]
 - fix: fix incorrect flash geometry parameter for flash GD5F4GM8xExxG
 
