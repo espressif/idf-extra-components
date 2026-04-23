@@ -20,6 +20,11 @@
 extern "C" {
 #endif
 
+#ifdef CONFIG_CO_SDO_CLIENT
+#define CO_CONFIG_SDO_CLI (CO_CONFIG_SDO_CLI_ENABLE|CO_CONFIG_SDO_CLI_SEGMENTED|CO_CONFIG_SDO_CLI_LOCAL)
+#define CO_CONFIG_FIFO (CO_CONFIG_FIFO_ENABLE)
+#endif
+
 // Following modules are not supported in this driver yet
 #define CO_CONFIG_LEDS  0
 #define CO_CONFIG_LSS   0

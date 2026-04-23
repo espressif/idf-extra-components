@@ -15,6 +15,7 @@
 static const char *TAG = "heartbeat";
 
 enum {
+    CANOPEN_NODE_ID = 1,
     FIRST_HEARTBEAT_TIME_MS = 1000,
     SDO_SERVER_TIMEOUT_MS = 1000,
     SDO_CLIENT_TIMEOUT_MS = 500,
@@ -32,9 +33,132 @@ static ODR_t od_write_1008(OD_stream_t *stream, const void *buf, OD_size_t count
     return ret;
 }
 
+#ifdef CONFIG_CO_SDO_CLIENT
+static bool sdo_client_upload_visible_string(CO_SDOclient_t *sdo_client, uint16_t index, uint8_t sub_index,
+        uint8_t *buf, size_t buf_size)
+{
+    CO_SDO_abortCode_t abort_code = CO_SDO_AB_NONE;
+    CO_SDO_return_t ret;
+    uint32_t elapsed_us = 0;
+    size_t transferred = 0;
+
+    if (buf_size == 0) {
+        return false;
+    }
+
+    ret = CO_SDOclientUploadInitiate(sdo_client, index, sub_index, SDO_CLIENT_TIMEOUT_MS, false);
+    if (ret != CO_SDO_RT_ok_communicationEnd) {
+        ESP_LOGE(TAG, "SDO upload initiate failed for 0x%04X:%u, ret=%d", index, sub_index, ret);
+        CO_SDOclientClose(sdo_client);
+        return false;
+    }
+
+    do {
+        ret = CO_SDOclientUpload(sdo_client, 10000, false, &abort_code, NULL, &transferred, NULL);
+        elapsed_us += 10000;
+        if (ret < 0) {
+            ESP_LOGE(TAG, "SDO upload failed for 0x%04X:%u, abort=0x%08" PRIX32, index, sub_index, abort_code);
+            CO_SDOclientClose(sdo_client);
+            return false;
+        }
+    } while ((ret > 0) && (elapsed_us < (SDO_CLIENT_TIMEOUT_MS * 1000U)));
+
+    transferred = CO_SDOclientUploadBufRead(sdo_client, buf, buf_size - 1U);
+    buf[transferred] = '\0';
+    CO_SDOclientClose(sdo_client);
+
+    if (ret > 0) {
+        ESP_LOGE(TAG, "SDO upload timed out for 0x%04X:%u", index, sub_index);
+        return false;
+    }
+
+    return true;
+}
+
+static bool sdo_client_download_bytes(CO_SDOclient_t *sdo_client, uint16_t index, uint8_t sub_index,
+                                      const uint8_t *data, size_t data_len)
+{
+    CO_SDO_abortCode_t abort_code = CO_SDO_AB_NONE;
+    CO_SDO_return_t ret;
+    uint32_t elapsed_us = 0;
+    size_t written;
+
+    ret = CO_SDOclientDownloadInitiate(sdo_client, index, sub_index, data_len, SDO_CLIENT_TIMEOUT_MS, false);
+    if (ret != CO_SDO_RT_ok_communicationEnd) {
+        ESP_LOGE(TAG, "SDO download initiate failed for 0x%04X:%u, ret=%d", index, sub_index, ret);
+        CO_SDOclientClose(sdo_client);
+        return false;
+    }
+
+    written = CO_SDOclientDownloadBufWrite(sdo_client, data, data_len);
+    if (written != data_len) {
+        ESP_LOGE(TAG, "SDO download buffer short write for 0x%04X:%u, wrote=%u expected=%u",
+                 index, sub_index, (unsigned)written, (unsigned)data_len);
+        CO_SDOclientClose(sdo_client);
+        return false;
+    }
+
+    do {
+        ret = CO_SDOclientDownload(sdo_client, 10000, false, false, &abort_code, NULL, NULL);
+        elapsed_us += 10000;
+        if (ret < 0) {
+            ESP_LOGE(TAG, "SDO download failed for 0x%04X:%u, abort=0x%08" PRIX32, index, sub_index, abort_code);
+            CO_SDOclientClose(sdo_client);
+            return false;
+        }
+    } while ((ret > 0) && (elapsed_us < (SDO_CLIENT_TIMEOUT_MS * 1000U)));
+
+    CO_SDOclientClose(sdo_client);
+
+    if (ret > 0) {
+        ESP_LOGE(TAG, "SDO download timed out for 0x%04X:%u", index, sub_index);
+        return false;
+    }
+
+    return true;
+}
+
+static void run_sdo_client_self_test(CO_t *co)
+{
+    static const uint8_t new_name[] = "cli-self";
+    uint8_t read_buf[32];
+    CO_SDOclient_t *sdo_client;
+    CO_SDO_return_t ret;
+
+    if ((co == NULL) || (co->SDOclient == NULL)) {
+        ESP_LOGW(TAG, "SDO client self-test skipped: no client instance");
+        return;
+    }
+
+    sdo_client = &co->SDOclient[0];
+    ret = CO_SDOclient_setup(sdo_client, CO_CAN_ID_SDO_CLI + CANOPEN_NODE_ID, CO_CAN_ID_SDO_SRV + CANOPEN_NODE_ID,
+                             CANOPEN_NODE_ID);
+    if (ret != CO_SDO_RT_ok_communicationEnd) {
+        ESP_LOGE(TAG, "SDO client setup failed, ret=%d", ret);
+        return;
+    }
+
+    if (!sdo_client_upload_visible_string(sdo_client, 0x1008, 0, read_buf, sizeof(read_buf))) {
+        return;
+    }
+    ESP_LOGI(TAG, "SDO client read 0x1008 -> '%s'", (char *)read_buf);
+
+    if (!sdo_client_download_bytes(sdo_client, 0x1008, 0, new_name, sizeof(new_name) - 1U)) {
+        return;
+    }
+    ESP_LOGI(TAG, "SDO client wrote 0x1008 <- '%s'", (const char *)new_name);
+
+    if (!sdo_client_upload_visible_string(sdo_client, 0x1008, 0, read_buf, sizeof(read_buf))) {
+        return;
+    }
+    ESP_LOGI(TAG, "SDO client verify 0x1008 -> '%s'", (char *)read_buf);
+}
+#endif
+
 void app_main(void)
 {
     twai_node_handle_t node_hdl;
+    bool sdo_client_self_test_done = false;
     twai_onchip_node_config_t node_config = {
         .io_cfg.tx = 4,
         .io_cfg.rx = 5,
@@ -57,8 +181,16 @@ void app_main(void)
         CO_CANmodule_disable(CO->CANmodule);
         CO_CANinit(CO, node_hdl, node_config.bit_timing.bitrate / 1000);
         CO_CANopenInit(CO, NULL, NULL, OD, NULL, 0, FIRST_HEARTBEAT_TIME_MS, SDO_SERVER_TIMEOUT_MS,
-                       SDO_CLIENT_TIMEOUT_MS, false, 1, NULL);
+                       SDO_CLIENT_TIMEOUT_MS, false, CANOPEN_NODE_ID, NULL);
         CO_CANsetNormalMode(CO->CANmodule);
+
+#ifdef CONFIG_CO_SDO_CLIENT
+        // Testing SDO client interact with local loop
+        if (!sdo_client_self_test_done) {
+            run_sdo_client_self_test(CO);
+            sdo_client_self_test_done = true;
+        }
+#endif
 
         reset = CO_RESET_NOT;
         int64_t last_us = esp_timer_get_time();
