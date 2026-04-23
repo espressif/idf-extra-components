@@ -23,7 +23,13 @@
 OD_ATTR_PERSIST_COMM OD_PERSIST_COMM_t OD_PERSIST_COMM = {
     .x1000_deviceType = 0x00000000,
     .x1014_COB_ID_EMCY = 0x00000080,
-    .x1017_producerHeartbeatTime = 0x03E8
+    .x1017_producerHeartbeatTime = 0x03E8,
+    .x1280_SDOClientParameter = {
+        .highestSub_indexSupported = 0x03,
+        .COB_IDClientToServerTx = 0x80000000,
+        .COB_IDServerToClientRx = 0x80000000,
+        .node_IDOfTheSDOServer = 0x01
+    }
 };
 
 OD_ATTR_RAM OD_RAM_t OD_RAM = {
@@ -43,6 +49,7 @@ typedef struct {
     OD_obj_var_t o_1008_manufacturerDeviceName;
     OD_obj_var_t o_1014_COB_ID_EMCY;
     OD_obj_var_t o_1017_producerHeartbeatTime;
+    OD_obj_record_t o_1280_SDOClientParameter[4];
 } ODObjs_t;
 
 static CO_PROGMEM ODObjs_t ODObjs = {
@@ -78,6 +85,32 @@ static CO_PROGMEM ODObjs_t ODObjs = {
         .dataOrig = &OD_PERSIST_COMM.x1017_producerHeartbeatTime,
         .attribute = ODA_SDO_RW | ODA_MB,
         .dataLength = 2
+    },
+    .o_1280_SDOClientParameter = {
+        {
+            .dataOrig = &OD_PERSIST_COMM.x1280_SDOClientParameter.highestSub_indexSupported,
+            .subIndex = 0,
+            .attribute = ODA_SDO_R,
+            .dataLength = 1
+        },
+        {
+            .dataOrig = &OD_PERSIST_COMM.x1280_SDOClientParameter.COB_IDClientToServerTx,
+            .subIndex = 1,
+            .attribute = ODA_SDO_RW | ODA_TRPDO | ODA_MB,
+            .dataLength = 4
+        },
+        {
+            .dataOrig = &OD_PERSIST_COMM.x1280_SDOClientParameter.COB_IDServerToClientRx,
+            .subIndex = 2,
+            .attribute = ODA_SDO_RW | ODA_TRPDO | ODA_MB,
+            .dataLength = 4
+        },
+        {
+            .dataOrig = &OD_PERSIST_COMM.x1280_SDOClientParameter.node_IDOfTheSDOServer,
+            .subIndex = 3,
+            .attribute = ODA_SDO_RW,
+            .dataLength = 1
+        }
     }
 };
 
@@ -92,6 +125,7 @@ static OD_ATTR_OD OD_entry_t ODList[] = {
     {0x1008, 0x01, ODT_VAR, &ODObjs.o_1008_manufacturerDeviceName, NULL},
     {0x1014, 0x01, ODT_VAR, &ODObjs.o_1014_COB_ID_EMCY, NULL},
     {0x1017, 0x01, ODT_VAR, &ODObjs.o_1017_producerHeartbeatTime, NULL},
+    {0x1280, 0x04, ODT_REC, &ODObjs.o_1280_SDOClientParameter, NULL},
     {0x0000, 0x00, 0, NULL, NULL}
 };
 

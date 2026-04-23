@@ -37,6 +37,7 @@
 #define OD_CNT_EM 1
 #define OD_CNT_EM_PROD 1
 #define OD_CNT_HB_PROD 1
+#define OD_CNT_SDO_CLI 1
 
 
 /*******************************************************************************
@@ -52,6 +53,12 @@ typedef struct {
     uint32_t x1000_deviceType;
     uint32_t x1014_COB_ID_EMCY;
     uint16_t x1017_producerHeartbeatTime;
+    struct {
+        uint8_t highestSub_indexSupported;
+        uint32_t COB_IDClientToServerTx;
+        uint32_t COB_IDServerToClientRx;
+        uint8_t node_IDOfTheSDOServer;
+    } x1280_SDOClientParameter;
 } OD_PERSIST_COMM_t;
 
 typedef struct {
@@ -84,6 +91,7 @@ extern OD_ATTR_OD OD_t *OD;
 #define OD_ENTRY_H1008 &OD->list[3]
 #define OD_ENTRY_H1014 &OD->list[4]
 #define OD_ENTRY_H1017 &OD->list[5]
+#define OD_ENTRY_H1280 &OD->list[6]
 
 
 /*******************************************************************************
@@ -95,6 +103,7 @@ extern OD_ATTR_OD OD_t *OD;
 #define OD_ENTRY_H1008_manufacturerDeviceName &OD->list[3]
 #define OD_ENTRY_H1014_COB_ID_EMCY &OD->list[4]
 #define OD_ENTRY_H1017_producerHeartbeatTime &OD->list[5]
+#define OD_ENTRY_H1280_SDOClientParameter &OD->list[6]
 
 
 /*******************************************************************************
@@ -115,8 +124,8 @@ extern OD_ATTR_OD OD_t *OD;
     (config).ENTRY_H1003 = OD_ENTRY_H1003;\
     (config).CNT_SDO_SRV = 0;\
     (config).ENTRY_H1200 = NULL;\
-    (config).CNT_SDO_CLI = 0;\
-    (config).ENTRY_H1280 = NULL;\
+    (config).CNT_SDO_CLI = OD_CNT_SDO_CLI;\
+    (config).ENTRY_H1280 = OD_ENTRY_H1280;\
     (config).CNT_TIME = 0;\
     (config).ENTRY_H1012 = NULL;\
     (config).CNT_SYNC = 0;\

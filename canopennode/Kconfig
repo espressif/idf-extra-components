@@ -9,6 +9,15 @@ menu "CANopenNode Stack Config"
             the local Object Dictionary via SDO transfers. Includes support
             for expedited and segmented transfers (CO_SDOserver.c).
 
+    config CO_SDO_CLIENT
+        bool "Enable SDO client"
+        default n
+        help
+            Enable the CANopen SDO client (CiA 301). Allows this node to
+            initiate SDO uploads/downloads to other CANopen nodes. This adds
+            the SDO client state machine and FIFO support needed by
+            CO_SDOclient.c.
+
     config CO_MULTIPLE_OD
         bool "Enable MULTIPLE_OD"
         default false

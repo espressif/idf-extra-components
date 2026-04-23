@@ -11,6 +11,13 @@ if(CONFIG_CO_SDO_SERVER)
     list(APPEND co_srcs "CANopenNode/301/CO_SDOserver.c")
 endif()
 
+if(CONFIG_CO_SDO_CLIENT)
+    list(APPEND co_srcs
+        "CANopenNode/301/CO_SDOclient.c"
+        "CANopenNode/301/CO_fifo.c"
+    )
+endif()
+
 idf_component_register(
     SRCS ${co_srcs}
     INCLUDE_DIRS "CANopenNode" "src"
