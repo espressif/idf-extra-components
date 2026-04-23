@@ -13,8 +13,13 @@ idf_component_register(SRCS "tinycbor/src/cborencoder_close_container_checked.c"
                     INCLUDE_DIRS "tinycbor/src")
 
 # for open_memstream.c
-set_source_files_properties(tinycbor/src/open_memstream.c PROPERTIES
-                            COMPILE_DEFINITIONS "__linux__")
+if(CONFIG_LIBC_PICOLIBC)
+        set_source_files_properties(tinycbor/src/open_memstream.c PROPERTIES
+                                COMPILE_DEFINITIONS "__APPLE__")
+else()
+        set_source_files_properties(tinycbor/src/open_memstream.c PROPERTIES
+                                COMPILE_DEFINITIONS "__linux__")
+endif()
 
 # Fix unreachable macro redefinition issue between ESP-IDF toolchain and tinycbor
 # by force-including a header that resolves the conflict
