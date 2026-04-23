@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 # pip install canopen
 import canopen
+from pathlib import Path
 import queue
 import time
+
+EDS_PATH = Path(__file__).resolve().parent / "main" / "OD.eds"
 
 network = canopen.Network()
 network.connect(channel="can0", bustype="socketcan", bitrate=200000)
 
-node = canopen.RemoteNode(1, None)
+node = canopen.RemoteNode(1, str(EDS_PATH))
 network.add_node(node)
 
 # Register listener upfront so no heartbeat is ever missed
@@ -31,6 +34,12 @@ def check_hb(expected_state, timeout=5):
             print(f"  state={state!r}  OK")
             return
     print(f"  FAIL (expected {expected_state!r}, last state={state!r})")
+
+def wait_tpdo1(timeout=2.0):
+    node.tpdo[1].wait_for_reception(timeout)
+    value = node.tpdo[1]["TestCNT"].raw
+    print(f"  TPDO1 TestCNT={value}")
+    return value
 
 # ---------------------- Testing Process Begin ----------------------
 print("------Testing NMT switch-------")
@@ -68,5 +77,29 @@ node.sdo.download(0x1008, 0, new_name)
 # Verify SDO
 raw = node.sdo.upload(0x1008, 0)
 print(f"  device name = {raw.decode('ascii', errors='replace')!r}  (expected {new_name!r})")
+
+print("\n------Testing TPDO/RPDO-------")
+print("read PDO configuration")
+node.tpdo.read()
+node.rpdo.read()
+node.tpdo.subscribe()
+
+print("send START")
+node.nmt.send_command(0x01)
+
+# PDO is working in OPERATIONAL state
+print("wait TPDO1")
+tpdo_cnt = wait_tpdo1()
+for i in range(5):
+    new_cnt = tpdo_cnt + 1
+    print(f"send RPDO1 testCNT <- {new_cnt}")
+    node.rpdo[1]["TestCNT"].raw = new_cnt
+    node.rpdo[1].transmit()
+    tpdo_cnt = wait_tpdo1()
+
+print("\n------Test done, stop the node-------")
+print("send STOP")
+node.nmt.send_command(0x02)
+check_hb("STOPPED")
 
 network.disconnect()
