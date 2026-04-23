@@ -12,7 +12,7 @@
 
 static const char *TAG = "CO_driver_esp32";
 
-#if CO_CONFIG_SDO_SRV == 0
+#ifndef CONFIG_CO_SDO_SERVER
 // Provide empty implementations for SDO server functions to avoid build errors when SDO server is disabled
 void CO_SDOserver_init(void *SDO, void *CANdev, void *OD) {}
 void CO_SDOserver_process(void *SDO, bool_t NMTisPreOrOperational, uint32_t timeDifference_us, uint32_t *timerNext_us) {}

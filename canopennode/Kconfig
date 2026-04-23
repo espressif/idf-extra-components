@@ -1,5 +1,14 @@
 menu "CANopenNode Stack Config"
 
+    config CO_SDO_SERVER
+        bool "Enable SDO server"
+        default y
+        help
+            Enable the CANopen SDO server (CiA 301). Allows remote nodes and
+            tools (e.g. PCAN-View, CANopen Magic) to read/write entries in
+            the local Object Dictionary via SDO transfers. Includes support
+            for expedited and segmented transfers (CO_SDOserver.c).
+
     config CO_MULTIPLE_OD
         bool "Enable MULTIPLE_OD"
         default false

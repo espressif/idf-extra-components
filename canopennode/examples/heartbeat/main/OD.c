@@ -27,7 +27,8 @@ OD_ATTR_PERSIST_COMM OD_PERSIST_COMM_t OD_PERSIST_COMM = {
 };
 
 OD_ATTR_RAM OD_RAM_t OD_RAM = {
-    .x1001_errorRegister = 0x00
+    .x1001_errorRegister = 0x00,
+    .x1008_manufacturerDeviceName = {'e', 's', 'p', '-', 'c', 'o', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
 
@@ -39,6 +40,7 @@ typedef struct {
     OD_obj_var_t o_1000_deviceType;
     OD_obj_var_t o_1001_errorRegister;
     OD_obj_array_t o_1003_pre_definedErrorField;
+    OD_obj_var_t o_1008_manufacturerDeviceName;
     OD_obj_var_t o_1014_COB_ID_EMCY;
     OD_obj_var_t o_1017_producerHeartbeatTime;
 } ODObjs_t;
@@ -62,6 +64,11 @@ static CO_PROGMEM ODObjs_t ODObjs = {
         .dataElementLength = 4,
         .dataElementSizeof = sizeof(uint32_t)
     },
+    .o_1008_manufacturerDeviceName = {
+        .dataOrig = &OD_RAM.x1008_manufacturerDeviceName[0],
+        .attribute = ODA_SDO_RW | ODA_STR,
+        .dataLength = 16
+    },
     .o_1014_COB_ID_EMCY = {
         .dataOrig = &OD_PERSIST_COMM.x1014_COB_ID_EMCY,
         .attribute = ODA_SDO_RW | ODA_MB,
@@ -82,6 +89,7 @@ static OD_ATTR_OD OD_entry_t ODList[] = {
     {0x1000, 0x01, ODT_VAR, &ODObjs.o_1000_deviceType, NULL},
     {0x1001, 0x01, ODT_VAR, &ODObjs.o_1001_errorRegister, NULL},
     {0x1003, 0x11, ODT_ARR, &ODObjs.o_1003_pre_definedErrorField, NULL},
+    {0x1008, 0x01, ODT_VAR, &ODObjs.o_1008_manufacturerDeviceName, NULL},
     {0x1014, 0x01, ODT_VAR, &ODObjs.o_1014_COB_ID_EMCY, NULL},
     {0x1017, 0x01, ODT_VAR, &ODObjs.o_1017_producerHeartbeatTime, NULL},
     {0x0000, 0x00, 0, NULL, NULL}

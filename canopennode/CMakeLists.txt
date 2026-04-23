@@ -7,6 +7,10 @@ set(co_srcs
     "CANopenNode/301/CO_ODinterface.c"
 )
 
+if(CONFIG_CO_SDO_SERVER)
+    list(APPEND co_srcs "CANopenNode/301/CO_SDOserver.c")
+endif()
+
 idf_component_register(
     SRCS ${co_srcs}
     INCLUDE_DIRS "CANopenNode" "src"
