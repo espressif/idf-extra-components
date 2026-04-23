@@ -18,6 +18,16 @@ menu "CANopenNode Stack Config"
             the SDO client state machine and FIFO support needed by
             CO_SDOclient.c.
 
+    config CO_PDO
+        bool "Enable asynchronous PDO"
+        default n
+        help
+            Enable CANopen PDO support (CiA 301) with asynchronous RPDO/TPDO
+            processing only. This builds CO_PDO.c and enables RPDO/TPDO plus
+            their event/inhibit timer handling, while leaving SYNC disabled.
+            The application Object Dictionary must provide the required PDO
+            communication and mapping objects.
+
     config CO_MULTIPLE_OD
         bool "Enable MULTIPLE_OD"
         default false

@@ -177,11 +177,15 @@ void app_main(void)
 
     CO_NMT_reset_cmd_t reset = CO_RESET_COMM;
     while (reset != CO_RESET_APP) {
+        uint32_t err_info = 0;
         /* Standard CANopenNode communication reset sequence */
         CO_CANmodule_disable(CO->CANmodule);
         CO_CANinit(CO, node_hdl, node_config.bit_timing.bitrate / 1000);
         CO_CANopenInit(CO, NULL, NULL, OD, NULL, 0, FIRST_HEARTBEAT_TIME_MS, SDO_SERVER_TIMEOUT_MS,
-                       SDO_CLIENT_TIMEOUT_MS, false, CANOPEN_NODE_ID, NULL);
+                       SDO_CLIENT_TIMEOUT_MS, false, CANOPEN_NODE_ID, &err_info);
+#ifdef CONFIG_CO_PDO
+        CO_CANopenInitPDO(CO, CO->em, OD, CANOPEN_NODE_ID, &err_info);
+#endif
         CO_CANsetNormalMode(CO->CANmodule);
 
 #ifdef CONFIG_CO_SDO_CLIENT
@@ -196,7 +200,12 @@ void app_main(void)
         int64_t last_us = esp_timer_get_time();
         while (reset == CO_RESET_NOT) {
             int64_t now_us = esp_timer_get_time();
-            reset = CO_process(CO, false, (uint32_t)(now_us - last_us), NULL);
+            uint32_t time_diff_us = (uint32_t)(now_us - last_us);
+            reset = CO_process(CO, false, time_diff_us, NULL);
+#ifdef CONFIG_CO_PDO
+            CO_process_RPDO(CO, false, time_diff_us, NULL);
+            CO_process_TPDO(CO, false, time_diff_us, NULL);
+#endif
             last_us = now_us;
             vTaskDelay(pdMS_TO_TICKS(CANOPEN_TASK_PERIOD_MS));
         }

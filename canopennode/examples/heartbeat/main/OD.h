@@ -15,17 +15,17 @@
         File Version: 0.1
 
         Created:      4/8/2026 3:40:29 PM
-        Created By:
-        Modified:     4/8/2026 4:05:09 PM
-        Modified By:
+        Created By:   idf
+        Modified:     4/23/2026 7:34:53 PM
+        Modified By:  idf
 
     Device Info:
         Vendor Name:  espressif
-        Vendor ID:
+        Vendor ID:    0
         Product Name: CO_TWAI
         Product ID:   3
 
-        Description:
+        Description:  canopen test project
 *******************************************************************************/
 
 #ifndef OD_H
@@ -38,6 +38,8 @@
 #define OD_CNT_EM_PROD 1
 #define OD_CNT_HB_PROD 1
 #define OD_CNT_SDO_CLI 1
+#define OD_CNT_RPDO 1
+#define OD_CNT_TPDO 1
 
 
 /*******************************************************************************
@@ -59,11 +61,36 @@ typedef struct {
         uint32_t COB_IDServerToClientRx;
         uint8_t node_IDOfTheSDOServer;
     } x1280_SDOClientParameter;
+    struct {
+        uint8_t highestSub_indexSupported;
+        uint32_t COB_IDUsedByRPDO;
+        uint8_t transmissionType;
+        uint16_t eventTimer;
+    } x1400_RPDOCommunicationParameter;
+    struct {
+        uint8_t numberOfMappedApplicationObjectsInPDO;
+        uint32_t pointerTestCNT;
+        uint32_t applicationObject2;
+    } x1600_RPDOMappingParameter;
+    struct {
+        uint8_t highestSub_indexSupported;
+        uint32_t COB_IDUsedByTPDO;
+        uint8_t transmissionType;
+        uint16_t inhibitTime;
+        uint16_t eventTimer;
+        uint8_t SYNCStartValue;
+    } x1800_TPDOCommunicationParameter;
+    struct {
+        uint8_t numberOfMappedApplicationObjectsInPDO;
+        uint32_t pointerTestCNT;
+        uint32_t applicationObject2;
+    } x1A00_TPDOMappingParameter;
 } OD_PERSIST_COMM_t;
 
 typedef struct {
     uint8_t x1001_errorRegister;
     char x1008_manufacturerDeviceName[17];
+    uint32_t x2000_testCNT;
 } OD_RAM_t;
 
 #ifndef OD_ATTR_PERSIST_COMM
@@ -92,6 +119,11 @@ extern OD_ATTR_OD OD_t *OD;
 #define OD_ENTRY_H1014 &OD->list[4]
 #define OD_ENTRY_H1017 &OD->list[5]
 #define OD_ENTRY_H1280 &OD->list[6]
+#define OD_ENTRY_H1400 &OD->list[7]
+#define OD_ENTRY_H1600 &OD->list[8]
+#define OD_ENTRY_H1800 &OD->list[9]
+#define OD_ENTRY_H1A00 &OD->list[10]
+#define OD_ENTRY_H2000 &OD->list[11]
 
 
 /*******************************************************************************
@@ -104,6 +136,11 @@ extern OD_ATTR_OD OD_t *OD;
 #define OD_ENTRY_H1014_COB_ID_EMCY &OD->list[4]
 #define OD_ENTRY_H1017_producerHeartbeatTime &OD->list[5]
 #define OD_ENTRY_H1280_SDOClientParameter &OD->list[6]
+#define OD_ENTRY_H1400_RPDOCommunicationParameter &OD->list[7]
+#define OD_ENTRY_H1600_RPDOMappingParameter &OD->list[8]
+#define OD_ENTRY_H1800_TPDOCommunicationParameter &OD->list[9]
+#define OD_ENTRY_H1A00_TPDOMappingParameter &OD->list[10]
+#define OD_ENTRY_H2000_testCNT &OD->list[11]
 
 
 /*******************************************************************************
@@ -133,12 +170,12 @@ extern OD_ATTR_OD OD_t *OD;
     (config).ENTRY_H1006 = NULL;\
     (config).ENTRY_H1007 = NULL;\
     (config).ENTRY_H1019 = NULL;\
-    (config).CNT_RPDO = 0;\
-    (config).ENTRY_H1400 = NULL;\
-    (config).ENTRY_H1600 = NULL;\
-    (config).CNT_TPDO = 0;\
-    (config).ENTRY_H1800 = NULL;\
-    (config).ENTRY_H1A00 = NULL;\
+    (config).CNT_RPDO = OD_CNT_RPDO;\
+    (config).ENTRY_H1400 = OD_ENTRY_H1400;\
+    (config).ENTRY_H1600 = OD_ENTRY_H1600;\
+    (config).CNT_TPDO = OD_CNT_TPDO;\
+    (config).ENTRY_H1800 = OD_ENTRY_H1800;\
+    (config).ENTRY_H1A00 = OD_ENTRY_H1A00;\
     (config).CNT_LEDS = 0;\
     (config).CNT_GFC = 0;\
     (config).ENTRY_H1300 = NULL;\

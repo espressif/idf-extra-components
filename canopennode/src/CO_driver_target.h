@@ -30,8 +30,17 @@ extern "C" {
 #define CO_CONFIG_LSS   0
 #define CO_CONFIG_HB_CONS 0
 #define CO_CONFIG_TIME 0
-#define CO_CONFIG_PDO 0
 #define CO_CONFIG_SYNC 0
+
+#ifdef CONFIG_CO_PDO
+/* Enable asynchronous PDOs only. Because SYNC not supported yet. */
+#define CO_CONFIG_PDO                                                                                                    \
+    (CO_CONFIG_RPDO_ENABLE | CO_CONFIG_TPDO_ENABLE | CO_CONFIG_RPDO_TIMERS_ENABLE | CO_CONFIG_TPDO_TIMERS_ENABLE       \
+     | CO_CONFIG_PDO_OD_IO_ACCESS | CO_CONFIG_GLOBAL_RT_FLAG_CALLBACK_PRE | CO_CONFIG_GLOBAL_FLAG_TIMERNEXT            \
+     | CO_CONFIG_GLOBAL_FLAG_OD_DYNAMIC)
+#else
+#define CO_CONFIG_PDO 0
+#endif
 
 #ifdef CONFIG_CO_MULTIPLE_OD
 #define CO_MULTIPLE_OD

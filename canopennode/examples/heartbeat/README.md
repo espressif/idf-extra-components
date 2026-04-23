@@ -1,18 +1,40 @@
 # CANopenNode Heartbeat Example
 
-This example demonstrates the **pure application-layer usage** of CANopenNode protocol stack to send heartbeat messages. It assumes that the underlying hardware driver (esp_twai) has already been adapted to support CANopenNode.
+This example demonstrates application-layer usage of the CANopenNode protocol
+stack on ESP-IDF. It creates the TWAI node in the application, initializes
+CANopenNode with the local Object Dictionary, and exercises heartbeat/NMT, SDO,
+and asynchronous RPDO/TPDO paths.
 
-* ! NOTICE   
-Don't forgot below code in project CMakeLists.txt to provide OD during build the project
+The example uses TWAI TX GPIO 4, RX GPIO 5, node ID 1, and 200 kbit/s bitrate.
 
+## Build Notes
+
+The application provides `OD.c` and `OD.h` from `main/`. When
+`CONFIG_CO_MULTIPLE_OD` is disabled, make `OD.h` visible to the `canopennode`
+component from the project `CMakeLists.txt`:
+
+```cmake
+# Add the OD.h and OD.c files path for canopennode component
+idf_component_get_property(canopennode_lib canopennode COMPONENT_LIB)
+target_include_directories(${canopennode_lib} PRIVATE ${CMAKE_SOURCE_DIR}/main)
 ```
-# Add object dictionary path where the OD.h and OD.c files are located
-idf_build_set_property(INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/main" APPEND)
-```
+
+`sdkconfig.defaults` enables `CONFIG_CO_SDO_CLIENT` and `CONFIG_CO_PDO` so the
+full self-test and SocketCAN test can run.
 
 ## Testing with SocketCAN
 
-`test_canopen.py` verifies NMT state transitions via SocketCAN. It requires a PC connected to the same CAN bus (e.g. via a USB-CAN adapter).
+`test_canopen.py` verifies NMT state transitions, SDO access to object `0x1008`,
+and asynchronous RPDO/TPDO transfer of `TestCNT` via SocketCAN. It requires a PC
+connected to the same CAN bus, for example through a USB-CAN adapter.
+
+Configure the SocketCAN interface for the same bitrate:
+
+```bash
+sudo ip link set can0 up type can bitrate 200000
+```
+
+Install the Python dependency and run the test:
 
 ```bash
 pip install canopen
