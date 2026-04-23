@@ -11,12 +11,12 @@
 
     File info:
         File Names:   OD.h; OD.c
-        Project File: project
+        Project File: OD.xpd
         File Version: 0.1
 
         Created:      4/8/2026 3:40:29 PM
         Created By:
-        Modified:     4/8/2026 3:40:29 PM
+        Modified:     4/8/2026 4:05:09 PM
         Modified By:
 
     Device Info:
@@ -56,6 +56,7 @@ typedef struct {
 
 typedef struct {
     uint8_t x1001_errorRegister;
+    char x1008_manufacturerDeviceName[17];
 } OD_RAM_t;
 
 #ifndef OD_ATTR_PERSIST_COMM
@@ -80,8 +81,9 @@ extern OD_ATTR_OD OD_t *OD;
 #define OD_ENTRY_H1000 &OD->list[0]
 #define OD_ENTRY_H1001 &OD->list[1]
 #define OD_ENTRY_H1003 &OD->list[2]
-#define OD_ENTRY_H1014 &OD->list[3]
-#define OD_ENTRY_H1017 &OD->list[4]
+#define OD_ENTRY_H1008 &OD->list[3]
+#define OD_ENTRY_H1014 &OD->list[4]
+#define OD_ENTRY_H1017 &OD->list[5]
 
 
 /*******************************************************************************
@@ -90,8 +92,9 @@ extern OD_ATTR_OD OD_t *OD;
 #define OD_ENTRY_H1000_deviceType &OD->list[0]
 #define OD_ENTRY_H1001_errorRegister &OD->list[1]
 #define OD_ENTRY_H1003_pre_definedErrorField &OD->list[2]
-#define OD_ENTRY_H1014_COB_ID_EMCY &OD->list[3]
-#define OD_ENTRY_H1017_producerHeartbeatTime &OD->list[4]
+#define OD_ENTRY_H1008_manufacturerDeviceName &OD->list[3]
+#define OD_ENTRY_H1014_COB_ID_EMCY &OD->list[4]
+#define OD_ENTRY_H1017_producerHeartbeatTime &OD->list[5]
 
 
 /*******************************************************************************
