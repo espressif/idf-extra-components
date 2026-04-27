@@ -618,7 +618,8 @@ static void esp_linenoise_edit_history_next(esp_linenoise_instance_t *instance, 
         free(config->history[state->history_index]);
         config->history[state->history_index] = buffer_copy;
         /* Show the new entry */
-        state->history_index += (dir == esp_LINENOISE_HISTORY_PREV) ? 1 : -1;
+        state->history_index += (dir == esp_LINENOISE_HISTORY_PREV) ? -1 : 1;
+
         if (state->history_index < 0) {
             state->history_index = 0;
             return;
@@ -733,7 +734,6 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
     state->len = 0;
     state->columns = esp_linenoise_get_columns(instance);
     state->max_rows_used = 0;
-    state->history_index = 0;
 
     /* Buffer starts empty. */
     state->buffer[0] = '\0';
@@ -745,6 +745,8 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
     if (ret_val != ESP_OK) {
         return -1;
     }
+
+    state->history_index = state->history_length - 1;
 
     if (config->write_bytes_cb(out_fd, config->prompt, state->prompt_length) == -1) {
         return -1;
