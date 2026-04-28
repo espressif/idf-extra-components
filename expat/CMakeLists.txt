@@ -3,6 +3,7 @@ idf_component_register(SRCS "expat/expat/lib/xmlparse.c"
                             "expat/expat/lib/xmltok.c"
                             "expat/expat/lib/xmltok_impl.c"
                             "expat/expat/lib/xmltok_ns.c"
+                            "expat/expat/lib/random_getrandom.c"
                     INCLUDE_DIRS expat/expat/lib port/include)
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE HAVE_EXPAT_CONFIG_H)
