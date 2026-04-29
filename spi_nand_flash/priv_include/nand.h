@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #pragma once
@@ -65,6 +65,21 @@ struct spi_nand_flash_device_t {
     SemaphoreHandle_t mutex;
 #ifdef CONFIG_IDF_TARGET_LINUX
     nand_mmap_emul_handle_t *emul_handle;
+#endif
+#ifdef CONFIG_NAND_FLASH_PAGE_REGISTER_CACHE
+    /* NAND page-register cache.
+     * Tracks whether the NAND chip's internal page register already holds a
+     * specific page so that read_page_and_wait() can skip the expensive
+     * READ PAGE ADDRESS command (25–100 µs) on repeated reads of the same page.
+     * Invalidated by program_execute_and_wait(), nand_erase_block(), and
+     * nand_mark_bad(). Also invalidated before spi_nand_program_load() in
+     * nand_prog(), nand_copy(), and nand_mark_bad() since PROGRAM LOAD
+     * overwrites the cache register.
+     * UINT32_MAX in last_loaded_page means "no valid page cached".
+     */
+    uint32_t          last_loaded_page;     /*!< Page currently in the NAND internal register */
+    uint8_t           last_loaded_status;   /*!< STATUS register value captured on last load */
+    bool              nand_page_cache_valid; /*!< true when last_loaded_page is valid */
 #endif
 };
 

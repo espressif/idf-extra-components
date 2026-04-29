@@ -101,6 +101,11 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
 
     memcpy(&(*handle)->config, config, sizeof(spi_nand_flash_config_t));
 
+#ifdef CONFIG_NAND_FLASH_PAGE_REGISTER_CACHE
+    (*handle)->last_loaded_page    = UINT32_MAX;
+    (*handle)->nand_page_cache_valid = false;
+#endif
+
     (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
     (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
