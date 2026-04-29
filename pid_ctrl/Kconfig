@@ -1,0 +1,20 @@
+menu "PID Controller"
+
+    config PID_CTRL_IQ_FORMAT
+        int "IQmath Q-format (GLOBAL_IQ)"
+        range 1 30
+        default 24
+        help
+            Q-format used by the _iq backend. This value is applied as
+            GLOBAL_IQ before including IQmathLib.h, so all _IQ() / _IQtoF()
+            / _IQmpy() calls in pid_ctrl use this fractional bit count.
+
+            Typical choices:
+              - 24 (default): high precision, range approx. +/- 128.
+              - 16         : more headroom, range approx. +/- 32768.
+              - 8          : very large range, lower precision.
+
+            If your application #defines GLOBAL_IQ itself before including
+            pid_ctrl.h, that user definition wins and this option is ignored.
+
+endmenu
