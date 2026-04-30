@@ -1,0 +1,41 @@
+menu "CANopenNode Stack Config"
+
+    config CO_SDO_SERVER
+        bool "Enable SDO server"
+        default y
+        help
+            Enable the CANopen SDO server (CiA 301). Allows remote nodes and
+            tools (e.g. PCAN-View, CANopen Magic) to read/write entries in
+            the local Object Dictionary via SDO transfers. Includes support
+            for expedited and segmented transfers (CO_SDOserver.c).
+
+    config CO_SDO_CLIENT
+        bool "Enable SDO client"
+        default n
+        help
+            Enable the CANopen SDO client (CiA 301). Allows this node to
+            initiate SDO uploads/downloads to other CANopen nodes. This adds
+            the SDO client state machine and FIFO support needed by
+            CO_SDOclient.c.
+
+    config CO_PDO
+        bool "Enable asynchronous PDO"
+        default n
+        help
+            Enable CANopen PDO support (CiA 301) with asynchronous RPDO/TPDO
+            processing only. This builds CO_PDO.c and enables RPDO/TPDO plus
+            their event/inhibit timer handling, while leaving SYNC disabled.
+            The application Object Dictionary must provide the required PDO
+            communication and mapping objects.
+
+    config CO_MULTIPLE_OD
+        bool "Enable MULTIPLE_OD"
+        default false
+        help
+            Enable CANopenNode support for multiple Object Dictionaries.
+            When enabled, CANopen parameters are provided through CO_config_t
+            at CO_new() time. When disabled, CANopenNode uses the default
+            OD.h definitions directly, which lowers memory consumption and
+            startup time.
+
+endmenu
