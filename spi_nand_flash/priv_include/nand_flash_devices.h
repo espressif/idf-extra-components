@@ -24,6 +24,7 @@ extern "C" {
 #define SPI_NAND_FLASH_MICRON_MI      0x2C
 #define SPI_NAND_FLASH_ZETTA_MI       0xBA
 #define SPI_NAND_FLASH_XTX_MI         0x0B
+#define SPI_NAND_FLASH_MACRONIX_MI    0xC2
 
 //=============================================================================
 // DEVICE IDs
@@ -79,6 +80,10 @@ extern "C" {
 // XTX
 #define XTX_DI_37                     0x37
 
+// Macronix
+#define MACRONIX_DI_26                0x26   // MX35LF2GE4AD (2Gb)
+#define MACRONIX_DI_37                0x37   // MX35LF4GE4AD (4Gb)
+
 //=============================================================================
 // DEVICE INITIALIZATION FUNCTIONS
 //=============================================================================
@@ -112,6 +117,11 @@ esp_err_t spi_nand_zetta_init(spi_nand_flash_device_t *dev);
  * @brief Initialize XTX NAND flash
  */
 esp_err_t spi_nand_xtx_init(spi_nand_flash_device_t *dev);
+
+/**
+ * @brief Initialize Macronix NAND flash
+ */
+esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev);
 
 #ifdef __cplusplus
 }
