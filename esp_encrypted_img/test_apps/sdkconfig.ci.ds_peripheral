@@ -1,0 +1,6 @@
+# CI sdkconfig for testing DS peripheral based RSA decryption
+# This config is only supported on IDF >= 5.3 and targets with HMAC support
+CONFIG_IDF_TARGET="esp32c3"
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_ESP_TASK_WDT_INIT=n
+CONFIG_PRE_ENCRYPTED_RSA_USE_DS=y
