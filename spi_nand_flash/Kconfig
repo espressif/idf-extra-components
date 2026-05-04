@@ -32,4 +32,16 @@ menu "SPI NAND Flash configuration"
         help
             This option enables gathering host test statistics and SPI NAND flash wear levelling simulation.
 
+    config NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT
+        bool "Experimental: configurable OOB layout"
+        default n
+        help
+            Experimental support for datasheet-driven spare (OOB) region maps and marker placement.
+            When disabled, the driver keeps the legacy fixed layout (BBM and page-used markers at
+            bytes 0-3 past column page_size; see openspec/configurable_oob_layout_proposal.md §1.2).
+            When enabled, later releases wire init-time layout selection and scatter/gather I/O;
+            with this option alone there is no change to runtime NAND behavior beyond compiling
+            the default layout table. Full design: openspec/configurable_oob_layout_proposal.md and
+            openspec/changes/configurable-oob-layout/.
+
 endmenu
