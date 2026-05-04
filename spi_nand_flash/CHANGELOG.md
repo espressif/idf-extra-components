@@ -2,6 +2,13 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3]
+### Dependencies
+- **Dhara** is now consumed as the in-repo `espressif/dhara` component at **1.0.0** (vendored upstream snapshot; the git submodule under `dhara/` is removed). The manifest dependency range is **`1.*`** (was `0.1.*`), matching the new component version with the same `override_path: "../dhara"` layout.
+
+### Documentation
+- README: clarify that Dhara is provided by the vendored `espressif/dhara` component and that no separate submodule checkout is required.
+
 ## [1.0.2]
 ### Fixes
 - BDL error logging: correct format specifiers for size fields on 64-bit Linux (avoids undefined behavior and wrong log output).
