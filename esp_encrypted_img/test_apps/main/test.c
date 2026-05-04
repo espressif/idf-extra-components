@@ -154,6 +154,7 @@ TEST_CASE("test_rsa_ds_decrypt_v15_padding", "[encrypted_img]")
 TEST_CASE("Sending all data at once", "[encrypted_img]")
 {
     esp_err_t err;
+
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
     esp_decrypt_cfg_t cfg = {0};
 #if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
@@ -171,6 +172,7 @@ TEST_CASE("Sending all data at once", "[encrypted_img]")
     esp_decrypt_cfg_t cfg = {0};
     cfg.hmac_key_id = 2;
 #endif
+
     esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
     TEST_ASSERT_NOT_NULL(ctx);
 
@@ -184,16 +186,18 @@ TEST_CASE("Sending all data at once", "[encrypted_img]")
 
     TEST_ESP_OK(err);
     printf("Successful\n");
-    printf("\n");
 
     err = esp_encrypted_img_decrypt_end(ctx);
     TEST_ESP_OK(err);
+
     if (args->data_out) {
         free(args->data_out);
     }
+
 #if defined (CONFIG_PRE_ENCRYPTED_OTA_USE_RSA) && defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
     esp_secure_cert_free_ds_ctx(cfg.ds_data);
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA && CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
+
     free(args);
 }
 
