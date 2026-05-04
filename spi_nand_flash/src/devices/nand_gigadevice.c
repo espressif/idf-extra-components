@@ -50,9 +50,13 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
     case GIGADEVICE_DI_45:
     case GIGADEVICE_DI_35:
     case GIGADEVICE_DI_25:
+        dev->chip.num_blocks = 4096;
+        break;
     case GIGADEVICE_DI_95:
     case GIGADEVICE_DI_85:
         dev->chip.num_blocks = 4096;
+        dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
+        dev->chip.num_planes = 2;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
