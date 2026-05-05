@@ -153,6 +153,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     HAVE_WEAK_SYMBOLS
     __STDC_LIMIT_MACROS
     __STDC_CONSTANT_MACROS
+    __STDC_WANT_LIB_EXT1__=0
     )
 
 # patch around warnings in third-party files
