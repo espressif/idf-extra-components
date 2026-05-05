@@ -2,6 +2,13 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3]
+
+### Added
+
+- **Experimental OOB layout (`CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT`, default `n`):** Linux mmap path (`nand_impl_linux.c`) matches target marker/OOB behavior when the option is enabled; default layout keeps the same on-flash bytes and emulator stride as the legacy fixed layout. CI/sdkconfig presets: `sdkconfig.ci.oob_layout` / `sdkconfig.ci.bdl_oob_layout` in `test_app/`, `sdkconfig.ci.oob_layout` in `host_test/`.
+- **`nand_emul_get_stats`:** Implemented for `CONFIG_NAND_ENABLE_STATS=y` on the Linux target (known-bug).
+
 ## [1.0.2]
 ### Fixes
 - BDL error logging: correct format specifiers for size fields on 64-bit Linux (avoids undefined behavior and wrong log output).

@@ -62,6 +62,12 @@ For layered architecture, BDL usage, API details, and **upgrading from 0.x to 1.
 
 **Linux mmap emulation (host tests):** On the Linux target, the driver can use a memory-mapped backing file instead of SPI hardware. Configuration examples and how to build the host test app live in [`host_test/README.md`](host_test/README.md).
 
+### Experimental: configurable OOB layout
+
+The Kconfig option **`CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT`** (default **off**) enables init-time default layout tables and scatter/gather for spare metadata. With the default layout, on-flash marker placement matches the legacy driver (BBM and page-used bytes per [`openspec/configurable_oob_layout_proposal.md`](openspec/configurable_oob_layout_proposal.md) §1.2), so existing media and tests behave the same when the option is on. Implementation notes and the step plan live under [`openspec/changes/configurable-oob-layout/`](openspec/changes/configurable-oob-layout/). CI-style sdkconfig presets and pytest entry points are documented in [`test_app/README.md`](test_app/README.md) and [`host_test/README.md`](host_test/README.md).
+
+**Deferred follow-ups (not in the first experimental rollout):** revisit `SPI_NAND_OOB_MAX_REGIONS` (**8**) only if a datasheet needs more free-region fragments; promote raw-OOB / field helpers to `include/` only as a separate API review; add per-vendor layout rows in `src/devices/*.c` for non-default spare maps; optional audit of same-plane `nand_copy` vs datasheets per part; flip this Kconfig default to **`y`** only after a stability milestone. `nand_diag_api.c` is unchanged unless a later audit finds hardcoded OOB assumptions.
+
 ## Supported SPI NAND Flash chips
 
 At present, `spi_nand_flash` component is compatible with the chips produced by the following manufacturers and and their respective model numbers:

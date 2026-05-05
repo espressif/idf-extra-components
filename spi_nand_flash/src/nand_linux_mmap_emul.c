@@ -258,6 +258,45 @@ esp_err_t nand_emul_erase_block(spi_nand_flash_device_t *handle, size_t offset)
 }
 
 #ifdef CONFIG_NAND_ENABLE_STATS
+void nand_emul_get_stats(spi_nand_flash_device_t *handle, size_t *read_ops, size_t *write_ops, size_t *erase_ops,
+                         size_t *read_bytes, size_t *write_bytes)
+{
+    if (read_ops) {
+        *read_ops = 0;
+    }
+    if (write_ops) {
+        *write_ops = 0;
+    }
+    if (erase_ops) {
+        *erase_ops = 0;
+    }
+    if (read_bytes) {
+        *read_bytes = 0;
+    }
+    if (write_bytes) {
+        *write_bytes = 0;
+    }
+    if (handle == NULL || handle->emul_handle == NULL) {
+        return;
+    }
+    nand_mmap_emul_handle_t *emul_handle = handle->emul_handle;
+    if (read_ops) {
+        *read_ops = emul_handle->stats.read_ops;
+    }
+    if (write_ops) {
+        *write_ops = emul_handle->stats.write_ops;
+    }
+    if (erase_ops) {
+        *erase_ops = emul_handle->stats.erase_ops;
+    }
+    if (read_bytes) {
+        *read_bytes = emul_handle->stats.read_bytes;
+    }
+    if (write_bytes) {
+        *write_bytes = emul_handle->stats.write_bytes;
+    }
+}
+
 // Clear statistics
 void nand_emul_clear_stats(spi_nand_flash_device_t *handle)
 {

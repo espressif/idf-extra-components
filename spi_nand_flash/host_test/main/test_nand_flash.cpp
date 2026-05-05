@@ -87,3 +87,35 @@ TEST_CASE("verify nand_prog, nand_read, nand_copy, nand_is_free works", "[spi_na
     free(temp_buf);
     spi_nand_flash_deinit_device(device_handle);
 }
+
+#ifdef CONFIG_NAND_ENABLE_STATS
+TEST_CASE("nand_emul_get_stats counts mmap ops", "[spi_nand_flash]")
+{
+    nand_file_mmap_emul_config_t conf = {"", 4 * 1024 * 1024, false};
+    spi_nand_flash_config_t nand_flash_config = {&conf, 0, SPI_NAND_IO_MODE_SIO, 0};
+    spi_nand_flash_device_t *device_handle = nullptr;
+    REQUIRE(spi_nand_flash_init_device(&nand_flash_config, &device_handle) == ESP_OK);
+
+    nand_emul_clear_stats(device_handle);
+
+    uint8_t byte = 0;
+    REQUIRE(nand_emul_read(device_handle, 0, &byte, 1) == ESP_OK);
+    REQUIRE(nand_emul_write(device_handle, 0, &byte, 1) == ESP_OK);
+    REQUIRE(nand_emul_read(device_handle, 10, &byte, 9) == ESP_OK);
+
+    size_t ro = 0, wo = 0, eo = 0, rb = 0, wb = 0;
+    nand_emul_get_stats(device_handle, &ro, &wo, &eo, &rb, &wb);
+    REQUIRE(ro == 2);
+    REQUIRE(wo == 1);
+    REQUIRE(eo == 0);
+    REQUIRE(rb == 10);
+    REQUIRE(wb == 1);
+
+    size_t block0 = 0;
+    REQUIRE(nand_emul_erase_block(device_handle, block0) == ESP_OK);
+    nand_emul_get_stats(device_handle, &ro, &wo, &eo, &rb, &wb);
+    REQUIRE(eo == 1);
+
+    spi_nand_flash_deinit_device(device_handle);
+}
+#endif

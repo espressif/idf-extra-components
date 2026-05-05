@@ -12,6 +12,14 @@ from pathlib import Path
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that not build"
 )
+@pytest.mark.parametrize(
+    'config',
+    [
+        'default',
+        'oob_layout',
+    ],
+    indirect=True,
+)
 @idf_parametrize('target', ['linux'], indirect=['target'])
-def test_nand_flash_linux(dut: Dut) -> None:
+def test_nand_flash_linux(dut: Dut, config: str) -> None:
     dut.expect_exact('All tests passed', timeout=120)

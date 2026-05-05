@@ -16,6 +16,7 @@ from pathlib import Path
     'config',
     [
         'default',
+        'oob_layout',
     ],
     indirect=True,
 )
@@ -33,6 +34,7 @@ def test_spi_nand_flash(dut: Dut, config: str) -> None:
     'config',
     [
         'bdl',
+        'bdl_oob_layout',
     ],
     indirect=True,
 )
