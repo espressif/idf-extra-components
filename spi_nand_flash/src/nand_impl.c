@@ -13,6 +13,9 @@
 #include "nand.h"
 #include "nand_flash_devices.h"
 #include "nand_device_types.h"
+#ifdef CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT
+#include "nand_oob_device.h"
+#endif
 
 #define ROM_WAIT_THRESHOLD_US 1000
 
@@ -82,7 +85,7 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
     esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE(config->device_handle != NULL, ESP_ERR_INVALID_ARG, TAG, "Spi device pointer can not be NULL");
 
-    *handle = heap_caps_calloc(1, sizeof(spi_nand_flash_device_t), MALLOC_CAP_DEFAULT);
+    *handle = heap_caps_calloc(1, sizeof(spi_nand_flash_device_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (*handle == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -116,6 +119,10 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
 
     (*handle)->temp_buffer = heap_caps_aligned_alloc(dma_alignment, (*handle)->chip.page_size + dma_alignment, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_GOTO_ON_FALSE((*handle)->temp_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+
+#ifdef CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT
+    ESP_GOTO_ON_ERROR(nand_oob_device_layout_init(*handle), fail, TAG, "OOB layout init");
+#endif
 
     (*handle)->mutex = xSemaphoreCreateMutex();
     if (!(*handle)->mutex) {

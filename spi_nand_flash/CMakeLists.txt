@@ -41,7 +41,9 @@ else()
 endif()
 
 if(CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT)
-    list(APPEND srcs "src/nand_oob_layout_default.c")
+    list(APPEND srcs "src/nand_oob_layout_default.c"
+                     "src/nand_oob_xfer.c"
+                     "src/nand_oob_device.c")
 endif()
 
 idf_component_register(SRCS ${srcs}

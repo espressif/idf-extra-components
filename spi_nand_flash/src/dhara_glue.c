@@ -19,6 +19,7 @@
 #include "nand_impl.h"
 #include "nand.h"
 #include "nand_device_types.h"
+#include "esp_heap_caps.h"
 
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 #include "esp_nand_blockdev.h"
@@ -36,7 +37,7 @@ typedef struct {
 static esp_err_t dhara_init(spi_nand_flash_device_t *handle, void *bdl_handle)
 {
     // create a holder structure for dhara context
-    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = heap_caps_calloc(1, sizeof(spi_nand_flash_dhara_priv_data_t), MALLOC_CAP_DEFAULT);
+    spi_nand_flash_dhara_priv_data_t *dhara_priv_data = heap_caps_calloc(1, sizeof(spi_nand_flash_dhara_priv_data_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (dhara_priv_data == NULL) {
         return ESP_ERR_NO_MEM;
     }

@@ -18,6 +18,10 @@
 #include "freertos/semphr.h"
 #include "nand_device_types.h"
 
+#ifdef CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT
+#include "nand_oob_layout_types.h"
+#endif
+
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 #include "esp_blockdev.h"
 #endif
@@ -58,6 +62,16 @@ struct spi_nand_flash_device_t {
     uint8_t *read_buffer;
     uint8_t *temp_buffer;
     SemaphoreHandle_t mutex;
+#ifdef CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT
+    /** Read-only after nand_oob_device_layout_init(); points at static rodata (e.g. default layout). */
+    const spi_nand_oob_layout_t *oob_layout;
+    spi_nand_oob_field_spec_t oob_fields[SPI_NAND_OOB_FIELD_COUNT];
+    /** FREE_ECC / FREE_NOECC regions from free_region(), cached once at init for stack xfer ctx (steps 06+). */
+    spi_nand_oob_region_desc_t oob_cached_regs_free_ecc[SPI_NAND_OOB_MAX_REGIONS];
+    uint8_t oob_cached_reg_count_free_ecc;
+    spi_nand_oob_region_desc_t oob_cached_regs_free_no_ecc[SPI_NAND_OOB_MAX_REGIONS];
+    uint8_t oob_cached_reg_count_free_no_ecc;
+#endif
 #ifdef CONFIG_IDF_TARGET_LINUX
     nand_mmap_emul_handle_t *emul_handle;
 #endif

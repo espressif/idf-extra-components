@@ -85,6 +85,9 @@ typedef enum {
     SPI_NAND_OOB_FIELD_PAGE_USED = 0,
 } spi_nand_oob_field_id_t;
 
+/** Keep equal to the number of valid @ref spi_nand_oob_field_id_t values (size of device::oob_fields). */
+#define SPI_NAND_OOB_FIELD_COUNT 1
+
 /** Logical stream class for assigning PAGE_USED and similar into free spare. */
 typedef enum {
     SPI_NAND_OOB_CLASS_FREE_ECC,

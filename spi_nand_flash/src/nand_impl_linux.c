@@ -12,6 +12,9 @@
 #include "spi_nand_flash.h"
 #include "nand.h"
 #include "nand_linux_mmap_emul.h"
+#ifdef CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT
+#include "nand_oob_device.h"
+#endif
 
 static const char *TAG = "nand_linux";
 
@@ -94,7 +97,7 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
     esp_err_t ret = ESP_OK;
     ESP_RETURN_ON_FALSE(config->emul_conf != NULL, ESP_ERR_INVALID_ARG, TAG, "Linux mmap emulation configuration pointer can not be NULL");
 
-    *handle = heap_caps_calloc(1, sizeof(spi_nand_flash_device_t), MALLOC_CAP_DEFAULT);
+    *handle = heap_caps_calloc(1, sizeof(spi_nand_flash_device_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (*handle == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -117,6 +120,10 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
 
     (*handle)->read_buffer = heap_caps_malloc((*handle)->chip.page_size, MALLOC_CAP_DEFAULT);
     ESP_GOTO_ON_FALSE((*handle)->read_buffer != NULL, ESP_ERR_NO_MEM, fail, TAG, "nomem");
+
+#ifdef CONFIG_NAND_FLASH_EXPERIMENTAL_OOB_LAYOUT
+    ESP_GOTO_ON_ERROR(nand_oob_device_layout_init(*handle), fail, TAG, "OOB layout init");
+#endif
 
     (*handle)->mutex = xSemaphoreCreateMutex();
     if (!(*handle)->mutex) {
