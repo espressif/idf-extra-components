@@ -831,6 +831,7 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
     for (size_t handle_count = 0; handle_count < *schedule_count; handle_count++) {
         schedule = (esp_schedule_t *)handle_list[handle_count];
         schedule->trigger_cb = NULL;
+        schedule->timestamp_cb = NULL;
         schedule->timer = NULL;
         /* Check for ONCE and expired schedules and delete them. */
         if (esp_schedule_is_expired(&schedule->trigger)) {
