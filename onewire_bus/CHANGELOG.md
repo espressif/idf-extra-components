@@ -1,3 +1,7 @@
+## 1.1.1
+
+- When reading more bytes than fit in one RMT memory block on ESP32 and ESP32-S2, data will be read in chunks.
+
 ## 1.1.0
 
 - Add UART backend support for 1-Wire bus (`onewire_new_bus_uart`) alongside the existing RMT backend.
