@@ -72,6 +72,7 @@ At present, `spi_nand_flash` component is compatible with the chips produced by 
 * Micron - MT29F4G01ABAFDWB, MT29F1G01ABAFDSF-AAT:F, MT29F2G01ABAGDWB-IT:G
 * Zetta - ZD35Q1GC
 * XTX - XT26G08D
+* Fudan Microelectronics (FMSH) - FM25S005BI3
 
 ## FATFS Integration
 

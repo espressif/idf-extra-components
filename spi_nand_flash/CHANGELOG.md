@@ -2,6 +2,9 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0]
+- feat: added support for Fudan Microelectronics (FM25S005BI3) NAND flash
+
 ## [1.0.3]
 ### Dependencies
 - **Dhara** is now consumed as the in-repo `espressif/dhara` component at **1.0.0** (vendored upstream snapshot; the git submodule under `dhara/` is removed). The manifest dependency range is **`1.*`** (was `0.1.*`), matching the new component version with the same `override_path: "../dhara"` layout.
