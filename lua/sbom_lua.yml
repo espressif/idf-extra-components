@@ -1,0 +1,7 @@
+name: lua
+version: 5.5.0
+cpe: cpe:2.3:a:lua:lua:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Lua.org, PUC-Rio <http://www.lua.org/>'
+description: Lua is a powerful, efficient, lightweight, embeddable scripting language
+url: https://www.lua.org/
+license: MIT

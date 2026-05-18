@@ -161,7 +161,7 @@ typedef struct esp_schedule_config {
  * This initializes ESP Schedule. This must be called first before calling any of the other APIs.
  * This API also gets all the schedules from NVS (if it has been enabled).
  *
- * Note: After calling this API, the pointers to the callbacks should be updated for all the schedules by calling
+ * @warning After calling this API, the pointers to the callbacks should be updated for all the schedules by calling
  * esp_schedule_get() followed by esp_schedule_edit() with the correct callbacks.
  *
  * @param[in] enable_nvs If NVS is to be enabled or not.

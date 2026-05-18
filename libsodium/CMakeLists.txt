@@ -40,10 +40,15 @@ set(srcs
     "${SRC}/crypto_hash/crypto_hash.c"
     "${SRC}/crypto_hash/sha256/hash_sha256.c"
     "${SRC}/crypto_hash/sha512/hash_sha512.c"
+    "${SRC}/crypto_hash/sha3/hash_sha3.c"
     "${SRC}/crypto_kdf/blake2b/kdf_blake2b.c"
     "${SRC}/crypto_kdf/crypto_kdf.c"
     "${SRC}/crypto_kdf/hkdf/kdf_hkdf_sha256.c"
     "${SRC}/crypto_kdf/hkdf/kdf_hkdf_sha512.c"
+    "${SRC}/crypto_kem/crypto_kem.c"
+    "${SRC}/crypto_kem/mlkem768/kem_mlkem768.c"
+    "${SRC}/crypto_kem/mlkem768/ref/kem_mlkem768_ref.c"
+    "${SRC}/crypto_kem/xwing/kem_xwing.c"
     "${SRC}/crypto_kx/crypto_kx.c"
     "${SRC}/crypto_onetimeauth/crypto_onetimeauth.c"
     "${SRC}/crypto_onetimeauth/poly1305/donna/poly1305_donna.c"
@@ -153,6 +158,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     HAVE_WEAK_SYMBOLS
     __STDC_LIMIT_MACROS
     __STDC_CONSTANT_MACROS
+    __STDC_WANT_LIB_EXT1__=0
     )
 
 # patch around warnings in third-party files
@@ -181,6 +187,16 @@ set_source_files_properties(
     ${SRC}/crypto_shorthash/siphash24/ref/shorthash_siphash24_ref.c
     PROPERTIES COMPILE_FLAGS
     -Wno-implicit-fallthrough
+    )
+
+# Upstream libsodium 1.0.22 KEM sources define parameters as plain pointers
+# while their headers declare them as fixed-size arrays, which trips
+# -Werror=array-parameter on GCC >= 11. Suppress until fixed upstream.
+set_source_files_properties(
+    ${SRC}/crypto_kem/mlkem768/kem_mlkem768.c
+    ${SRC}/crypto_kem/xwing/kem_xwing.c
+    PROPERTIES COMPILE_FLAGS
+    -Wno-array-parameter
     )
 
 set_source_files_properties(

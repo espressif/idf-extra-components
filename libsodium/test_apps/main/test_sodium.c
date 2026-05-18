@@ -58,6 +58,9 @@ LIBSODIUM_TEST(box2)
 LIBSODIUM_TEST(ed25519_convert)
 LIBSODIUM_TEST(hash)
 LIBSODIUM_TEST(sign)
+LIBSODIUM_TEST(kem)
+LIBSODIUM_TEST(kem_mlkem768)
+LIBSODIUM_TEST(kem_xwing)
 
 
 TEST_CASE("sha256 sanity check", "[libsodium]")
