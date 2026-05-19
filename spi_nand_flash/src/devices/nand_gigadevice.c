@@ -55,6 +55,15 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
     case GIGADEVICE_DI_95:
     case GIGADEVICE_DI_85:
         dev->chip.num_blocks = 4096;
+        // Not hardware dual-plane: num_planes models odd/even block parity required
+        // for Internal Data Move (GD5F4GM8 datasheet §9.5). See nand_copy().
+        dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
+        dev->chip.num_planes = 2;
+        break;
+    case GIGADEVICE_DI_94:
+        dev->chip.log2_page_size = 12;  // 4096 bytes per page
+        dev->chip.num_blocks = 2048;
+        // Same parity grouping as GD5F4GM8 (GIGADEVICE_DI_95) above.
         dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
         dev->chip.num_planes = 2;
         break;

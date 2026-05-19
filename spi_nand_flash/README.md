@@ -67,12 +67,14 @@ For layered architecture, BDL usage, API details, and **upgrading from 0.x to 1.
 At present, `spi_nand_flash` component is compatible with the chips produced by the following manufacturers and and their respective model numbers:
 
 * Winbond - W25N01GVxxxG/T/R, W25N512GVxIG/IT, W25N512GWxxR/T, W25N01JWxxxG/T, W25N02KVxxIR/U, W25N04KVxxIR/U
-* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG, GD5F1GM7xExxG
+* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG, GD5F1GM7xExxG, GD5F4GM7UExxG
 * Alliance - AS5F31G04SND-08LIN, AS5F32G04SND-08LIN, AS5F12G04SND-10LIN, AS5F34G04SND-08LIN, AS5F14G04SND-10LIN, AS5F38G04SND-08LIN, AS5F18G04SND-10LIN
 * Micron - MT29F4G01ABAFDWB, MT29F1G01ABAFDSF-AAT:F, MT29F2G01ABAGDWB-IT:G
 * Zetta - ZD35Q1GC
 * XTX - XT26G08D
 * Fudan Microelectronics (FMSH) - FM25S005BI3
+
+**GigaDevice voltage classes:** Parts ending in **UExxG** are rated for 2.7–3.6 V and are suitable for typical ESP32 3.3 V SPI designs. Parts ending in **RExxG** are rated for 1.7–2.0 V and are not recommended for direct connection to 3.3 V ESP GPIO/SPI without level shifting and a 1.8 V supply. Some `RExx` variants remain in the driver from earlier releases for backward compatibility; new additions target the 3.3 V `UExx` parts only (for example, **GD5F4GM7UExxG**, not GD5F4GM7RExxG).
 
 ## FATFS Integration
 
