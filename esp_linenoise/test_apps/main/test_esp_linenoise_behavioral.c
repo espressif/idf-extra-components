@@ -351,22 +351,36 @@ TEST_CASE("history navigation with CTRL-P / CTRL-N works correctly", "[esp_linen
 
     test_instance_setup(s_socket_fd_a, &lock, &config);
 
-    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
-    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
+    // Create the linenoise instance in the main thread
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config, &s_linenoise_hdl));
 
-    // wait until the linenoise instance init is done, and the get line as started
-    // before sending test content
-    pthread_mutex_lock(&lock);
-
-    wait_ms(100);
-
+    // Load history SEQUENTIALLY before starting the terminal task
+    // This prevents race conditions with the internal history_index
     // Add history entries in order: "first", "second", "third"
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_history_add(s_linenoise_hdl, "first"));
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_history_add(s_linenoise_hdl, "second"));
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_history_add(s_linenoise_hdl, "third"));
 
+    // Prepare the arguments for the isolated task
+    get_line_task_args_t args = {
+        .handle = s_linenoise_hdl,
+        .parent_task = xTaskGetCurrentTaskHandle(),
+        .lock = &lock,
+        .ret_val = ESP_OK,
+        .buf = s_line_returned, // Use the global buffer for the return value
+        .buf_size = CMD_LINE_LENGTH
+    };
+
+    // Launch the terminal task using the pre-configured handle
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args, 5, NULL);
+
+    // wait until the linenoise instance init is done, and the get line has started
+    // before sending test content
+    pthread_mutex_lock(&lock);
     wait_ms(100);
 
+    // --- Start navigation ---
+    
     // CTRL-P: get previous history command, should be "third"
     test_send_characters(s_socket_fd_a[1], COMPOUND_LITERAL(CTRL_P));
 
@@ -380,7 +394,7 @@ TEST_CASE("history navigation with CTRL-P / CTRL-N works correctly", "[esp_linen
     // CTRL-P: get previous history command, should be "first"
     test_send_characters(s_socket_fd_a[1], COMPOUND_LITERAL(CTRL_P));
 
-    // CTRL-N: get previous history command, should be "second"
+    // CTRL-N: get next history command, should be "secondsecond"
     test_send_characters(s_socket_fd_a[1], COMPOUND_LITERAL(CTRL_N));
 
     // Send newline to accept current line
@@ -389,7 +403,7 @@ TEST_CASE("history navigation with CTRL-P / CTRL-N works correctly", "[esp_linen
     // wait for the task to terminate to continue
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    // Expect "third" as final returned line after navigation
+    // Expect "secondsecond" as final returned line after navigation
     TEST_ASSERT_NOT_NULL(s_line_returned);
     TEST_ASSERT_EQUAL_STRING("secondsecond", s_line_returned);
 
@@ -896,16 +910,36 @@ TEST_CASE("history navigation works via arrow keys", "[esp_linenoise][history]")
 
     test_instance_setup(s_socket_fd_a, &lock, &config);
 
-    get_line_args_t args = { .lock = &lock, .parent_task = xTaskGetCurrentTaskHandle(), .config = &config };
-    xTaskCreate(get_line_task, "freertos_task", 2048, &args, 5, NULL);
-    pthread_mutex_lock(&lock);
+    // 1. Instantiate the handle in the main thread sequentially
+    TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_create_instance(&config, &s_linenoise_hdl));
 
-    // add history
+    // 2. Pre-load the history synchronously BEFORE opening the terminal
+    // This prevents the race condition where history is injected asynchronously
+    // while the terminal task is trying to initialize the working box buffer.
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_history_add(s_linenoise_hdl, "first"));
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_history_add(s_linenoise_hdl, "second"));
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_history_add(s_linenoise_hdl, "third"));
 
-    // navigate
+    // 3. Prepare arguments for the isolated task
+    get_line_task_args_t args = {
+        .handle = s_linenoise_hdl,
+        .parent_task = xTaskGetCurrentTaskHandle(),
+        .lock = &lock,
+        .ret_val = ESP_OK,
+        .buf = s_line_returned, // Use the global buffer for the return value
+        .buf_size = CMD_LINE_LENGTH
+    };
+
+    // 4. Launch the terminal task using the pre-configured handle
+    xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args, 5, NULL);
+
+    // Wait for the task to take control and unlock
+    pthread_mutex_lock(&lock);
+    
+    // Give the task a small window to block on the read() call
+    usleep(100000); 
+
+    // 5. Navigate (The terminal is now safely waiting for inputs)
     test_send_characters(s_socket_fd_a[1], "\x1b[A");    // up -> third
     test_send_characters(s_socket_fd_a[1], "\x1b[A");    // up -> second
     test_send_characters(s_socket_fd_a[1], "second");    // append text
@@ -913,8 +947,10 @@ TEST_CASE("history navigation works via arrow keys", "[esp_linenoise][history]")
     test_send_characters(s_socket_fd_a[1], "\x1b[B");    // down -> secondsecond
     test_send_characters(s_socket_fd_a[1], "\n");
 
-    // wait for the task to terminate to continue
+    // Wait for the task to terminate to continue
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    
+    // Validate the expected behavior
     TEST_ASSERT_EQUAL_STRING("secondsecond", s_line_returned);
 
     test_instance_teardown(s_socket_fd_a, s_linenoise_hdl, &lock);
