@@ -229,8 +229,19 @@ class Srp6a (object):
         self.Iu = username
         self.p = password
 
-        self.a = get_random_of_length(32)
-        self.A = pow(g, self.a, N)
+        # Re-roll 'a' until A serializes to exactly len(N) bytes. The device
+        # stores the received A verbatim and re-hashes it during proof
+        # verification, but Python re-derives via long_to_bytes(A) which
+        # strips leading zeros. A leading-zero byte in A (~1/256 chance for
+        # NG_3072) makes the two views diverge and breaks the handshake.
+        n_byte_len = (N.bit_length() + 7) // 8
+        for _ in range(10000):
+            self.a = get_random_of_length(32)
+            self.A = pow(g, self.a, N)
+            if (self.A.bit_length() + 7) // 8 == n_byte_len:
+                break
+        else:
+            raise RuntimeError('SRP6a: failed to generate A with full byte length')
 
         self.v: Optional[int] = None
         self.K: Optional[bytes] = None
