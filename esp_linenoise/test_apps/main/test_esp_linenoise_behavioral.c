@@ -380,7 +380,7 @@ TEST_CASE("history navigation with CTRL-P / CTRL-N works correctly", "[esp_linen
     wait_ms(100);
 
     // --- Start navigation ---
-    
+
     // CTRL-P: get previous history command, should be "third"
     test_send_characters(s_socket_fd_a[1], COMPOUND_LITERAL(CTRL_P));
 
@@ -935,9 +935,9 @@ TEST_CASE("history navigation works via arrow keys", "[esp_linenoise][history]")
 
     // Wait for the task to take control and unlock
     pthread_mutex_lock(&lock);
-    
+
     // Give the task a small window to block on the read() call
-    usleep(100000); 
+    usleep(100000);
 
     // 5. Navigate (The terminal is now safely waiting for inputs)
     test_send_characters(s_socket_fd_a[1], "\x1b[A");    // up -> third
@@ -949,7 +949,7 @@ TEST_CASE("history navigation works via arrow keys", "[esp_linenoise][history]")
 
     // Wait for the task to terminate to continue
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    
+
     // Validate the expected behavior
     TEST_ASSERT_EQUAL_STRING("secondsecond", s_line_returned);
 
