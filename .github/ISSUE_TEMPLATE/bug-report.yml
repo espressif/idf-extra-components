@@ -54,6 +54,7 @@ body:
         - led_strip
         - libpng
         - libsodium
+        - libsrtp2
         - lua
         - esp_linenoise
         - network_provisioning
