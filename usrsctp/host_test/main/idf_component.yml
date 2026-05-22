@@ -1,0 +1,4 @@
+dependencies:
+  usrsctp:
+    version: "*"
+    override_path: "../.."

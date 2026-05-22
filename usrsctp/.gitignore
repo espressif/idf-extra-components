@@ -1,0 +1,16 @@
+# build outputs
+build/
+build_*/
+dist/
+managed_components/
+dependencies.lock
+sdkconfig
+sdkconfig.old
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
