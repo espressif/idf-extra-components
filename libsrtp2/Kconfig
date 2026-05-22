@@ -1,0 +1,17 @@
+menu "libsrtp2 (libsrtp)"
+
+    config SRTP2_CRYPTO_MBEDTLS
+        bool "Use mbedTLS as the libsrtp crypto backend"
+        default y
+        help
+            Use mbedTLS for AES (ICM/GCM) and HMAC-SHA1 primitives.
+            This is currently the only backend the ESP-IDF port wires up.
+
+    config SRTP2_LOG_RTP_TRACE
+        bool "Enable verbose RTP trace logging"
+        default n
+        help
+            Enables libsrtp's internal debug-trace logging at runtime
+            (extra binary size; meant only for development).
+
+endmenu

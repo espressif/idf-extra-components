@@ -1,0 +1,73 @@
+name: Build check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Embedded examples build — same matrix used by idf-extra-components for
+  # registry-candidate components.
+  build_example:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [esp32, esp32s3, esp32c3, esp32c6, esp32p4]
+        idf_ver: [release-v5.4, release-v5.5, release-v6.0]
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build examples/get_started
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ matrix.idf_ver }}
+          target: ${{ matrix.target }}
+          path: examples/get_started
+
+  # Embedded smoke test (Unity) — one Xtensa + one RISC-V target.
+  build_test_apps:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [esp32, esp32c3]
+        idf_ver: [release-v5.4, release-v5.5, release-v6.0]
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build test_apps
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ matrix.idf_ver }}
+          target: ${{ matrix.target }}
+          path: test_apps
+
+  # IDF Linux target — runs the AES-GCM-128 protect/unprotect roundtrip
+  # smoke test, asserting plaintext recovery.
+  host_test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: [release-v5.4, release-v5.5, release-v6.0]
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build + run host_test on IDF Linux target
+        shell: bash
+        run: |
+          git config --global --add safe.directory "*"
+          cd host_test
+          . /opt/esp/idf/export.sh
+          idf.py --preview set-target linux build
+          ./build/host_test_libsrtp2.elf | tee host_test.log
+          grep -q "libsrtp2 host_test: PASS" host_test.log

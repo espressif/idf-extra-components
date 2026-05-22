@@ -1,0 +1,24 @@
+name: Publish to ESP Component Registry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'idf_component.yml'
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Upload libsrtp2
+        uses: espressif/upload-components-ci-action@v1
+        with:
+          name: libsrtp2
+          namespace: vikramdattu
+          api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}
