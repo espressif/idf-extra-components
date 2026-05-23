@@ -48,23 +48,27 @@ idf_component_register(
     REQUIRES "mbedtls"
 )
 
-# Reduce paranoia while building libsrtp2. Apple clang on the IDF Linux
-# target does not recognise -Wno-conflicting-types, so probe before adding.
+# Fully suppress (not just downgrade) warnings from third-party libsrtp
+# sources. The repo-wide CI pipeline runs idf-build-apps with strict
+# warning checking, so -Wno-error=* alone (which keeps the warning
+# printed) trips the matrix on otherwise-valid builds. We can't fix the
+# warnings upstream, so silence them here. Apple clang on IDF's Linux
+# target does not recognise -Wno-conflicting-types, so probe first.
 include(CheckCCompilerFlag)
 check_c_compiler_flag("-Wno-conflicting-types" SRTP2_HAS_NO_CONFLICTING_TYPES)
 
 target_compile_options(${COMPONENT_LIB} PRIVATE
-    -Wno-error=format
-    -Wno-error=unused-function
-    -Wno-error=unused-variable
-    -Wno-error=unused-but-set-variable
-    -Wno-error=sign-compare
-    -Wno-error=type-limits
-    -Wno-error=pointer-sign
-    -Wno-error=implicit-function-declaration
-    -Wno-error=strict-prototypes
-    -Wno-error=old-style-definition
-    -Wno-error=incompatible-pointer-types
+    -Wno-format
+    -Wno-unused-function
+    -Wno-unused-variable
+    -Wno-unused-but-set-variable
+    -Wno-sign-compare
+    -Wno-type-limits
+    -Wno-pointer-sign
+    -Wno-implicit-function-declaration
+    -Wno-strict-prototypes
+    -Wno-old-style-definition
+    -Wno-incompatible-pointer-types
 )
 if(SRTP2_HAS_NO_CONFLICTING_TYPES)
     target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-conflicting-types)

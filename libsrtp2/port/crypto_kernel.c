@@ -108,17 +108,17 @@ srtp_err_status_t srtp_crypto_kernel_init(void)
 
     /* load cipher types */
     status = srtp_crypto_kernel_load_cipher_type(&srtp_null_cipher,
-                                                 SRTP_NULL_CIPHER);
+             SRTP_NULL_CIPHER);
     if (status) {
         return status;
     }
     status = srtp_crypto_kernel_load_cipher_type(&srtp_aes_icm_128,
-                                                 SRTP_AES_ICM_128);
+             SRTP_AES_ICM_128);
     if (status) {
         return status;
     }
     status = srtp_crypto_kernel_load_cipher_type(&srtp_aes_icm_256,
-                                                 SRTP_AES_ICM_256);
+             SRTP_AES_ICM_256);
     if (status) {
         return status;
     }
@@ -129,18 +129,18 @@ srtp_err_status_t srtp_crypto_kernel_init(void)
 #ifdef GCM
 #if 0
     status = srtp_crypto_kernel_load_cipher_type(&srtp_aes_icm_192,
-                                                 SRTP_AES_ICM_192);
+             SRTP_AES_ICM_192);
     if (status) {
         return status;
     }
 #endif
     status = srtp_crypto_kernel_load_cipher_type(&srtp_aes_gcm_128,
-                                                 SRTP_AES_GCM_128);
+             SRTP_AES_GCM_128);
     if (status) {
         return status;
     }
     status = srtp_crypto_kernel_load_cipher_type(&srtp_aes_gcm_256,
-                                                 SRTP_AES_GCM_256);
+             SRTP_AES_GCM_256);
     if (status) {
         return status;
     }
@@ -245,7 +245,7 @@ srtp_err_status_t srtp_crypto_kernel_shutdown(void)
         srtp_crypto_free(ctype);
     }
 
-    /* walk down authetication module list, freeing memory */
+    /* walk down authentication module list, freeing memory */
     while (crypto_kernel.auth_type_list != NULL) {
         srtp_kernel_auth_type_t *atype = crypto_kernel.auth_type_list;
         crypto_kernel.auth_type_list = atype->next;
@@ -318,7 +318,7 @@ static inline srtp_err_status_t srtp_crypto_kernel_do_load_cipher_type(
     if (ctype == NULL) {
         /* allocate memory */
         new_ctype = (srtp_kernel_cipher_type_t *)srtp_crypto_alloc(
-            sizeof(srtp_kernel_cipher_type_t));
+                        sizeof(srtp_kernel_cipher_type_t));
         if (new_ctype == NULL) {
             return srtp_err_status_alloc_fail;
         }
@@ -343,7 +343,7 @@ srtp_err_status_t srtp_crypto_kernel_load_cipher_type(
 }
 
 srtp_err_status_t srtp_replace_cipher_type(const srtp_cipher_type_t *new_ct,
-                                           srtp_cipher_type_id_t id)
+        srtp_cipher_type_id_t id)
 {
     return srtp_crypto_kernel_do_load_cipher_type(new_ct, id, 1);
 }
@@ -395,7 +395,7 @@ srtp_err_status_t srtp_crypto_kernel_do_load_auth_type(
     if (atype == NULL) {
         /* allocate memory */
         new_atype = (srtp_kernel_auth_type_t *)srtp_crypto_alloc(
-            sizeof(srtp_kernel_auth_type_t));
+                        sizeof(srtp_kernel_auth_type_t));
         if (new_atype == NULL) {
             return srtp_err_status_alloc_fail;
         }
@@ -420,7 +420,7 @@ srtp_err_status_t srtp_crypto_kernel_load_auth_type(
 }
 
 srtp_err_status_t srtp_replace_auth_type(const srtp_auth_type_t *new_at,
-                                         srtp_auth_type_id_t id)
+        srtp_auth_type_id_t id)
 {
     return srtp_crypto_kernel_do_load_auth_type(new_at, id, 1);
 }
@@ -444,9 +444,9 @@ const srtp_cipher_type_t *srtp_crypto_kernel_get_cipher_type(
 }
 
 srtp_err_status_t srtp_crypto_kernel_alloc_cipher(srtp_cipher_type_id_t id,
-                                                  srtp_cipher_pointer_t *cp,
-                                                  int key_len,
-                                                  int tag_len)
+        srtp_cipher_pointer_t *cp,
+        int key_len,
+        int tag_len)
 {
     const srtp_cipher_type_t *ct;
 
@@ -484,9 +484,9 @@ const srtp_auth_type_t *srtp_crypto_kernel_get_auth_type(srtp_auth_type_id_t id)
 }
 
 srtp_err_status_t srtp_crypto_kernel_alloc_auth(srtp_auth_type_id_t id,
-                                                srtp_auth_pointer_t *ap,
-                                                int key_len,
-                                                int tag_len)
+        srtp_auth_pointer_t *ap,
+        int key_len,
+        int tag_len)
 {
     const srtp_auth_type_t *at;
 
@@ -528,7 +528,7 @@ srtp_err_status_t srtp_crypto_kernel_load_debug_module(
     /* put new_dm at the head of the list */
     /* allocate memory */
     new = (srtp_kernel_debug_module_t *)srtp_crypto_alloc(
-        sizeof(srtp_kernel_debug_module_t));
+              sizeof(srtp_kernel_debug_module_t));
     if (new == NULL) {
         return srtp_err_status_alloc_fail;
     }
