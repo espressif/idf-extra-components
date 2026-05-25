@@ -1,6 +1,6 @@
 # libsrtp2 — get_started
 
-Minimal sanity-check application for [`libsrtp2`](https://github.com/vikramdattu/libsrtp2). Initializes libsrtp via `srtp_init()` and shuts it down. Used by the repo's CI to verify the component compiles and links across supported targets; also useful as a copy-paste starting point.
+Minimal sanity-check application for [`libsrtp2`](https://github.com/espressif/idf-extra-components/tree/master/libsrtp2). Initializes libsrtp via `srtp_init()` and shuts it down. Used by the repo's CI to verify the component compiles and links across supported targets; also useful as a copy-paste starting point.
 
 ## Build
 
@@ -14,5 +14,5 @@ The example consumes the parent component via `override_path: ../../..` in `main
 
 ```yaml
 dependencies:
-  vikramdattu/libsrtp2: "^1.0.0"
+  espressif/libsrtp2: "^2.8.0"
 ```

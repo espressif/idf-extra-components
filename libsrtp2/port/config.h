@@ -14,8 +14,16 @@
 #include <inttypes.h>  // For PRIx64 / PRIu64 macros (needed on Apple clang / Linux target)
 #include <stddef.h>    // For size_t definition
 
-/* Define if building for a CISC machine (e.g. Intel). */
-#define CPU_CISC 1
+/*
+ * CPU architecture hint. libsrtp uses this only to select a fast endian-flip
+ * path in a few places; the C fallback is correct on all targets. ESP-IDF's
+ * supported targets are Xtensa (esp32 / s2 / s3) and RISC-V (c3 / c5 / c6 /
+ * p4 / h2), so CPU_CISC would be wrong here. Set CPU_RISC for the embedded
+ * targets and leave it unset (= C fallback) on the IDF Linux host target.
+ */
+#if defined(__XTENSA__) || defined(__riscv)
+#define CPU_RISC 1
+#endif
 
 /* Report errors to stdout. */
 #define ERR_REPORTING_STDOUT 1
@@ -49,7 +57,7 @@
 
 /* Define package info */
 #define PACKAGE_NAME "libsrtp2"
-#define PACKAGE_VERSION "2.4.2"
+#define PACKAGE_VERSION "2.8.0"
 #define PACKAGE_STRING PACKAGE_NAME " " PACKAGE_VERSION
 
 /* The size of `unsigned long', as computed by sizeof. */

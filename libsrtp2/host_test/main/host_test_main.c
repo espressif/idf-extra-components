@@ -12,6 +12,10 @@
  * Deeper coverage lives in libsrtp's own test/srtp_driver.c; we exercise
  * the protect/unprotect happy path here as a sanity-check that the
  * ESP-IDF Linux-target build produces a working library.
+ *
+ * Both CHECK() (libsrtp return-status) and EXPECT() (boolean condition)
+ * bail out immediately on failure — continuing past a context/init failure
+ * would either mask the original error or crash on uninitialised state.
  */
 #include <stdio.h>
 #include <string.h>
@@ -19,14 +23,20 @@
 
 #include "srtp2/srtp.h"
 
-static int rc = 0;
-
 #define CHECK(_e)                                                   \
     do {                                                            \
         srtp_err_status_t _s = (_e);                                \
         if (_s != srtp_err_status_ok) {                             \
             fprintf(stderr, "FAIL: %s -> %d\n", #_e, (int)_s);      \
-            rc = 1;                                                 \
+            exit(1);                                                \
+        }                                                           \
+    } while (0)
+
+#define EXPECT(_cond, _fmt, ...)                                    \
+    do {                                                            \
+        if (!(_cond)) {                                             \
+            fprintf(stderr, "FAIL: " _fmt "\n", ##__VA_ARGS__);     \
+            exit(1);                                                \
         }                                                           \
     } while (0)
 
@@ -67,32 +77,22 @@ static int run_smoke(void)
     int   protected_len = 12 + 10;
 
     CHECK(srtp_protect(sender, pkt, &protected_len));
-    if (protected_len <= 12 + 10) {
-        fprintf(stderr, "FAIL: protect did not expand the packet (got len=%d)\n", protected_len);
-        rc = 1;
-    }
+    EXPECT(protected_len > 12 + 10,
+           "protect did not expand the packet (got len=%d)", protected_len);
 
     int unprotected_len = protected_len;
     CHECK(srtp_unprotect(receiver, pkt, &unprotected_len));
-    if (unprotected_len != 12 + 10) {
-        fprintf(stderr, "FAIL: unprotect returned wrong len (got %d, want %d)\n", unprotected_len, 12 + 10);
-        rc = 1;
-    }
-    if (memcmp(pkt + 12, "hello srtp", 10) != 0) {
-        fprintf(stderr, "FAIL: recovered payload mismatch\n");
-        rc = 1;
-    }
+    EXPECT(unprotected_len == 12 + 10,
+           "unprotect returned wrong len (got %d, want %d)", unprotected_len, 12 + 10);
+    EXPECT(memcmp(pkt + 12, "hello srtp", 10) == 0,
+           "recovered payload mismatch");
 
     srtp_dealloc(sender);
     srtp_dealloc(receiver);
     CHECK(srtp_shutdown());
 
-    if (rc == 0) {
-        printf("libsrtp2 host_test: PASS\n");
-    } else {
-        printf("libsrtp2 host_test: FAIL\n");
-    }
-    return rc;
+    printf("libsrtp2 host_test: PASS\n");
+    return 0;
 }
 
 void app_main(void)

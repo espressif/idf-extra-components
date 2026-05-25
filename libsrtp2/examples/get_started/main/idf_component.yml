@@ -2,6 +2,6 @@
 ## During CI / local build, override_path points at the parent repo so we
 ## consume the in-tree component instead of the registry version.
 dependencies:
-  vikramdattu/libsrtp2:
-    version: "*"
+  espressif/libsrtp2:
+    version: "^2.8.0"
     override_path: ../../..

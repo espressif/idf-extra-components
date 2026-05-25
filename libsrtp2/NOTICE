@@ -11,7 +11,7 @@ Copyright (c) 2001-2017, Cisco Systems, Inc.
 Licensed under the BSD 3-Clause License (see libsrtp/LICENSE).
 
 The Secure Real-time Transport Protocol (SRTP) and Secure RTCP (SRTCP)
-implementation. Bundled as a submodule, pinned at upstream commit 9fd71ba
-(post-v2.6, includes srtp_remove_stream signature fix).
+implementation. Bundled as a submodule, pinned at upstream release tag
+v2.8.0 (commit 24b3bf8).
 
 ================================================================================
