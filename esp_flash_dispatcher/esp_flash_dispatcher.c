@@ -153,10 +153,10 @@ esp_err_t esp_flash_dispatcher_init(const esp_flash_dispatcher_config_t *cfg)
         return ESP_ERR_INVALID_STATE;
     }
 
-    s_flash_dispatcher_ctx.dispatch_mutex = xSemaphoreCreateMutexWithCaps(MALLOC_CAP_INTERNAL);
+    s_flash_dispatcher_ctx.dispatch_mutex = xSemaphoreCreateMutexWithCaps(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     ESP_RETURN_ON_FALSE(s_flash_dispatcher_ctx.dispatch_mutex, ESP_ERR_NO_MEM, TAG, "create dispatch mutex failed");
 
-    s_flash_dispatcher_ctx.request_sem = xSemaphoreCreateBinaryWithCaps(MALLOC_CAP_INTERNAL);
+    s_flash_dispatcher_ctx.request_sem = xSemaphoreCreateBinaryWithCaps(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (s_flash_dispatcher_ctx.request_sem == NULL) {
         vSemaphoreDeleteWithCaps(s_flash_dispatcher_ctx.dispatch_mutex);
         s_flash_dispatcher_ctx.dispatch_mutex = NULL;
@@ -164,7 +164,7 @@ esp_err_t esp_flash_dispatcher_init(const esp_flash_dispatcher_config_t *cfg)
         return ESP_ERR_NO_MEM;
     }
 
-    s_flash_dispatcher_ctx.result_sem = xSemaphoreCreateBinaryWithCaps(MALLOC_CAP_INTERNAL);
+    s_flash_dispatcher_ctx.result_sem = xSemaphoreCreateBinaryWithCaps(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (s_flash_dispatcher_ctx.result_sem == NULL) {
         vSemaphoreDeleteWithCaps(s_flash_dispatcher_ctx.dispatch_mutex);
         s_flash_dispatcher_ctx.dispatch_mutex = NULL;
@@ -181,7 +181,7 @@ esp_err_t esp_flash_dispatcher_init(const esp_flash_dispatcher_config_t *cfg)
                     cfg->task_priority,
                     &s_flash_dispatcher_ctx.task,
                     cfg->task_core_id,
-                    MALLOC_CAP_INTERNAL);
+                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
     if (rc != pdPASS) {
         vSemaphoreDeleteWithCaps(s_flash_dispatcher_ctx.dispatch_mutex);

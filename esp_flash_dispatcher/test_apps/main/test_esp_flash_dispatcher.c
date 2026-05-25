@@ -45,8 +45,8 @@ static void psram_flash_test_task(void *arg)
     ESP_LOGI("PSRAM_TASK", "PSRAM task started on core %d", xPortGetCoreID());
     esp_err_t ret;
 
-    uint8_t *write_buf = (uint8_t *)heap_caps_malloc(TEST_FLASH_SIZE, MALLOC_CAP_INTERNAL);
-    uint8_t *read_buf = (uint8_t *)heap_caps_malloc(TEST_FLASH_SIZE, MALLOC_CAP_INTERNAL);
+    uint8_t *write_buf = (uint8_t *)heap_caps_malloc(TEST_FLASH_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    uint8_t *read_buf = (uint8_t *)heap_caps_malloc(TEST_FLASH_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     TEST_ASSERT_NOT_NULL(write_buf);
     TEST_ASSERT_NOT_NULL(read_buf);
 
