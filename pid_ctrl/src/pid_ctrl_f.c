@@ -65,7 +65,7 @@ static float pid_calc_incremental_f(struct pid_ctrl_block_f_t *pid, float error)
     return output;
 }
 
-esp_err_t pid_update_parameters_f(pid_ctrl_block_f_handle_t pid, const pid_ctrl_parameter_f_t *params)
+esp_err_t pid_update_parameters_f(pid_ctrl_block_handle_f_t pid, const pid_ctrl_parameter_f_t *params)
 {
     struct pid_ctrl_block_f_t *b = (struct pid_ctrl_block_f_t *)pid;
 
@@ -93,7 +93,7 @@ esp_err_t pid_update_parameters_f(pid_ctrl_block_f_handle_t pid, const pid_ctrl_
     return ESP_OK;
 }
 
-esp_err_t pid_new_control_block_f(const pid_ctrl_config_f_t *config, pid_ctrl_block_f_handle_t *ret_pid)
+esp_err_t pid_new_control_block_f(const pid_ctrl_config_f_t *config, pid_ctrl_block_handle_f_t *ret_pid)
 {
     esp_err_t ret = ESP_OK;
     struct pid_ctrl_block_f_t *pid = NULL;
@@ -112,14 +112,14 @@ err:
     return ret;
 }
 
-esp_err_t pid_del_control_block_f(pid_ctrl_block_f_handle_t pid)
+esp_err_t pid_del_control_block_f(pid_ctrl_block_handle_f_t pid)
 {
     ESP_RETURN_ON_FALSE(pid, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     free(pid);
     return ESP_OK;
 }
 
-esp_err_t pid_compute_f(pid_ctrl_block_f_handle_t pid, float input_error, float *ret_result)
+esp_err_t pid_compute_f(pid_ctrl_block_handle_f_t pid, float input_error, float *ret_result)
 {
     struct pid_ctrl_block_f_t *b = (struct pid_ctrl_block_f_t *)pid;
 
@@ -128,7 +128,7 @@ esp_err_t pid_compute_f(pid_ctrl_block_f_handle_t pid, float input_error, float 
     return ESP_OK;
 }
 
-esp_err_t pid_reset_ctrl_block_f(pid_ctrl_block_f_handle_t pid)
+esp_err_t pid_reset_ctrl_block_f(pid_ctrl_block_handle_f_t pid)
 {
     struct pid_ctrl_block_f_t *b = (struct pid_ctrl_block_f_t *)pid;
 

@@ -22,7 +22,7 @@ TEST_CASE("float positional PID (explicit _f API)", "[pid_ctrl]")
             .cal_type = PID_CAL_TYPE_POSITIONAL,
         },
     };
-    pid_ctrl_block_f_handle_t h = NULL;
+    pid_ctrl_block_handle_f_t h = NULL;
     TEST_ASSERT_EQUAL(ESP_OK, pid_new_control_block_f(&cfg, &h));
     float out = 0.0f;
     TEST_ASSERT_EQUAL(ESP_OK, pid_compute_f(h, 0.1f, &out));
@@ -48,7 +48,7 @@ TEST_CASE("float incremental PID (explicit _f API)", "[pid_ctrl]")
             .cal_type = PID_CAL_TYPE_INCREMENTAL,
         },
     };
-    pid_ctrl_block_f_handle_t h = NULL;
+    pid_ctrl_block_handle_f_t h = NULL;
     TEST_ASSERT_EQUAL(ESP_OK, pid_new_control_block_f(&cfg, &h));
     float out = 0.0f;
     TEST_ASSERT_EQUAL(ESP_OK, pid_compute_f(h, 0.1f, &out));
@@ -70,7 +70,7 @@ TEST_CASE("IQ positional PID (explicit _iq API)", "[pid_ctrl][iq]")
             .cal_type = PID_CAL_TYPE_POSITIONAL,
         },
     };
-    pid_ctrl_block_iq_handle_t h = NULL;
+    pid_ctrl_block_handle_iq_t h = NULL;
     TEST_ASSERT_EQUAL(ESP_OK, pid_new_control_block_iq(&cfg, &h));
     _iq out = 0;
     TEST_ASSERT_EQUAL(ESP_OK, pid_compute_iq(h, _IQ(0.1f), &out));
@@ -93,7 +93,7 @@ TEST_CASE("C _Generic: unsuffixed API with float and IQ handles", "[pid_ctrl][iq
                 .cal_type = PID_CAL_TYPE_POSITIONAL,
             },
         };
-        pid_ctrl_block_f_handle_t h = NULL;
+        pid_ctrl_block_handle_f_t h = NULL;
         TEST_ASSERT_EQUAL(ESP_OK, pid_new_control_block(&cfg, &h));
         float out = 0.0f;
         TEST_ASSERT_EQUAL(ESP_OK, pid_compute(h, 0.1f, &out));
@@ -113,7 +113,7 @@ TEST_CASE("C _Generic: unsuffixed API with float and IQ handles", "[pid_ctrl][iq
                 .cal_type = PID_CAL_TYPE_POSITIONAL,
             },
         };
-        pid_ctrl_block_iq_handle_t h = NULL;
+        pid_ctrl_block_handle_iq_t h = NULL;
         TEST_ASSERT_EQUAL(ESP_OK, pid_new_control_block(&cfg, &h));
         _iq out = 0;
         TEST_ASSERT_EQUAL(ESP_OK, pid_compute(h, _IQ(0.1f), &out));

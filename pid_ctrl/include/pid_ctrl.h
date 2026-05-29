@@ -25,7 +25,7 @@ typedef enum {
 /**
  * @brief Type of float PID control block handle
  */
-typedef struct pid_ctrl_block_f_t *pid_ctrl_block_f_handle_t;
+typedef struct pid_ctrl_block_f_t *pid_ctrl_block_handle_f_t;
 
 /**
  * @brief PID control parameters (float)
@@ -48,11 +48,11 @@ typedef struct {
     pid_ctrl_parameter_f_t init_param; /*!< Initial parameters */
 } pid_ctrl_config_f_t;
 
-esp_err_t pid_new_control_block_f(const pid_ctrl_config_f_t *config, pid_ctrl_block_f_handle_t *ret_pid);
-esp_err_t pid_del_control_block_f(pid_ctrl_block_f_handle_t pid);
-esp_err_t pid_update_parameters_f(pid_ctrl_block_f_handle_t pid, const pid_ctrl_parameter_f_t *params);
-esp_err_t pid_compute_f(pid_ctrl_block_f_handle_t pid, float input_error, float *ret_result);
-esp_err_t pid_reset_ctrl_block_f(pid_ctrl_block_f_handle_t pid);
+esp_err_t pid_new_control_block_f(const pid_ctrl_config_f_t *config, pid_ctrl_block_handle_f_t *ret_pid);
+esp_err_t pid_del_control_block_f(pid_ctrl_block_handle_f_t pid);
+esp_err_t pid_update_parameters_f(pid_ctrl_block_handle_f_t pid, const pid_ctrl_parameter_f_t *params);
+esp_err_t pid_compute_f(pid_ctrl_block_handle_f_t pid, float input_error, float *ret_result);
+esp_err_t pid_reset_ctrl_block_f(pid_ctrl_block_handle_f_t pid);
 
 #ifndef GLOBAL_IQ
 #define GLOBAL_IQ CONFIG_PID_CTRL_IQ_FORMAT
@@ -63,7 +63,7 @@ esp_err_t pid_reset_ctrl_block_f(pid_ctrl_block_f_handle_t pid);
 /**
  * @brief Type of IQmath PID control block handle
  */
-typedef struct pid_ctrl_block_iq_t *pid_ctrl_block_iq_handle_t;
+typedef struct pid_ctrl_block_iq_t *pid_ctrl_block_handle_iq_t;
 
 /**
  * @brief PID control parameters (IQ)
@@ -86,11 +86,11 @@ typedef struct {
     pid_ctrl_parameter_iq_t init_param; /*!< Initial parameters */
 } pid_ctrl_config_iq_t;
 
-esp_err_t pid_new_control_block_iq(const pid_ctrl_config_iq_t *config, pid_ctrl_block_iq_handle_t *ret_pid);
-esp_err_t pid_del_control_block_iq(pid_ctrl_block_iq_handle_t pid);
-esp_err_t pid_update_parameters_iq(pid_ctrl_block_iq_handle_t pid, const pid_ctrl_parameter_iq_t *params);
-esp_err_t pid_compute_iq(pid_ctrl_block_iq_handle_t pid, _iq input_error, _iq *ret_result);
-esp_err_t pid_reset_ctrl_block_iq(pid_ctrl_block_iq_handle_t pid);
+esp_err_t pid_new_control_block_iq(const pid_ctrl_config_iq_t *config, pid_ctrl_block_handle_iq_t *ret_pid);
+esp_err_t pid_del_control_block_iq(pid_ctrl_block_handle_iq_t pid);
+esp_err_t pid_update_parameters_iq(pid_ctrl_block_handle_iq_t pid, const pid_ctrl_parameter_iq_t *params);
+esp_err_t pid_compute_iq(pid_ctrl_block_handle_iq_t pid, _iq input_error, _iq *ret_result);
+esp_err_t pid_reset_ctrl_block_iq(pid_ctrl_block_handle_iq_t pid);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -99,47 +99,47 @@ esp_err_t pid_reset_ctrl_block_iq(pid_ctrl_block_iq_handle_t pid);
 #ifdef __cplusplus
 
 /* C++: overloaded inline wrappers dispatch to _f or _iq based on argument type. */
-static inline esp_err_t pid_new_control_block(const pid_ctrl_config_f_t *config, pid_ctrl_block_f_handle_t *ret_pid)
+static inline esp_err_t pid_new_control_block(const pid_ctrl_config_f_t *config, pid_ctrl_block_handle_f_t *ret_pid)
 {
     return pid_new_control_block_f(config, ret_pid);
 }
-static inline esp_err_t pid_new_control_block(const pid_ctrl_config_iq_t *config, pid_ctrl_block_iq_handle_t *ret_pid)
+static inline esp_err_t pid_new_control_block(const pid_ctrl_config_iq_t *config, pid_ctrl_block_handle_iq_t *ret_pid)
 {
     return pid_new_control_block_iq(config, ret_pid);
 }
 
-static inline esp_err_t pid_del_control_block(pid_ctrl_block_f_handle_t pid)
+static inline esp_err_t pid_del_control_block(pid_ctrl_block_handle_f_t pid)
 {
     return pid_del_control_block_f(pid);
 }
-static inline esp_err_t pid_del_control_block(pid_ctrl_block_iq_handle_t pid)
+static inline esp_err_t pid_del_control_block(pid_ctrl_block_handle_iq_t pid)
 {
     return pid_del_control_block_iq(pid);
 }
 
-static inline esp_err_t pid_update_parameters(pid_ctrl_block_f_handle_t pid, const pid_ctrl_parameter_f_t *params)
+static inline esp_err_t pid_update_parameters(pid_ctrl_block_handle_f_t pid, const pid_ctrl_parameter_f_t *params)
 {
     return pid_update_parameters_f(pid, params);
 }
-static inline esp_err_t pid_update_parameters(pid_ctrl_block_iq_handle_t pid, const pid_ctrl_parameter_iq_t *params)
+static inline esp_err_t pid_update_parameters(pid_ctrl_block_handle_iq_t pid, const pid_ctrl_parameter_iq_t *params)
 {
     return pid_update_parameters_iq(pid, params);
 }
 
-static inline esp_err_t pid_compute(pid_ctrl_block_f_handle_t pid, float input_error, float *ret_result)
+static inline esp_err_t pid_compute(pid_ctrl_block_handle_f_t pid, float input_error, float *ret_result)
 {
     return pid_compute_f(pid, input_error, ret_result);
 }
-static inline esp_err_t pid_compute(pid_ctrl_block_iq_handle_t pid, _iq input_error, _iq *ret_result)
+static inline esp_err_t pid_compute(pid_ctrl_block_handle_iq_t pid, _iq input_error, _iq *ret_result)
 {
     return pid_compute_iq(pid, input_error, ret_result);
 }
 
-static inline esp_err_t pid_reset_ctrl_block(pid_ctrl_block_f_handle_t pid)
+static inline esp_err_t pid_reset_ctrl_block(pid_ctrl_block_handle_f_t pid)
 {
     return pid_reset_ctrl_block_f(pid);
 }
-static inline esp_err_t pid_reset_ctrl_block(pid_ctrl_block_iq_handle_t pid)
+static inline esp_err_t pid_reset_ctrl_block(pid_ctrl_block_handle_iq_t pid)
 {
     return pid_reset_ctrl_block_iq(pid);
 }
@@ -156,26 +156,26 @@ static inline esp_err_t pid_reset_ctrl_block(pid_ctrl_block_iq_handle_t pid)
 
 #define pid_del_control_block(pid)                         \
     _Generic((pid),                                        \
-        pid_ctrl_block_f_handle_t:  pid_del_control_block_f, \
-        pid_ctrl_block_iq_handle_t: pid_del_control_block_iq)  \
+        pid_ctrl_block_handle_f_t:  pid_del_control_block_f, \
+        pid_ctrl_block_handle_iq_t: pid_del_control_block_iq)  \
     ((pid))
 
 #define pid_update_parameters(pid, params)                 \
     _Generic((pid),                                        \
-        pid_ctrl_block_f_handle_t:  pid_update_parameters_f,  \
-        pid_ctrl_block_iq_handle_t: pid_update_parameters_iq) \
+        pid_ctrl_block_handle_f_t:  pid_update_parameters_f,  \
+        pid_ctrl_block_handle_iq_t: pid_update_parameters_iq) \
     ((pid), (params))
 
 #define pid_compute(pid, input_error, ret_result)         \
     _Generic((pid),                                        \
-        pid_ctrl_block_f_handle_t:  pid_compute_f,        \
-        pid_ctrl_block_iq_handle_t: pid_compute_iq)         \
+        pid_ctrl_block_handle_f_t:  pid_compute_f,        \
+        pid_ctrl_block_handle_iq_t: pid_compute_iq)         \
     ((pid), (input_error), (ret_result))
 
 #define pid_reset_ctrl_block(pid)                          \
     _Generic((pid),                                        \
-        pid_ctrl_block_f_handle_t:  pid_reset_ctrl_block_f,  \
-        pid_ctrl_block_iq_handle_t: pid_reset_ctrl_block_iq)  \
+        pid_ctrl_block_handle_f_t:  pid_reset_ctrl_block_f,  \
+        pid_ctrl_block_handle_iq_t: pid_reset_ctrl_block_iq)  \
     ((pid))
 
 #endif
