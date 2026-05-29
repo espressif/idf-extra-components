@@ -65,7 +65,7 @@ static _iq pid_calc_incremental_iq(struct pid_ctrl_block_iq_t *pid, _iq error)
     return output;
 }
 
-esp_err_t pid_update_parameters_iq(pid_ctrl_block_iq_handle_t pid, const pid_ctrl_parameter_iq_t *params)
+esp_err_t pid_update_parameters_iq(pid_ctrl_block_handle_iq_t pid, const pid_ctrl_parameter_iq_t *params)
 {
     struct pid_ctrl_block_iq_t *b = (struct pid_ctrl_block_iq_t *)pid;
 
@@ -93,7 +93,7 @@ esp_err_t pid_update_parameters_iq(pid_ctrl_block_iq_handle_t pid, const pid_ctr
     return ESP_OK;
 }
 
-esp_err_t pid_new_control_block_iq(const pid_ctrl_config_iq_t *config, pid_ctrl_block_iq_handle_t *ret_pid)
+esp_err_t pid_new_control_block_iq(const pid_ctrl_config_iq_t *config, pid_ctrl_block_handle_iq_t *ret_pid)
 {
     esp_err_t ret = ESP_OK;
     struct pid_ctrl_block_iq_t *pid = NULL;
@@ -112,14 +112,14 @@ err:
     return ret;
 }
 
-esp_err_t pid_del_control_block_iq(pid_ctrl_block_iq_handle_t pid)
+esp_err_t pid_del_control_block_iq(pid_ctrl_block_handle_iq_t pid)
 {
     ESP_RETURN_ON_FALSE(pid, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     free(pid);
     return ESP_OK;
 }
 
-esp_err_t pid_compute_iq(pid_ctrl_block_iq_handle_t pid, _iq input_error, _iq *ret_result)
+esp_err_t pid_compute_iq(pid_ctrl_block_handle_iq_t pid, _iq input_error, _iq *ret_result)
 {
     struct pid_ctrl_block_iq_t *b = (struct pid_ctrl_block_iq_t *)pid;
 
@@ -128,7 +128,7 @@ esp_err_t pid_compute_iq(pid_ctrl_block_iq_handle_t pid, _iq input_error, _iq *r
     return ESP_OK;
 }
 
-esp_err_t pid_reset_ctrl_block_iq(pid_ctrl_block_iq_handle_t pid)
+esp_err_t pid_reset_ctrl_block_iq(pid_ctrl_block_handle_iq_t pid)
 {
     struct pid_ctrl_block_iq_t *b = (struct pid_ctrl_block_iq_t *)pid;
 

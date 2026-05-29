@@ -6,15 +6,15 @@
 
 Two numeric backends are built in and can coexist in the same firmware:
 
-- **float** — `pid_*_f()` APIs with `pid_ctrl_config_f_t` / `pid_ctrl_block_f_handle_t`.
-- **IQmath `_iq`** — `pid_*_iq()` APIs with `pid_ctrl_config_iq_t` / `pid_ctrl_block_iq_handle_t`.
+- **float** — `pid_*_f()` APIs with `pid_ctrl_config_f_t` / `pid_ctrl_block_handle_f_t`.
+- **IQmath `_iq`** — `pid_*_iq()` APIs with `pid_ctrl_config_iq_t` / `pid_ctrl_block_handle_iq_t`.
 
 ### Unified interface
 
 For convenience, an unsuffixed API (`pid_new_control_block`, `pid_compute`, ...) is provided that automatically dispatches to the correct backend based on argument types:
 
-- Use `pid_ctrl_config_f_t` and `pid_ctrl_block_f_handle_t` for the float backend.
-- Use `pid_ctrl_config_iq_t` and `pid_ctrl_block_iq_handle_t` for the IQmath backend.
+- Use `pid_ctrl_config_f_t` and `pid_ctrl_block_handle_f_t` for the float backend.
+- Use `pid_ctrl_config_iq_t` and `pid_ctrl_block_handle_iq_t` for the IQmath backend.
 
 ### IQmath Q-format
 
