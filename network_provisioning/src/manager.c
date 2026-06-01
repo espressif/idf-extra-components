@@ -926,9 +926,28 @@ esp_err_t network_prov_mgr_enable_provisioning(void)
         goto exit;
     }
 
-    /* The prov-ctrl/prov-scan/prov-config GATT characteristics are always
-     * registered in init() so the service table is stable across boots.
-     * Here we just enable the provisioning state machine and handlers. */
+    /* Register the provisioning endpoints (prov-ctrl/prov-scan/prov-config)
+     * in the GATT table. In SESSION_ONLY mode these are skipped at init() and
+     * added here so the transport doesn't advertise endpoints it cannot serve. */
+    const network_prov_scheme_t *scheme = &prov_ctx->mgr_config.scheme;
+    ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-ctrl", 0xFF4F);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "failed to configure Network state control endpoint");
+        goto exit;
+    }
+
+    ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-scan", 0xFF50);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "failed to configure Network scanning endpoint");
+        goto exit;
+    }
+
+    ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-config", 0xFF52);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "failed to configure Network configuration endpoint");
+        goto exit;
+    }
+
     prov_ctx->prov_endpoints_enabled = true;
     ret = ESP_OK;
 
@@ -2014,33 +2033,10 @@ esp_err_t network_prov_mgr_init(network_prov_mgr_config_t config)
         goto exit;
     }
 
-    /* Always register all provisioning endpoints in the GATT table regardless of mode.
-     * This keeps the GATT service table identical across boots so iOS/macOS handle
-     * caches remain valid. On already-provisioned SESSION_ONLY boots, prov-ctrl/
-     * prov-scan/prov-config appear in GATT but have no protocomm handlers — writes
-     * to them return ATT errors, which is harmless since local-control clients only
-     * use get_params/set_params/get_config. */
-    ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-ctrl", 0xFF4F);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to configure Network state control endpoint");
-        goto exit;
-    }
-
-    ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-scan", 0xFF50);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to configure Network scanning endpoint");
-        goto exit;
-    }
-
+    /* Security and version endpoints are always registered. */
     ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-session", 0xFF51);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to configure security endpoint");
-        goto exit;
-    }
-
-    ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-config", 0xFF52);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to configure Network configuration endpoint");
         goto exit;
     }
 
@@ -2048,6 +2044,29 @@ esp_err_t network_prov_mgr_init(network_prov_mgr_config_t config)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to configure version endpoint");
         goto exit;
+    }
+
+    /* Provisioning endpoints are registered only when provisioning is enabled —
+     * always in FULL mode, or via network_prov_mgr_enable_provisioning() in
+     * SESSION_ONLY mode. */
+    if (prov_ctx->prov_endpoints_enabled) {
+        ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-ctrl", 0xFF4F);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "failed to configure Network state control endpoint");
+            goto exit;
+        }
+
+        ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-scan", 0xFF50);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "failed to configure Network scanning endpoint");
+            goto exit;
+        }
+
+        ret = scheme->set_config_endpoint(prov_ctx->prov_scheme_config, "prov-config", 0xFF52);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "failed to configure Network configuration endpoint");
+            goto exit;
+        }
     }
 
     /* Application specific custom endpoints will be assigned
