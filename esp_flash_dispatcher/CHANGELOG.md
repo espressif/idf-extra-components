@@ -1,3 +1,7 @@
+## 1.0.2
+
+- fix: Bypass the dispatcher and call the real Flash operations directly when it is not initialized yet, so early-boot Flash access (e.g. partition loading and core dump probing during system startup).
+
 ## 1.0.1
 
 - feat: Added `spi_flash_mmap` / `spi_flash_munmap` to the set of Flash APIs intercepted by the dispatcher, so memory-mapping can also be safely invoked from tasks whose stacks live in PSRAM.

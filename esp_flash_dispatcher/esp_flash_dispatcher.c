@@ -15,8 +15,16 @@
 #include "esp_check.h"
 #include "esp_flash_dispatcher.h"
 #include "spi_flash_mmap.h"
+#include "esp_private/spi_flash_os.h"
 
 static const char *TAG = "flash_dispatcher";
+
+// In no-OS contexts (e.g. coredump, panic handler) the scheduler is gone, so
+// the dispatcher task can never run. Detect it and call the real flash ops directly.
+static inline bool flash_dispatcher_is_no_os(void)
+{
+    return spi_flash_guard_get() == &g_flash_guard_no_os_ops;
+}
 
 extern esp_err_t __real_esp_flash_read(esp_flash_t *chip, void *buffer, uint32_t address, uint32_t size);
 extern esp_err_t __real_esp_flash_write(esp_flash_t *chip, const void *buffer, uint32_t address, uint32_t size);
@@ -88,6 +96,15 @@ typedef struct {
 // Configuration struct is declared in public header
 
 static flash_dispatcher_context_t s_flash_dispatcher_ctx;
+
+// Bypass the dispatcher (call the real flash ops directly) when it cannot serve
+// the request: either the scheduler is gone (no-OS / panic handler), or the
+// scheduler hasn't started yet (early boot flash access such as partition
+// loading / core dump probing).
+static inline bool flash_dispatcher_should_bypass(void)
+{
+    return flash_dispatcher_is_no_os() || xTaskGetSchedulerState() != taskSCHEDULER_RUNNING;
+}
 
 static void flash_dispatcher_task(void *arg)
 {
@@ -227,6 +244,9 @@ static esp_err_t flash_dispatcher_execute(const flash_operation_request_t *reque
 
 esp_err_t __wrap_esp_flash_read(esp_flash_t *chip, void *buffer, uint32_t address, uint32_t size)
 {
+    if (flash_dispatcher_should_bypass()) {
+        return __real_esp_flash_read(chip, buffer, address, size);
+    }
     flash_operation_request_t request = {
         .chip = chip,
         .op = FLASH_OP_READ,
@@ -241,6 +261,9 @@ esp_err_t __wrap_esp_flash_read(esp_flash_t *chip, void *buffer, uint32_t addres
 
 esp_err_t __wrap_esp_flash_write(esp_flash_t *chip, const void *buffer, uint32_t address, uint32_t size)
 {
+    if (flash_dispatcher_should_bypass()) {
+        return __real_esp_flash_write(chip, buffer, address, size);
+    }
     flash_operation_request_t request = {
         .chip = chip,
         .op = FLASH_OP_WRITE,
@@ -255,6 +278,9 @@ esp_err_t __wrap_esp_flash_write(esp_flash_t *chip, const void *buffer, uint32_t
 
 esp_err_t __wrap_esp_flash_write_encrypted(esp_flash_t *chip, uint32_t address, const void *buffer, uint32_t size)
 {
+    if (flash_dispatcher_should_bypass()) {
+        return __real_esp_flash_write_encrypted(chip, address, buffer, size);
+    }
     flash_operation_request_t request = {
         .chip = chip,
         .op = FLASH_OP_WRITE_ENCRYPTED,
@@ -269,6 +295,9 @@ esp_err_t __wrap_esp_flash_write_encrypted(esp_flash_t *chip, uint32_t address, 
 
 esp_err_t __wrap_esp_flash_erase_region(esp_flash_t *chip, uint32_t start_address, uint32_t size)
 {
+    if (flash_dispatcher_should_bypass()) {
+        return __real_esp_flash_erase_region(chip, start_address, size);
+    }
     flash_operation_request_t request = {
         .chip = chip,
         .op = FLASH_OP_ERASE_REGION,
@@ -282,6 +311,9 @@ esp_err_t __wrap_esp_flash_erase_region(esp_flash_t *chip, uint32_t start_addres
 
 esp_err_t __wrap_esp_flash_erase_chip(esp_flash_t *chip)
 {
+    if (flash_dispatcher_should_bypass()) {
+        return __real_esp_flash_erase_chip(chip);
+    }
     flash_operation_request_t request = {
         .chip = chip,
         .op = FLASH_OP_ERASE_CHIP,
@@ -292,6 +324,9 @@ esp_err_t __wrap_esp_flash_erase_chip(esp_flash_t *chip)
 esp_err_t __wrap_spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t memory,
                                 const void **out_ptr, spi_flash_mmap_handle_t *out_handle)
 {
+    if (flash_dispatcher_should_bypass()) {
+        return __real_spi_flash_mmap(src_addr, size, memory, out_ptr, out_handle);
+    }
     flash_operation_request_t request = {
         .chip = NULL,
         .op = FLASH_OP_MMAP,
@@ -308,6 +343,9 @@ esp_err_t __wrap_spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_mem
 
 esp_err_t __wrap_spi_flash_munmap(spi_flash_mmap_handle_t handle)
 {
+    if (flash_dispatcher_should_bypass()) {
+        return __real_spi_flash_munmap(handle);
+    }
     flash_operation_request_t request = {
         .chip = NULL,
         .op = FLASH_OP_MUNMAP,
