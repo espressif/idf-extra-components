@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - uses: ./.github/actions/setup-idf-master
       - name: Install esp-clang
         run: |
           ${IDF_PATH}/tools/idf_tools.py --non-interactive install esp-clang

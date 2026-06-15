@@ -72,11 +72,6 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          - "release-v5.1"
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
           - "latest"
         parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
     runs-on: ubuntu-22.04
@@ -85,6 +80,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - uses: ./.github/actions/setup-idf-master
       - name: Install dependencies
         shell: bash
         run: |
@@ -124,11 +120,6 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          # Not building for 5.1 with linux target due to limited support
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
           - "latest"
     runs-on: ubuntu-22.04
     container:
@@ -137,6 +128,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - uses: ./.github/actions/setup-idf-master
       - name: Install dependencies
         shell: bash
         run: |
@@ -173,11 +165,6 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          - "release-v5.1"
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
           - "latest"
         runner:
           - runs-on: "esp32"
@@ -253,21 +240,12 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          # - "release-v5.1" # Not testing for 5.1 with linux target due to limited support
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
           - "latest"
         runner:
           - runs-on: "linux"
             marker: "host_test"
             target: "linux"
             pytest_args: "--embedded-services idf"
-        exclude:
-          - idf_ver: "release-v5.2" # Bug with Unity IDF test apps
-            runner:
-              target: "linux"
     env:
       TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
       TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml

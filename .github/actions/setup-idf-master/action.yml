@@ -1,0 +1,12 @@
+name: Setup ESP-IDF master
+description: Clone Lapshin/esp-idf master and set IDF_PATH
+
+runs:
+  using: composite
+  steps:
+    - name: Clone ESP-IDF
+      shell: bash
+      run: |
+        rm -rf /tmp/esp-idf
+        git clone --recursive -b master https://github.com/Lapshin/esp-idf.git /tmp/esp-idf
+        echo "IDF_PATH=/tmp/esp-idf" >> "$GITHUB_ENV"
