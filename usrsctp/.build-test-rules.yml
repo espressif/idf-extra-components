@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
+#
+# usrsctp requires ESP-IDF 5.4+ (idf_component.yml `idf: ">=5.4"`). The
+# disable rules below skip the build on older IDF releases so the repo-wide
+# CI matrix (v5.1 / v5.2 / v5.3 / v5.4 / v5.5 / latest) doesn't try them.
+#
+# Path keys MUST be component-name-prefixed (`usrsctp/...`) — idf-build-apps
+# resolves these relative to the repo root, not the component root.
+
+usrsctp/examples/get_started:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32c3", "esp32s3", "esp32c5", "esp32c6", "esp32p4"]
+      reason: "Build sanity on representative Xtensa + RISC-V targets."
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 4
+      reason: "usrsctp requires ESP-IDF 5.4+."
+
+usrsctp/test_apps:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32c3"]
+      reason: "Sufficient to exercise one Xtensa and one RISC-V target."
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 4
+      reason: "usrsctp requires ESP-IDF 5.4+."
+
+usrsctp/host_test:
+  enable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux host build runs the usrsctp socket-lifecycle smoke test."
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 4
+      reason: "usrsctp requires ESP-IDF 5.4+."

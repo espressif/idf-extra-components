@@ -1,0 +1,56 @@
+version: "1.0.0"
+description: "Userspace SCTP stack — wraps sctplab/usrsctp 0.9.5 as an ESP-IDF component. Used for WebRTC data channels and other SCTP-over-DTLS-over-UDP transports."
+url: "https://github.com/espressif/idf-extra-components/tree/master/usrsctp"
+repository: "https://github.com/espressif/idf-extra-components.git"
+issues: "https://github.com/espressif/idf-extra-components/issues"
+documentation: "https://github.com/espressif/idf-extra-components/blob/master/usrsctp/README.md"
+license: "Apache-2.0 AND BSD-3-Clause"
+tags:
+  # Library + protocol synonyms so this surfaces under any reasonable
+  # registry search (usrsctp / sctp / esp_usrsctp / etc.).
+  - usrsctp
+  - sctp
+  - sctp-over-udp
+  - sctplab
+  - esp_usrsctp
+  - esp_sctp
+  - libusrsctp
+  - webrtc
+  - data-channel
+  - data-channels
+  - rfc4960
+  - networking
+  - transport
+  - lwip
+targets:
+  - esp32
+  - esp32s2
+  - esp32s3
+  - esp32c3
+  - esp32c5
+  - esp32c6
+  - esp32p4
+  - linux
+dependencies:
+  idf: ">=5.4"
+
+# Surface the in-repo example so the registry UI links to it.
+examples:
+  - path: examples/get_started
+
+# SBOM manifest for the wrapped upstream usrsctp.
+sbom:
+  manifests:
+    - path: sbom_usrsctp.yml
+      dest: usrsctp
+
+# Trim the registry tarball: upstream tests/programs are linked at host_test
+# build time; we don't need to ship them inside the registry artifact.
+files:
+  exclude:
+    - "usrsctp/fuzzer/**"
+    - "usrsctp/Manual.md"
+    - "usrsctp/**/.git*"
+    - "host_test/build*"
+    - "test_apps/build*"
+    - "examples/*/build*"
