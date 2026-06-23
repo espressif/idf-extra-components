@@ -1,0 +1,5 @@
+# Controller scan-duplicate knobs — BTDM_* naming (legacy dual-mode controller).
+# Chips: esp32. Wired in via SDKCONFIG_DEFAULTS in CMakeLists.txt.
+CONFIG_BTDM_BLE_MESH_SCAN_DUPL_EN=y
+CONFIG_BTDM_SCAN_DUPL_TYPE_DATA_DEVICE=y
+CONFIG_BTDM_MESH_DUPL_SCAN_CACHE_SIZE=100
