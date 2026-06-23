@@ -24,6 +24,7 @@ extern "C" {
 #define SPI_NAND_FLASH_MICRON_MI      0x2C
 #define SPI_NAND_FLASH_ZETTA_MI       0xBA
 #define SPI_NAND_FLASH_XTX_MI         0x0B
+#define SPI_NAND_FLASH_FM_MI          0xA1  // Fudan Microelectronics
 
 //=============================================================================
 // DEVICE IDs
@@ -79,6 +80,9 @@ extern "C" {
 // XTX
 #define XTX_DI_37                     0x37
 
+// Fudan Microelectronics
+#define FM_DI_D5                      0xD5
+
 //=============================================================================
 // DEVICE INITIALIZATION FUNCTIONS
 //=============================================================================
@@ -112,6 +116,11 @@ esp_err_t spi_nand_zetta_init(spi_nand_flash_device_t *dev);
  * @brief Initialize XTX NAND flash
  */
 esp_err_t spi_nand_xtx_init(spi_nand_flash_device_t *dev);
+
+/**
+ * @brief Initialize Fudan Microelectronics NAND flash
+ */
+esp_err_t spi_nand_fm_init(spi_nand_flash_device_t *dev);
 
 #ifdef __cplusplus
 }
