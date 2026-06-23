@@ -15,6 +15,7 @@
 #include "esp_trace_port_transport.h"
 #include "esp_trace_port_encoder.h"
 #include "esp_trace_types.h"
+#include "adapter_encoder_sysview.h"
 #include "esp_private/startup_internal.h"
 
 const static char *TAG = "segger_rtt";
@@ -163,10 +164,10 @@ unsigned SEGGER_RTT_WriteSkipNoLock(unsigned BufferIndex, const void *pBuffer, u
     uint8_t event_id = *pbuf;
 
     esp_trace_link_types_t link_type = tp->vt->get_link_type(tp);
-    if (link_type != ESP_TRACE_LINK_DEBUG_PROBE) { // Uart and USB Serial JTAG are handled separately
-        int dest_cpu = SEGGER_SYSVIEW_ESP_GetDestCpu();
+    sysview_encoder_ctx_t *ctx = encoder->ctx;
+    if (ctx && ctx->filter_by_cpu) {
         if (
-            (dest_cpu != esp_cpu_get_core_id()) &&
+            (ctx->dest_cpu != esp_cpu_get_core_id()) &&
             (
                 (event_id == SYSVIEW_EVTID_ISR_ENTER) ||
                 (event_id == SYSVIEW_EVTID_ISR_EXIT) ||

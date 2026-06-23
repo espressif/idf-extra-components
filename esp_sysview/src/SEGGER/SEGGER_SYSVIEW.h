@@ -426,7 +426,6 @@ void SEGGER_SYSVIEW_X_OnEventRecorded             (unsigned NumBytes);
 */
 int SEGGER_SYSVIEW_ESP_SetEncoder(void *encoder);
 void *SEGGER_SYSVIEW_ESP_GetEncoder(void);
-int SEGGER_SYSVIEW_ESP_GetDestCpu(void);
 
 #ifdef __cplusplus
 }
