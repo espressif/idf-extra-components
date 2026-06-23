@@ -1,0 +1,102 @@
+menu "BLE Mesh Manager"
+
+    config BLEMESH_MGR_ENABLE
+        bool "Enable BLE Mesh Manager"
+        default y
+        select BT_ENABLED
+        select BLE_MESH
+        select BLE_MESH_PROVISIONER
+        select BLE_MESH_PB_ADV
+        select BLE_MESH_PB_GATT
+        select BLE_MESH_CFG_CLI
+        select BLE_MESH_GENERIC_ONOFF_CLI
+        select BLE_MESH_GENERIC_LEVEL_CLI
+        select BLE_MESH_LIGHT_LIGHTNESS_CLI
+        select BLE_MESH_LIGHT_CTL_CLI
+        select BLE_MESH_LIGHT_HSL_CLI
+        select BLE_MESH_SENSOR_CLI
+        select BLE_MESH_SETTINGS
+        select BLE_MESH_PROVISIONER_RECV_HB
+        help
+            Enable the BLE Mesh Manager component. Pulls in all the
+            ESP-BLE-MESH Kconfigs required for a provisioner with the
+            v1 state catalogue.
+
+    config BLEMESH_MGR_MAX_NODES
+        int "Max nodes in volatile directory"
+        depends on BLEMESH_MGR_ENABLE
+        default BLE_MESH_MAX_PROV_NODES
+        help
+            Maximum number of provisioned nodes the manager tracks
+            in its in-memory directory. The directory is volatile;
+            it is rebuilt at runtime after reboot.
+
+    config BLEMESH_MGR_TASK_STACK_SIZE
+        int "Manager task stack size (bytes)"
+        depends on BLEMESH_MGR_ENABLE
+        default 6144
+
+    config BLEMESH_MGR_TASK_PRIORITY
+        int "Manager task priority"
+        depends on BLEMESH_MGR_ENABLE
+        default 5
+
+    config BLEMESH_MGR_TASK_CORE_PIN
+        int "Manager task core affinity (-1 = no affinity)"
+        depends on BLEMESH_MGR_ENABLE
+        default -1
+        range -1 1
+
+    config BLEMESH_MGR_QUEUE_LENGTH
+        int "Manager task message queue length"
+        depends on BLEMESH_MGR_ENABLE
+        default 32
+
+    config BLEMESH_MGR_INITIAL_SYNC_QUEUE_DEPTH
+        int "Initial-state sync FIFO depth"
+        depends on BLEMESH_MGR_ENABLE
+        default 64
+        help
+            Maximum number of (node, state) initial-state Get
+            requests that can be queued for paced dispatch. After a
+            node is freshly provisioned or restored from NVS the
+            manager schedules one to two Gets (depending on the
+            node's profile) so the consumer learns the leaf's
+            actual current state. A safe rule of thumb is
+            2 x BLEMESH_MGR_MAX_NODES.
+
+    config BLEMESH_MGR_INITIAL_SYNC_INTERVAL_MS
+        int "Initial-state sync inter-Get interval (ms)"
+        depends on BLEMESH_MGR_ENABLE
+        default 250
+        range 50 5000
+        help
+            Delay between consecutive initial-state Gets. Larger
+            values reduce post-boot air-time bursts at the cost of
+            slower convergence; smaller values converge faster but
+            risk overrunning the mesh stack's segment buffers when
+            many nodes are restored at once.
+
+    config BLEMESH_MGR_CFG_STEP_RETRIES
+        int "Per-step Config Client retry budget"
+        depends on BLEMESH_MGR_ENABLE
+        default 3
+        range 0 10
+        help
+            How many times the configurator re-sends a single
+            Config Client request (Composition Data Get, AppKey
+            Add, Model App Bind, Model Pub Set, Heartbeat Pub Set,
+            Default TTL Set) if the leaf doesn't reply within
+            BLE_MESH_CLIENT_MSG_TIMEOUT. Without retries a single
+            dropped STATUS — common on rich multi-element lights
+            because each provisioning burst issues ~14 binds in
+            ~1 s and the radio may be contended with other BLE
+            activity — aborts the whole node and factory-resets the
+            leaf, so the consumer never learns about it. A budget of 3 yields four total
+            attempts per step (initial + 3 retries) which has
+            absorbed every transient timeout observed in the lab
+            without meaningfully slowing happy-path provisioning.
+            Set to 0 to restore the previous abort-on-first-timeout
+            behaviour.
+
+endmenu
