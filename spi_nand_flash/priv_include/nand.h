@@ -28,6 +28,8 @@ extern "C" {
 
 #define INVALID_PAGE 0xFFFF
 
+// For some GigaDevice parts, these encode odd/even block parity in the column
+// address (not a second physical plane). See get_column_address() in nand_impl.c.
 #define NAND_FLAG_HAS_PROG_PLANE_SELECT       BIT(0)
 #define NAND_FLAG_HAS_READ_PLANE_SELECT       BIT(1)
 

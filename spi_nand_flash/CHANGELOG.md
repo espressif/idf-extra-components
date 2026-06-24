@@ -2,6 +2,9 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0]
+- feat: added support for Gigadevice GD5F4GM7UExxG NAND flash
+
 ## [1.1.0]
 - feat: added support for Fudan Microelectronics (FM25S005BI3) NAND flash
 

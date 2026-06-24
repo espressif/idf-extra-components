@@ -210,9 +210,10 @@ static uint16_t get_column_address(spi_nand_flash_device_t *handle, uint32_t blo
             return column_addr;  // Return offset without plane selection
         }
         uint32_t plane = block % handle->chip.num_planes;
-        // The plane index is the bit following the most significant bit (MSB) of the address.
-        // For a 2048-byte page (2^11), the plane select bit is the 12th bit, and
-        // for a 4096-byte page (2^12), it is the 13th bit.
+        // Plane index is encoded in the column address bit after the page MSB.
+        // 2048-byte pages use bit 12; 4096-byte pages use bit 13.
+        // On some GigaDevice GD5F4GM7/8, this models odd/even block parity for Internal
+        // Data Move; nand_copy() falls back to a RAM copy when parity differs.
         column_addr += plane << (handle->chip.log2_page_size + 1);
     }
     return column_addr;
