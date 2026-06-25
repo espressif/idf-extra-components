@@ -34,17 +34,17 @@ esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev)
         dev->chip.num_blocks = 2048;
         dev->chip.log2_page_size = 11;  // 2048 bytes
         dev->chip.log2_ppb = 6;         // 64 pages per block
-        dev->chip.read_page_delay_us = 70;
+        dev->chip.read_page_delay_us = 10;
         dev->chip.erase_block_delay_us = 6000;
-        dev->chip.program_page_delay_us = 760;
+        dev->chip.program_page_delay_us = 400;
         break;
     case MACRONIX_DI_37: // MX35LF4GE4AD (4Gb)
         dev->chip.num_blocks = 2048;
         dev->chip.log2_page_size = 12;  // 4096 bytes
         dev->chip.log2_ppb = 6;         // 64 pages per block
-        dev->chip.read_page_delay_us = 110;
+        dev->chip.read_page_delay_us = 12;
         dev->chip.erase_block_delay_us = 6000;
-        dev->chip.program_page_delay_us = 800;
+        dev->chip.program_page_delay_us = 440;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
