@@ -258,6 +258,7 @@ typedef struct {
     U32                     DisabledEvents;
     const SEGGER_SYSVIEW_OS_API  *pOSAPI;
     SEGGER_SYSVIEW_SEND_SYS_DESC_FUNC   *pfSendSysDesc;
+    SEGGER_SYSVIEW_SendPacket_Dump      *pfSendPacketCallback;
 } SEGGER_SYSVIEW_GLOBALS;
 
 /*********************************************************************
@@ -898,6 +899,10 @@ Send:
     //
     TimeStamp  = SEGGER_SYSVIEW_GET_TIMESTAMP();
     Delta = TimeStamp - _SYSVIEW_Globals.LastTxTimeStamp;
+    // Call SendPacketCallback if it is set
+    if (_SYSVIEW_Globals.pfSendPacketCallback) {
+        _SYSVIEW_Globals.pfSendPacketCallback(pStartPacket, pEndPacket, EventId, TimeStamp);
+    }
     MAKE_DELTA_32BIT(Delta);
     ENCODE_U32(pEndPacket, Delta);
 #if (SEGGER_SYSVIEW_POST_MORTEM_MODE == 1)
@@ -1471,6 +1476,7 @@ void SEGGER_SYSVIEW_Init(U32 SysFreq, U32 CPUFreq, const SEGGER_SYSVIEW_OS_API *
     _SYSVIEW_Globals.SysFreq          = SysFreq;
     _SYSVIEW_Globals.CPUFreq          = CPUFreq;
     _SYSVIEW_Globals.pfSendSysDesc    = pfSendSysDesc;
+    _SYSVIEW_Globals.pfSendPacketDumpCallback = NULL;
     _SYSVIEW_Globals.EnableState      = 0;
     _SYSVIEW_Globals.PacketCount      = 0;
 #else // (SEGGER_SYSVIEW_POST_MORTEM_MODE == 1)
@@ -1488,6 +1494,7 @@ void SEGGER_SYSVIEW_Init(U32 SysFreq, U32 CPUFreq, const SEGGER_SYSVIEW_OS_API *
     _SYSVIEW_Globals.SysFreq          = SysFreq;
     _SYSVIEW_Globals.CPUFreq          = CPUFreq;
     _SYSVIEW_Globals.pfSendSysDesc    = pfSendSysDesc;
+    _SYSVIEW_Globals.pfSendPacketCallback = NULL;
     _SYSVIEW_Globals.EnableState      = 0;
 #endif  // (SEGGER_SYSVIEW_POST_MORTEM_MODE == 1)
 }
@@ -3734,6 +3741,22 @@ int SEGGER_SYSVIEW_IsStarted(void)
     }
 #endif
     return _SYSVIEW_Globals.EnableState;
+}
+
+/*********************************************************************
+*
+*       SEGGER_SYSVIEW_SetSendPacketDumpCallback()
+*
+*  Function description
+*    Set the callback function for sending packet dump.
+*
+*  Parameters
+*    pfSendPacketDumpCallback - Pointer to the callback function.
+*/
+void SEGGER_SYSVIEW_SetSendPacketCallback(SEGGER_SYSVIEW_SendPacket_Dump *pfSendPacketCallback)
+{
+    _SYSVIEW_Globals.pfSendPacketCallback = pfSendPacketCallback;
+    return;
 }
 
 
