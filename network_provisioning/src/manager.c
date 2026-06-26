@@ -146,6 +146,10 @@ struct network_prov_mgr_ctx {
     /* Handle for delayed wifi connection timer */
     esp_timer_handle_t wifi_connect_timer;
 
+    /* Preserve application-owned SoftAP when a STA-only provisioning scheme
+     * runs while Wi-Fi is already in APSTA mode */
+    bool ap_mode_enabled_before_start;
+
     /* State of Wi-Fi Station */
     network_prov_wifi_sta_state_t wifi_state;
 
@@ -663,9 +667,17 @@ static void prov_stop_and_notify(bool is_async)
     free(prov_ctx->network_ctrl_handlers);
     prov_ctx->network_ctrl_handlers = NULL;
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
-    /* Switch device to Wi-Fi STA mode irrespective of
-     * whether provisioning was completed or not */
-    esp_wifi_set_mode(WIFI_MODE_STA);
+    if (prov_ctx->ap_mode_enabled_before_start) {
+        esp_err_t err = esp_wifi_set_mode(WIFI_MODE_APSTA);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to restore Wi-Fi mode: %s", esp_err_to_name(err));
+        }
+        prov_ctx->ap_mode_enabled_before_start = false;
+    } else {
+        /* Switch device to Wi-Fi STA mode irrespective of
+         * whether provisioning was completed or not */
+        esp_wifi_set_mode(WIFI_MODE_STA);
+    }
 #endif
 
     ESP_LOGI(TAG, "Provisioning stopped");
@@ -1275,8 +1287,12 @@ esp_err_t network_prov_mgr_configure_wifi_sta(wifi_config_t *wifi_cfg)
     }
     debug_print_wifi_credentials(wifi_cfg->sta, "Received");
 
+    wifi_mode_t wifi_mode = prov_ctx->ap_mode_enabled_before_start ?
+                            WIFI_MODE_APSTA :
+                            prov_ctx->mgr_config.scheme.wifi_mode;
+
     /* Configure Wi-Fi as both AP and/or Station */
-    if (esp_wifi_set_mode(prov_ctx->mgr_config.scheme.wifi_mode) != ESP_OK) {
+    if (esp_wifi_set_mode(wifi_mode) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi mode");
         RELEASE_LOCK(prov_ctx_lock);
         return ESP_FAIL;
@@ -2115,11 +2131,23 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
     prov_ctx->prov_state = NETWORK_PROV_STATE_STARTING;
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     uint8_t restore_wifi_flag = 0;
-    /* Start Wi-Fi in Station Mode.
-     * This is necessary for scanning to work */
-    ret = esp_wifi_set_mode(WIFI_MODE_STA);
+    prov_ctx->ap_mode_enabled_before_start = false;
+
+    wifi_mode_t wifi_mode_before_start = WIFI_MODE_NULL;
+    ret = esp_wifi_get_mode(&wifi_mode_before_start);
+    if (ret == ESP_OK &&
+            wifi_mode_before_start == WIFI_MODE_APSTA &&
+            prov_ctx->mgr_config.scheme.wifi_mode == WIFI_MODE_STA) {
+        prov_ctx->ap_mode_enabled_before_start = true;
+    }
+
+    /* Start Wi-Fi with station enabled. This is necessary for scanning to work. */
+    wifi_mode_t wifi_mode = prov_ctx->ap_mode_enabled_before_start ?
+                            WIFI_MODE_APSTA :
+                            WIFI_MODE_STA;
+    ret = esp_wifi_set_mode(wifi_mode);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set Wi-Fi mode to STA");
+        ESP_LOGE(TAG, "Failed to set Wi-Fi mode");
         goto err;
     }
     ret = esp_wifi_start();
@@ -2293,6 +2321,10 @@ esp_err_t network_prov_mgr_start_provisioning(network_prov_security_t security, 
 err:
     prov_ctx->prov_state = NETWORK_PROV_STATE_IDLE;
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+    if (ret != ESP_OK && prov_ctx->ap_mode_enabled_before_start) {
+        esp_wifi_set_mode(WIFI_MODE_APSTA);
+        prov_ctx->ap_mode_enabled_before_start = false;
+    }
     if (restore_wifi_flag & WIFI_PROV_SETTING_BIT) {
         /* Restore current WiFi settings, since provisioning start has failed */
         esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg_old);
