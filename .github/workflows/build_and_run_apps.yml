@@ -96,7 +96,13 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
+          # to match the IDF build system default. Older GCC rejects the "=1" form.
+          UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
+          if echo 'int main(void){return 0;}' | xtensa-esp32-elf-gcc -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
+            UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
+          fi
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable ${UNUSED_BUT_SET_FLAG} -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           idf-build-apps build --parallel-index ${{ matrix.parallel_index }} --parallel-count 5 --collect-app-info build_info_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
@@ -148,7 +154,13 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
+          # to match the IDF build system default. Older GCC rejects the "=1" form.
+          UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
+          if echo 'int main(void){return 0;}' | gcc -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
+            UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
+          fi
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable ${UNUSED_BUT_SET_FLAG} -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           idf-build-apps build --target linux --collect-app-info build_info_linux_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
