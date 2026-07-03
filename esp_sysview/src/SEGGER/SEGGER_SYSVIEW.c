@@ -150,9 +150,18 @@ Additional information:
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <assert.h>
 #include "SEGGER_SYSVIEW_Int.h"
 #include "SEGGER_RTT.h"
+
+/*
+ * ESP: notify esp_trace core so host-driven start/stop propagates to
+ * dependent features (e.g. function tracing). Declared weak so esp_sysview
+ * still links against an esp_trace revision that does not provide it.
+ * The notification becomes a no-op when the symbol is absent.
+ */
+extern void esp_trace_notify_recording_state(bool active) __attribute__((weak));
 
 /*********************************************************************
 *
@@ -1902,6 +1911,7 @@ void SEGGER_SYSVIEW_RecordString(unsigned int EventID, const char *pString)
 */
 void SEGGER_SYSVIEW_Start(void)
 {
+    U8 WasEnabled = _SYSVIEW_Globals.EnableState;  /* ESP */
 #if (SEGGER_SYSVIEW_CAN_RESTART == 0)
     if (_SYSVIEW_Globals.EnableState == 0) {
 #endif
@@ -1933,10 +1943,24 @@ void SEGGER_SYSVIEW_Start(void)
         SEGGER_SYSVIEW_RecordSystime();
         SEGGER_SYSVIEW_SendTaskList();
         SEGGER_SYSVIEW_SendNumModules();
+        /* ESP: send module descriptions on start so streaming captures (e.g. over
+         * JTAG, where the host never requests them) are self-describing. */
+        if (_NumModules > 0) {
+            int n;
+            for (n = 0; n < _NumModules; n++) {
+                SEGGER_SYSVIEW_SendModule(n);
+            }
+        }
 #endif
 #if (SEGGER_SYSVIEW_CAN_RESTART == 0)
     }
 #endif
+    /* ESP: notify on an actual disabled->enabled transition, or unconditionally
+     * for restart-capable builds. This avoids resetting dependent features
+     * (e.g. function tracing) on redundant Start commands. */
+    if ((WasEnabled == 0 || SEGGER_SYSVIEW_CAN_RESTART) && esp_trace_notify_recording_state) {
+        esp_trace_notify_recording_state(true);  /* ESP */
+    }
 }
 
 /*********************************************************************
@@ -1959,6 +1983,11 @@ void SEGGER_SYSVIEW_Start(void)
 void SEGGER_SYSVIEW_Stop(void)
 {
     U8 *pPayloadStart;
+
+    if (esp_trace_notify_recording_state) {
+        esp_trace_notify_recording_state(false);  /* ESP */
+    }
+
     RECORD_START(SEGGER_SYSVIEW_INFO_SIZE);
     // We should send answer for the Stop command in any case.
     _SYSVIEW_Globals.EnableState = 1;

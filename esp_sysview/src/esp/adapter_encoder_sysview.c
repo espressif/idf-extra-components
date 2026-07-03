@@ -23,6 +23,8 @@
  * All encoding and transport operations are done by SystemView component. (SEGGER_RTT_esp.c)
  */
 
+extern void esp_trace_notify_recording_state(bool active) __attribute__((weak));
+
 #define SYSVIEW_FLUSH_TMO_US (1000 * 1000)  /* 1second */
 #define SYSVIEW_FLUSH_THRESH 0
 
@@ -51,6 +53,10 @@ static esp_err_t init(esp_trace_encoder_t *enc, const void *enc_cfg)
     const esp_trace_sysview_config_t *cfg = enc_cfg;
     int dest_cpu = 0;  // Default to CPU0
 
+#if CONFIG_SEGGER_SYSVIEW_DEST_CPU_1
+    dest_cpu = 1;
+#endif
+
     if (cfg) {
         dest_cpu = cfg->dest_cpu;
     }
@@ -64,6 +70,10 @@ static esp_err_t init(esp_trace_encoder_t *enc, const void *enc_cfg)
     /* Segger Sysview needs locking mechanism. */
     esp_trace_lock_init(&ctx->lock);
     ctx->dest_cpu = dest_cpu;
+    ctx->filter_by_cpu = true;
+    if (enc->tp && enc->tp->vt && enc->tp->vt->get_link_type) {
+        ctx->filter_by_cpu = (enc->tp->vt->get_link_type(enc->tp) != ESP_TRACE_LINK_DEBUG_PROBE);
+    }
     enc->ctx = ctx;
 
     if (SEGGER_SYSVIEW_ESP_SetEncoder(enc) != 0) {
@@ -83,6 +93,14 @@ static esp_err_t init(esp_trace_encoder_t *enc, const void *enc_cfg)
     }
 
     SEGGER_SYSVIEW_Conf();
+
+#if CONFIG_ESP_TRACE_FUNCTION_TRACE
+    esp_sysview_function_trace_register();
+#endif
+
+    if (esp_trace_notify_recording_state) {
+        esp_trace_notify_recording_state(SEGGER_SYSVIEW_Started() != 0);
+    }
 
     initialized = true;
 
@@ -142,6 +160,10 @@ static const esp_trace_encoder_vtable_t s_sysview_vt = {
     .panic_handler         = panic_handler,
     .take_lock             = take_lock,
     .give_lock             = give_lock,
+#if CONFIG_ESP_TRACE_FUNCTION_TRACE
+    .function_enter        = esp_sysview_function_enter,
+    .function_exit         = esp_sysview_function_exit,
+#endif
 };
 
 ESP_TRACE_REGISTER_ENCODER("sysview", &s_sysview_vt);
