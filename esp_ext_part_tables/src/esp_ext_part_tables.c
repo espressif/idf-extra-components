@@ -206,7 +206,7 @@ esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part
 
     switch (type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        buf = malloc(MBR_SIZE);
+        buf = calloc(1, MBR_SIZE);
         if (buf == NULL) {
             return ESP_ERR_NO_MEM;
         }
