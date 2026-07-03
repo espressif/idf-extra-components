@@ -1,7 +1,9 @@
-if(CONFIG_ESP_TRACE_LIB_EXTERNAL)
-    set(include_dirs "")
-    set(srcs "")
+set(include_dirs "")
+set(srcs "")
+set(requires "esp_trace")
+set(priv_requires "esp_app_format")
 
+if(CONFIG_ESP_TRACE_LIB_EXTERNAL)
     list(APPEND include_dirs
         src/Config
         src/SEGGER
@@ -17,6 +19,10 @@ if(CONFIG_ESP_TRACE_LIB_EXTERNAL)
         src/esp/adapter_encoder_sysview.c
         src/ext/logging.c)
 
+    if(CONFIG_ESP_TRACE_FUNCTION_TRACE)
+        list(APPEND srcs src/esp/function_trace_sysview.c)
+    endif()
+
     if(CONFIG_HEAP_TRACING_TOHOST)
         list(APPEND srcs
             src/ext/heap_trace_module.c
@@ -30,7 +36,8 @@ if(CONFIG_ESP_TRACE_LIB_EXTERNAL)
 
     idf_component_register(SRCS "${srcs}"
                         INCLUDE_DIRS "${include_dirs}"
-                        REQUIRES     esp_trace
+                        REQUIRES     "${requires}"
+                        PRIV_REQUIRES "${priv_requires}"
                         LDFRAGMENTS ${CMAKE_CURRENT_BINARY_DIR}/linker.lf
                         WHOLE_ARCHIVE TRUE # Link all symbols so self-registering adapters (ESP_TRACE_REGISTER_*) are not discarded
                         )
@@ -40,5 +47,5 @@ if(CONFIG_ESP_TRACE_LIB_EXTERNAL)
     idf_component_get_property(freertos_lib freertos COMPONENT_LIB)
     target_include_directories(${freertos_lib} INTERFACE ${include_dirs})
 else()
-    idf_component_register(REQUIRES "esp_trace")
+    idf_component_register(REQUIRES "${requires}" PRIV_REQUIRES "${priv_requires}")
 endif()

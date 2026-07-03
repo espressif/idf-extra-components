@@ -19,6 +19,16 @@ Configure SystemView tracing in `idf.py menuconfig`:
 - Select timestamp source: Component config > ESP Trace Configuration > Trace timestamp source
 - Configure event filters: Component config > SEGGER SystemView Configuration
 
+## Function tracing
+
+When `CONFIG_ESP_TRACE_FUNCTION_TRACE` is enabled, this component implements the
+`esp_trace` function-trace encoder callbacks and sends enter/exit events through
+a dedicated SystemView module (`ESP_FunctionTrace`). Host-driven start/stop (over
+JTAG or UART) is propagated to the function-trace runtime so recording follows
+the SystemView session. Addresses are sent as `U32`. SystemView records them as
+raw addresses. Symbols can be mapped to function names offline against the ELF file (for example
+with `addr2line`).
+
 ## Documentation and examples
 
 - ESP-IDF examples:
