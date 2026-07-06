@@ -22,6 +22,9 @@ typedef void *esp_schedule_handle_t;
 /** Maximum length of the schedule name allowed. This value cannot be more than 16 as it is used for NVS key. */
 #define MAX_SCHEDULE_NAME_LEN 16
 
+/** Maximum length of the cron expression string allowed. */
+#define MAX_CRON_EXPR_STR_LEN 128
+
 /** Callback for schedule trigger
  *
  * This callback is called when the schedule is triggered.
@@ -51,6 +54,9 @@ typedef enum esp_schedule_type {
 #if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
     ESP_SCHEDULE_TYPE_SUNRISE,
     ESP_SCHEDULE_TYPE_SUNSET,
+#endif
+#if CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+    ESP_SCHEDULE_TYPE_CRON_EXPR,
 #endif
 } esp_schedule_type_t;
 
@@ -122,6 +128,11 @@ typedef struct esp_schedule_trigger {
         /** Offset in minutes from sunrise/sunset (positive = after, negative = before) */
         int offset_minutes;
     } solar;
+#endif
+#if CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR
+    /** For type ESP_SCHEDULE_TYPE_CRON_EXPR */
+    /** CRON expression string */
+    char cron_expr_str[MAX_CRON_EXPR_STR_LEN + 1];
 #endif
     /** For type ESP_SCHEDULE_TYPE_SECONDS */
     int relative_seconds;

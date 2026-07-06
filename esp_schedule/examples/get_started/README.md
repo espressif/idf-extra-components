@@ -33,6 +33,13 @@ This example demonstrates how to use the ESP Schedule component to create differ
 - Supports both day-of-week patterns and specific date patterns for solar events
 - Requires `CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT=y` to be enabled
 
+### 5. CRON Expression Schedule (`ESP_SCHEDULE_ENABLE_CRON_EXPR`)
+- Enable `CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR=y`
+- Supports directly inputting a cron expression string
+- Cron fields order: `minute hour day-of-month month day-of-week` (5-field format)
+- Validate your expression with an online checker or unit test to avoid malformed schedules
+- Good for recurring jobs such as daily/weekly/monthly reports, maintenance, or notifications
+
 ## Features Demonstrated
 
 - **Schedule Creation**: How to create schedules with different trigger types
@@ -193,6 +200,7 @@ The example shows how to:
 3. **Check logs**: Look for schedule creation and trigger messages in the serial output
 4. **Solar schedules**: Ensure `CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT=y` is enabled and location coordinates are accurate
 5. **Daylight saving time**: Solar schedules automatically adjust for DST changes
+6. **CRON expression schedules**: Ensure `CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR=y` is enabled, and validate your cron string (e.g., with an online checker) to avoid malformed expressions.
 
 ### NVS Issues
 

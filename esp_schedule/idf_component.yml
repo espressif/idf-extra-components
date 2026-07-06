@@ -9,3 +9,6 @@ dependencies:
   espressif/esp_daylight:
     version: "~1.0.1"
     override_path: "../esp_daylight"
+  espressif/supertinycron:
+    version: "~2.0.0"
+    override_path: "../supertinycron"

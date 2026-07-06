@@ -5,3 +5,9 @@ CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT=y
 
 # Example can become pretty big, so enable larger partition
 CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# Enable CRON Expression schedules for the example
+CONFIG_ESP_SCHEDULE_ENABLE_CRON_EXPR=y
+
+# Temporary Fix for Timer Overflows
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3120
