@@ -18,35 +18,18 @@ FatFS integration layer for the SPI NAND Flash driver.
 
 ## Dependencies
 
-- `spi_nand_flash` component (driver)
+- `spi_nand_flash` component (driver; pulled in automatically)
 - ESP-IDF `fatfs` component
 - ESP-IDF `vfs` component
 
 ## Usage
 
-```c
-#include "spi_nand_flash.h"
-#include "esp_vfs_fat_nand.h"
+This component provides VFS mount helpers (`esp_vfs_fat_nand_mount()`, `esp_vfs_fat_nand_unmount()` in `esp_vfs_fat_nand.h`) on top of a `spi_nand_flash_device_t` handle from `spi_nand_flash_init_device()`.
 
-// Initialize device (CONFIG_NAND_FLASH_ENABLE_BDL must be off)
-spi_nand_flash_device_t *nand_device;
-spi_nand_flash_init_device(&config, &nand_device);
+Your application must initialize the SPI bus and NAND driver before calling the mount helpers. **For the full end-to-end flow** — dependency, CMake, headers, SPI initialization, `spi_nand_flash_config_t`, FAT mount, and file I/O — see:
 
-// Mount FATFS
-esp_vfs_fat_mount_config_t mount_config = {
-    .max_files = 4,
-    .format_if_mount_failed = true,
-};
-esp_vfs_fat_nand_mount("/nand", nand_device, &mount_config);
-
-// Use filesystem...
-FILE *f = fopen("/nand/test.txt", "w");
-// ...
-
-// Unmount
-esp_vfs_fat_nand_unmount("/nand", nand_device);
-spi_nand_flash_deinit_device(nand_device);
-```
+- [`examples/nand_flash`](examples/nand_flash) — reference source: [`main/spi_nand_flash_example_main.c`](examples/nand_flash/main/spi_nand_flash_example_main.c)
+- [`examples/nand_flash/README.md`](examples/nand_flash/README.md) — integration guide and hardware notes
 
 ## Examples
 
