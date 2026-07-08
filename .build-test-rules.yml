@@ -99,3 +99,8 @@ spi_nand_flash_fatfs/examples/nand_flash:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+
+spi_nand_flash_fatfs/examples/nand_flash_bdl:
+  disable:
+    - if: IDF_VERSION_MAJOR < 6 or (IDF_VERSION_MAJOR == 6 and IDF_VERSION_MINOR < 1)
+      reason: BDL FatFS example uses esp_vfs_fat_bdl_mount / diskio_bdl, available from ESP-IDF v6.1+.

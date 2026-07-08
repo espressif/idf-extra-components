@@ -79,9 +79,13 @@ At present, `spi_nand_flash` component is compatible with the chips produced by 
 
 ## FATFS Integration
 
-For FATFS filesystem support, use the separate [`spi_nand_flash_fatfs`](../spi_nand_flash_fatfs) component:
-- Provides diskio adapters and VFS mount helpers for the **legacy** `spi_nand_flash_device_t` path only
-- **Do not enable BDL** if you use this FatFs stack on the same NAND instance (see [`spi_nand_flash_fatfs/README.md`](../spi_nand_flash_fatfs/README.md))
+Use the separate [`spi_nand_flash_fatfs`](../spi_nand_flash_fatfs) component for filesystem examples and helpers:
+
+1. **Legacy mode (ESP-IDF 5.0+, BDL off):** `spi_nand_flash_init_device()` and **`esp_vfs_fat_nand_mount()`** / **`esp_vfs_fat_nand_unmount()`** from `spi_nand_flash_fatfs` (this component’s diskio). See **`spi_nand_flash_fatfs/examples/nand_flash`**.
+
+2. **BDL + FatFS (ESP-IDF 6.1+, `CONFIG_NAND_FLASH_ENABLE_BDL=y`):** `spi_nand_flash_init_with_layers()` and ESP-IDF’s **`esp_vfs_fat_bdl_mount()`** / **`esp_vfs_fat_bdl_unmount()`** (generic `diskio_bdl`; does not use `esp_vfs_fat_nand_*`). See **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**.
+
+Details and Kconfig rules: [`spi_nand_flash_fatfs/README.md`](../spi_nand_flash_fatfs/README.md).
 
 ## Troubleshooting
 
