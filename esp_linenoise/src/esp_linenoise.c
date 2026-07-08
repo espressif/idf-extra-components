@@ -147,6 +147,9 @@ static void esp_linenoise_refresh_single_line(esp_linenoise_instance_t *instance
     esp_linenoise_config_t *config = &instance->config;
     esp_linenoise_state_t *state = &instance->state;
 
+    if (state->columns < ESP_LINENOISE_DEFAULT_COLS) {
+        state->columns = ESP_LINENOISE_DEFAULT_COLS;
+    }
     char seq[64];
     size_t prompt_length = state->prompt_length;
     int fd = instance->config.out_fd;
@@ -192,6 +195,9 @@ static void esp_linenoise_refresh_multi_line(esp_linenoise_instance_t *instance)
     esp_linenoise_config_t *config = &instance->config;
     esp_linenoise_state_t *state = &instance->state;
 
+    if (state->columns < ESP_LINENOISE_DEFAULT_COLS) {
+        state->columns = ESP_LINENOISE_DEFAULT_COLS;
+    }
     char seq[64];
     int prompt_length = state->prompt_length;
     int rows = (prompt_length + state->len + state->columns - 1) / state->columns; /* rows used by current buf. */
@@ -383,7 +389,7 @@ static int esp_linenoise_get_columns(esp_linenoise_instance_t *instance)
     /* After sending this command, we can get the new position of the cursor,
      * we'd get the size, in columns, of the opened TTY. */
     columns = esp_linenoise_get_cursor_position(instance);
-    if (columns == -1) {
+    if (columns <= 0) {
         goto failed;
     }
 
@@ -733,6 +739,9 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
     state->old_cursor_position = state->cur_cursor_position = 0;
     state->len = 0;
     state->columns = esp_linenoise_get_columns(instance);
+    if (state->columns < ESP_LINENOISE_DEFAULT_COLS) {
+        state->columns = ESP_LINENOISE_DEFAULT_COLS;
+    }
     state->max_rows_used = 0;
 
     /* Buffer starts empty. */
@@ -979,6 +988,7 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
     config->write_bytes_cb(instance->config.out_fd, config->prompt, strlen(config->prompt));
 
     size_t count = 0;
+    int nread = 0;
     const int in_fd = instance->config.in_fd;
     char c = 'c';
 
@@ -986,11 +996,9 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
     // also, this is to be consistent with esp_linenoise_edit()
     bool exit_loop = false;
     while (!exit_loop) {
-        int nread = config->read_bytes_cb(in_fd, &c, 1);
+        nread = config->read_bytes_cb(in_fd, &c, 1);
         if (nread < 0) {
-            exit_loop = true;
-            count = nread;
-            continue;
+            break;
         }
         if (c == '\n') {
             exit_loop = true;
@@ -1026,9 +1034,9 @@ static int esp_linenoise_dumb(esp_linenoise_instance_t *instance, char *buffer, 
     config->write_bytes_cb(instance->config.out_fd, "\n", 1);
 
     // null terminate the string
-    buffer[count + 1] = '\0';
+    buffer[count] = '\0';
 
-    return count;
+    return nread < 0 ? nread : (int)count;
 }
 
 static void esp_linenoise_sanitize(char *src)
