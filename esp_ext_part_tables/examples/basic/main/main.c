@@ -130,7 +130,7 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
             .label = NULL,
         }
     };
-    esp_ext_part_list_insert(&part_list, &item2);
+    err = esp_ext_part_list_insert(&part_list, &item2);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to insert second partition: %s", esp_err_to_name(err));
         goto end_task;

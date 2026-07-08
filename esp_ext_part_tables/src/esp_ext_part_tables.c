@@ -205,13 +205,24 @@ esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part
     uint8_t *buf = NULL;
 
     switch (type) {
-    case ESP_EXT_PART_LIST_SIGNATURE_MBR:
+    case ESP_EXT_PART_LIST_SIGNATURE_MBR: {
         buf = calloc(1, MBR_SIZE);
         if (buf == NULL) {
             return ESP_ERR_NO_MEM;
         }
 
-        err = esp_mbr_generate((mbr_t *) buf, part_list, (esp_mbr_generate_extra_args_t *) extra_args);
+        // Auto-fill the "fits within disk" bound from the device geometry when the
+        // caller did not provide one. This is a pure arithmetic check inside
+        // esp_mbr_generate - it does not allocate a buffer of `total_size`.
+        esp_mbr_generate_extra_args_t local_args = {0};
+        if (extra_args != NULL) {
+            local_args = *(esp_mbr_generate_extra_args_t *) extra_args; // Caller's choices take precedence
+        }
+        if (local_args.total_size == 0 && handle->geometry.disk_size > 0) {
+            local_args.total_size = handle->geometry.disk_size;
+        }
+
+        err = esp_mbr_generate((mbr_t *) buf, part_list, &local_args);
         if (err != ESP_OK) {
             free(buf);
             return err;
@@ -220,6 +231,7 @@ esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part
         err = handle->ops->write(handle, buf, 0, MBR_SIZE);
         free(buf);
         break;
+    }
 
     default:
         err = ESP_ERR_NOT_SUPPORTED; // Unsupported signature type

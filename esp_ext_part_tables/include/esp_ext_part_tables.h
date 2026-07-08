@@ -34,10 +34,20 @@ typedef enum {
 } esp_ext_part_sector_size_t;
 
 typedef enum {
-    ESP_EXT_PART_ALIGN_NONE = 0, // No alignment
+    ESP_EXT_PART_ALIGN_AUTO = 0, // Use the library default alignment (1 MiB). This is what a zero-initialized extra_args selects.
     ESP_EXT_PART_ALIGN_4KiB = 4096, // 4 KiB alignment
     ESP_EXT_PART_ALIGN_1MiB = (1024 * 1024), // 1 MiB alignment
+    ESP_EXT_PART_ALIGN_NONE = -1, // Explicitly perform no alignment (leave LBAs untouched). A representable-in-int sentinel (not a real alignment value).
 } esp_ext_part_align_t;
+
+typedef enum {
+    /*!< Default: align the partition start up, keep the requested size as the length from the aligned start (matches fdisk/parted behavior). */
+    ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE = 0,
+    /*!< Return an error if a partition start was not already aligned (do not silently relocate it). */
+    ESP_EXT_PART_ALIGN_POLICY_REJECT,
+    /*!< Align the partition start up, then shrink the size so the end stays at the originally requested address + size. Errors if alignment consumes the whole partition. */
+    ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END,
+} esp_ext_part_align_policy_t;
 
 typedef enum __attribute__((packed))
 {
@@ -46,6 +56,7 @@ typedef enum __attribute__((packed))
     ESP_EXT_PART_TYPE_FAT16, /*!< FAT16 with LBA addressing */
     ESP_EXT_PART_TYPE_FAT32, /*!< FAT32 with LBA addressing */
     ESP_EXT_PART_TYPE_LITTLEFS, /*!< Possibly LittleFS (MBR CHS field => LittleFS block size hack) */
+    ESP_EXT_PART_TYPE_RAW_DATA, /*!< Non-filesystem/custom data partition (e.g. raw data, custom format, etc.) */
 // Note: The following types are not supported, but we can return a type for them
     ESP_EXT_PART_TYPE_LINUX_ANY, /*!< Linux partition (any type) */
     ESP_EXT_PART_TYPE_EXFAT_OR_NTFS, /*!< Not supported, but we can return a type for it */
@@ -56,6 +67,8 @@ typedef enum {
     ESP_EXT_PART_FLAG_NONE = 0,
     ESP_EXT_PART_FLAG_ACTIVE = 1 << 0,  /*!< Active / bootable partition */
     ESP_EXT_PART_FLAG_EXTRA = 1 << 1, /*!< Additional information stored in `extra` field (e.g. LittleFS block size stored in CHS hack) */
+    ESP_EXT_PART_FLAG_AUTO_ADDRESS = 1 << 2, /*!< During MBR generation, let the library compute the start address (placed after the previous partition, aligned). `info.address` is ignored. */
+    ESP_EXT_PART_FLAG_FILL = 1 << 3, /*!< During MBR generation, together with ESP_EXT_PART_FLAG_AUTO_ADDRESS and `info.size == 0`, size the partition to fill from its computed start to the end of the disk (requires a known total size). */
 } esp_ext_part_flags_t;
 
 typedef enum {
@@ -90,7 +103,7 @@ typedef struct {
     esp_ext_part_list_signature_t signature; /*!< Disk signature or identifier */
     SLIST_HEAD(esp_ext_part_list_head_, esp_ext_part_list_item_) head; /*!< Head of the partition list */
     esp_ext_part_list_flags_t flags; /*!< Flags for the partition list */
-    esp_ext_part_sector_size_t sector_size; /*!< Sector size (storage medium property) */
+    esp_ext_part_sector_size_t sector_size; /*!< Sector size (storage medium property). `esp_mbr_parse` sets this from the parsed medium. For a freshly built list you may set it directly (e.g. `list.sector_size = ESP_EXT_PART_SECTOR_SIZE_4KiB;`); `esp_mbr_generate` uses it as the default sector size, unless overridden by `esp_mbr_generate_extra_args_t::sector_size`. Left `ESP_EXT_PART_SECTOR_SIZE_UNKNOWN` (0) it defaults to 512 B. */
 } esp_ext_part_list_t;
 
 /**
@@ -216,7 +229,7 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 /**
- * @brief Read a aprtition table and from a block device handle and parse it.
+ * @brief Read a partition table from a block device handle and parse it.
  *
  * This function reads the partition table from the specified block device and populates the provided partition list structure.
  * The type of partition table to read is specified by the 'type' parameter.

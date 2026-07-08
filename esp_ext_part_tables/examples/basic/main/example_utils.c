@@ -67,7 +67,7 @@ esp_err_t load_first_sector_from_sd_card(void *mbr_buffer)
     ret = sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create a new on-chip LDO power control driver");
-        return;
+        return ret;
     }
     host.pwr_ctrl_handle = pwr_ctrl_handle;
 #endif
@@ -133,7 +133,7 @@ char *parsed_type_to_str(uint8_t type)
     case ESP_EXT_PART_TYPE_FAT12:
         return "FAT12";
     case ESP_EXT_PART_TYPE_FAT16:
-        return "FAR16";
+        return "FAT16";
     case ESP_EXT_PART_TYPE_FAT32:
         return "FAT32";
     case ESP_EXT_PART_TYPE_LITTLEFS:
