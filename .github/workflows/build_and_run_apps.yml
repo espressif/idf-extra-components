@@ -72,11 +72,11 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          - "release-v5.1"
           - "release-v5.2"
           - "release-v5.3"
           - "release-v5.4"
           - "release-v5.5"
+          - "release-v6.0"
           - "latest"
         parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
     runs-on: ubuntu-22.04
@@ -135,6 +135,7 @@ jobs:
           - "release-v5.3"
           - "release-v5.4"
           - "release-v5.5"
+          - "release-v6.0"
           - "latest"
     runs-on: ubuntu-22.04
     container:
@@ -185,11 +186,11 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          - "release-v5.1"
           - "release-v5.2"
           - "release-v5.3"
           - "release-v5.4"
           - "release-v5.5"
+          - "release-v6.0"
           - "latest"
         runner:
           - runs-on: "esp32"
@@ -265,7 +266,6 @@ jobs:
       fail-fast: false
       matrix:
         idf_ver:
-          # - "release-v5.1" # Not testing for 5.1 with linux target due to limited support
           - "release-v5.2"
           - "release-v5.3"
           - "release-v5.4"
