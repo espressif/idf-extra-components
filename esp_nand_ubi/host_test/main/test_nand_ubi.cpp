@@ -12,6 +12,7 @@
 extern "C" {
 #include "nand_ubi_media.h"
 #include "nand_ubi_io.h"
+#include "nand_ubi_eba.h"
 }
 
 namespace {
@@ -144,4 +145,111 @@ TEST_CASE("VID header with corrupted CRC is rejected", "[nand_ubi][validate]")
     fill_vid_hdr(&h, 0, 7, 42);
     h.lnum = to_be32(8);
     REQUIRE_FALSE(nand_ubi_vid_hdr_valid(&h));
+}
+
+TEST_CASE("EBA alloc and free", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(16, 16, &eba) == ESP_OK);
+    REQUIRE(eba.eba != nullptr);
+    REQUIRE(eba.peb_state != nullptr);
+    REQUIRE(eba.peb_count == 16);
+    REQUIRE(eba.leb_count == 16);
+    nand_ubi_eba_free(&eba);
+    REQUIRE(eba.eba == nullptr);
+    REQUIRE(eba.peb_state == nullptr);
+}
+
+TEST_CASE("all PEBs free after alloc", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(8, 8, &eba) == ESP_OK);
+    for (uint32_t pnum = 0; pnum < 8; pnum++) {
+        REQUIRE(nand_ubi_eba_peb_is_free(&eba, pnum));
+    }
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("all LEBs unmapped after alloc", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(8, 8, &eba) == ESP_OK);
+    for (uint32_t lnum = 0; lnum < 8; lnum++) {
+        REQUIRE(nand_ubi_eba_get_pnum(&eba, lnum) == UBI_LEB_UNMAPPED);
+    }
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("EBA set and get round-trip", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(8, 8, &eba) == ESP_OK);
+    nand_ubi_eba_set(&eba, 0, 3);
+    nand_ubi_eba_set(&eba, 1, 7);
+    REQUIRE(nand_ubi_eba_get_pnum(&eba, 0) == 3);
+    REQUIRE(nand_ubi_eba_get_pnum(&eba, 1) == 7);
+    REQUIRE(nand_ubi_eba_get_pnum(&eba, 2) == UBI_LEB_UNMAPPED);
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("PEB state transitions: free to used to free", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(4, 4, &eba) == ESP_OK);
+    REQUIRE(nand_ubi_eba_peb_is_free(&eba, 2));
+    nand_ubi_eba_peb_set_used(&eba, 2);
+    REQUIRE_FALSE(nand_ubi_eba_peb_is_free(&eba, 2));
+    nand_ubi_eba_peb_set_free(&eba, 2);
+    REQUIRE(nand_ubi_eba_peb_is_free(&eba, 2));
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("bad PEB is not free", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(4, 4, &eba) == ESP_OK);
+    nand_ubi_eba_peb_set_bad(&eba, 1);
+    REQUIRE_FALSE(nand_ubi_eba_peb_is_free(&eba, 1));
+    REQUIRE(nand_ubi_eba_peb_is_free(&eba, 0));
+    REQUIRE(nand_ubi_eba_peb_is_free(&eba, 2));
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("find_free_peb skips bad and used blocks", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(8, 8, &eba) == ESP_OK);
+    nand_ubi_eba_peb_set_bad(&eba, 0);
+    nand_ubi_eba_peb_set_used(&eba, 1);
+    nand_ubi_eba_peb_set_bad(&eba, 2);
+    REQUIRE(nand_ubi_eba_find_free_peb(&eba, 8) == 3);
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("find_free_peb returns -1 when no free PEB exists", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(4, 4, &eba) == ESP_OK);
+    for (uint32_t pnum = 0; pnum < 4; pnum++) {
+        nand_ubi_eba_peb_set_used(&eba, pnum);
+    }
+    REQUIRE(nand_ubi_eba_find_free_peb(&eba, 4) == -1);
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("peb_state 2-bit packing does not bleed between neighbours", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(16, 16, &eba) == ESP_OK);
+    for (uint32_t pnum = 0; pnum < 16; pnum += 2) {
+        nand_ubi_eba_peb_set_bad(&eba, pnum);
+    }
+    for (uint32_t pnum = 0; pnum < 16; pnum++) {
+        if (pnum % 2 == 0) {
+            REQUIRE_FALSE(nand_ubi_eba_peb_is_free(&eba, pnum));
+        } else {
+            REQUIRE(nand_ubi_eba_peb_is_free(&eba, pnum));
+        }
+    }
+    nand_ubi_eba_free(&eba);
 }
