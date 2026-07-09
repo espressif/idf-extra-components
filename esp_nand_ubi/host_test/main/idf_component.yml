@@ -1,0 +1,8 @@
+dependencies:
+  espressif/catch2: "^3.4.0"
+  espressif/esp_nand_ubi:
+    version: '*'
+    override_path: '../../'
+  espressif/spi_nand_flash:
+    version: '*'
+    override_path: '../../../spi_nand_flash'

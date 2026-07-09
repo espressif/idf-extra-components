@@ -1,0 +1,39 @@
+menu "NAND UBI configuration"
+
+    config ESP_NAND_UBI_ENABLE
+        bool "Enable UBI-like layer for SPI NAND flash"
+        depends on NAND_FLASH_ENABLE_BDL
+        default n
+        help
+            Enables the esp_nand_ubi component. Requires CONFIG_NAND_FLASH_ENABLE_BDL
+            and ESP-IDF >= 6.0. Provides position-independent factory images and
+            bad-block hiding on SPI NAND flash by exposing a flat logical-erase-block
+            (LEB) address space per volume above the raw NAND block device.
+
+    config ESP_NAND_UBI_RESERVED_PEBS
+        int "Default number of reserved PEBs for bad-block pool"
+        depends on ESP_NAND_UBI_ENABLE
+        range 0 32
+        default 4
+        help
+            Number of physical erase blocks held back as a spare pool for bad-block
+            replacement. Used as the default when nand_ubi_config_t.reserved_pebs is
+            not overridden by the caller.
+
+    config ESP_NAND_UBI_WL_ENABLE
+        bool "Enable background wear-leveling FreeRTOS task (Phase 3)"
+        depends on ESP_NAND_UBI_ENABLE
+        default n
+        help
+            Enables a background wear-leveling task that migrates data from PEBs with
+            high erase counts to PEBs with low erase counts. Not implemented in Phase 1.
+
+    config ESP_NAND_UBI_WL_THRESHOLD
+        int "Erase-count difference threshold to trigger a WL move"
+        depends on ESP_NAND_UBI_WL_ENABLE
+        default 4096
+        help
+            When the difference between the highest and lowest erase counts exceeds
+            this threshold, the background wear-leveling task migrates a logical block.
+
+endmenu
