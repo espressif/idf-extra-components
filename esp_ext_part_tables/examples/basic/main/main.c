@@ -22,6 +22,10 @@
 
 static const char *TAG = "esp_ext_part_tables_example_basic";
 
+// A fixed disk size used for the generation demo so that FILL and the disk-bounds
+// check have a known total to work with (16 MiB).
+#define EXAMPLE_DISK_SIZE_BYTES (16 * 1024 * 1024)
+
 void print_loaded_ext_partitions(esp_ext_part_list_item_t *head)
 {
     esp_ext_part_list_item_t *it = head;
@@ -34,6 +38,26 @@ void print_loaded_ext_partitions(esp_ext_part_list_item_t *head)
                parsed_type_to_str(it->info.type));
         i++;
     } while ((it = esp_ext_part_list_item_next(it)) != NULL);
+    fflush(stdout);
+}
+
+// List only the partitions this build can mount, using the stock mountable predicate.
+static void print_mountable_partitions(esp_ext_part_list_t *part_list)
+{
+    ESP_LOGI(TAG, "Mountable partitions (via esp_ext_part_list_next_matching):");
+    int count = 0;
+    esp_ext_part_match_t matcher = esp_ext_part_match_mountable();
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_next_matching(NULL, part_list, &matcher);
+            it != NULL;
+            it = esp_ext_part_list_next_matching(it, part_list, &matcher)) {
+        printf("\t- %s at sector %" PRIu64 "\n",
+               parsed_type_to_str(it->info.type),
+               esp_ext_part_bytes_to_sector_count(it->info.address, ESP_EXT_PART_SECTOR_SIZE_512B));
+        count++;
+    }
+    if (count == 0) {
+        printf("\t(none)\n");
+    }
     fflush(stdout);
 }
 
@@ -59,7 +83,8 @@ void esp_ext_part_tables_mbr_parse_example_task(void *pvParameters)
     }
     ESP_LOGI(TAG, "MBR loaded successfully");
 
-    // Parse the MBR to get the partition list
+    // Parse the MBR to get the partition list. With extra_args == NULL, every
+    // recognized partition is inserted (mountable or not).
     esp_ext_part_list_t part_list = {0};
     err = esp_mbr_parse((void *) mbr, &part_list, NULL);
     if (err != ESP_OK) {
@@ -70,6 +95,14 @@ void esp_ext_part_tables_mbr_parse_example_task(void *pvParameters)
     }
     free(mbr); // Free the MBR buffer after parsing as it is no longer needed
     ESP_LOGI(TAG, "MBR parsed successfully");
+
+    // If the parser skipped any partition (unknown/extended type), the list is
+    // marked LOSSY - regenerating it would not reproduce the source table.
+    if (part_list.flags & ESP_EXT_PART_LIST_FLAG_LOSSY) {
+        ESP_LOGW(TAG, "Parsed list is LOSSY: some source partitions were not captured");
+    } else {
+        ESP_LOGI(TAG, "Parsed list is complete (not LOSSY)");
+    }
 
     // Get the first partition
     esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
@@ -101,19 +134,22 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
     esp_err_t err;
     esp_ext_part_list_t part_list = {0};
 
+    // A zero-initialized args struct already selects sensible defaults
+    // (AUTO alignment => 1 MiB, KEEP_SIZE policy, 512 B sectors). Here we set only
+    // what the auto-placement/FILL demo needs: an explicit sector size and the
+    // total disk size (so FILL and the bounds check know where the disk ends).
     esp_mbr_generate_extra_args_t mbr_args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
-        .alignment = ESP_EXT_PART_ALIGN_1MiB
+        .total_size = EXAMPLE_DISK_SIZE_BYTES,
+        // .alignment left 0 (ESP_EXT_PART_ALIGN_AUTO) -> resolves to 1 MiB
     };
 
-    // 2 FAT12 partitions (random parameters)
+    // Partition 1: auto-placed (library picks the aligned start), fixed 4 MiB FAT32.
     esp_ext_part_list_item_t item1 = {
         .info = {
-            // Original MBR starts at 2048, but we use 8 for testing ->
-            .address = esp_ext_part_sector_count_to_bytes(8, mbr_args.sector_size), // Should be round up to 2048 sectors (aligned to 1MiB) due to defined sector size and alignment in `esp_mbr_generate_extra_args_t args` above
-            .size = esp_ext_part_sector_count_to_bytes(7953, mbr_args.sector_size),
-            .type = ESP_EXT_PART_TYPE_FAT12,
-            .label = NULL,
+            .size = 4 * 1024 * 1024,
+            .type = ESP_EXT_PART_TYPE_FAT32,
+            .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS,
         }
     };
     err = esp_ext_part_list_insert(&part_list, &item1);
@@ -122,17 +158,34 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
         goto end_task;
     }
 
+    // Partition 2: auto-placed raw-data (0xDA) partition, fixed 2 MiB. Demonstrates
+    // a non-filesystem partition the application manages itself.
     esp_ext_part_list_item_t item2 = {
         .info = {
-            .address = esp_ext_part_sector_count_to_bytes(10240, mbr_args.sector_size),
-            .size = esp_ext_part_sector_count_to_bytes(10240, mbr_args.sector_size),
-            .type = ESP_EXT_PART_TYPE_FAT12,
-            .label = NULL,
+            .size = 2 * 1024 * 1024,
+            .type = ESP_EXT_PART_TYPE_RAW_DATA,
+            .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS,
         }
     };
     err = esp_ext_part_list_insert(&part_list, &item2);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to insert second partition: %s", esp_err_to_name(err));
+        esp_ext_part_list_deinit(&part_list);
+        goto end_task;
+    }
+
+    // Partition 3: auto-placed and FILL - sized to consume the rest of the disk.
+    esp_ext_part_list_item_t item3 = {
+        .info = {
+            .size = 0, // filled to the end of the disk
+            .type = ESP_EXT_PART_TYPE_FAT16,
+            .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS | ESP_EXT_PART_FLAG_FILL,
+        }
+    };
+    err = esp_ext_part_list_insert(&part_list, &item3);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to insert third partition: %s", esp_err_to_name(err));
+        esp_ext_part_list_deinit(&part_list);
         goto end_task;
     }
 
@@ -142,7 +195,8 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
         esp_ext_part_list_deinit(&part_list);
         goto end_task;
     }
-    // Generate the MBR
+    // Generate the MBR. Addresses/sizes for the AUTO_ADDRESS/FILL items are
+    // resolved internally; the caller's list is not modified.
     err = esp_mbr_generate(mbr, &part_list, &mbr_args);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to generate MBR: %s", esp_err_to_name(err));
@@ -173,8 +227,9 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
         goto end_task;
     }
 
-    // Print the loaded partition list
+    // Print the loaded partition list, then list only the mountable ones.
     print_loaded_ext_partitions(it);
+    print_mountable_partitions(&part_list_from_gen_mbr);
 
     // Deinitialize the partition list
     esp_ext_part_list_deinit(&part_list_from_gen_mbr);

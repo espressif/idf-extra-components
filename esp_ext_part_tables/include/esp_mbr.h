@@ -72,6 +72,7 @@ typedef struct {
 typedef struct {
     esp_ext_part_sector_size_t sector_size; // Sector size hint, pulled from a storage device driver query
     bool (*esp_mbr_parse_custom_supported_partition_types)(uint8_t, uint8_t *); // Custom function for parsing supported MBR partition types, optional
+    esp_ext_part_match_t match; // Optional filter: if match.fn is non-NULL, only recognized partitions for which match.fn(info, match.ctx) returns true are inserted (the rest are dropped and the list is marked ESP_EXT_PART_LIST_FLAG_LOSSY). A zero-initialized match (fn == NULL) inserts all recognized partitions.
 } esp_mbr_parse_extra_args_t;
 
 typedef struct {
@@ -91,6 +92,14 @@ typedef struct {
  * This function reads the provided MBR buffer, validates its signature, and populates
  * the given partition list structure with the partition entries found in the MBR.
  * Additional parsing options can be provided via the extra_args parameter.
+ *
+ * By default every recognized partition is inserted into the list, regardless of
+ * whether ESP-IDF can mount it. To filter at parse time, set `extra_args->match` to
+ * a predicate: only recognized partitions for which it returns true are inserted
+ * (for example `esp_ext_part_match_mountable`). After parsing, a subset can also be
+ * iterated with `esp_ext_part_list_next_matching`. When any partition is skipped (an
+ * unknown/extended type, or one rejected by `match`), the list is marked
+ * `ESP_EXT_PART_LIST_FLAG_LOSSY`.
  *
  * @note This function is not thread-safe.
  *
