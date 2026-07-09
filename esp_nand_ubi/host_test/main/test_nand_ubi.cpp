@@ -16,6 +16,9 @@ extern "C" {
 
 namespace {
 
+static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
+              "test helpers assume a little-endian build host");
+
 uint32_t to_be32(uint32_t v)
 {
     return __builtin_bswap32(v);
@@ -79,7 +82,7 @@ TEST_CASE("nand_ubi_crc32 matches the Linux UBI CRC", "[nand_ubi][crc]")
     // crc32_le, no trailing inversion) is the bitwise complement: 0x340BC6D9.
     // This proves byte-for-byte compatibility with mtd-utils ubinize.
     const char *check = "123456789";
-    REQUIRE(nand_ubi_crc32(check, strlen(check)) == 0x340BC6D9u);
+    REQUIRE(nand_ubi_crc32(check, (uint32_t)strlen(check)) == 0x340BC6D9u);
 }
 
 TEST_CASE("EC header CRC matches an independently computed ubinize value", "[nand_ubi][crc]")

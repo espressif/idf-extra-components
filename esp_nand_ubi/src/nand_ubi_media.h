@@ -86,8 +86,8 @@ _Static_assert(offsetof(nand_ubi_vid_hdr_t, sqnum) == 40, "VID header sqnum fiel
 _Static_assert(offsetof(nand_ubi_vid_hdr_t, hdr_crc) == 60, "VID header hdr_crc field misaligned");
 
 /** @brief Number of header bytes covered by @c hdr_crc (all fields but the trailing CRC). */
-#define UBI_EC_HDR_SIZE_CRC   (offsetof(nand_ubi_ec_hdr_t, hdr_crc))
-#define UBI_VID_HDR_SIZE_CRC  (offsetof(nand_ubi_vid_hdr_t, hdr_crc))
+#define UBI_EC_HDR_SIZE_CRC   ((uint32_t)offsetof(nand_ubi_ec_hdr_t, hdr_crc))
+#define UBI_VID_HDR_SIZE_CRC  ((uint32_t)offsetof(nand_ubi_vid_hdr_t, hdr_crc))
 
 #ifdef __cplusplus
 }

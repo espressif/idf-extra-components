@@ -7,7 +7,7 @@
 #include "nand_ubi_io.h"
 #include "esp_rom_crc.h"
 
-uint32_t nand_ubi_crc32(const void *buf, size_t len)
+uint32_t nand_ubi_crc32(const void *buf, uint32_t len)
 {
     /*
      * Linux UBI computes hdr_crc as crc32(UBI_CRC32_INIT, buf, len) via the
@@ -17,7 +17,7 @@ uint32_t nand_ubi_crc32(const void *buf, size_t len)
      * UBI value byte-for-byte. Verified empirically against zlib and a reference
      * kernel crc32_le implementation.
      */
-    return ~esp_rom_crc32_le(0, (const uint8_t *)buf, (uint32_t)len);
+    return ~esp_rom_crc32_le(0, (const uint8_t *)buf, len);
 }
 
 static inline uint32_t be32_load(uint32_t v)

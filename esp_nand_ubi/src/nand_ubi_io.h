@@ -7,7 +7,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
 #include "nand_ubi_media.h"
 
@@ -26,7 +25,7 @@ extern "C" {
  * @param[in] len  Number of bytes to hash.
  * @return CRC-32 value.
  */
-uint32_t nand_ubi_crc32(const void *buf, size_t len);
+uint32_t nand_ubi_crc32(const void *buf, uint32_t len);
 
 /**
  * @brief Validate an EC header read from flash.
