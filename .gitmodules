@@ -61,7 +61,6 @@
 [submodule "thorvg/thorvg"]
 	path = thorvg/thorvg
 	url = https://github.com/thorvg/thorvg
-
 [submodule "libjpeg-turbo/libjpeg-turbo"]
 	path = libjpeg-turbo/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
@@ -77,6 +76,10 @@
 [submodule "cjson/cJSON"]
 	path = cjson/cJSON
 	url = https://github.com/DaveGamble/cJSON.git
+
+[submodule "libsrtp2/libsrtp"]
+	path = libsrtp2/libsrtp
+	url = https://github.com/cisco/libsrtp.git
 
 [submodule "lua/lua"]
 	path = lua/lua
