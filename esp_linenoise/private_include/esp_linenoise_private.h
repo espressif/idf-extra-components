@@ -22,6 +22,7 @@ extern "C" {
 #define ESP_LINENOISE_MINIMAL_MAX_LINE 64
 #define ESP_LINENOISE_COMMAND_MAX_LEN 32
 #define ESP_LINENOISE_PASTE_KEY_DELAY 30 /* Delay, in milliseconds, between two characters being pasted from clipboard */
+#define ESP_LINENOISE_DEFAULT_COLS 80 /* Minimum sensible terminal width; used as fallback */
 
 enum KEY_ACTION {
     KEY_NULL = 0,       /* NULL */
