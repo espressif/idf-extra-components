@@ -92,6 +92,12 @@ void nand_ubi_eba_peb_set_bad(nand_ubi_eba_t *eba, uint32_t pnum)
     peb_state_set(eba->peb_state, pnum, UBI_PEB_BAD);
 }
 
+void nand_ubi_eba_peb_set_erase_pending(nand_ubi_eba_t *eba, uint32_t pnum)
+{
+    assert(pnum < eba->peb_count);
+    peb_state_set(eba->peb_state, pnum, UBI_PEB_ERASE_PENDING);
+}
+
 int32_t nand_ubi_eba_find_free_peb(const nand_ubi_eba_t *eba, uint32_t peb_count)
 {
     for (uint32_t pnum = 0; pnum < peb_count; pnum++) {

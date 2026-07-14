@@ -37,6 +37,7 @@ bool      nand_ubi_eba_peb_is_free(const nand_ubi_eba_t *eba, uint32_t pnum);
 void      nand_ubi_eba_peb_set_free(nand_ubi_eba_t *eba, uint32_t pnum);
 void      nand_ubi_eba_peb_set_used(nand_ubi_eba_t *eba, uint32_t pnum);
 void      nand_ubi_eba_peb_set_bad(nand_ubi_eba_t *eba, uint32_t pnum);
+void      nand_ubi_eba_peb_set_erase_pending(nand_ubi_eba_t *eba, uint32_t pnum);
 
 int32_t   nand_ubi_eba_find_free_peb(const nand_ubi_eba_t *eba, uint32_t peb_count);
 

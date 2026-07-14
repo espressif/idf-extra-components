@@ -20,27 +20,18 @@ uint32_t nand_ubi_crc32(const void *buf, uint32_t len)
     return ~esp_rom_crc32_le(0, (const uint8_t *)buf, len);
 }
 
-static inline uint32_t be32_load(uint32_t v)
-{
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-    return v;
-#else
-    return __builtin_bswap32(v);
-#endif
-}
-
 bool nand_ubi_ec_hdr_valid(const nand_ubi_ec_hdr_t *h)
 {
-    if (be32_load(h->magic) != UBI_EC_HDR_MAGIC) {
+    if (nand_ubi_be32(h->magic) != UBI_EC_HDR_MAGIC) {
         return false;
     }
-    return be32_load(h->hdr_crc) == nand_ubi_crc32(h, UBI_EC_HDR_SIZE_CRC);
+    return nand_ubi_be32(h->hdr_crc) == nand_ubi_crc32(h, UBI_EC_HDR_SIZE_CRC);
 }
 
 bool nand_ubi_vid_hdr_valid(const nand_ubi_vid_hdr_t *h)
 {
-    if (be32_load(h->magic) != UBI_VID_HDR_MAGIC) {
+    if (nand_ubi_be32(h->magic) != UBI_VID_HDR_MAGIC) {
         return false;
     }
-    return be32_load(h->hdr_crc) == nand_ubi_crc32(h, UBI_VID_HDR_SIZE_CRC);
+    return nand_ubi_be32(h->hdr_crc) == nand_ubi_crc32(h, UBI_VID_HDR_SIZE_CRC);
 }

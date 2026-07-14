@@ -15,6 +15,38 @@ extern "C" {
 #endif
 
 /**
+ * @brief Convert a 32-bit value between big-endian (on-flash) and host order.
+ *
+ * Self-inverse: use for both loading a field read from flash into host order and
+ * for storing a host value into a header before writing it back to flash.
+ *
+ * @param[in] v  Value to convert.
+ * @return Converted value.
+ */
+static inline uint32_t nand_ubi_be32(uint32_t v)
+{
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    return v;
+#else
+    return __builtin_bswap32(v);
+#endif
+}
+
+/**
+ * @brief Convert a 64-bit value between big-endian (on-flash) and host order.
+ *
+ * @see nand_ubi_be32
+ */
+static inline uint64_t nand_ubi_be64(uint64_t v)
+{
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    return v;
+#else
+    return __builtin_bswap64(v);
+#endif
+}
+
+/**
  * @brief Compute the UBI header CRC over a buffer.
  *
  * Matches the CRC used by Linux UBI for @c hdr_crc: standard CRC-32
