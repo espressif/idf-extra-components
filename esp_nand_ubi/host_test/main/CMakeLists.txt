@@ -1,5 +1,6 @@
 set(src "test_app_main.cpp"
-        "test_nand_ubi.cpp")
+        "test_nand_ubi.cpp"
+        "test_nand_ubi_attach.cpp")
 
 idf_component_register(SRCS ${src}
                        WHOLE_ARCHIVE

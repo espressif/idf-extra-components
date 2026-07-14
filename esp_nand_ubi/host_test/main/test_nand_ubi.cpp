@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "esp_nand_ubi.h"
+#include "nand_ubi_test_helpers.h"
 
 extern "C" {
 #include "nand_ubi_media.h"
@@ -15,47 +16,7 @@ extern "C" {
 #include "nand_ubi_eba.h"
 }
 
-namespace {
-
-static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
-              "test helpers assume a little-endian build host");
-
-uint32_t to_be32(uint32_t v)
-{
-    return __builtin_bswap32(v);
-}
-
-uint64_t to_be64(uint64_t v)
-{
-    return __builtin_bswap64(v);
-}
-
-void fill_ec_hdr(nand_ubi_ec_hdr_t *h, uint32_t image_seq,
-                 uint32_t vid_hdr_offset, uint32_t data_offset)
-{
-    memset(h, 0, sizeof(*h));
-    h->magic = to_be32(UBI_EC_HDR_MAGIC);
-    h->version = UBI_VERSION;
-    h->ec = to_be64(0);
-    h->vid_hdr_offset = to_be32(vid_hdr_offset);
-    h->data_offset = to_be32(data_offset);
-    h->image_seq = to_be32(image_seq);
-    h->hdr_crc = to_be32(nand_ubi_crc32(h, UBI_EC_HDR_SIZE_CRC));
-}
-
-void fill_vid_hdr(nand_ubi_vid_hdr_t *h, uint32_t vol_id, uint32_t lnum, uint64_t sqnum)
-{
-    memset(h, 0, sizeof(*h));
-    h->magic = to_be32(UBI_VID_HDR_MAGIC);
-    h->version = UBI_VERSION;
-    h->vol_type = UBI_VID_DYNAMIC;
-    h->vol_id = to_be32(vol_id);
-    h->lnum = to_be32(lnum);
-    h->sqnum = to_be64(sqnum);
-    h->hdr_crc = to_be32(nand_ubi_crc32(h, UBI_VID_HDR_SIZE_CRC));
-}
-
-} // namespace
+using namespace nand_ubi_test;
 
 TEST_CASE("esp_nand_ubi public header is usable", "[nand_ubi][skeleton]")
 {
@@ -209,6 +170,18 @@ TEST_CASE("bad PEB is not free", "[nand_ubi][eba]")
     nand_ubi_eba_t eba;
     REQUIRE(nand_ubi_eba_alloc(4, 4, &eba) == ESP_OK);
     nand_ubi_eba_peb_set_bad(&eba, 1);
+    REQUIRE_FALSE(nand_ubi_eba_peb_is_free(&eba, 1));
+    REQUIRE(nand_ubi_eba_peb_is_free(&eba, 0));
+    REQUIRE(nand_ubi_eba_peb_is_free(&eba, 2));
+    nand_ubi_eba_free(&eba);
+}
+
+TEST_CASE("erase-pending PEB is not free", "[nand_ubi][eba]")
+{
+    nand_ubi_eba_t eba;
+    REQUIRE(nand_ubi_eba_alloc(4, 4, &eba) == ESP_OK);
+    nand_ubi_eba_peb_set_used(&eba, 1);
+    nand_ubi_eba_peb_set_erase_pending(&eba, 1);
     REQUIRE_FALSE(nand_ubi_eba_peb_is_free(&eba, 1));
     REQUIRE(nand_ubi_eba_peb_is_free(&eba, 0));
     REQUIRE(nand_ubi_eba_peb_is_free(&eba, 2));
