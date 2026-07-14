@@ -439,7 +439,7 @@ Output format: sequential PEB-sized chunks, each containing:
 - `nand_ubi_eba_find_free_peb(eba, peb_count)` → linear scan, returns first free pnum (Phase 1: no EC-based selection needed)
 - Tests: alloc/free, set/get, find_free_peb with injected bad blocks
 
-**Task 4: Attach — scan + EBA build**
+**Task 4: Attach — scan + EBA build** ✅ DONE (3f20b1e, a0eb8b5, a0d16e3)
 - File: `src/nand_ubi.c`
 - Implement `nand_ubi_attach(nand_bdl, config, out_ubi_dev)`:
   - Allocate `page_buf` (size = `nand_bdl.geometry.read_size`)
