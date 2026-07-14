@@ -2,6 +2,9 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0]
+- feat: added support for Macronix MX35LF2GE4AD, MX35LF4GE4AD NAND flash
+
 ## [1.2.0]
 - feat: added support for Gigadevice GD5F4GM7UExxG NAND flash
 
