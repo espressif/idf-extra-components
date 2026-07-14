@@ -7,6 +7,7 @@
 #pragma once
 
 #include "esp_err.h"
+#include "esp_ext_part_tables.h"
 
 #ifdef __cplusplus
 extern "C" {

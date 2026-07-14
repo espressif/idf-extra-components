@@ -61,19 +61,39 @@ void esp_mbr_lba_to_chs_arr(uint8_t chs[3], uint32_t lba)
 
 uint32_t esp_mbr_lba_align(uint32_t lba, esp_ext_part_sector_size_t sector_size, esp_ext_part_align_t alignment)
 {
-    if (sector_size == 0 || alignment == 0) {
+    // ESP_EXT_PART_ALIGN_NONE (and a 0/unset alignment or sector size) means "leave the LBA untouched".
+    if (sector_size == 0 || alignment == 0 || alignment == ESP_EXT_PART_ALIGN_NONE) {
         return lba; // No alignment
     }
-    uint32_t alignment_sectors = alignment / sector_size;
-    return (lba + alignment_sectors - 1) & ~(alignment_sectors - 1);
+    uint32_t alignment_sectors = (uint32_t) alignment / (uint32_t) sector_size;
+    if (alignment_sectors <= 1) {
+        return lba; // Alignment is at most one sector, nothing to round.
+    }
+    // Round up to the next multiple of alignment_sectors. Use modulo rather than a
+    // power-of-two bitmask so non-power-of-two alignment/sector_size ratios work.
+    uint32_t remainder = lba % alignment_sectors;
+    if (remainder == 0) {
+        return lba; // Already aligned
+    }
+    uint32_t to_add = alignment_sectors - remainder;
+    // Guard against uint32_t overflow at the very top of the MBR address space.
+    // Saturate to UINT32_MAX; the caller's bounds check will reject this as needed.
+    if (lba > UINT32_MAX - to_add) {
+        return UINT32_MAX;
+    }
+    return lba + to_add;
 }
 
 static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_type_known_t *out_type_parsed)
 {
+    // `supported` reports whether ESP-IDF has a driver for the type (i.e. it is
+    // mountable). It no longer gates whether the parser inserts the partition;
+    // insertion is driven by the type mapping and the optional parse `match`
+    // predicate. The return value is kept for the public callback contract.
     bool supported = true;
     esp_ext_part_type_known_t parsed_type = ESP_EXT_PART_TYPE_NONE;
     switch (type) {
-    // Supported types:
+    // Mountable types (known filesystem with an ESP-IDF driver):
     case 0x01: // FAT12
         parsed_type = ESP_EXT_PART_TYPE_FAT12;
         break;
@@ -89,19 +109,22 @@ static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_t
     case 0xC3: // Possibly LittleFS (MBR CHS field => LittleFS block size hack)
         parsed_type = ESP_EXT_PART_TYPE_LITTLEFS;
         break;
+    case 0xDA: // Non-filesystem/custom data partition (e.g. raw data, custom format, etc.)
+        parsed_type = ESP_EXT_PART_TYPE_RAW_DATA;
+        break;
 
-    // Unsupported types:
+    // Recognized but not mountable (no ESP-IDF driver):
     case 0x07: // exFAT or NTFS
         parsed_type = ESP_EXT_PART_TYPE_EXFAT_OR_NTFS;
-        supported = false; // Not supported
+        supported = false; // Not mountable
         break;
     case 0x83: // Linux partition (any type)
         parsed_type = ESP_EXT_PART_TYPE_LINUX_ANY;
-        supported = false; // Not supported
+        supported = false; // Not mountable
         break;
     case 0xEE: // GPT protective MBR
         parsed_type = ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR;
-        supported = false; // Not supported
+        supported = false; // Not mountable
         break;
     case 0x05: __attribute__((fallthrough)); // Extended partition with CHS addressing
     case 0x0F: __attribute__((fallthrough)); // Extended partition with LBA addressing
@@ -114,7 +137,7 @@ static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_t
         *out_type_parsed = parsed_type;
     }
     if (supported == false) {
-        ESP_LOGD(TAG, "Unknown or unsupported partition type: 0x%02X", type);
+        ESP_LOGD(TAG, "Unknown or not-mountable partition type: 0x%02X", type);
     }
     return supported;
 }
@@ -153,6 +176,8 @@ uint8_t esp_mbr_generate_default_supported_partition_types(uint8_t type)
     */
     case ESP_EXT_PART_TYPE_LITTLEFS:
         return 0xC3; // Possibly LittleFS (MBR CHS field => LittleFS block size hack)
+    case ESP_EXT_PART_TYPE_RAW_DATA:
+        return 0xDA; // Non-filesystem/custom data partition (e.g. raw data, custom format, etc.)
     case ESP_EXT_PART_TYPE_EXFAT_OR_NTFS: // Not supported, but we can return a type for it
         return 0x07; // exFAT or NTFS
     case ESP_EXT_PART_TYPE_LINUX_ANY: // Not supported, but we can return a type for it
@@ -162,4 +187,35 @@ uint8_t esp_mbr_generate_default_supported_partition_types(uint8_t type)
     default:
         return 0x00; // Unknown type
     }
+}
+
+static bool match_mountable_fn(const esp_ext_part_t *info, void *ctx)
+{
+    (void) ctx;
+    if (info == NULL) {
+        return false;
+    }
+    switch ((esp_ext_part_type_known_t) info->type) {
+    case ESP_EXT_PART_TYPE_FAT12:
+    case ESP_EXT_PART_TYPE_FAT16:
+    case ESP_EXT_PART_TYPE_FAT32:
+        return true; // FatFs is part of ESP-IDF
+    case ESP_EXT_PART_TYPE_LITTLEFS:
+        // Mountable only if the LittleFS component is available to this library at
+        // compile time (its header is visible), or explicitly forced by the consumer.
+#if defined(ESP_EXT_PART_HAS_LITTLEFS) || (defined(__has_include) && __has_include("esp_littlefs.h"))
+        return true;
+#else
+        return false;
+#endif
+    default:
+        return false;
+    }
+}
+
+esp_ext_part_match_t esp_ext_part_match_mountable(void)
+{
+    return (esp_ext_part_match_t) {
+        .fn = match_mountable_fn, .ctx = NULL
+    };
 }

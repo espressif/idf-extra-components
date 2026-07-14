@@ -67,7 +67,7 @@ esp_err_t load_first_sector_from_sd_card(void *mbr_buffer)
     ret = sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create a new on-chip LDO power control driver");
-        return;
+        return ret;
     }
     host.pwr_ctrl_handle = pwr_ctrl_handle;
 #endif
@@ -133,11 +133,19 @@ char *parsed_type_to_str(uint8_t type)
     case ESP_EXT_PART_TYPE_FAT12:
         return "FAT12";
     case ESP_EXT_PART_TYPE_FAT16:
-        return "FAR16";
+        return "FAT16";
     case ESP_EXT_PART_TYPE_FAT32:
         return "FAT32";
     case ESP_EXT_PART_TYPE_LITTLEFS:
         return "LittleFS";
+    case ESP_EXT_PART_TYPE_RAW_DATA:
+        return "raw data (0xDA)";
+    case ESP_EXT_PART_TYPE_EXFAT_OR_NTFS:
+        return "exFAT/NTFS";
+    case ESP_EXT_PART_TYPE_LINUX_ANY:
+        return "Linux";
+    case ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR:
+        return "GPT protective MBR";
     default:
         break;
     }
