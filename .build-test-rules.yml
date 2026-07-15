@@ -99,3 +99,19 @@ spi_nand_flash_fatfs/examples/nand_flash:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+
+blemesh_manager/examples/repl_demo:
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5)) and SOC_BLE_SUPPORTED == 1
+      reason: blemesh_manager requires Bluetooth LE (ESP-BLE-MESH) and depends on IDF >= 5.1
+  disable:
+    - if: IDF_TARGET == "esp32c2"
+      reason: ESP-BLE-MESH is not supported on ESP32-C2 (no prebuilt libble_mesh.a)
+
+blemesh_manager/test_apps:
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5)) and SOC_BLE_SUPPORTED == 1
+      reason: blemesh_manager requires Bluetooth LE (ESP-BLE-MESH) and depends on IDF >= 5.1
+  disable:
+    - if: IDF_TARGET == "esp32c2"
+      reason: ESP-BLE-MESH is not supported on ESP32-C2 (no prebuilt libble_mesh.a)
