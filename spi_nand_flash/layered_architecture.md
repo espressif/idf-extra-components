@@ -21,6 +21,7 @@ When enabled, provides:
 - Flash Block Device Layer (raw NAND flash access)
 - Wear-Leveling Block Device Layer (logical page access with wear leveling)
 - Advanced layered API (`spi_nand_flash_init_with_layers`)
+- Optional **FAT + VFS on the WL BDL** (ESP-IDF 6.1+): use **`esp_vfs_fat_bdl_mount()`** / **`esp_vfs_fat_bdl_unmount()`** with the wear-leveling handle from **`spi_nand_flash_init_with_layers()`** (FatFS **`diskio_bdl`**). Optional pre-format: **`esp_vfs_fat_nand_bdl_format()`** in `spi_nand_flash_fatfs`. Example: **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**. The legacy FatFS integration (**`esp_vfs_fat_nand_mount()`** in `spi_nand_flash_fatfs`) still requires **BDL off** and **`spi_nand_flash_init_device()`**.
 
 When disabled, only the legacy API is available.
 
@@ -128,6 +129,8 @@ Application / Filesystem
 │ - Register access                                            │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+In this mode, “Application / Filesystem” may be your own block-device consumer or a FAT volume: on ESP-IDF 6.1+, mounting FAT on the WL BDL uses **`esp_vfs_fat_bdl_mount()`** (see **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**), which is separate from the legacy **`esp_vfs_fat_nand_*`** helpers in `spi_nand_flash_fatfs`.
 
 ### Key Improvements
 
