@@ -34,6 +34,30 @@ typedef struct esp_schedule {
     esp_schedule_validity_t validity;
 } esp_schedule_t;
 
+/* On-disk format version for the persisted schedule blob. Bump whenever the
+ * layout of esp_schedule_persistent_t or esp_schedule_trigger_t changes in a
+ * way that is not backward compatible, so stale blobs are rejected (or
+ * migrated) on read. */
+#define ESP_SCHEDULE_NVS_FORMAT_VERSION 2
+
+/* Persisted form of a schedule. Runtime-only and runtime-derived fields (live
+ * pointers, timer handle, callbacks, and the next-fire countdown which is
+ * recomputed on every arm) are intentionally excluded: persisting them is
+ * meaningless across reboots and makes the format depend on pointer width and
+ * padding.
+ *
+ * struct_size records sizeof(esp_schedule_persistent_t) as written, so a blob
+ * produced by a build with a different layout is rejected rather than
+ * misinterpreted. The prime case is CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT being
+ * toggled across an OTA, which changes sizeof(esp_schedule_trigger_t). */
+typedef struct esp_schedule_persistent {
+    uint8_t version;       /* ESP_SCHEDULE_NVS_FORMAT_VERSION */
+    uint16_t struct_size;  /* sizeof(esp_schedule_persistent_t) when written */
+    char name[MAX_SCHEDULE_NAME_LEN + 1];
+    esp_schedule_trigger_t trigger;
+    esp_schedule_validity_t validity;
+} esp_schedule_persistent_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

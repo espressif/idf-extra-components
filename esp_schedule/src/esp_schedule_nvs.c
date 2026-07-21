@@ -47,7 +47,7 @@ esp_err_t esp_schedule_nvs_add(esp_schedule_t *schedule)
         if (err == ESP_ERR_NVS_NOT_FOUND) {
             editing_schedule = false;
         } else {
-            ESP_LOGE(TAG, "NVS get failed with error %d", err);
+            ESP_LOGE(TAG, "NVS get existing schedule failed while adding schedule %s with error %d", schedule->name, err);
             nvs_close(nvs_handle);
             return err;
         }
@@ -55,28 +55,51 @@ esp_err_t esp_schedule_nvs_add(esp_schedule_t *schedule)
         ESP_LOGI(TAG, "Updating the existing schedule %s", schedule->name);
     }
 
-    err = nvs_set_blob(nvs_handle, schedule->name, schedule, sizeof(esp_schedule_t));
+    /* Build the persisted form. Runtime-only fields (timer handle, callbacks,
+     * priv_data) are never persisted. */
+    esp_schedule_persistent_t persistent = {0};
+    persistent.version = ESP_SCHEDULE_NVS_FORMAT_VERSION;
+    persistent.struct_size = (uint16_t) sizeof(persistent);
+    persistent.trigger = schedule->trigger;
+    persistent.validity = schedule->validity;
+    strlcpy(persistent.name, schedule->name, sizeof(persistent.name));
+
+    /* For a new schedule, read and validate the count BEFORE writing the blob,
+     * so a rejected add (count read error, or count already at the limit) never
+     * leaves an uncounted orphan blob that a later boot would resurrect or drop. */
+    uint8_t schedule_count = 0;
+    if (editing_schedule == false) {
+        err = nvs_get_u8(nvs_handle, ESP_SCHEDULE_COUNT_KEY, &schedule_count);
+        if (err != ESP_OK) {
+            if (err == ESP_ERR_NVS_NOT_FOUND) {
+                schedule_count = 0;
+            } else {
+                ESP_LOGE(TAG, "NVS get existing schedule count failed while adding schedule %s with error %d", schedule->name, err);
+                nvs_close(nvs_handle);
+                return err;
+            }
+        }
+        if (schedule_count == UINT8_MAX) {
+            ESP_LOGE(TAG, "Schedule count at maximum (%u); not adding %s", UINT8_MAX, schedule->name);
+            nvs_close(nvs_handle);
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
+    err = nvs_set_blob(nvs_handle, schedule->name, &persistent, sizeof(persistent));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS set failed with error %d", err);
         nvs_close(nvs_handle);
         return err;
     }
     if (editing_schedule == false) {
-        uint8_t schedule_count;
-        err = nvs_get_u8(nvs_handle, ESP_SCHEDULE_COUNT_KEY, &schedule_count);
-        if (err != ESP_OK) {
-            if (err == ESP_ERR_NVS_NOT_FOUND) {
-                schedule_count = 0;
-            } else {
-                ESP_LOGE(TAG, "NVS get failed with error %d", err);
-                nvs_close(nvs_handle);
-                return err;
-            }
-        }
-        schedule_count++;
-        err = nvs_set_u8(nvs_handle, ESP_SCHEDULE_COUNT_KEY, schedule_count);
+        err = nvs_set_u8(nvs_handle, ESP_SCHEDULE_COUNT_KEY, (uint8_t)(schedule_count + 1));
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "NVS set failed for schedule count with error %d", err);
+            /* Undo the blob we just wrote so the count and stored blobs stay
+             * consistent (no uncounted orphan). */
+            nvs_erase_key(nvs_handle, schedule->name);
+            nvs_commit(nvs_handle);
             nvs_close(nvs_handle);
             return err;
         }
@@ -123,6 +146,8 @@ esp_err_t esp_schedule_nvs_remove(esp_schedule_t *schedule)
         ESP_LOGE(TAG, "NVS open failed with error %d", err);
         return err;
     }
+
+    /* Remove schedule blob (includes trigger data) */
     err = nvs_erase_key(nvs_handle, schedule->name);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS erase key failed with error %d", err);
@@ -136,7 +161,11 @@ esp_err_t esp_schedule_nvs_remove(esp_schedule_t *schedule)
         nvs_close(nvs_handle);
         return err;
     }
-    schedule_count--;
+    /* Guard against underflow if the count key is already 0 (e.g. a prior power
+     * loss desynced the count from the stored blobs). */
+    if (schedule_count > 0) {
+        schedule_count--;
+    }
     err = nvs_set_u8(nvs_handle, ESP_SCHEDULE_COUNT_KEY, schedule_count);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS set failed for schedule count with error %d", err);
@@ -173,7 +202,62 @@ static uint8_t esp_schedule_nvs_get_count(void)
     return schedule_count;
 }
 
-static esp_schedule_handle_t esp_schedule_nvs_get(char *nvs_key)
+/* Frozen on-flash layout of the pre-versioned (v1.x) schedule blob: v1 wrote a
+ * raw esp_schedule_t via nvs_set_blob(..., sizeof(esp_schedule_t)). The first
+ * field was the name, so a v1 blob's first byte is a printable name character,
+ * never equal to ESP_SCHEDULE_NVS_FORMAT_VERSION; that plus the exact size is
+ * how a v1 blob is recognized below.
+ *
+ * DO NOT EDIT to track the live esp_schedule_t. The embedded trigger and
+ * validity types are the current ones only because their layouts are unchanged
+ * since v1; the pointer fields are placeholders so the offsets and total size
+ * match what v1 wrote on this ABI. */
+typedef struct {
+    char name[MAX_SCHEDULE_NAME_LEN + 1];
+    esp_schedule_trigger_t trigger;    /* v1 stored a single trigger */
+    uint32_t next_scheduled_time_diff; /* runtime-derived; ignored on load */
+    void *timer;                       /* was TimerHandle_t; junk across reboot */
+    void *trigger_cb;                  /* junk across reboot */
+    void *timestamp_cb;                /* junk across reboot */
+    void *priv_data;                   /* v1 stored the pointer, not the data */
+    esp_schedule_validity_t validity;
+} esp_schedule_legacy_v1_t;
+
+/* Build a schedule from a pre-versioned (v1.x) blob, or return NULL if the blob
+ * is not a recognizable v1 blob. In-memory migration only: the upgraded blob is
+ * written back the next time the schedule is saved (create/edit), which avoids
+ * mutating NVS while esp_schedule_nvs_get_all is iterating it. */
+static esp_schedule_handle_t esp_schedule_migrate_from_v1(const char *nvs_key, const uint8_t *blob, size_t buf_size)
+{
+    if (buf_size != sizeof(esp_schedule_legacy_v1_t)) {
+        ESP_LOGE(TAG, "Schedule %s blob is neither current format nor a known legacy layout (%u bytes); rejecting",
+                 nvs_key, (unsigned)buf_size);
+        return NULL;
+    }
+    const esp_schedule_legacy_v1_t *v1 = (const esp_schedule_legacy_v1_t *) blob;
+    if (v1->trigger.type == ESP_SCHEDULE_TYPE_INVALID) {
+        ESP_LOGE(TAG, "Schedule %s legacy blob has invalid trigger type; rejecting", nvs_key);
+        return NULL;
+    }
+
+    esp_schedule_t *schedule = (esp_schedule_t *)calloc(1, sizeof(esp_schedule_t));
+    if (schedule == NULL) {
+        ESP_LOGE(TAG, "Could not allocate schedule while migrating %s", nvs_key);
+        return NULL;
+    }
+    strlcpy(schedule->name, v1->name, sizeof(schedule->name));
+    schedule->trigger = v1->trigger;
+    schedule->validity = v1->validity;
+    /* v1 only ever persisted the priv_data pointer value (meaningless across a
+     * reboot), never its contents, so there is nothing to restore. Runtime
+     * fields are already zeroed by calloc. */
+    schedule->priv_data = NULL;
+
+    ESP_LOGW(TAG, "Migrated schedule %s from legacy (pre-2.0) NVS format", nvs_key);
+    return (esp_schedule_handle_t) schedule;
+}
+
+static esp_schedule_handle_t esp_schedule_nvs_get(const char *nvs_key)
 {
     if (!nvs_enabled) {
         ESP_LOGD(TAG, "NVS not enabled. Not getting from NVS.");
@@ -186,26 +270,75 @@ static esp_schedule_handle_t esp_schedule_nvs_get(char *nvs_key)
         ESP_LOGE(TAG, "NVS open failed with error %d", err);
         return NULL;
     }
+
+    /* Get blob size */
     err = nvs_get_blob(nvs_handle, nvs_key, NULL, &buf_size);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS get failed with error %d", err);
         nvs_close(nvs_handle);
         return NULL;
     }
-    esp_schedule_t *schedule = (esp_schedule_t *)malloc(buf_size);
-    if (schedule == NULL) {
-        ESP_LOGE(TAG, "Could not allocate handle");
+
+    /* Allocate buffer for entire blob */
+    uint8_t *blob_buffer = (uint8_t *)malloc(buf_size);
+    if (blob_buffer == NULL) {
+        ESP_LOGE(TAG, "Could not allocate blob buffer");
         nvs_close(nvs_handle);
         return NULL;
     }
-    err = nvs_get_blob(nvs_handle, nvs_key, schedule, &buf_size);
+
+    /* Read entire blob */
+    err = nvs_get_blob(nvs_handle, nvs_key, blob_buffer, &buf_size);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS get failed with error %d", err);
         nvs_close(nvs_handle);
-        free(schedule);
+        free(blob_buffer);
         return NULL;
     }
     nvs_close(nvs_handle);
+
+    /* Validate the blob before trusting any field. A blob may be too short, in
+     * an older/foreign format (e.g. after OTA), or written by a build with a
+     * different layout (e.g. daylight support toggled, which changes
+     * sizeof(esp_schedule_trigger_t)). Any of these would otherwise cause an
+     * out-of-bounds read below. */
+    size_t schedule_size = sizeof(esp_schedule_persistent_t);
+    if (buf_size < schedule_size) {
+        ESP_LOGE(TAG, "Schedule %s blob too small (%u < %u); rejecting", nvs_key, (unsigned)buf_size, (unsigned)schedule_size);
+        free(blob_buffer);
+        return NULL;
+    }
+    esp_schedule_persistent_t *persistent = (esp_schedule_persistent_t *)(blob_buffer);
+    if (persistent->version != ESP_SCHEDULE_NVS_FORMAT_VERSION) {
+        /* Not the current format. Attempt to migrate a pre-versioned (v1.x) blob
+         * so schedules survive an OTA upgrade; any other/foreign blob is rejected
+         * by the migrator (returns NULL). */
+        ESP_LOGW(TAG, "Schedule %s blob is not current format (version byte %u); attempting legacy migration", nvs_key, persistent->version);
+        esp_schedule_handle_t migrated = esp_schedule_migrate_from_v1(nvs_key, blob_buffer, buf_size);
+        free(blob_buffer);
+        return migrated;
+    }
+    if (persistent->struct_size != (uint16_t) schedule_size) {
+        ESP_LOGE(TAG, "Schedule %s struct size %u != %u; rejecting", nvs_key, persistent->struct_size, (unsigned)schedule_size);
+        free(blob_buffer);
+        return NULL;
+    }
+
+    /* Allocate schedule structure */
+    esp_schedule_t *schedule = (esp_schedule_t *)calloc(1, sizeof(esp_schedule_t));
+    if (schedule == NULL) {
+        ESP_LOGE(TAG, "Could not allocate schedule");
+        free(blob_buffer);
+        return NULL;
+    }
+
+    /* Reconstruct full schedule from persistent data. */
+    strlcpy(schedule->name, persistent->name, sizeof(schedule->name));
+    schedule->trigger = persistent->trigger;
+    schedule->validity = persistent->validity;
+    /* Runtime fields are zeroed by calloc: timer, trigger_cb, timestamp_cb, priv_data */
+
+    free(blob_buffer);
     ESP_LOGI(TAG, "Schedule %s found in NVS", schedule->name);
     return (esp_schedule_handle_t) schedule;
 }
@@ -222,7 +355,7 @@ esp_schedule_handle_t *esp_schedule_nvs_get_all(uint8_t *schedule_count)
         ESP_LOGI(TAG, "No Entries found in NVS");
         return NULL;
     }
-    esp_schedule_handle_t *handle_list = (esp_schedule_handle_t *)malloc(sizeof(esp_schedule_handle_t) * (*schedule_count));
+    esp_schedule_handle_t *handle_list = (esp_schedule_handle_t *)calloc(*schedule_count, sizeof(esp_schedule_handle_t));
     if (handle_list == NULL) {
         ESP_LOGE(TAG, "Could not allocate schedule list");
         *schedule_count = 0;
@@ -236,10 +369,19 @@ esp_schedule_handle_t *esp_schedule_nvs_get_all(uint8_t *schedule_count)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "No entry found in NVS");
         free(handle_list);
+        *schedule_count = 0;
         return NULL;
     }
     while (err == ESP_OK) {
         nvs_entry_info(nvs_iterator, &nvs_entry);
+        /* handle_list is sized from the stored count key. If the iterator ever
+         * yields more blobs than that count (e.g. a power loss between writing a
+         * schedule blob and updating the count), stop rather than write past the
+         * end of the array. */
+        if (handle_count >= *schedule_count) {
+            ESP_LOGW(TAG, "More schedule blobs than count (%u); ignoring extra key %s", *schedule_count, nvs_entry.key);
+            break;
+        }
         ESP_LOGI(TAG, "Found schedule in NVS with key: %s", nvs_entry.key);
         handle_list[handle_count] = esp_schedule_nvs_get(nvs_entry.key);
         if (handle_list[handle_count] != NULL) {

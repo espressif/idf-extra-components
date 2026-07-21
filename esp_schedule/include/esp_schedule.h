@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -37,10 +37,10 @@ typedef void (*esp_schedule_trigger_cb_t)(esp_schedule_handle_t handle, void *pr
  * one time schedules have already passed while the device was powered off.
  *
  * @param[in] handle Schedule handle.
- * @param[in] next_timestamp timestamp at which the schedule will trigger next.
+ * @param[in] next_timestamp UTC timestamp (time_t) at which the schedule will trigger next.
  * @param[in] priv_data Pointer to the user data passed while creating/editing the schedule.
  */
-typedef void (*esp_schedule_timestamp_cb_t)(esp_schedule_handle_t handle, uint32_t next_timestamp, void *priv_data);
+typedef void (*esp_schedule_timestamp_cb_t)(esp_schedule_handle_t handle, time_t next_timestamp, void *priv_data);
 
 /** Schedule type */
 typedef enum esp_schedule_type {
@@ -123,7 +123,7 @@ typedef struct esp_schedule_trigger {
         int offset_minutes;
     } solar;
 #endif
-    /** For type ESP_SCHEDULE_TYPE_SECONDS */
+    /** For type ESP_SCHEDULE_TYPE_RELATIVE */
     int relative_seconds;
     /** Used for passing the next schedule timestamp for
      * ESP_SCHEDULE_TYPE_RELATIVE */
@@ -179,11 +179,12 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
  * esp_schedule_enable().
  *
  * @param[in] schedule_config Configuration of the schedule to be created.
+ * @param[out] handle_out Populated with the created schedule handle on success.
  *
- * @return Schedule handle if successfully created.
- * @return NULL in case of error.
+ * @return ESP_OK on success.
+ * @return error in case of failure.
  */
-esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config);
+esp_err_t esp_schedule_create(const esp_schedule_config_t *schedule_config, esp_schedule_handle_t *handle_out);
 
 /** Remove Schedule
  *
@@ -195,6 +196,18 @@ esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config
  * @return error in case of failure.
  */
 esp_err_t esp_schedule_delete(esp_schedule_handle_t handle);
+
+/** Remove a list of schedules
+ *
+ * This API removes all the schedules in the provided handle list (and their NVS entries).
+ *
+ * @param[in] handle_list Array of schedule handles to be removed.
+ * @param[in] schedule_count Number of handles in the array.
+ *
+ * @return ESP_OK on success.
+ * @return error in case of failure.
+ */
+esp_err_t esp_schedule_delete_all(esp_schedule_handle_t *handle_list, uint8_t schedule_count);
 
 /** Edit Schedule
  *
@@ -251,6 +264,26 @@ esp_err_t esp_schedule_disable(esp_schedule_handle_t handle);
  * @return error in case of failure.
  */
 esp_err_t esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config);
+
+/** Set the trigger callback for a schedule
+ *
+ * @param[in] handle Schedule handle.
+ * @param[in] trigger_cb Trigger callback.
+ *
+ * @return ESP_OK on success.
+ * @return error in case of failure.
+ */
+esp_err_t esp_schedule_set_trigger_callback(esp_schedule_handle_t handle, esp_schedule_trigger_cb_t trigger_cb);
+
+/** Set the timestamp callback for a schedule
+ *
+ * @param[in] handle Schedule handle.
+ * @param[in] timestamp_cb Timestamp callback.
+ *
+ * @return ESP_OK on success.
+ * @return error in case of failure.
+ */
+esp_err_t esp_schedule_set_timestamp_callback(esp_schedule_handle_t handle, esp_schedule_timestamp_cb_t timestamp_cb);
 
 #ifdef __cplusplus
 }

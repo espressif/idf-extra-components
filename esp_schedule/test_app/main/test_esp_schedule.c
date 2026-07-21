@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include "esp_err.h"
 #include "esp_netif.h"
+#include "nvs.h"
 #include "esp_log.h"
 #include "unity.h"
 #include "esp_schedule_internal.h"
@@ -53,6 +54,31 @@ static void assert_time_eq(const char *name, time_t got, time_t want)
         print_time("want", want);
     }
     TEST_ASSERT_TRUE_MESSAGE(got == want, name);
+}
+
+static void __match_trigger(esp_schedule_trigger_t *got, esp_schedule_trigger_t *want)
+{
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(got->type, want->type, "Trigger types should match");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(got->hours, want->hours, "Trigger hours should match");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(got->minutes, want->minutes, "Trigger minutes should match");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(got->day.repeat_days, want->day.repeat_days, "Trigger days should match");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(got->date.day, want->date.day, "Trigger date should match");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(got->date.repeat_months, want->date.repeat_months, "Trigger months should match");
+#if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
+    TEST_ASSERT_EQUAL_DOUBLE_MESSAGE(got->solar.latitude, want->solar.latitude, "Trigger latitude should match");
+    TEST_ASSERT_EQUAL_DOUBLE_MESSAGE(got->solar.longitude, want->solar.longitude, "Trigger longitude should match");
+    TEST_ASSERT_EQUAL_INT32_MESSAGE(got->solar.offset_minutes, want->solar.offset_minutes, "Trigger offset minutes should match");
+#endif
+}
+
+static void nvs_erase_schd(void)
+{
+    nvs_handle_t h;
+    if (nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_erase_all(h);
+        nvs_commit(h);
+        nvs_close(h);
+    }
 }
 
 // --- Date permutations ---
@@ -963,8 +989,9 @@ TEST_CASE("create and edit reject invalid config", "[esp_schedule]")
         cfg.trigger.date.year = bad[i].yr;
         cfg.trigger.date.repeat_every_year = bad[i].ry;
         char msg[64];
-        snprintf(msg, sizeof(msg), "rule %s: create() must return NULL", bad[i].rule);
-        TEST_ASSERT_NULL_MESSAGE(esp_schedule_create(&cfg), msg);
+        snprintf(msg, sizeof(msg), "rule %s: create() must be rejected", bad[i].rule);
+        esp_schedule_handle_t bad_handle = NULL;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_ERR_INVALID_ARG, (int)esp_schedule_create(&cfg, &bad_handle), msg);
     }
 
     /* V7: RELATIVE with a non-positive delay. Not in the table above because it
@@ -973,7 +1000,8 @@ TEST_CASE("create and edit reject invalid config", "[esp_schedule]")
     strlcpy(cfg.name, "bad_cfg", sizeof(cfg.name));
     cfg.trigger.type = ESP_SCHEDULE_TYPE_RELATIVE;
     cfg.trigger.relative_seconds = 0;
-    TEST_ASSERT_NULL_MESSAGE(esp_schedule_create(&cfg), "rule V7: create() must return NULL");
+    esp_schedule_handle_t v7_handle = NULL;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_ERR_INVALID_ARG, (int)esp_schedule_create(&cfg, &v7_handle), "rule V7: create() must be rejected");
 
     /* A valid schedule can be created, and editing it into an invalid shape is
      * rejected without disturbing the stored config. */
@@ -982,8 +1010,8 @@ TEST_CASE("create and edit reject invalid config", "[esp_schedule]")
     cfg.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
     cfg.trigger.hours = 9;
     cfg.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
-    esp_schedule_handle_t handle = esp_schedule_create(&cfg);
-    TEST_ASSERT_NOT_NULL_MESSAGE(handle, "DOW-1 must be accepted");
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, (int)esp_schedule_create(&cfg, &handle), "DOW-1 must be accepted");
 
     cfg.trigger.date.day = 15; /* rule V1: a date field on a DAYS_OF_WEEK trigger */
     TEST_ASSERT_EQUAL_MESSAGE(ESP_ERR_INVALID_ARG, esp_schedule_edit(handle, &cfg), "edit() must reject rule V1");
@@ -1351,8 +1379,9 @@ TEST_CASE("time of day range validation", "[esp_schedule]")
         cfg.trigger.hours = bad[i].hours;
         cfg.trigger.minutes = bad[i].minutes;
         char msg[64];
-        snprintf(msg, sizeof(msg), "%s: create() must return NULL", bad[i].what);
-        TEST_ASSERT_NULL_MESSAGE(esp_schedule_create(&cfg), msg);
+        snprintf(msg, sizeof(msg), "%s: create() must be rejected", bad[i].what);
+        esp_schedule_handle_t bad_handle = NULL;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_ERR_INVALID_ARG, (int)esp_schedule_create(&cfg, &bad_handle), msg);
     }
 
     /* 23:59 is accepted, and editing it out of range is refused without
@@ -1363,8 +1392,8 @@ TEST_CASE("time of day range validation", "[esp_schedule]")
     cfg.trigger.day.repeat_days = ESP_SCHEDULE_DAY_EVERYDAY;
     cfg.trigger.hours = 23;
     cfg.trigger.minutes = 59;
-    esp_schedule_handle_t handle = esp_schedule_create(&cfg);
-    TEST_ASSERT_NOT_NULL_MESSAGE(handle, "23:59 must be accepted");
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, (int)esp_schedule_create(&cfg, &handle), "23:59 must be accepted");
 
     cfg.trigger.minutes = 60;
     TEST_ASSERT_EQUAL_MESSAGE(ESP_ERR_INVALID_ARG, esp_schedule_edit(handle, &cfg), "edit() must reject minutes = 60");
@@ -1381,8 +1410,8 @@ TEST_CASE("time of day range validation", "[esp_schedule]")
     cfg.trigger.relative_seconds = 60;
     cfg.trigger.hours = 99;
     cfg.trigger.minutes = 99;
-    esp_schedule_handle_t rel = esp_schedule_create(&cfg);
-    TEST_ASSERT_NOT_NULL_MESSAGE(rel, "RELATIVE ignores hours/minutes");
+    esp_schedule_handle_t rel = NULL;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, (int)esp_schedule_create(&cfg, &rel), "RELATIVE ignores hours/minutes");
 
     TEST_ASSERT_EQUAL(ESP_OK, esp_schedule_delete(rel));
     TEST_ASSERT_EQUAL(ESP_OK, esp_schedule_delete(handle));
@@ -1580,9 +1609,455 @@ TEST_CASE("nvs restore drops invalid config", "[esp_schedule]")
  * tz_pop(), so a leaked TZ cannot make later timezone-independent tests fail. */
 void setUp(void)
 {
+    /* Start each test from a clean NVS namespace so count-based assertions do
+     * not depend on leftover state from a prior test (or a prior run's flash). */
+    nvs_erase_schd();
 }
 
 void tearDown(void)
 {
     tz_pop();
+}
+
+/* =========================================== */
+/* Multi-trigger and NVS v2 persistence tests  */
+/* =========================================== */
+
+TEST_CASE("nvs basic operations", "[esp_schedule]")
+{
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "test_schedule");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 8;
+    config.trigger.minutes = 0;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+    config.validity.start_time = 0;
+    config.validity.end_time = 2147483647;
+
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, (int)esp_schedule_create(&config, &handle), "Failed to create schedule");
+    TEST_ASSERT_NOT_NULL_MESSAGE(handle, "Failed to create schedule");
+
+    uint8_t count = 0;
+    esp_schedule_handle_t *handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_NOT_NULL_MESSAGE(handles, "Failed to get schedules from NVS");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(1, count, "Should have 1 schedule in NVS");
+
+    esp_schedule_config_t rc = {0};
+    esp_schedule_get(handles[0], &rc);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(config.name, rc.name, "Schedule names should match");
+    __match_trigger(&config.trigger, &rc.trigger);
+
+    esp_schedule_delete(handle);
+    for (int i = 0; i < count; i++) {
+        esp_schedule_delete(handles[i]);
+    }
+    free(handles);
+
+    handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, count, "Should have 0 schedules after removal");
+    if (handles) {
+        free(handles);
+    }
+}
+
+TEST_CASE("nvs multiple schedules", "[esp_schedule]")
+{
+    const char *names[3] = {"schedule1", "schedule2", "schedule3"};
+    esp_schedule_config_t configs[3] = {0};
+
+    for (int i = 0; i < 3; i++) {
+        strcpy(configs[i].name, names[i]);
+        configs[i].trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+        configs[i].trigger.hours = 8 + i;
+        configs[i].trigger.minutes = i * 15;
+        configs[i].trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+        configs[i].validity.end_time = 2147483647;
+        esp_schedule_handle_t handle = NULL;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, (int)esp_schedule_create(&configs[i], &handle), "Failed to create schedule");
+    }
+
+    uint8_t retrieved_count = 0;
+    esp_schedule_handle_t *handles = esp_schedule_nvs_get_all(&retrieved_count);
+    TEST_ASSERT_NOT_NULL_MESSAGE(handles, "Failed to get all schedules");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(3, retrieved_count, "Should retrieve 3 schedules");
+
+    bool found_schedules[3] = {false, false, false};
+    for (int i = 0; i < retrieved_count; i++) {
+        esp_schedule_config_t rc = {0};
+        esp_schedule_get(handles[i], &rc);
+        for (int j = 0; j < 3; j++) {
+            if (strcmp(rc.name, names[j]) == 0) {
+                TEST_ASSERT_FALSE_MESSAGE(found_schedules[j], "Duplicate schedule found");
+                found_schedules[j] = true;
+                __match_trigger(&configs[j].trigger, &rc.trigger);
+                break;
+            }
+        }
+        esp_schedule_delete(handles[i]);
+    }
+    free(handles);
+
+    for (int i = 0; i < 3; i++) {
+        TEST_ASSERT_TRUE_MESSAGE(found_schedules[i], "Expected schedule not found");
+    }
+
+    handles = esp_schedule_nvs_get_all(&retrieved_count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, retrieved_count, "Should have 0 schedules after removal");
+    if (handles) {
+        free(handles);
+    }
+}
+
+TEST_CASE("nvs delete all", "[esp_schedule]")
+{
+    esp_schedule_config_t configs[3] = {0};
+    esp_schedule_handle_t handles[3] = {NULL, NULL, NULL};
+    const char *names[3] = {"delete_test1", "delete_test2", "delete_test3"};
+
+    for (int i = 0; i < 3; i++) {
+        strcpy(configs[i].name, names[i]);
+        configs[i].trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+        configs[i].trigger.hours = 9 + i;
+        configs[i].trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+        configs[i].validity.end_time = 2147483647;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, (int)esp_schedule_create(&configs[i], &handles[i]), "Failed to create schedule");
+    }
+
+    uint8_t count_before = 0;
+    esp_schedule_handle_t *all_before = esp_schedule_nvs_get_all(&count_before);
+    TEST_ASSERT_NOT_NULL_MESSAGE(all_before, "Failed to get schedules from NVS");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(3, count_before, "Should have 3 schedules before delete_all");
+    free(all_before);
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, (int)esp_schedule_delete_all(handles, 3), "delete_all should succeed");
+
+    uint8_t count_after = 0;
+    esp_schedule_handle_t *all_after = esp_schedule_nvs_get_all(&count_after);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, count_after, "Should have 0 schedules after delete_all");
+    if (all_after) {
+        free(all_after);
+    }
+}
+
+TEST_CASE("nvs blob has no live pointer", "[esp_schedule]")
+{
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "ptrtest");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 8;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+    config.validity.end_time = 2147483647;
+
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+
+    nvs_handle_t h;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READONLY, &h));
+    size_t blob_size = 0;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_get_blob(h, "ptrtest", NULL, &blob_size));
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(sizeof(esp_schedule_persistent_t), blob_size,
+                                     "blob size must be the persisted struct only (no live pointers)");
+
+    uint8_t *buf = malloc(blob_size);
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_get_blob(h, "ptrtest", buf, &blob_size));
+    esp_schedule_persistent_t *p = (esp_schedule_persistent_t *)buf;
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(ESP_SCHEDULE_NVS_FORMAT_VERSION, p->version, "version byte");
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(sizeof(esp_schedule_persistent_t), p->struct_size, "struct size persisted");
+    free(buf);
+    nvs_close(h);
+
+    esp_schedule_delete(handle);
+}
+
+TEST_CASE("nvs rejects invalid blobs", "[esp_schedule]")
+{
+    nvs_handle_t h;
+
+    /* (a) Blob shorter than the persistent header. */
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h));
+    uint8_t tiny[4] = {0};
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_blob(h, "shorty", tiny, sizeof(tiny)));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_u8(h, "schd_count", 1));
+    nvs_commit(h);
+    nvs_close(h);
+    uint8_t count = 0;
+    esp_schedule_handle_t *handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, count, "short blob must be rejected");
+    free(handles);
+
+    /* (b) Correct header size but wrong version byte. */
+    nvs_erase_schd();
+    esp_schedule_persistent_t p = {0};
+    p.version = ESP_SCHEDULE_NVS_FORMAT_VERSION + 99;
+    p.struct_size = sizeof(esp_schedule_persistent_t);
+    strcpy(p.name, "badver");
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_blob(h, "badver", &p, sizeof(p)));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_u8(h, "schd_count", 1));
+    nvs_commit(h);
+    nvs_close(h);
+    count = 0;
+    handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, count, "bad-version blob must be rejected");
+    free(handles);
+
+    /* (c) Right version and length, but a layout from a differently-configured
+     * build (e.g. daylight toggled across an OTA), flagged by struct_size. */
+    nvs_erase_schd();
+    memset(&p, 0, sizeof(p));
+    p.version = ESP_SCHEDULE_NVS_FORMAT_VERSION;
+    p.struct_size = (uint16_t)sizeof(esp_schedule_persistent_t) + 4;
+    strcpy(p.name, "badssz");
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_blob(h, "badssz", &p, sizeof(p)));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_u8(h, "schd_count", 1));
+    nvs_commit(h);
+    nvs_close(h);
+    count = 0;
+    handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, count, "mismatched struct-size blob must be rejected");
+    free(handles);
+}
+
+TEST_CASE("nvs count less than blobs", "[esp_schedule]")
+{
+    esp_schedule_config_t config = {0};
+    esp_schedule_handle_t handle = NULL;
+    for (int i = 0; i < 2; i++) {
+        memset(&config, 0, sizeof(config));
+        snprintf(config.name, sizeof(config.name), "ov%d", i);
+        config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+        config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+        config.validity.end_time = 2147483647;
+        TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+    }
+
+    /* Corrupt the count key to under-report (simulates power loss). */
+    nvs_handle_t h;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_u8(h, "schd_count", 1));
+    nvs_commit(h);
+    nvs_close(h);
+
+    uint8_t count = 0;
+    esp_schedule_handle_t *handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_TRUE_MESSAGE(count <= 1, "must clamp to the count-sized array");
+    if (handles) {
+        for (int i = 0; i < count; i++) {
+            if (handles[i]) {
+                esp_schedule_delete(handles[i]);
+            }
+        }
+        free(handles);
+    }
+}
+
+TEST_CASE("edit preserves new trigger", "[esp_schedule]")
+{
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "edittest");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 8;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+    config.validity.end_time = 2147483647;
+
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+
+    esp_schedule_config_t edit = {0};
+    strcpy(edit.name, "edittest");
+    edit.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    edit.trigger.hours = 14;
+    edit.trigger.minutes = 45;
+    edit.trigger.day.repeat_days = ESP_SCHEDULE_DAY_FRIDAY;
+    edit.validity.end_time = 2147483647;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_edit(handle, &edit));
+
+    esp_schedule_config_t got = {0};
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_get(handle, &got));
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(14, got.trigger.hours, "edit must install the new trigger hours");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(45, got.trigger.minutes, "edit must install the new trigger minutes");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(ESP_SCHEDULE_DAY_FRIDAY, got.trigger.day.repeat_days, "edit must install the new repeat days");
+
+    esp_schedule_delete(handle);
+}
+
+TEST_CASE("nvs remove count no underflow", "[esp_schedule]")
+{
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "f2test");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+    config.validity.end_time = 2147483647;
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+
+    /* Desync: force the count key to 0 while the blob still exists. */
+    nvs_handle_t h;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_u8(h, "schd_count", 0));
+    nvs_commit(h);
+    nvs_close(h);
+
+    esp_schedule_delete(handle);
+
+    uint8_t c = 0xEE;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READONLY, &h));
+    nvs_get_u8(h, "schd_count", &c);
+    nvs_close(h);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, c, "count must stay 0, not underflow to 255");
+}
+
+TEST_CASE("create rejects invalid trigger type", "[esp_schedule]")
+{
+    /* A zero-initialized trigger has type ESP_SCHEDULE_TYPE_INVALID: it can never
+     * compute a next occurrence, so create() must reject it rather than hand back
+     * a handle that silently never fires (and persist a permanent no-op). */
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "f3test");
+    config.validity.end_time = 2147483647;
+
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_ERR_INVALID_ARG, (int)esp_schedule_create(&config, &handle),
+                                  "create must reject an invalid trigger type");
+    TEST_ASSERT_NULL_MESSAGE(handle, "no handle on failed create");
+
+    uint8_t count = 0;
+    esp_schedule_handle_t *handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, count, "rejected create must not persist anything");
+    if (handles) {
+        free(handles);
+    }
+}
+
+TEST_CASE("nvs add at max count no orphan", "[esp_schedule]")
+{
+    /* Force the count key to the maximum. */
+    nvs_handle_t h;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_u8(h, "schd_count", UINT8_MAX));
+    nvs_commit(h);
+    nvs_close(h);
+
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "orphan_test");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+    config.validity.end_time = 2147483647;
+
+    esp_schedule_handle_t handle = NULL;
+    esp_err_t ret = esp_schedule_create(&config, &handle);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_ERR_NO_MEM, (int)ret, "create must fail when count is at max");
+    TEST_ASSERT_NULL_MESSAGE(handle, "no handle on failed create");
+
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READONLY, &h));
+    size_t sz = 0;
+    esp_err_t e = nvs_get_blob(h, "orphan_test", NULL, &sz);
+    nvs_close(h);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_ERR_NVS_NOT_FOUND, (int)e, "rejected add must not leave an orphan blob");
+}
+
+/* --- pre-2.0 (v1) blobs must be migrated on load --- */
+/* Replica of the frozen v1 on-flash layout (a raw v1 esp_schedule_t). Must match
+ * esp_schedule_migrate_from_v1()'s expected size exactly. */
+typedef struct {
+    char name[MAX_SCHEDULE_NAME_LEN + 1];
+    esp_schedule_trigger_t trigger;
+    uint32_t next_scheduled_time_diff;
+    void *timer;
+    void *trigger_cb;
+    void *timestamp_cb;
+    void *priv_data;
+    esp_schedule_validity_t validity;
+} test_legacy_v1_t;
+
+TEST_CASE("nvs migrate from v1", "[esp_schedule]")
+{
+    /* Hand-write a v1 blob (raw struct, no version byte). */
+    test_legacy_v1_t v1 = {0};
+    strcpy(v1.name, "legacy1");
+    v1.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    v1.trigger.hours = 7;
+    v1.trigger.minutes = 15;
+    v1.trigger.day.repeat_days = ESP_SCHEDULE_DAY_TUESDAY;
+    v1.validity.start_time = 0;
+    v1.validity.end_time = 2147483647;
+
+    nvs_handle_t h;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition("nvs", "schd", NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_blob(h, "legacy1", &v1, sizeof(v1)));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_set_u8(h, "schd_count", 1));
+    nvs_commit(h);
+    nvs_close(h);
+
+    uint8_t count = 0;
+    esp_schedule_handle_t *handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(1, count, "v1 blob should migrate to one schedule");
+    TEST_ASSERT_NOT_NULL(handles);
+
+    esp_schedule_config_t got = {0};
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_get(handles[0], &got));
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("legacy1", got.name, "migrated name");
+    __match_trigger(&v1.trigger, &got.trigger);
+
+    for (int i = 0; i < count; i++) {
+        esp_schedule_delete(handles[i]);
+    }
+    free(handles);
+}
+
+/* --- far-future validity.start_time must still resolve --- */
+TEST_CASE("date far future validity start", "[esp_schedule]")
+{
+    time_t now = make_time_local(2025, 1, 1, 0, 0, 0);
+    time_t start = now + 3L * 365 * 24 * 3600; /* ~3 years out */
+    esp_schedule_validity_t validity = { .start_time = start, .end_time = start + 30L * 24 * 3600 };
+
+    time_t next_ts = 0;
+    bool ok = esp_schedule_get_next_date_time(now, 8 * 60, ESP_SCHEDULE_DAY_EVERYDAY, 0, 0, 0, &validity, &next_ts);
+    TEST_ASSERT_TRUE_MESSAGE(ok, "far-future start must still find an occurrence");
+    TEST_ASSERT_TRUE_MESSAGE(next_ts >= start, "occurrence must be within the validity window");
+    TEST_ASSERT_TRUE_MESSAGE(next_ts < start + 24 * 3600, "occurrence must be the first day of the window");
+}
+
+TEST_CASE("date validity start exact boundary", "[esp_schedule]")
+{
+    time_t now = make_time_local(2025, 1, 1, 0, 0, 0);
+    time_t start = make_time_local(2027, 6, 15, 8, 0, 0); /* ~29 months out, on an 08:00 slot */
+    esp_schedule_validity_t validity = { .start_time = start, .end_time = start + 30L * 24 * 3600 };
+
+    time_t next_ts = 0;
+    bool ok = esp_schedule_get_next_date_time(now, 8 * 60, ESP_SCHEDULE_DAY_EVERYDAY, 0, 0, 0, &validity, &next_ts);
+    TEST_ASSERT_TRUE_MESSAGE(ok, "far-future window-open occurrence must be found");
+    assert_time_eq("window-open day occurrence returned (not skipped)", next_ts, start);
+}
+
+TEST_CASE("start_timer stops on time loss", "[esp_schedule]")
+{
+    struct timeval tv = { .tv_sec = make_time_local(2025, 6, 15, 12, 0, 0), .tv_usec = 0 };
+    settimeofday(&tv, NULL);
+
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "f5test");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 8;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_EVERYDAY;
+    config.validity.end_time = 2147483647;
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+
+    esp_schedule_enable(handle);
+    esp_schedule_t *sched = (esp_schedule_t *)handle;
+    TEST_ASSERT_TRUE_MESSAGE(sched->trigger.next_scheduled_time_utc > 0, "schedule should be armed with a future time");
+
+    /* Simulate RTC loss: jump the clock before 2020. */
+    struct timeval bad = { .tv_sec = make_time_local(2010, 1, 1, 0, 0, 0), .tv_usec = 0 };
+    settimeofday(&bad, NULL);
+
+    esp_schedule_enable(handle);
+    TEST_ASSERT_EQUAL_MESSAGE(0, sched->trigger.next_scheduled_time_utc, "stale time must be cleared when time is invalid");
+
+    settimeofday(&tv, NULL);
+    esp_schedule_delete(handle);
 }

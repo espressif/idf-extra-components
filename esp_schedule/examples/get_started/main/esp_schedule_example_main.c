@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_schedule.h"
 #include "nvs_flash.h"
@@ -61,9 +62,9 @@ static void solar_callback(esp_schedule_handle_t handle, void *priv_data)
 }
 #endif // CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
 
-static void timestamp_callback(esp_schedule_handle_t handle, uint32_t next_timestamp, void *priv_data)
+static void timestamp_callback(esp_schedule_handle_t handle, time_t next_timestamp, void *priv_data)
 {
-    time_t timestamp = (time_t)next_timestamp;
+    time_t timestamp = next_timestamp;
     char *time_str = ctime(&timestamp);
     if (time_str) {
         ESP_LOGI(TAG, "Next schedule timestamp updated for %s: %s", (char *)priv_data, time_str);
@@ -89,6 +90,8 @@ static char *solar_data = "Sunrise/Sunset schedule";
 static void create_example_schedules(void)
 {
     ESP_LOGI(TAG, "Creating example schedules...");
+    esp_schedule_handle_t handle;
+    esp_err_t ret;
 
     // Example 1: Days of week schedule
     // Triggers every Monday, Wednesday, and Friday at 14:30
@@ -107,10 +110,16 @@ static void create_example_schedules(void)
         }
     };
 
-    esp_schedule_handle_t days_handle = esp_schedule_create(&days_schedule);
-    if (days_handle) {
-        ESP_LOGI(TAG, "Created days of week schedule successfully");
-        esp_schedule_enable(days_handle);
+    ret = esp_schedule_create(&days_schedule, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create days of week schedule");
+        return;
+    }
+    ESP_LOGI(TAG, "Created days of week schedule successfully");
+    ret = esp_schedule_enable(handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable days of week schedule");
+        return;
     }
 
     // Example 2: Date schedule
@@ -132,10 +141,16 @@ static void create_example_schedules(void)
         }
     };
 
-    esp_schedule_handle_t date_handle = esp_schedule_create(&date_schedule);
-    if (date_handle) {
-        ESP_LOGI(TAG, "Created date schedule successfully");
-        esp_schedule_enable(date_handle);
+    ret = esp_schedule_create(&date_schedule, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create date schedule");
+        return;
+    }
+    ESP_LOGI(TAG, "Created date schedule successfully");
+    ret = esp_schedule_enable(handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable date schedule");
+        return;
     }
 
     // Example 3: Relative schedule
@@ -154,10 +169,16 @@ static void create_example_schedules(void)
         }
     };
 
-    esp_schedule_handle_t relative_handle = esp_schedule_create(&relative_schedule);
-    if (relative_handle) {
-        ESP_LOGI(TAG, "Created relative schedule successfully");
-        esp_schedule_enable(relative_handle);
+    ret = esp_schedule_create(&relative_schedule, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create relative schedule");
+        return;
+    }
+    ESP_LOGI(TAG, "Created relative schedule successfully");
+    ret = esp_schedule_enable(handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable relative schedule");
+        return;
     }
 
     // Example 4: Solar schedule (Sunrise/Sunset) with day-of-week filtering
@@ -183,10 +204,16 @@ static void create_example_schedules(void)
         }
     };
 
-    esp_schedule_handle_t sunrise_handle = esp_schedule_create(&sunrise_schedule);
-    if (sunrise_handle) {
-        ESP_LOGI(TAG, "Created sunrise schedule successfully");
-        esp_schedule_enable(sunrise_handle);
+    ret = esp_schedule_create(&sunrise_schedule, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create sunrise schedule");
+        return;
+    }
+    ESP_LOGI(TAG, "Created sunrise schedule successfully");
+    ret = esp_schedule_enable(handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable sunrise schedule");
+        return;
     }
 
     esp_schedule_config_t sunset_schedule = {
@@ -208,10 +235,16 @@ static void create_example_schedules(void)
         }
     };
 
-    esp_schedule_handle_t sunset_handle = esp_schedule_create(&sunset_schedule);
-    if (sunset_handle) {
-        ESP_LOGI(TAG, "Created sunset schedule successfully");
-        esp_schedule_enable(sunset_handle);
+    ret = esp_schedule_create(&sunset_schedule, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create sunset schedule");
+        return;
+    }
+    ESP_LOGI(TAG, "Created sunset schedule successfully");
+    ret = esp_schedule_enable(handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable sunset schedule");
+        return;
     }
 #endif // CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
 }
