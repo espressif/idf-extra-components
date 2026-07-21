@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -34,8 +34,51 @@ typedef struct esp_schedule {
     esp_schedule_validity_t validity;
 } esp_schedule_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 esp_err_t esp_schedule_nvs_add(esp_schedule_t *schedule);
 esp_err_t esp_schedule_nvs_remove(esp_schedule_t *schedule);
 esp_schedule_handle_t *esp_schedule_nvs_get_all(uint8_t *schedule_count);
 bool esp_schedule_nvs_is_enabled(void);
 esp_err_t esp_schedule_nvs_init(char *nvs_partition);
+
+/* Returns true if a one-shot trigger has already fired and must not be
+ * recomputed to a future occurrence. Exposed for unit testing. */
+bool esp_schedule_trigger_fired_and_done(const esp_schedule_trigger_t *trigger, time_t now);
+
+/* Unified date-based next occurrence calculation. Returns true and sets
+ * *next_time to the next valid time matching all provided constraints.
+ * Shared across implementation files and exposed for unit testing. */
+bool esp_schedule_get_next_date_time(
+    time_t now,
+    uint16_t minutes_since_midnight,
+    uint8_t days_of_week_mask,
+    uint8_t day_of_month,
+    uint16_t months_of_year_mask,
+    uint16_t year,
+    const esp_schedule_validity_t *validity,
+    time_t *next_time
+);
+
+#if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
+time_t esp_schedule_calc_solar_time_for_time_utc(
+    bool is_sunrise,
+    time_t time_utc,
+    double latitude,
+    double longitude,
+    int offset_minutes
+);
+
+time_t esp_schedule_get_next_valid_solar_time(
+    time_t now,
+    const esp_schedule_trigger_t *trigger,
+    const esp_schedule_validity_t *validity,
+    const char *schedule_name
+);
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT */
+
+#ifdef __cplusplus
+}
+#endif

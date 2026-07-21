@@ -1,9 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <time.h>
 #include <inttypes.h>
 #include "esp_log.h"
 #include "esp_sntp.h"
@@ -13,539 +16,455 @@
 static const char *TAG = "esp_schedule";
 
 #define SECONDS_TILL_2020 ((2020 - 1970) * 365 * 24 * 3600)
-#define SECONDS_IN_DAY (60 * 60 * 24)
+#define MINUTES_IN_DAY (60 * 24)
 
 static bool init_done = false;
 
-static int esp_schedule_get_no_of_days(esp_schedule_trigger_t *trigger, struct tm *current_time, struct tm *schedule_time)
+// Forward declarations for static functions
+static void esp_schedule_common_timer_cb(TimerHandle_t timer);
+
+/*
+ * Unified date-based next occurrence calculation.
+ * Returns true and sets *next_time to the next valid time that matches all provided constraints.
+ * - now: current time
+ * - minutes_since_midnight: target minutes in day [0, 24*60)
+ * - days_of_week_mask: bitmask Monday=bit0 .. Sunday=bit6; 0 => any day
+ * - day_of_month: 1..31; 0 => any day
+ * - months_of_year_mask: bitmask January=bit0 .. December=bit11; 0 => any month
+ * - year: 4-digit year (e.g., 2025); 0 => any year
+ * - validity: optional window [start,end]; if provided, the returned time will be within this window
+ */
+bool esp_schedule_get_next_date_time(time_t now,
+                                     uint16_t minutes_since_midnight,
+                                     uint8_t days_of_week_mask,
+                                     uint8_t day_of_month,
+                                     uint16_t months_of_year_mask,
+                                     uint16_t year,
+                                     const esp_schedule_validity_t *validity,
+                                     time_t *next_time)
 {
-    /* for day, monday = 0, sunday = 6. */
-    int next_day = 0;
-    /* struct tm has tm_wday with sunday as 0. Whereas we have monday as 0. Converting struct tm to our format */
-    int today = ((current_time->tm_wday + 7 - 1) % 7);
+    if (next_time == NULL) {
+        return false;
+    }
+    /* If the validity window opens in the future, start the search there rather
+     * than walking day-by-day from now. The month-attempt cap (~25 months) would
+     * otherwise be exhausted before reaching a far-future start_time, causing the
+     * schedule to silently never fire. We evaluate the first candidate day
+     * unconditionally (force_include_first) and let the exact-instant
+     * ">= start_time" validity check below decide whether it qualifies. That
+     * avoids seeding need_next_occurrence from a wall-clock-of-day comparison,
+     * which could skip the first valid day across a DST transition at the
+     * window boundary. */
+    bool force_include_first = false;
+    if (validity != NULL && validity->start_time > now) {
+        now = validity->start_time;
+        force_include_first = true;
+    }
+    struct tm current_tm = {0};
+    localtime_r(&now, &current_tm);
+    struct tm candidate_tm = current_tm;
 
-    esp_schedule_days_t today_bit = 1 << today;
-    uint8_t repeat_days = trigger->day.repeat_days;
-    int current_seconds = (current_time->tm_hour * 60 + current_time->tm_min) * 60 + current_time->tm_sec;
-    int schedule_seconds = (schedule_time->tm_hour * 60 + schedule_time->tm_min) * 60;
+    uint32_t current_seconds_since_midnight = (uint32_t)(current_tm.tm_hour * 3600 + current_tm.tm_min * 60 + current_tm.tm_sec);
+    uint32_t target_seconds_since_midnight = (uint32_t)minutes_since_midnight * 60U;
 
-    /* Handling for one time schedule */
-    if (repeat_days == ESP_SCHEDULE_DAY_ONCE) {
-        if (schedule_seconds > current_seconds) {
-            /* The schedule is today and is yet to go off */
-            return 0;
-        } else {
-            /* The schedule is tomorrow */
-            return 1;
+    bool need_next_occurrence = (current_seconds_since_midnight >= target_seconds_since_midnight);
+    if (force_include_first) {
+        /* Do not skip the window-open day; the ">= start_time" check gates it. */
+        need_next_occurrence = false;
+    }
+
+    if (year != 0) {
+        int target_year = (int)year - 1900;
+        if (current_tm.tm_year > target_year) {
+            *next_time = 0;
+            return false;
+        } else if (current_tm.tm_year < target_year) {
+            candidate_tm.tm_year = target_year;
+            candidate_tm.tm_mon = 0;
+            candidate_tm.tm_mday = 1;
+            need_next_occurrence = false;
         }
     }
 
-    /* Handling for repeating schedules */
-    /* Check if it is today */
-    if ((repeat_days & today_bit)) {
-        if (schedule_seconds > current_seconds) {
-            /* The schedule is today and is yet to go off. */
-            return 0;
+    candidate_tm.tm_isdst = -1;
+    time_t candidate_time = mktime(&candidate_tm);
+    localtime_r(&candidate_time, &candidate_tm);
+
+    for (int month_attempts = 0; month_attempts < 25; month_attempts++) {
+        bool month_valid = true;
+        if (months_of_year_mask != 0) {
+            uint16_t month_bit = (uint16_t)(1U << candidate_tm.tm_mon);
+            month_valid = (month_bit & months_of_year_mask) != 0;
         }
-    }
-    /* Check if it is this week or next week */
-    if ((repeat_days & (today_bit ^ 0xFF)) > today_bit) {
-        /* Next schedule is yet to come in this week */
-        next_day = ffs(repeat_days & (0xFF << (today + 1))) - 1;
-        return (next_day - today);
-    } else {
-        /* First scheduled day of the next week */
-        next_day = ffs(repeat_days) - 1;
-        if (next_day == today) {
-            /* Same day, next week */
-            return 7;
+
+        if (!month_valid) {
+            do {
+                candidate_tm.tm_mon++;
+                if (candidate_tm.tm_mon >= 12) {
+                    candidate_tm.tm_mon = 0;
+                    candidate_tm.tm_year++;
+                }
+                if (year != 0 && candidate_tm.tm_year > ((int)year - 1900)) {
+                    *next_time = 0;
+                    return false;
+                }
+                uint16_t month_bit = (uint16_t)(1U << candidate_tm.tm_mon);
+                month_valid = (month_bit & months_of_year_mask) != 0;
+            } while (!month_valid);
+
+            candidate_tm.tm_mday = 1;
+            candidate_tm.tm_isdst = -1;
+            candidate_time = mktime(&candidate_tm);
+            localtime_r(&candidate_time, &candidate_tm);
+            need_next_occurrence = false;
         }
-        return (7 - today + next_day);
-    }
 
-    ESP_LOGE(TAG, "No of days could not be found. This should not happen.");
-    return 0;
-}
-
-static uint8_t esp_schedule_get_next_month(esp_schedule_trigger_t *trigger, struct tm *current_time, struct tm *schedule_time)
-{
-    int current_seconds = (current_time->tm_hour * 60 + current_time->tm_min) * 60 + current_time->tm_sec;
-    int schedule_seconds = (schedule_time->tm_hour * 60 + schedule_time->tm_min) * 60;
-    /* +1 is because struct tm has months starting from 0, whereas we have them starting from 1 */
-    uint8_t current_month = current_time->tm_mon + 1;
-    /* -1 because month_bit starts from 0b1. So for January, it should be 1 << 0. And current_month starts from 1. */
-    uint16_t current_month_bit = 1 << (current_month - 1);
-    uint8_t next_schedule_month = 0;
-    uint16_t repeat_months = trigger->date.repeat_months;
-
-    /* Check if month is not specified */
-    if (repeat_months == ESP_SCHEDULE_MONTH_ONCE) {
-        if (trigger->date.day == current_time->tm_mday) {
-            /* The schedule day is same. Check if time has already passed */
-            if (schedule_seconds > current_seconds) {
-                /* The schedule is today and is yet to go off */
-                return current_month;
-            } else {
-                /* Today's time has passed */
-                return (current_month + 1);
+        int days_in_month = 31; /* bounded by normalization */
+        for (int day_attempts = 0; day_attempts < days_in_month; day_attempts++) {
+            bool day_matches = true;
+            if (days_of_week_mask != 0 || day_of_month != 0) {
+                day_matches = false;
+                if (days_of_week_mask != 0) {
+                    uint8_t day_of_week_index = (uint8_t)((candidate_tm.tm_wday + 6) % 7); /* Sunday=0 -> Monday=0 */
+                    uint8_t day_bit = (uint8_t)(1U << day_of_week_index);
+                    if ((day_bit & days_of_week_mask) != 0) {
+                        day_matches = true;
+                    }
+                }
+                if (!day_matches && day_of_month != 0) {
+                    if (candidate_tm.tm_mday == day_of_month) {
+                        day_matches = true;
+                    }
+                }
             }
-        } else if (trigger->date.day > current_time->tm_mday) {
-            /* The day is yet to come in this month */
-            return current_month;
-        } else {
-            /* The day has passed in the current month */
-            return (current_month + 1);
-        }
-    }
 
-    /* Check if schedule is not this year itself, it is in future. */
-    if (trigger->date.year > (current_time->tm_year + 1900)) {
-        /* Find first schedule month of next year */
-        next_schedule_month = ffs(repeat_months);
-        /* Year will be handled by the caller. So no need to add any additional months */
-        return next_schedule_month;
-    }
+            if (day_matches) {
+                if (month_attempts == 0 && day_attempts == 0 && need_next_occurrence) {
+                    /* skip today due to time passed */
+                } else {
+                    candidate_tm.tm_hour = (int)(minutes_since_midnight / 60U);
+                    candidate_tm.tm_min = (int)(minutes_since_midnight % 60U);
+                    candidate_tm.tm_sec = 0;
+                    /* Let mktime resolve DST for the target local time. It uses
+                     * tm_isdst to pick the correct epoch, so no manual +/-3600
+                     * correction is needed (and applying one double-corrects). */
+                    candidate_tm.tm_isdst = -1;
+                    time_t result_time = mktime(&candidate_tm);
 
-    /* Check if schedule is this month and is yet to come */
-    if (current_month_bit & repeat_months) {
-        if (trigger->date.day == current_time->tm_mday) {
-            /* The schedule day is same. Check if time has already passed */
-            if (schedule_seconds > current_seconds) {
-                /* The schedule is today and is yet to go off */
-                return current_month;
+                    if (year != 0) {
+                        struct tm check_tm;
+                        localtime_r(&result_time, &check_tm);
+                        if (check_tm.tm_year != ((int)year - 1900)) {
+                            *next_time = 0;
+                            return false;
+                        }
+                    }
+
+                    if (validity && validity->end_time != 0 && result_time > validity->end_time) {
+                        *next_time = 0;
+                        return false;
+                    }
+                    if (!validity || validity->start_time == 0 || result_time >= validity->start_time) {
+                        *next_time = result_time;
+                        return true;
+                    }
+                    /* else fall through to search next valid day */
+                }
+            }
+
+            /* Advance to the next calendar day. Incrementing tm_mday and
+             * re-normalizing via mktime is DST-safe; adding a fixed 86400
+             * seconds skips or repeats a day across DST transitions. */
+            int prev_mon = candidate_tm.tm_mon;
+            candidate_tm.tm_mday++;
+            candidate_tm.tm_isdst = -1;
+            candidate_time = mktime(&candidate_tm);
+            localtime_r(&candidate_time, &candidate_tm);
+            need_next_occurrence = false;
+            if (candidate_tm.tm_mon != prev_mon) {
+                break;
+            }
+            if (year != 0 && candidate_tm.tm_year > ((int)year - 1900)) {
+                *next_time = 0;
+                return false;
             }
         }
-        if (trigger->date.day > current_time->tm_mday) {
-            /* The day is yet to come in this month */
-            return current_month;
-        }
     }
 
-    /* Check if schedule is this year */
-    if ((repeat_months & (current_month_bit ^ 0xFFFF)) > current_month_bit) {
-        /* Next schedule month is yet to come in this year */
-        next_schedule_month = ffs(repeat_months & (0xFFFF << (current_month)));
-        return next_schedule_month;
-    }
-
-    /* Check if schedule is for this year and does not repeat */
-    if (!trigger->date.repeat_every_year) {
-        /* For yearly repeating schedules with year=0, treat as repeating */
-        if (trigger->date.year != 0 && trigger->date.year <= (current_time->tm_year + 1900)) {
-            ESP_LOGE(TAG, "Schedule does not repeat next year, but get_next_month has been called.");
-            return 0;
-        }
-    }
-
-    /* Schedule is not this year */
-    /* Find first schedule month of next year */
-    next_schedule_month = ffs(repeat_months);
-    /* +12 because the schedule is next year */
-    return (next_schedule_month + 12);
-}
-
-static uint16_t esp_schedule_get_next_year(esp_schedule_trigger_t *trigger, struct tm *current_time, struct tm *schedule_time)
-{
-    uint16_t current_year = current_time->tm_year + 1900;
-    uint16_t schedule_year = trigger->date.year;
-    if (schedule_year > current_year) {
-        return schedule_year;
-    }
-    /* If the schedule is set to repeat_every_year, we return the current year */
-    /* If the schedule has already passed in this year, we still return current year, as the additional months will be handled in get_next_month */
-    return current_year;
+    *next_time = 0;
+    return false;
 }
 
 #if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
-/* Helper function to calculate solar time for a specific date */
-static time_t esp_schedule_calc_solar_time_for_date(const esp_schedule_trigger_t *trigger,
-        int year, int month, int day,
-        const char *schedule_name)
+/**
+ * @brief Calculate solar time for the calendar date of a given UTC timestamp
+ *
+ * The calendar date (year/month/day) is derived from @p time_utc in *local*
+ * time (via localtime_r), by design: scheduling is wall-clock based, so the
+ * solar event is computed for the local date. The returned solar time is UTC.
+ *
+ * @param is_sunrise: true if sunrise, false if sunset
+ * @param time_utc: UTC timestamp whose local calendar date is used
+ * @param latitude: latitude
+ * @param longitude: longitude
+ * @param offset_minutes: offset in minutes
+ * @return solar time in UTC, 0 if calculation failed
+ */
+time_t esp_schedule_calc_solar_time_for_time_utc(bool is_sunrise, time_t time_utc, double latitude, double longitude, int offset_minutes)
 {
+    struct tm time_tm;
+    localtime_r(&time_utc, &time_tm);
     time_t sunrise_utc, sunset_utc;
+    int year = time_tm.tm_year + 1900;
+    int month = time_tm.tm_mon + 1;
+    int day = time_tm.tm_mday;
 
-    bool calc_ok = esp_daylight_calc_sunrise_sunset_utc(
-                       year, month, day,
-                       trigger->solar.latitude,
-                       trigger->solar.longitude,
-                       &sunrise_utc, &sunset_utc);
-
+    bool calc_ok = esp_daylight_calc_sunrise_sunset_utc(year, month, day, latitude, longitude, &sunrise_utc, &sunset_utc);
     if (!calc_ok) {
-        ESP_LOGW(TAG, "Failed to calculate sunrise/sunset for date %04d-%02d-%02d for %s (likely polar night/day condition)",
-                 year, month, day, schedule_name);
+        ESP_LOGW(TAG, "Failed to calculate %s for date %04d-%02d-%02d at latitude %.5f, longitude %.5f (likely polar night/day condition)",
+                 is_sunrise ? "sunrise" : "sunset",
+                 year, month, day, latitude, longitude
+                );
+        return 0;
+    }
+    time_t solar_time = is_sunrise ? sunrise_utc : sunset_utc;
+    return esp_daylight_apply_offset(solar_time, offset_minutes);
+}
+
+time_t esp_schedule_get_next_valid_solar_time(time_t now, const esp_schedule_trigger_t *trigger, const esp_schedule_validity_t *validity, const char *schedule_name)
+{
+    time_t day_end = 0;
+    bool is_sunrise = trigger->type == ESP_SCHEDULE_TYPE_SUNRISE;
+
+    /* Day selection is identical to a DATE trigger; only the time-of-day is
+     * replaced by the computed solar event. repeat_every_year zeroes the year so
+     * the month/day pattern recurs, exactly as for DATE. */
+    uint16_t match_year = trigger->date.repeat_every_year ? 0 : trigger->date.year;
+
+    // Find first candidate day (use 23:59 so day selection logic is "date-only")
+    if (!esp_schedule_get_next_date_time(now, MINUTES_IN_DAY - 1, trigger->day.repeat_days, trigger->date.day, trigger->date.repeat_months, match_year, validity, &day_end)) {
         return 0;
     }
 
-    time_t solar_time = (trigger->type == ESP_SCHEDULE_TYPE_SUNRISE) ? sunrise_utc : sunset_utc;
-    return esp_daylight_apply_offset(solar_time, trigger->solar.offset_minutes);
-}
+    // try for 370 days (max possible days in a year)
+    for (int attempts = 0; attempts < 370; attempts++) {
+        time_t solar_time = esp_schedule_calc_solar_time_for_time_utc(is_sunrise, day_end, trigger->solar.latitude, trigger->solar.longitude, trigger->solar.offset_minutes);
+        if ((solar_time == 0) ||
+                (validity && validity->start_time && solar_time < validity->start_time) ||
+                (solar_time <= now)) {
+            // No solar event on this day (polar conditions) -> advance to next valid day
+            // Outside validity window or not in the future -> advance to next valid day
+        } else if (validity && validity->end_time && solar_time > validity->end_time) {
+            // Past validity window -> return 0
+            return 0;
+        } else {
+            return solar_time;
+        }
 
-/* Helper function to handle logging and timer calculation for solar schedules */
-static int32_t esp_schedule_finalize_solar_time(time_t solar_time, time_t now,
-        const esp_schedule_trigger_t *trigger,
-        const char *schedule_name)
-{
-    char time_str[64];
-    struct tm schedule_time;
-
-    /* Convert solar time to local time for display and DST handling */
-    localtime_r(&solar_time, &schedule_time);
-
-    /* Print schedule time */
-    memset(time_str, 0, sizeof(time_str));
-    strftime(time_str, sizeof(time_str), "%c %z[%Z]", &schedule_time);
-    ESP_LOGI(TAG, "Schedule %s (%s%+d min) will be active on: %s. DST: %s",
-             schedule_name,
-             (trigger->type == ESP_SCHEDULE_TYPE_SUNRISE) ? "sunrise" : "sunset",
-             trigger->solar.offset_minutes,
-             time_str, schedule_time.tm_isdst ? "Yes" : "No");
-
-    /* Simple epoch-based timer calculation */
-    int32_t timer_seconds = (int32_t)difftime(solar_time, now);
-
-    /* With proactive logic, this should not happen, but log if it does */
-    if (timer_seconds < 0) {
-        ESP_LOGW(TAG, "Unexpected: Solar schedule time has passed (%" PRId32 " seconds ago). This should have been handled proactively.", -timer_seconds);
-        /* Return the negative value to help debug - caller will handle this as error */
+        // Advance anchor to next day
+        if (!esp_schedule_get_next_date_time(day_end + 1, MINUTES_IN_DAY - 1, trigger->day.repeat_days, trigger->date.day, trigger->date.repeat_months, match_year, validity, &day_end)) {
+            return 0;
+        }
     }
-
-    return timer_seconds;
+    return 0;
 }
 #endif /* CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT */
 
-static uint32_t esp_schedule_get_next_schedule_time_diff(const char *schedule_name, esp_schedule_trigger_t *trigger)
+/*
+ * Returns true if this is a one-shot trigger that has already fired, and must
+ * therefore NOT be recomputed to a future occurrence. A trigger has "fired"
+ * once its next_scheduled_time_utc is set (>0) and has passed (<=now).
+ *
+ * Repeating triggers (weekly day-of-week, yearly dates, repeating solar) return
+ * false so they are recomputed and re-armed. Without this guard the date engine
+ * treats an empty day/month mask as "any", so a DAY_ONCE schedule would re-fire
+ * every day and a one-time DATE schedule every month.
+ */
+bool esp_schedule_trigger_fired_and_done(const esp_schedule_trigger_t *trigger, time_t now)
 {
-    struct tm current_time, schedule_time;
+    if (!(trigger->next_scheduled_time_utc > 0 && trigger->next_scheduled_time_utc <= now)) {
+        return false; /* not computed yet, or still in the future */
+    }
+    switch (trigger->type) {
+    case ESP_SCHEDULE_TYPE_RELATIVE:
+        return true; /* relative schedules fire exactly once */
+    case ESP_SCHEDULE_TYPE_DAYS_OF_WEEK:
+        return trigger->day.repeat_days == ESP_SCHEDULE_DAY_ONCE;
+#if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
+    /* Solar schedules share DATE's one-shot semantics; only the time-of-day is
+     * replaced by the computed sunrise/sunset instant. */
+    case ESP_SCHEDULE_TYPE_SUNRISE:
+    case ESP_SCHEDULE_TYPE_SUNSET:
+#endif
+    case ESP_SCHEDULE_TYPE_DATE:
+        /* Yearly-repeating dates recur. A date bound to a specific year is
+         * bounded by the date engine itself (no match past that year), so it is
+         * only genuinely one-shot when no year is set. */
+        if (trigger->date.repeat_every_year) {
+            return false;
+        }
+        /* A months mask keeps the schedule firing through the remaining masked
+         * months (matching v1 is_expired behavior: e.g. "16th of Jun+Jul+Aug"
+         * fires each of those months before expiring), so it is a true one-shot
+         * only when no months are set. A specific year is bounded by the engine. */
+        if (trigger->date.repeat_months != 0) {
+            return false;
+        }
+        return trigger->date.year == 0;
+    default:
+        return true;
+    }
+}
+
+/*
+ * Ensure trigger->next_scheduled_time_utc is set to the next occurrence.
+ * Repeating date/day-of-week/solar triggers are always recomputed on every arm
+ * (so a timezone change is picked up); RELATIVE triggers keep their computed
+ * absolute target; one-shot triggers that already fired are left untouched.
+ * Returns true if a valid future time is present after this call, false otherwise.
+ */
+static bool esp_schedule_set_next_scheduled_time_utc(const char *schedule_name, esp_schedule_trigger_t *trigger, const esp_schedule_validity_t *validity)
+{
+    struct tm schedule_time;
     time_t now;
-    char time_str[64];
-    int32_t time_diff;
 
     /* Get current time */
     time(&now);
+    /* Always recompute the next occurrence for repeating date/day-of-week/solar
+     * triggers instead of reusing a stored next_scheduled_time_utc. This keeps
+     * the fire time correct after a timezone change (picked up on the next arm)
+     * without needing an explicit recalculation API. RELATIVE triggers keep
+     * their computed absolute target (handled below); one-shot triggers that
+     * already fired are guarded next. */
+    /* One-shot triggers that have already fired must not be recomputed to a
+     * future occurrence (see esp_schedule_trigger_fired_and_done). */
+    if (esp_schedule_trigger_fired_and_done(trigger, now)) {
+        return false;
+    }
     /* Handling ESP_SCHEDULE_TYPE_RELATIVE first since it doesn't require any
      * computation based on days, hours, minutes, etc.
      */
     if (trigger->type == ESP_SCHEDULE_TYPE_RELATIVE) {
-        /* If next scheduled time is already set, just compute the difference
-         * between current time and next scheduled time and return that diff.
-         */
-        time_t target;
-        if (trigger->next_scheduled_time_utc > 0) {
-            target = (time_t)trigger->next_scheduled_time_utc;
-            time_diff = difftime(target, now);
-        } else {
-            target = now + (time_t)trigger->relative_seconds;
-            time_diff = trigger->relative_seconds;
-        }
-        localtime_r(&target, &schedule_time);
-        trigger->next_scheduled_time_utc = mktime(&schedule_time);
-        /* Print schedule time */
-        memset(time_str, 0, sizeof(time_str));
-        strftime(time_str, sizeof(time_str), "%c %z[%Z]", &schedule_time);
-        ESP_LOGI(TAG, "Schedule %s will be active on: %s. DST: %s", schedule_name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
-        return time_diff;
-    }
-
-    /* Handle solar-based schedules (sunrise/sunset) */
-#if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
-    if (trigger->type == ESP_SCHEDULE_TYPE_SUNRISE || trigger->type == ESP_SCHEDULE_TYPE_SUNSET) {
-        time_t solar_time = 0;
-
-        /* Start with current local time for day calculations */
-        localtime_r(&now, &current_time);
-
-        /* Determine schedule pattern using unified approach */
-        if (trigger->date.day != 0) {
-            /* Date-based solar schedule - check if today's solar time + offset has passed */
-            struct tm schedule_time = current_time;
-            schedule_time.tm_mday = trigger->date.day;
-
-            /* For same day, check if solar time + offset has passed before deciding year */
-            if (trigger->date.day == current_time.tm_mday) {
-                uint8_t current_month = current_time.tm_mon + 1;
-                uint16_t repeat_months = trigger->date.repeat_months;
-                uint16_t current_month_bit = 1 << (current_month - 1);
-
-                /* Check if this month is in the repeat pattern */
-                if (current_month_bit & repeat_months) {
-                    /* Calculate today's solar time + offset */
-                    time_t today_solar = esp_schedule_calc_solar_time_for_date(trigger,
-                                         current_time.tm_year + 1900,
-                                         current_time.tm_mon + 1,
-                                         current_time.tm_mday,
-                                         schedule_name);
-
-                    /* If today's solar time + offset hasn't passed, use today */
-                    if (today_solar > 0 && today_solar > now) {
-                        schedule_time.tm_mon = current_time.tm_mon;
-                        schedule_time.tm_year = current_time.tm_year;
-                    } else {
-                        /* Solar time has passed, use next occurrence */
-                        schedule_time.tm_mon = esp_schedule_get_next_month(trigger, &current_time, &schedule_time) - 1;
-                        schedule_time.tm_year = esp_schedule_get_next_year(trigger, &current_time, &schedule_time) - 1900;
-                    }
-                } else {
-                    /* Not this month, use normal logic */
-                    schedule_time.tm_mon = esp_schedule_get_next_month(trigger, &current_time, &schedule_time) - 1;
-                    schedule_time.tm_year = esp_schedule_get_next_year(trigger, &current_time, &schedule_time) - 1900;
-                }
-            } else {
-                /* Different day, use normal logic */
-                schedule_time.tm_mon = esp_schedule_get_next_month(trigger, &current_time, &schedule_time) - 1;
-                schedule_time.tm_year = esp_schedule_get_next_year(trigger, &current_time, &schedule_time) - 1900;
+        /* Compute only once from first encounter. If already set and passed, do not recompute. */
+        if (trigger->next_scheduled_time_utc == 0) {
+            time_t base = now;
+            if (validity && validity->start_time && validity->start_time > now) {
+                base = validity->start_time;
             }
-
-            if (schedule_time.tm_mon < 0) {
-                ESP_LOGE(TAG, "Invalid month found for solar schedule: %s", schedule_name);
-                return 0;
-            }
-            if (schedule_time.tm_mon >= 12) {
-                schedule_time.tm_year += schedule_time.tm_mon / 12;
-                schedule_time.tm_mon = schedule_time.tm_mon % 12;
-            }
-            mktime(&schedule_time);
-
-            /* Calculate solar time for the determined date */
-            solar_time = esp_schedule_calc_solar_time_for_date(trigger,
-                         schedule_time.tm_year + 1900,
-                         schedule_time.tm_mon + 1,
-                         schedule_time.tm_mday,
-                         schedule_name);
-
-        } else if (trigger->day.repeat_days != 0) {
-            /* Day-of-week solar schedule - check if today's solar time + offset has passed */
-            struct tm schedule_time = current_time;
-
-            /* Check if today is one of the scheduled days */
-            int today = current_time.tm_wday == 0 ? 7 : current_time.tm_wday; /* Convert Sunday from 0 to 7 */
-            uint8_t today_bit = 1 << (today - 1); /* Monday=bit0, Tuesday=bit1, etc. */
-
-            if (trigger->day.repeat_days & today_bit) {
-                /* Today is a scheduled day, check if solar time + offset has passed */
-                time_t today_solar = esp_schedule_calc_solar_time_for_date(trigger,
-                                     current_time.tm_year + 1900,
-                                     current_time.tm_mon + 1,
-                                     current_time.tm_mday,
-                                     schedule_name);
-
-                /* If today's solar time + offset hasn't passed, use today */
-                if (today_solar > 0 && today_solar > now) {
-                    /* Use today */
-                    solar_time = today_solar;
-                } else {
-                    /* Solar time has passed, find next scheduled day */
-                    int no_of_days = esp_schedule_get_no_of_days(trigger, &current_time, &schedule_time);
-                    schedule_time.tm_mday += no_of_days;
-                    mktime(&schedule_time);
-
-                    solar_time = esp_schedule_calc_solar_time_for_date(trigger,
-                                 schedule_time.tm_year + 1900,
-                                 schedule_time.tm_mon + 1,
-                                 schedule_time.tm_mday,
-                                 schedule_name);
-                }
-            } else {
-                /* Today is not a scheduled day, use normal logic */
-                int no_of_days = esp_schedule_get_no_of_days(trigger, &current_time, &schedule_time);
-                schedule_time.tm_mday += no_of_days;
-                mktime(&schedule_time);
-
-                solar_time = esp_schedule_calc_solar_time_for_date(trigger,
-                             schedule_time.tm_year + 1900,
-                             schedule_time.tm_mon + 1,
-                             schedule_time.tm_mday,
-                             schedule_name);
-            }
-
-        } else {
-            /* Single-time solar schedule - use logic similar to regular schedules */
-            solar_time = esp_schedule_calc_solar_time_for_date(trigger,
-                         current_time.tm_year + 1900,
-                         current_time.tm_mon + 1,
-                         current_time.tm_mday,
-                         schedule_name);
-
-            /* If time has passed today, calculate for tomorrow (like regular schedules) */
-            if (solar_time > 0 && solar_time <= now) {
-                struct tm tomorrow_time;
-                localtime_r(&now, &tomorrow_time);  // Use fresh local time
-                tomorrow_time.tm_mday += 1;
-                mktime(&tomorrow_time);
-
-                solar_time = esp_schedule_calc_solar_time_for_date(trigger,
-                             tomorrow_time.tm_year + 1900,
-                             tomorrow_time.tm_mon + 1,
-                             tomorrow_time.tm_mday,
-                             schedule_name);
-
-                /* If tomorrow's time is still in the past (due to large negative offset), try day after tomorrow */
-                if (solar_time > 0 && solar_time <= now) {
-                    tomorrow_time.tm_mday += 1;
-                    mktime(&tomorrow_time);
-
-                    solar_time = esp_schedule_calc_solar_time_for_date(trigger,
-                                 tomorrow_time.tm_year + 1900,
-                                 tomorrow_time.tm_mon + 1,
-                                 tomorrow_time.tm_mday,
-                                 schedule_name);
-                }
-            }
+            time_t target = base + (time_t)trigger->relative_seconds;
+            localtime_r(&target, &schedule_time);
+            trigger->next_scheduled_time_utc = mktime(&schedule_time);
         }
-
-        /* Return error if solar calculation failed */
-        if (solar_time == 0) {
-            ESP_LOGW(TAG, "Solar schedule %s cannot be calculated (no sunrise/sunset at this location/date)", schedule_name);
-            return 0;
-        }
-
-        /* Calculate timer - should always be positive since we proactively handle past times */
-        time_diff = esp_schedule_finalize_solar_time(solar_time, now, trigger, schedule_name);
-        if (time_diff < 0) {
-            /* This should not happen with proactive logic, but handle gracefully */
-            ESP_LOGE(TAG, "Solar schedule time calculation error for %s (got %" PRId32 " seconds)", schedule_name, time_diff);
-            return 0;
-        }
-
-        /* Store the final scheduled time - use raw UTC solar time for ts field (phone apps need UTC) */
-        trigger->next_scheduled_time_utc = solar_time;
-
-        return time_diff;
-    }
-#endif /* CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT */
-
-    localtime_r(&now, &current_time);
-
-    /* Get schedule time */
-    localtime_r(&now, &schedule_time);
-    schedule_time.tm_sec = 0;
-    schedule_time.tm_min = trigger->minutes;
-    schedule_time.tm_hour = trigger->hours;
-    mktime(&schedule_time);
-
-    /* Adjust schedule day */
-    if (trigger->type == ESP_SCHEDULE_TYPE_DAYS_OF_WEEK) {
-        int no_of_days = 0;
-        no_of_days = esp_schedule_get_no_of_days(trigger, &current_time, &schedule_time);
-        schedule_time.tm_sec += no_of_days * SECONDS_IN_DAY;
-    }
-    if (trigger->type == ESP_SCHEDULE_TYPE_DATE) {
-        schedule_time.tm_mday = trigger->date.day;
-        schedule_time.tm_mon = esp_schedule_get_next_month(trigger, &current_time, &schedule_time) - 1;
-        schedule_time.tm_year = esp_schedule_get_next_year(trigger, &current_time, &schedule_time) - 1900;
-        if (schedule_time.tm_mon < 0) {
-            ESP_LOGE(TAG, "Invalid month found: %d. Setting it to next month.", schedule_time.tm_mon);
-            schedule_time.tm_mon = current_time.tm_mon + 1;
-        }
-        if (schedule_time.tm_mon >= 12) {
-            schedule_time.tm_year += schedule_time.tm_mon / 12;
-            schedule_time.tm_mon = schedule_time.tm_mon % 12;
-        }
-    }
-    mktime(&schedule_time);
-
-    /* Adjust time according to DST */
-    time_t dst_adjust = 0;
-    if (!current_time.tm_isdst && schedule_time.tm_isdst) {
-        dst_adjust = -3600;
-    } else if (current_time.tm_isdst && !schedule_time.tm_isdst) {
-        dst_adjust = 3600;
-    }
-    ESP_LOGD(TAG, "DST adjust seconds: %lld", (long long) dst_adjust);
-    schedule_time.tm_sec += dst_adjust;
-    mktime(&schedule_time);
-
-    /* Print schedule time */
-    memset(time_str, 0, sizeof(time_str));
-    strftime(time_str, sizeof(time_str), "%c %z[%Z]", &schedule_time);
-    ESP_LOGI(TAG, "Schedule %s will be active on: %s. DST: %s", schedule_name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
-
-    /* Calculate difference */
-    time_diff = difftime((mktime(&schedule_time)), mktime(&current_time));
-
-    /* For one time schedules to check for expiry after a reboot. If NVS is enabled, this should be stored in NVS. */
-    trigger->next_scheduled_time_utc = mktime(&schedule_time);
-
-    return time_diff;
-}
-
-static bool esp_schedule_is_expired(esp_schedule_trigger_t *trigger)
-{
-    time_t current_timestamp = 0;
-    struct tm current_time = {0};
-    time(&current_timestamp);
-    localtime_r(&current_timestamp, &current_time);
-
-    if (trigger->type == ESP_SCHEDULE_TYPE_RELATIVE) {
-        if (trigger->next_scheduled_time_utc > 0 && trigger->next_scheduled_time_utc <= current_timestamp) {
-            /* Relative seconds based schedule has expired */
-            return true;
-        } else if (trigger->next_scheduled_time_utc == 0) {
-            /* Schedule has been disabled, so it is as good as expired. */
-            return true;
-        }
-    } else if (trigger->type == ESP_SCHEDULE_TYPE_DAYS_OF_WEEK) {
-        if (trigger->day.repeat_days == ESP_SCHEDULE_DAY_ONCE) {
-            if (trigger->next_scheduled_time_utc > 0 && trigger->next_scheduled_time_utc <= current_timestamp) {
-                /* One time schedule has expired */
-                return true;
-            } else if (trigger->next_scheduled_time_utc == 0) {
-                /* Schedule has been disabled, so it is as good as expired. */
-                return true;
-            }
-        }
-#if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
-    } else if (trigger->type == ESP_SCHEDULE_TYPE_SUNRISE || trigger->type == ESP_SCHEDULE_TYPE_SUNSET) {
-        /* Check if this is a single-time solar schedule */
-        if (trigger->date.day == 0 && trigger->day.repeat_days == 0) {
-            if (trigger->next_scheduled_time_utc > 0 && trigger->next_scheduled_time_utc <= current_timestamp) {
-                /* One time solar schedule has expired */
-                return true;
-            } else if (trigger->next_scheduled_time_utc == 0) {
-                /* Schedule has been disabled, so it is as good as expired. */
-                return true;
-            }
-        }
-        /* Repeating solar schedules (day-of-week or date-based) never expire - they recalculate */
-#endif
-    } else if (trigger->type == ESP_SCHEDULE_TYPE_DATE) {
-        if (trigger->date.repeat_months == 0) {
-            if (trigger->next_scheduled_time_utc > 0 && trigger->next_scheduled_time_utc <= current_timestamp) {
-                /* One time schedule has expired */
-                return true;
-            } else {
+        if (validity) {
+            if ((validity->start_time && trigger->next_scheduled_time_utc < validity->start_time) ||
+                    (validity->end_time && trigger->next_scheduled_time_utc > validity->end_time)) {
+                trigger->next_scheduled_time_utc = 0;
                 return false;
             }
         }
-        if (trigger->date.repeat_every_year == true) {
+        return (trigger->next_scheduled_time_utc > now);
+    }
+
+#if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
+    /* Handle solar-based schedules (sunrise/sunset) */
+    if (trigger->type == ESP_SCHEDULE_TYPE_SUNRISE || trigger->type == ESP_SCHEDULE_TYPE_SUNSET) {
+        time_t solar_time = esp_schedule_get_next_valid_solar_time(now, trigger, validity, schedule_name);
+        if (solar_time == 0) {
+            ESP_LOGW(TAG, "Solar schedule %s cannot be calculated (no sunrise/sunset at this location/date)", schedule_name);
             return false;
         }
 
-        struct tm schedule_time = {0};
-        localtime_r(&current_timestamp, &schedule_time);
-        schedule_time.tm_sec = 0;
-        schedule_time.tm_min = trigger->minutes;
-        schedule_time.tm_hour = trigger->hours;
-        schedule_time.tm_mday = trigger->date.day;
-        /* For expiry, just check the last month of the repeat_months. */
-        /* '-1' because struct tm has months starting from 0 and we have months starting from 1. */
-        schedule_time.tm_mon = fls(trigger->date.repeat_months) - 1;
-        /* '-1900' because struct tm has number of years after 1900 */
-        schedule_time.tm_year = trigger->date.year - 1900;
-        time_t schedule_timestamp = mktime(&schedule_time);
-
-        if (schedule_timestamp < current_timestamp) {
-            return true;
-        }
-    } else {
-        /* Invalid type. Mark as expired */
-        return true;
+        trigger->next_scheduled_time_utc = solar_time;
+        return (trigger->next_scheduled_time_utc > now);
     }
-    return false;
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT */
+
+    /* Unified DATE and DAYS_OF_WEEK using date finder */
+    time_t next_time = 0;
+    bool ok = false;
+    uint16_t minutes_since_midnight = (uint16_t)(trigger->hours * 60 + trigger->minutes);
+    if (trigger->type == ESP_SCHEDULE_TYPE_DATE) {
+        /* repeat_every_year: ignore the specific year so the month/day pattern
+         * recurs every year. Otherwise honor the year, which bounds the schedule
+         * to a single year (the engine returns no match once that year passes). */
+        uint16_t match_year = trigger->date.repeat_every_year ? 0 : trigger->date.year;
+        /* Pass day.repeat_days so a DATE trigger can combine a day-of-week
+         * pattern with a day-of-month (the engine ORs the two). */
+        ok = esp_schedule_get_next_date_time(now, minutes_since_midnight, trigger->day.repeat_days, trigger->date.day, trigger->date.repeat_months, match_year, validity, &next_time);
+    } else if (trigger->type == ESP_SCHEDULE_TYPE_DAYS_OF_WEEK) {
+        ok = esp_schedule_get_next_date_time(now, minutes_since_midnight, trigger->day.repeat_days, 0, 0, 0, validity, &next_time);
+    }
+    if (!ok || next_time == 0) {
+        return false;
+    }
+    trigger->next_scheduled_time_utc = next_time;
+    return (trigger->next_scheduled_time_utc > now);
+}
+
+/*
+ * Compute the seconds until the next occurrence of this schedule's single
+ * trigger, updating trigger->next_scheduled_time_utc. Returns 0 if there is no
+ * valid future occurrence (expired, disabled, or calculation failed).
+ */
+static uint32_t esp_schedule_get_next_schedule_time_diff(esp_schedule_t *schedule)
+{
+    time_t now;
+    time(&now);
+
+    if (!esp_schedule_set_next_scheduled_time_utc(schedule->name, &schedule->trigger, &schedule->validity)) {
+        schedule->trigger.next_scheduled_time_utc = 0;
+        return 0;
+    }
+    if (schedule->trigger.next_scheduled_time_utc <= now) {
+        return 0;
+    }
+
+    /* Print chosen schedule time once */
+    char time_str[64];
+    struct tm schedule_time;
+    localtime_r(&schedule->trigger.next_scheduled_time_utc, &schedule_time);
+    memset(time_str, 0, sizeof(time_str));
+    strftime(time_str, sizeof(time_str), "%c %z[%Z]", &schedule_time);
+    ESP_LOGI(TAG, "Schedule %s will be active on: %s. DST: %s", schedule->name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
+
+    /* Clamp before the uint32_t cast: casting a double outside uint32_t range is
+     * undefined behavior. */
+    double diff = difftime(schedule->trigger.next_scheduled_time_utc, now);
+    if (diff < 0) {
+        diff = 0;
+    } else if (diff > (double)UINT32_MAX) {
+        diff = (double)UINT32_MAX;
+    }
+    return (uint32_t)diff;
 }
 
 static void esp_schedule_stop_timer(esp_schedule_t *schedule)
 {
     xTimerStop(schedule->timer, portMAX_DELAY);
+}
+
+/*
+ * Arm the FreeRTOS software timer for the given number of seconds. The period
+ * is computed in 64-bit and clamped so that a large seconds value cannot
+ * overflow the 32-bit tick math ((seconds * 1000) used to overflow for diffs
+ * beyond ~49 days). If the requested delay exceeds what a single TickType_t
+ * period can represent, it is clamped; esp_schedule_common_timer_cb re-arms for
+ * the remaining time when it detects an early expiry.
+ */
+static void esp_schedule_arm_timer(esp_schedule_t *schedule, uint32_t seconds)
+{
+    uint64_t ticks = ((uint64_t)seconds * 1000ULL) / (uint64_t)portTICK_PERIOD_MS;
+    if (ticks == 0) {
+        ticks = 1;
+    }
+    /* portMAX_DELAY is the maximum representable period. Clamp to one below it so
+     * it is never confused with the "block forever" sentinel. */
+    const uint64_t max_ticks = (uint64_t)portMAX_DELAY - 1;
+    if (ticks > max_ticks) {
+        ticks = max_ticks;
+    }
+    xTimerStop(schedule->timer, portMAX_DELAY);
+    xTimerChangePeriod(schedule->timer, (TickType_t)ticks, portMAX_DELAY);
 }
 
 static void esp_schedule_start_timer(esp_schedule_t *schedule)
@@ -554,15 +473,26 @@ static void esp_schedule_start_timer(esp_schedule_t *schedule)
     time(&current_time);
     if (current_time < SECONDS_TILL_2020) {
         ESP_LOGE(TAG, "Time is not updated");
+        /* Time is no longer valid (e.g. RTC lost). Stop any already-armed timer
+         * and clear the chosen time so we don't keep firing on a stale diff. It
+         * will be recomputed once time is synced and the schedule re-enabled. */
+        if (schedule->timer) {
+            esp_schedule_stop_timer(schedule);
+        }
+        schedule->trigger.next_scheduled_time_utc = 0;
         return;
     }
 
-    schedule->next_scheduled_time_diff = esp_schedule_get_next_schedule_time_diff(schedule->name, &schedule->trigger);
+    schedule->next_scheduled_time_diff = esp_schedule_get_next_schedule_time_diff(schedule);
 
     /* Check if schedule calculation failed (returns 0) */
     if (schedule->next_scheduled_time_diff == 0) {
         ESP_LOGW(TAG, "Schedule %s calculation failed or returned invalid time. Skipping timer creation.", schedule->name);
-        /* Reset timestamp to indicate schedule is not active */
+        /* Stop any already-armed timer so a stale diff cannot still fire, then
+         * reset timestamp to indicate schedule is not active */
+        if (schedule->timer) {
+            esp_schedule_stop_timer(schedule);
+        }
         schedule->trigger.next_scheduled_time_utc = 0;
         return;
     }
@@ -570,11 +500,10 @@ static void esp_schedule_start_timer(esp_schedule_t *schedule)
     ESP_LOGI(TAG, "Starting a timer for %"PRIu32" seconds for schedule %s", schedule->next_scheduled_time_diff, schedule->name);
 
     if (schedule->timestamp_cb) {
-        schedule->timestamp_cb((esp_schedule_handle_t)schedule, schedule->trigger.next_scheduled_time_utc, schedule->priv_data);
+        schedule->timestamp_cb((esp_schedule_handle_t)schedule, (uint32_t)schedule->trigger.next_scheduled_time_utc, schedule->priv_data);
     }
 
-    xTimerStop(schedule->timer, portMAX_DELAY);
-    xTimerChangePeriod(schedule->timer, (schedule->next_scheduled_time_diff * 1000) / portTICK_PERIOD_MS, portMAX_DELAY);
+    esp_schedule_arm_timer(schedule, schedule->next_scheduled_time_diff);
 }
 
 static void esp_schedule_common_timer_cb(TimerHandle_t timer)
@@ -584,42 +513,36 @@ static void esp_schedule_common_timer_cb(TimerHandle_t timer)
         return;
     }
     esp_schedule_t *schedule = (esp_schedule_t *)priv_data;
-    time_t now;
+
+    /* Guard against a premature timer expiry: if the scheduled instant has not
+     * actually arrived (e.g. tick truncation on a very long delay that had to be
+     * clamped), re-arm for the remaining time instead of firing early.
+     * esp_schedule_start_timer recomputes the diff from the still-future
+     * next_scheduled_time_utc, so it re-arms for what remains. */
+    time_t now = 0;
     time(&now);
-    struct tm validity_time;
-    char time_str[64] = {0};
-    if (schedule->validity.start_time != 0) {
-        if (now < schedule->validity.start_time) {
-            memset(time_str, 0, sizeof(time_str));
-            localtime_r(&schedule->validity.start_time, &validity_time);
-            strftime(time_str, sizeof(time_str), "%c %z[%Z]", &validity_time);
-            ESP_LOGW(TAG, "Schedule %s skipped. It will be active only after: %s. DST: %s.", schedule->name, time_str, validity_time.tm_isdst ? "Yes" : "No");
-            /* TODO: Start the timer such that the next time it triggers, it will be within the valid window.
-             * Currently, it will just keep triggering and then get skipped if not in valid range.
-             */
-            goto restart_schedule;
-        }
+    if (schedule->trigger.next_scheduled_time_utc > now) {
+        ESP_LOGW(TAG, "Schedule %s fired early; rescheduling for the remaining time", schedule->name);
+        esp_schedule_start_timer(schedule);
+        return;
     }
-    if (schedule->validity.end_time != 0) {
-        if (now > schedule->validity.end_time) {
-            localtime_r(&schedule->validity.end_time, &validity_time);
-            strftime(time_str, sizeof(time_str), "%c %z[%Z]", &validity_time);
-            ESP_LOGW(TAG, "Schedule %s skipped. It can't be active after: %s. DST: %s.", schedule->name, time_str, validity_time.tm_isdst ? "Yes" : "No");
-            /* Return from here will ensure that the timer does not start again for this schedule */
-            return;
-        }
+
+    /* Re-check the validity window at fire time. The occurrence was computed to
+     * be within [start,end], but callback dispatch can be delayed past end_time
+     * (tick truncation, timer-queue latency, system load). Suppress a trigger
+     * that is now outside the window; the re-arm below will find no further
+     * valid occurrence and leave the schedule disarmed. */
+    if (schedule->validity.end_time != 0 && now > schedule->validity.end_time) {
+        ESP_LOGW(TAG, "Schedule %s expired before dispatch; suppressing out-of-window trigger", schedule->name);
+        esp_schedule_start_timer(schedule);
+        return;
     }
+
     ESP_LOGI(TAG, "Schedule %s triggered", schedule->name);
     if (schedule->trigger_cb) {
         schedule->trigger_cb((esp_schedule_handle_t)schedule, schedule->priv_data);
     }
 
-restart_schedule:
-
-    if (esp_schedule_is_expired(&schedule->trigger)) {
-        /* Not deleting the schedule here. Just not starting it again. */
-        return;
-    }
     esp_schedule_start_timer(schedule);
 }
 
@@ -631,8 +554,9 @@ static void esp_schedule_delete_timer(esp_schedule_t *schedule)
 static void esp_schedule_create_timer(esp_schedule_t *schedule)
 {
     if (esp_schedule_nvs_is_enabled()) {
-        /* This is just used for calculating next_scheduled_time_utc for ESP_SCHEDULE_DAY_ONCE (in case of ESP_SCHEDULE_TYPE_DAYS_OF_WEEK) or for ESP_SCHEDULE_MONTH_ONCE (in case of ESP_SCHEDULE_TYPE_DATE), and only used when NVS is enabled. And if NVS is enabled, time will already be synced and the time will be correctly calculated. */
-        schedule->next_scheduled_time_diff = esp_schedule_get_next_schedule_time_diff(schedule->name, &schedule->trigger);
+        /* This is used for calculating next_scheduled_time_utc, and only used when NVS is enabled.
+         * If NVS is enabled, time will already be synced and the time will be correctly calculated. */
+        schedule->next_scheduled_time_diff = esp_schedule_get_next_schedule_time_diff(schedule);
     }
 
     /* Temporarily setting the timer for 1 (anything greater than 0) tick. This will get changed when xTimerChangePeriod() is called. */
@@ -653,13 +577,29 @@ esp_err_t esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *
     schedule_config->trigger.type = schedule->trigger.type;
     schedule_config->trigger.hours = schedule->trigger.hours;
     schedule_config->trigger.minutes = schedule->trigger.minutes;
-    if (schedule->trigger.type == ESP_SCHEDULE_TYPE_DAYS_OF_WEEK) {
+    if (schedule->trigger.type == ESP_SCHEDULE_TYPE_RELATIVE) {
+        schedule_config->trigger.relative_seconds = schedule->trigger.relative_seconds;
+        schedule_config->trigger.next_scheduled_time_utc = schedule->trigger.next_scheduled_time_utc;
+    } else if (schedule->trigger.type == ESP_SCHEDULE_TYPE_DAYS_OF_WEEK) {
         schedule_config->trigger.day.repeat_days = schedule->trigger.day.repeat_days;
     } else if (schedule->trigger.type == ESP_SCHEDULE_TYPE_DATE) {
+        schedule_config->trigger.day.repeat_days = schedule->trigger.day.repeat_days;
         schedule_config->trigger.date.day = schedule->trigger.date.day;
         schedule_config->trigger.date.repeat_months = schedule->trigger.date.repeat_months;
         schedule_config->trigger.date.year = schedule->trigger.date.year;
         schedule_config->trigger.date.repeat_every_year = schedule->trigger.date.repeat_every_year;
+#if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
+    } else if (schedule->trigger.type == ESP_SCHEDULE_TYPE_SUNRISE || schedule->trigger.type == ESP_SCHEDULE_TYPE_SUNSET) {
+        /* Solar carries the same day/date pattern as DATE, plus location. */
+        schedule_config->trigger.day.repeat_days = schedule->trigger.day.repeat_days;
+        schedule_config->trigger.date.day = schedule->trigger.date.day;
+        schedule_config->trigger.date.repeat_months = schedule->trigger.date.repeat_months;
+        schedule_config->trigger.date.year = schedule->trigger.date.year;
+        schedule_config->trigger.date.repeat_every_year = schedule->trigger.date.repeat_every_year;
+        schedule_config->trigger.solar.latitude = schedule->trigger.solar.latitude;
+        schedule_config->trigger.solar.longitude = schedule->trigger.solar.longitude;
+        schedule_config->trigger.solar.offset_minutes = schedule->trigger.solar.offset_minutes;
+#endif
     }
 
     schedule_config->trigger_cb = schedule->trigger_cb;
@@ -707,6 +647,7 @@ static esp_err_t esp_schedule_set(esp_schedule_t *schedule, esp_schedule_config_
         if (schedule->trigger.type == ESP_SCHEDULE_TYPE_DAYS_OF_WEEK) {
             schedule->trigger.day.repeat_days = schedule_config->trigger.day.repeat_days;
         } else if (schedule->trigger.type == ESP_SCHEDULE_TYPE_DATE) {
+            schedule->trigger.day.repeat_days = schedule_config->trigger.day.repeat_days;
             schedule->trigger.date.day = schedule_config->trigger.date.day;
             schedule->trigger.date.repeat_months = schedule_config->trigger.date.repeat_months;
             schedule->trigger.date.year = schedule_config->trigger.date.year;
@@ -812,6 +753,11 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
         return NULL;
     }
 
+    if (schedule_count == NULL) {
+        ESP_LOGE(TAG, "schedule_count cannot be NULL when NVS is enabled");
+        return NULL;
+    }
+
     /* Wait for time to be updated here */
 
     /* Below this is initialising schedules from NVS */
@@ -833,8 +779,11 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
         schedule->trigger_cb = NULL;
         schedule->timestamp_cb = NULL;
         schedule->timer = NULL;
-        /* Check for ONCE and expired schedules and delete them. */
-        if (esp_schedule_is_expired(&schedule->trigger)) {
+        /* Check for ONCE and expired schedules and delete them. A schedule with
+         * no valid future occurrence (already-fired one-shot, or a year bounded
+         * in the past) is expired. */
+        bool has_future = esp_schedule_set_next_scheduled_time_utc(schedule->name, &schedule->trigger, &schedule->validity);
+        if (!has_future) {
             /* This schedule has already expired. */
             ESP_LOGI(TAG, "Schedule %s does not repeat and has already expired. Deleting it.", schedule->name);
             esp_schedule_delete((esp_schedule_handle_t)schedule);

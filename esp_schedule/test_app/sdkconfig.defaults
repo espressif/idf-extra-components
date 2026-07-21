@@ -1,0 +1,2 @@
+# Disable watchdog
+CONFIG_ESP_TASK_WDT_INIT=n
