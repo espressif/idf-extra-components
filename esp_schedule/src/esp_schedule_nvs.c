@@ -25,6 +25,11 @@ static const char *TAG = "esp_schedule_nvs";
 
 static char *esp_schedule_nvs_partition = NULL;
 static bool nvs_enabled = false;
+static esp_schedule_priv_data_callbacks_t nvs_priv_data_callbacks = {
+    .on_save = NULL,
+    .on_load = NULL,
+    .on_free = NULL,
+};
 
 esp_err_t esp_schedule_nvs_add(esp_schedule_t *schedule)
 {
@@ -55,14 +60,55 @@ esp_err_t esp_schedule_nvs_add(esp_schedule_t *schedule)
         ESP_LOGI(TAG, "Updating the existing schedule %s", schedule->name);
     }
 
-    /* Build the persisted form. Runtime-only fields (timer handle, callbacks,
-     * priv_data) are never persisted. */
-    esp_schedule_persistent_t persistent = {0};
-    persistent.version = ESP_SCHEDULE_NVS_FORMAT_VERSION;
-    persistent.struct_size = (uint16_t) sizeof(persistent);
-    persistent.trigger = schedule->trigger;
-    persistent.validity = schedule->validity;
-    strlcpy(persistent.name, schedule->name, sizeof(persistent.name));
+    /* Calculate total blob size: the persisted struct + any private data */
+    size_t total_size = sizeof(esp_schedule_persistent_t);
+    size_t private_data_size = 0;
+
+    /* Add private data size to total size if saving private data */
+    if (nvs_priv_data_callbacks.on_save != NULL) {
+        nvs_priv_data_callbacks.on_save(schedule->priv_data, NULL, &private_data_size);
+        total_size += private_data_size;
+    }
+
+    /* Allocate buffer for combined data */
+    uint8_t *blob_buffer = (uint8_t *)malloc(total_size);
+    if (blob_buffer == NULL) {
+        ESP_LOGE(TAG, "Could not allocate blob buffer");
+        nvs_close(nvs_handle);
+        return ESP_ERR_NO_MEM;
+    }
+
+    /* Build the persisted form at the start of the buffer. Runtime-only fields
+     * (timer handle, callbacks, priv_data) are never persisted. */
+    esp_schedule_persistent_t *persistent = (esp_schedule_persistent_t *)(blob_buffer);
+    memset(persistent, 0, sizeof(*persistent));
+    persistent->version = ESP_SCHEDULE_NVS_FORMAT_VERSION;
+    persistent->struct_size = (uint16_t) sizeof(*persistent);
+    persistent->trigger = schedule->trigger;
+    persistent->validity = schedule->validity;
+    strlcpy(persistent->name, schedule->name, sizeof(persistent->name));
+
+    /* Add private data to end of buffer if saving private data. The buffer was
+     * sized using the length reported by the first (sizing) on_save call, so the
+     * second (data) call MUST report the same length. If it differs, abort the
+     * save rather than truncate or overflow the buffer. */
+    if (nvs_priv_data_callbacks.on_save != NULL && private_data_size > 0) {
+        void *data = NULL;
+        size_t data_size = 0;
+        nvs_priv_data_callbacks.on_save(schedule->priv_data, &data, &data_size);
+        if (data == NULL || data_size != private_data_size) {
+            ESP_LOGE(TAG, "priv data size mismatch between on_save calls (%u vs %u); aborting save",
+                     (unsigned)data_size, (unsigned)private_data_size);
+            if (data != NULL) {
+                free(data);
+            }
+            free(blob_buffer);
+            nvs_close(nvs_handle);
+            return ESP_FAIL;
+        }
+        memcpy(blob_buffer + sizeof(esp_schedule_persistent_t), data, data_size);
+        free(data);
+    }
 
     /* For a new schedule, read and validate the count BEFORE writing the blob,
      * so a rejected add (count read error, or count already at the limit) never
@@ -75,18 +121,23 @@ esp_err_t esp_schedule_nvs_add(esp_schedule_t *schedule)
                 schedule_count = 0;
             } else {
                 ESP_LOGE(TAG, "NVS get existing schedule count failed while adding schedule %s with error %d", schedule->name, err);
+                free(blob_buffer);
                 nvs_close(nvs_handle);
                 return err;
             }
         }
         if (schedule_count == UINT8_MAX) {
             ESP_LOGE(TAG, "Schedule count at maximum (%u); not adding %s", UINT8_MAX, schedule->name);
+            free(blob_buffer);
             nvs_close(nvs_handle);
             return ESP_ERR_NO_MEM;
         }
     }
 
-    err = nvs_set_blob(nvs_handle, schedule->name, &persistent, sizeof(persistent));
+    /* Store combined blob */
+    err = nvs_set_blob(nvs_handle, schedule->name, blob_buffer, total_size);
+    free(blob_buffer);
+
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "NVS set failed with error %d", err);
         nvs_close(nvs_handle);
@@ -338,6 +389,16 @@ static esp_schedule_handle_t esp_schedule_nvs_get(const char *nvs_key)
     schedule->validity = persistent->validity;
     /* Runtime fields are zeroed by calloc: timer, trigger_cb, timestamp_cb, priv_data */
 
+    /* Load private data if a loader is registered. schedule_size is bounded by
+     * buf_size above, so this subtraction cannot underflow. */
+    size_t data_len = buf_size - schedule_size;
+    if (data_len > 0 && nvs_priv_data_callbacks.on_load != NULL) {
+        void *data = (void *) blob_buffer + schedule_size;
+        nvs_priv_data_callbacks.on_load(data, data_len, &schedule->priv_data);
+    } else {
+        schedule->priv_data = NULL;
+    }
+
     free(blob_buffer);
     ESP_LOGI(TAG, "Schedule %s found in NVS", schedule->name);
     return (esp_schedule_handle_t) schedule;
@@ -401,10 +462,24 @@ bool esp_schedule_nvs_is_enabled(void)
     return nvs_enabled;
 }
 
-esp_err_t esp_schedule_nvs_init(char *nvs_partition)
+void esp_schedule_nvs_free_loaded_priv_data(void *priv_data)
 {
+    if (priv_data != NULL && nvs_priv_data_callbacks.on_free != NULL) {
+        nvs_priv_data_callbacks.on_free(priv_data);
+    }
+}
+
+esp_err_t esp_schedule_nvs_init(char *nvs_partition, esp_schedule_priv_data_callbacks_t *priv_data_callbacks)
+{
+    /* Apply the callbacks unconditionally, even when NVS is already enabled: a
+     * caller that initialized first with no callbacks (e.g. via the legacy
+     * esp_schedule_init) and then re-initializes once its save/load handlers are
+     * ready must not have those callbacks silently dropped. */
+    if (priv_data_callbacks != NULL) {
+        nvs_priv_data_callbacks = *priv_data_callbacks;
+    }
     if (nvs_enabled) {
-        ESP_LOGI(TAG, "NVS already enabled");
+        ESP_LOGI(TAG, "NVS already enabled; callbacks updated");
         return ESP_OK;
     }
     if (nvs_partition) {

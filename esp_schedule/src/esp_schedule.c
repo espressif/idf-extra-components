@@ -811,6 +811,7 @@ esp_err_t esp_schedule_enable(esp_schedule_handle_t handle)
     if (ret != ESP_OK) {
         return ret;
     }
+#if ESP_SCHEDULE_NVS_ENABLED
     /* Persist the armed target of a one-shot schedule: create/edit store it while
      * it is still 0, which is indistinguishable from "never armed", so a reboot
      * after it fired would recompute and re-arm it (see
@@ -819,6 +820,7 @@ esp_err_t esp_schedule_enable(esp_schedule_handle_t handle)
     if (schedule->trigger.next_scheduled_time_utc > 0 && esp_schedule_trigger_is_one_shot(&schedule->trigger)) {
         esp_schedule_nvs_add(schedule);
     }
+#endif
     return ESP_OK;
 }
 
@@ -876,6 +878,7 @@ static esp_err_t esp_schedule_set(esp_schedule_t *schedule, esp_schedule_config_
     /* Calculate the trigger timestamp once */
     esp_schedule_set_next_scheduled_time_utc(schedule->name, &schedule->trigger, &schedule_config->validity);
 
+#if ESP_SCHEDULE_NVS_ENABLED
     esp_err_t nvs_ret = esp_schedule_nvs_add(schedule);
     /* INVALID_STATE just means NVS is not enabled at runtime - that is not a
      * failure to persist. Any other error is a genuine persistence failure: roll
@@ -888,6 +891,13 @@ static esp_err_t esp_schedule_set(esp_schedule_t *schedule, esp_schedule_config_
         schedule->priv_data = old_priv_data;
         return nvs_ret;
     }
+#else
+    (void)old_trigger;
+    (void)old_validity;
+    (void)old_trigger_cb;
+    (void)old_timestamp_cb;
+    (void)old_priv_data;
+#endif
 
     return ESP_OK;
 }
@@ -952,17 +962,40 @@ esp_err_t esp_schedule_delete(esp_schedule_handle_t handle)
     }
     esp_schedule_t *schedule = (esp_schedule_t *)handle;
     ESP_LOGI(TAG, "Deleting schedule %s", schedule->name);
+#if ESP_SCHEDULE_NVS_ENABLED
     esp_schedule_nvs_remove(schedule);
+#endif
     esp_schedule_free_schedule(schedule);
     return ESP_OK;
 }
 
 esp_err_t esp_schedule_delete_all(esp_schedule_handle_t *handle_list, uint8_t schedule_count)
 {
+#if ESP_SCHEDULE_NVS_ENABLED
     esp_schedule_nvs_remove_all();
+#endif
     esp_schedule_free_all_schedules(handle_list, schedule_count);
     return ESP_OK;
 }
+
+#if ESP_SCHEDULE_NVS_ENABLED
+esp_err_t esp_schedule_unload(esp_schedule_handle_t handle)
+{
+    if (handle == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    esp_schedule_t *schedule = (esp_schedule_t *)handle;
+    ESP_LOGI(TAG, "Freeing schedule %s from memory", schedule->name);
+    esp_schedule_free_schedule(schedule);
+    return ESP_OK;
+}
+
+esp_err_t esp_schedule_unload_all(esp_schedule_handle_t *handle_list, uint8_t schedule_count)
+{
+    esp_schedule_free_all_schedules(handle_list, schedule_count);
+    return ESP_OK;
+}
+#endif /* ESP_SCHEDULE_NVS_ENABLED */
 
 esp_err_t esp_schedule_create(const esp_schedule_config_t *schedule_config, esp_schedule_handle_t *handle_out)
 {
@@ -1033,7 +1066,7 @@ esp_err_t esp_schedule_set_timestamp_callback(esp_schedule_handle_t handle, esp_
     return ESP_OK;
 }
 
-esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, uint8_t *schedule_count)
+static void esp_schedule_timesync_init(void)
 {
     if (!esp_sntp_enabled()) {
         ESP_LOGI(TAG, "Initializing SNTP");
@@ -1041,58 +1074,104 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
         esp_sntp_setservername(0, "pool.ntp.org");
         esp_sntp_init();
     }
+}
+
+esp_err_t esp_schedule_init_default(void)
+{
+    esp_schedule_timesync_init();
+    init_done = true;
+    return ESP_OK;
+}
+
+#if ESP_SCHEDULE_NVS_ENABLED
+/* Returns true if the schedule cannot be armed: either its stored config is no
+ * longer valid (it may have been written by an older version that accepted
+ * combinations now rejected), or it has no valid future occurrence
+ * (already-fired one-shot, or a year bounded in the past). */
+static bool esp_schedule_is_expired(esp_schedule_t *schedule)
+{
+    return !(esp_schedule_trigger_is_valid(&schedule->trigger, schedule->name) &&
+             esp_schedule_set_next_scheduled_time_utc(schedule->name, &schedule->trigger, &schedule->validity));
+}
+
+esp_err_t esp_schedule_init_nvs(char *nvs_partition, esp_schedule_priv_data_callbacks_t *priv_data_callbacks, uint8_t *schedule_count, esp_schedule_handle_t **handles_out)
+{
+    if (schedule_count == NULL || handles_out == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_schedule_timesync_init();
+
+    /* Initialize NVS */
+    esp_err_t ret = esp_schedule_nvs_init(nvs_partition, priv_data_callbacks);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    /* Get handle list from NVS */
+    *handles_out = esp_schedule_nvs_get_all(schedule_count);
+    if (*handles_out == NULL) {
+        ESP_LOGI(TAG, "No schedules found in NVS");
+        *schedule_count = 0;
+    } else {
+        ESP_LOGI(TAG, "Schedules found in NVS: %"PRIu8, *schedule_count);
+        /* Start/Delete the schedules. Iterate downwards so a swap-removal of an
+         * expired schedule only moves an already-processed entry into the slot. */
+        esp_schedule_t *schedule = NULL;
+        for (int handle_count = *schedule_count - 1; handle_count >= 0; handle_count--) {
+            schedule = (esp_schedule_t *) * (*handles_out + handle_count);
+            schedule->trigger_cb = NULL;
+            schedule->timestamp_cb = NULL;
+            schedule->timer = NULL;
+            /* Check for ONCE and expired schedules and delete them. */
+            if (esp_schedule_is_expired(schedule)) {
+                ESP_LOGI(TAG, "Schedule %s does not repeat and has already expired. Deleting it.", schedule->name);
+                /* The app never receives this handle, so it cannot free the
+                 * private data that on_load allocated for it. Release it via the
+                 * on_free callback (no-op if none registered) before the schedule
+                 * struct is freed, to avoid leaking it on every boot. */
+                if (schedule->priv_data != NULL) {
+                    esp_schedule_nvs_free_loaded_priv_data(schedule->priv_data);
+                    schedule->priv_data = NULL;
+                }
+                esp_schedule_delete((esp_schedule_handle_t)schedule);
+                (*handles_out)[handle_count] = (*handles_out)[*schedule_count - 1];
+                (*handles_out)[*schedule_count - 1] = NULL;
+                (*schedule_count)--;
+                continue;
+            }
+            esp_schedule_start_timer(schedule);
+        }
+    }
+    init_done = true;
+    return ESP_OK;
+}
+#endif /* ESP_SCHEDULE_NVS_ENABLED */
+
+esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, uint8_t *schedule_count)
+{
+#if !ESP_SCHEDULE_NVS_ENABLED
+    /* Force default (non-NVS) init when NVS support is compiled out. */
+    enable_nvs = false;
+#endif
 
     if (!enable_nvs) {
-        init_done = true;
+        esp_schedule_init_default();
+        if (schedule_count) {
+            *schedule_count = 0;
+        }
         return NULL;
     }
 
+#if ESP_SCHEDULE_NVS_ENABLED
     if (schedule_count == NULL) {
         ESP_LOGE(TAG, "schedule_count cannot be NULL when NVS is enabled");
         return NULL;
     }
-
-    /* Wait for time to be updated here */
-
-    /* Below this is initialising schedules from NVS */
-    esp_schedule_nvs_init(nvs_partition);
-
-    /* Get handle list from NVS */
     esp_schedule_handle_t *handle_list = NULL;
-    *schedule_count = 0;
-    handle_list = esp_schedule_nvs_get_all(schedule_count);
-    if (handle_list == NULL) {
-        ESP_LOGI(TAG, "No schedules found in NVS");
-        init_done = true;
-        return NULL;
-    }
-    ESP_LOGI(TAG, "Schedules found in NVS: %"PRIu8, *schedule_count);
-    /* Start/Delete the schedules. Iterate downwards so a swap-removal of an
-     * expired schedule only moves an already-processed entry into the slot. */
-    esp_schedule_t *schedule = NULL;
-    for (int handle_count = *schedule_count - 1; handle_count >= 0; handle_count--) {
-        schedule = (esp_schedule_t *)handle_list[handle_count];
-        schedule->trigger_cb = NULL;
-        schedule->timestamp_cb = NULL;
-        schedule->timer = NULL;
-        /* Drop schedules we cannot arm: a stored config may have been written by
-         * an older version that accepted combinations now rejected, and a
-         * schedule with no valid future occurrence (already-fired one-shot, or a
-         * year bounded in the past) is expired. */
-        bool has_future = esp_schedule_trigger_is_valid(&schedule->trigger, schedule->name) &&
-                          esp_schedule_set_next_scheduled_time_utc(schedule->name, &schedule->trigger, &schedule->validity);
-        if (!has_future) {
-            /* This schedule is invalid or has already expired. */
-            ESP_LOGI(TAG, "Schedule %s cannot be armed (invalid config, or does not repeat and has already expired). Deleting it.", schedule->name);
-            esp_schedule_delete((esp_schedule_handle_t)schedule);
-            /* Removing the schedule from the list by swapping in the last entry. */
-            handle_list[handle_count] = handle_list[*schedule_count - 1];
-            handle_list[*schedule_count - 1] = NULL;
-            (*schedule_count)--;
-            continue;
-        }
-        esp_schedule_start_timer(schedule);
-    }
-    init_done = true;
+    esp_schedule_init_nvs(nvs_partition, NULL, schedule_count, &handle_list);
     return handle_list;
+#else
+    return NULL;
+#endif
 }

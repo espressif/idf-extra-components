@@ -42,6 +42,58 @@ typedef void (*esp_schedule_trigger_cb_t)(esp_schedule_handle_t handle, void *pr
  */
 typedef void (*esp_schedule_timestamp_cb_t)(esp_schedule_handle_t handle, time_t next_timestamp, void *priv_data);
 
+#if defined(CONFIG_ESP_SCHEDULE_ENABLE_NVS) && CONFIG_ESP_SCHEDULE_ENABLE_NVS
+/** Callback for saving private data
+ *
+ * This callback is called when the private data is to be saved to NVS.
+ * Translate the private data to a binary format and save it to the data pointer.
+ * @note This is called twice per save: first with p_data == NULL to obtain the
+ *       required size in p_data_len, then with p_data non-NULL to receive the
+ *       buffer. Both calls MUST report the same size for the same priv_data. If
+ *       the two sizes differ, the save is aborted and no data is persisted.
+ * @note if p_data is NULL, then return the required size of the data buffer in p_data_len.
+ * @param[in] priv_data Pointer to the private data to be saved.
+ * @param[out] p_data Pointer to the data to be saved. This is a binary buffer. This will be freed by the caller.
+ * @param[out] p_data_len Pointer to the length of the data to be saved.
+ */
+typedef void (*esp_schedule_priv_data_save_cb_t)(void *priv_data, void **p_data, size_t *p_data_len);
+
+/** Callback for loading private data
+ *
+ * This callback is called when the private data is to be loaded from NVS.
+ * Translate the binary data to the private data.
+ *
+ * @param[in] data Pointer to the data to be loaded. This will be freed by the caller.
+ * @param[in] data_len Length of the data to be loaded.
+ * @param[out] p_priv_data Pointer to the private data to be loaded.
+ */
+typedef void (*esp_schedule_priv_data_load_cb_t)(void *data, size_t data_len, void **p_priv_data);
+
+/** Callback for freeing private data
+ *
+ * This callback is called when the library needs to release private data that
+ * it loaded via on_load but that never reached the application. The prime case
+ * is a persisted schedule that is found to be expired during
+ * esp_schedule_init_nvs() and deleted internally: the app never receives its
+ * handle, so it gets no chance to free the loaded private data itself. Provide
+ * this callback (using the same allocator as on_load) to avoid leaking it.
+ *
+ * @note If NULL, loaded private data of internally-deleted schedules is not
+ *       freed. Private data supplied by the application via create()/edit() is
+ *       always owned by the application and is never passed to this callback.
+ *
+ * @param[in] priv_data Pointer to the private data to be freed.
+ */
+typedef void (*esp_schedule_priv_data_free_cb_t)(void *priv_data);
+
+/** Private data callbacks */
+typedef struct esp_schedule_priv_data_callbacks {
+    esp_schedule_priv_data_save_cb_t on_save; // Callback for saving private data to NVS.
+    esp_schedule_priv_data_load_cb_t on_load; // Callback for loading private data from NVS.
+    esp_schedule_priv_data_free_cb_t on_free; // (Optional) Free private data the library loaded but never handed to the app.
+} esp_schedule_priv_data_callbacks_t;
+#endif
+
 /** Schedule type */
 typedef enum esp_schedule_type {
     ESP_SCHEDULE_TYPE_INVALID = 0,
@@ -156,7 +208,10 @@ typedef struct esp_schedule_config {
     esp_schedule_validity_t validity;
 } esp_schedule_config_t;
 
-/** Initialize ESP Schedule
+/** Initialize ESP Schedule (Legacy - Deprecated)
+ *
+ * @deprecated Use esp_schedule_init_default() or esp_schedule_init_nvs() instead.
+ * This function is kept for backward compatibility.
  *
  * This initializes ESP Schedule. This must be called first before calling any of the other APIs.
  * This API also gets all the schedules from NVS (if it has been enabled).
@@ -172,6 +227,35 @@ typedef struct esp_schedule_config {
  * @return NULL if no schedule is found in NVS (or if NVS is not enabled).
  */
 esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, uint8_t *schedule_count);
+
+/** Initialize ESP Schedule (Default - Non-NVS)
+ *
+ * This initializes ESP Schedule without NVS support. This must be called first before calling any of the other APIs.
+ *
+ * @return ESP_OK on success.
+ * @return error in case of failure.
+ */
+esp_err_t esp_schedule_init_default(void);
+
+#if defined(CONFIG_ESP_SCHEDULE_ENABLE_NVS) && CONFIG_ESP_SCHEDULE_ENABLE_NVS
+/** Initialize ESP Schedule (NVS-enabled)
+ *
+ * This initializes ESP Schedule with NVS support. This must be called first before calling any of the other APIs.
+ * This API also gets all the schedules from NVS.
+ *
+ * Note: After calling this API, the pointers to the callbacks should be updated for all the schedules by calling
+ * esp_schedule_get() followed by esp_schedule_edit() with the correct callbacks.
+ *
+ * @param[in] nvs_partition (Optional) The NVS partition to be used. If NULL is passed, the default partition is used.
+ * @param[in] priv_data_callbacks (Optional) Private data callbacks. If NULL is passed, then no private data will be saved or loaded.
+ * @param[out] schedule_count Number of active schedules found in NVS.
+ * @param[out] handles_out Array of schedule handles if any schedules have been found.
+ *
+ * @return ESP_OK on success.
+ * @return error in case of failure.
+ */
+esp_err_t esp_schedule_init_nvs(char *nvs_partition, esp_schedule_priv_data_callbacks_t *priv_data_callbacks, uint8_t *schedule_count, esp_schedule_handle_t **handles_out);
+#endif
 
 /** Create Schedule
  *
@@ -208,6 +292,33 @@ esp_err_t esp_schedule_delete(esp_schedule_handle_t handle);
  * @return error in case of failure.
  */
 esp_err_t esp_schedule_delete_all(esp_schedule_handle_t *handle_list, uint8_t schedule_count);
+
+#if defined(CONFIG_ESP_SCHEDULE_ENABLE_NVS) && CONFIG_ESP_SCHEDULE_ENABLE_NVS
+/** Unload Schedule
+ *
+ * Free an existing schedule from memory. The schedule remains in NVS and can be reloaded on the
+ * next initialization.
+ *
+ * @param[in] handle Schedule handle for the schedule to be unloaded.
+ *
+ * @return ESP_OK on success.
+ * @return error in case of failure.
+ */
+esp_err_t esp_schedule_unload(esp_schedule_handle_t handle);
+
+/** Unload All Schedules
+ *
+ * Free all the schedules in the provided handle list from memory. The schedules remain in NVS and
+ * can be reloaded on the next initialization.
+ *
+ * @param[in] handle_list List of schedule handles to be unloaded.
+ * @param[in] schedule_count Number of schedules to be unloaded.
+ *
+ * @return ESP_OK on success.
+ * @return error in case of failure.
+ */
+esp_err_t esp_schedule_unload_all(esp_schedule_handle_t *handle_list, uint8_t schedule_count);
+#endif
 
 /** Edit Schedule
  *

@@ -1572,6 +1572,7 @@ TEST_CASE("dst rainmaker fall back fires once", "[esp_schedule]")
 /* --- A stored config that is invalid under the current rules must be dropped on
  * restore, not armed. Configurations written by older versions can contain
  * combinations that are now rejected. --- */
+#if CONFIG_ESP_SCHEDULE_ENABLE_NVS
 TEST_CASE("nvs restore drops invalid config", "[esp_schedule]")
 {
     esp_netif_init(); /* esp_schedule_init() runs SNTP, which needs the TCP/IP stack */
@@ -1603,6 +1604,7 @@ TEST_CASE("nvs restore drops invalid config", "[esp_schedule]")
     TEST_ASSERT_EQUAL_MESSAGE(0, count, "invalid stored config must be deleted from NVS");
     free(handle_list);
 }
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_NVS */
 
 /* Unity runs setUp()/tearDown() before/after every TEST_CASE. tearDown()
  * restores TZ even if a DST test aborted via a failed assertion before its own
@@ -1622,6 +1624,8 @@ void tearDown(void)
 /* =========================================== */
 /* Multi-trigger and NVS v2 persistence tests  */
 /* =========================================== */
+
+#if CONFIG_ESP_SCHEDULE_ENABLE_NVS
 
 TEST_CASE("nvs basic operations", "[esp_schedule]")
 {
@@ -2006,6 +2010,120 @@ TEST_CASE("nvs migrate from v1", "[esp_schedule]")
     }
     free(handles);
 }
+
+/* --- init_nvs must drop expired schedules without leaking/duplicating --- */
+TEST_CASE("init_nvs drops expired without duplicate", "[esp_schedule]")
+{
+    /* Pin the clock so validity windows are deterministic. */
+    struct timeval tv = { .tv_sec = make_time_local(2025, 6, 15, 12, 0, 0), .tv_usec = 0 };
+    settimeofday(&tv, NULL);
+    time_t now = tv.tv_sec;
+
+    /* Three schedules; the middle one is already past its validity window. */
+    const char *names[3] = {"live_a", "dead_b", "live_c"};
+    for (int i = 0; i < 3; i++) {
+        esp_schedule_config_t config = {0};
+        strcpy(config.name, names[i]);
+        config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+        config.trigger.hours = 12;
+        config.trigger.minutes = 30;
+        config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_EVERYDAY;
+        config.validity.start_time = 0;
+        config.validity.end_time = (i == 1) ? (now - 3600) : (now + 30L * 24 * 3600);
+        esp_schedule_handle_t handle = NULL;
+        TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+        /* Free the in-memory handle but keep the NVS entry for reload. */
+        esp_schedule_unload(handle);
+    }
+
+    /* init_nvs starts SNTP, which needs the TCP/IP stack up. */
+    esp_netif_init();
+
+    uint8_t count = 0;
+    esp_schedule_handle_t *handles = NULL;
+    esp_err_t ret = esp_schedule_init_nvs("nvs", NULL, &count, &handles);
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)ret);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(2, count, "exactly two schedules should survive");
+    TEST_ASSERT_NOT_NULL(handles);
+
+    /* No NULL slots, no duplicate handles, and the expired name is gone. */
+    bool seen_dead = false;
+    for (int i = 0; i < count; i++) {
+        TEST_ASSERT_NOT_NULL_MESSAGE(handles[i], "survivor slot must not be NULL");
+        for (int j = i + 1; j < count; j++) {
+            TEST_ASSERT_TRUE_MESSAGE(handles[i] != handles[j], "no duplicate handle");
+        }
+        esp_schedule_config_t got = {0};
+        esp_schedule_get(handles[i], &got);
+        if (strcmp(got.name, "dead_b") == 0) {
+            seen_dead = true;
+        }
+    }
+    TEST_ASSERT_FALSE_MESSAGE(seen_dead, "expired schedule must not be returned");
+
+    for (int i = 0; i < count; i++) {
+        esp_schedule_delete(handles[i]);
+    }
+    free(handles);
+}
+
+/* --- private data is persisted and restored via the save/load callbacks --- */
+static uint32_t s_priv_payload = 0;
+static void priv_save_cb(void *priv_data, void **p_data, size_t *p_data_len)
+{
+    *p_data_len = sizeof(uint32_t);
+    if (p_data == NULL) {
+        return; /* sizing call */
+    }
+    uint32_t *buf = (uint32_t *)malloc(sizeof(uint32_t));
+    *buf = *(uint32_t *)priv_data;
+    *p_data = buf;
+}
+static void priv_load_cb(void *data, size_t data_len, void **p_priv_data)
+{
+    TEST_ASSERT_EQUAL_UINT32(sizeof(uint32_t), data_len);
+    s_priv_payload = *(uint32_t *)data;
+    *p_priv_data = &s_priv_payload;
+}
+
+TEST_CASE("nvs priv data round trip", "[esp_schedule]")
+{
+    esp_schedule_priv_data_callbacks_t cbs = { .on_save = priv_save_cb, .on_load = priv_load_cb, .on_free = NULL };
+    /* Re-init to register the callbacks (idempotent; updates callbacks). */
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_nvs_init("nvs", &cbs));
+
+    uint32_t payload = 0xDEADBEEF;
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "privtest");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_MONDAY;
+    config.validity.end_time = 2147483647;
+    config.priv_data = &payload;
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+
+    /* Reload from NVS; the load callback must restore the payload. */
+    s_priv_payload = 0;
+    uint8_t count = 0;
+    esp_schedule_handle_t *handles = esp_schedule_nvs_get_all(&count);
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(1, count, "one schedule persisted");
+    esp_schedule_config_t got = {0};
+    esp_schedule_get(handles[0], &got);
+    TEST_ASSERT_NOT_NULL_MESSAGE(got.priv_data, "priv data restored");
+    TEST_ASSERT_EQUAL_HEX32_MESSAGE(0xDEADBEEF, *(uint32_t *)got.priv_data, "priv data value round-trips");
+
+    esp_schedule_delete(handle);
+    for (int i = 0; i < count; i++) {
+        esp_schedule_delete(handles[i]);
+    }
+    free(handles);
+
+    /* Deregister callbacks so later tests are unaffected. */
+    esp_schedule_priv_data_callbacks_t none = { .on_save = NULL, .on_load = NULL, .on_free = NULL };
+    esp_schedule_nvs_init("nvs", &none);
+}
+
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_NVS */
 
 /* --- far-future validity.start_time must still resolve --- */
 TEST_CASE("date far future validity start", "[esp_schedule]")

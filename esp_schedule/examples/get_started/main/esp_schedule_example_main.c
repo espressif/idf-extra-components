@@ -290,12 +290,19 @@ void app_main(void)
 
     // Initialize ESP Schedule
     ESP_LOGI(TAG, "Initializing ESP Schedule...");
-    uint8_t schedule_count;
-    esp_schedule_handle_t *schedule_list = esp_schedule_init(true, NULL, &schedule_count);
+#if CONFIG_ESP_SCHEDULE_ENABLE_NVS
+    uint8_t schedule_count = 0;
+    esp_schedule_handle_t *schedule_list = NULL;
+    ESP_ERROR_CHECK(esp_schedule_init_nvs(NULL, NULL, &schedule_count, &schedule_list));
     if (schedule_list != NULL) {
-        // If there are existing schedules in NVS, their handles will be available in this list. We don't use them in this example, so we free the array.
+        // Existing schedules from NVS are returned here. This example does not reuse them, so
+        // unload them from memory (they remain in NVS) and free the handle array.
+        ESP_ERROR_CHECK(esp_schedule_unload_all(schedule_list, schedule_count));
         free(schedule_list);
     }
+#else
+    ESP_ERROR_CHECK(esp_schedule_init_default());
+#endif
 
     // Make all the schedules used
     create_example_schedules();

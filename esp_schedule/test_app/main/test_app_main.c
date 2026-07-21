@@ -7,8 +7,9 @@
 #include <stdio.h>
 #include "unity.h"
 #include "esp_err.h"
-#include "nvs_flash.h"
 #include "esp_schedule_internal.h"
+#if CONFIG_ESP_SCHEDULE_ENABLE_NVS
+#include "nvs_flash.h"
 
 // NVS initialization for tests
 static void init_nvs_for_tests(void)
@@ -22,17 +23,20 @@ static void init_nvs_for_tests(void)
     }
     ESP_ERROR_CHECK(err);
 
-    // Initialize NVS for schedules
-    esp_err_t nvs_init_result = esp_schedule_nvs_init("nvs");
+    // Initialize NVS for schedules (no private-data callbacks in these tests)
+    esp_err_t nvs_init_result = esp_schedule_nvs_init("nvs", NULL);
     TEST_ASSERT_EQUAL_INT_MESSAGE(ESP_OK, nvs_init_result, "NVS initialization should succeed");
 
     // Check if NVS is enabled
     TEST_ASSERT_TRUE_MESSAGE(esp_schedule_nvs_is_enabled(), "NVS should be enabled");
 }
+#endif /* CONFIG_ESP_SCHEDULE_ENABLE_NVS */
 
 void app_main(void)
 {
     printf("Running esp_schedule component tests\n");
+#if CONFIG_ESP_SCHEDULE_ENABLE_NVS
     init_nvs_for_tests();
+#endif
     unity_run_menu();
 }

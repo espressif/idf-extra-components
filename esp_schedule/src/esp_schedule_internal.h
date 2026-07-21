@@ -11,6 +11,13 @@
 #include "esp_schedule.h"
 #include "esp_heap_caps.h"
 
+/* NVS support */
+#if defined(CONFIG_ESP_SCHEDULE_ENABLE_NVS) && CONFIG_ESP_SCHEDULE_ENABLE_NVS
+#define ESP_SCHEDULE_NVS_ENABLED 1
+#else
+#define ESP_SCHEDULE_NVS_ENABLED 0
+#endif
+
 /** Memory allocation macros for external RAM */
 #if ((CONFIG_SPIRAM || CONFIG_SPIRAM_SUPPORT) && \
         (CONFIG_SPIRAM_USE_CAPS_ALLOC || CONFIG_SPIRAM_USE_MALLOC))
@@ -34,22 +41,26 @@ typedef struct esp_schedule {
     esp_schedule_validity_t validity;
 } esp_schedule_t;
 
+#if ESP_SCHEDULE_NVS_ENABLED
 /* On-disk format version for the persisted schedule blob. Bump whenever the
  * layout of esp_schedule_persistent_t or esp_schedule_trigger_t changes in a
  * way that is not backward compatible, so stale blobs are rejected (or
  * migrated) on read. */
 #define ESP_SCHEDULE_NVS_FORMAT_VERSION 2
 
-/* Persisted form of a schedule. Runtime-only and runtime-derived fields (live
- * pointers, timer handle, callbacks, and the next-fire countdown which is
- * recomputed on every arm) are intentionally excluded: persisting them is
- * meaningless across reboots and makes the format depend on pointer width and
- * padding.
+/* Persisted form of a schedule, optionally followed by the application's private
+ * data. Runtime-only and runtime-derived fields (live pointers, timer handle,
+ * callbacks, and the next-fire countdown which is recomputed on every arm) are
+ * intentionally excluded: persisting them is meaningless across reboots and
+ * makes the format depend on pointer width and padding.
  *
  * struct_size records sizeof(esp_schedule_persistent_t) as written, so a blob
  * produced by a build with a different layout is rejected rather than
  * misinterpreted. The prime case is CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT being
- * toggled across an OTA, which changes sizeof(esp_schedule_trigger_t). */
+ * toggled across an OTA, which changes sizeof(esp_schedule_trigger_t).
+ *
+ * Private data is detected by blob size (buf_size - struct_size), not gated on
+ * the version, so a blob written without private data still reads back fine. */
 typedef struct esp_schedule_persistent {
     uint8_t version;       /* ESP_SCHEDULE_NVS_FORMAT_VERSION */
     uint16_t struct_size;  /* sizeof(esp_schedule_persistent_t) when written */
@@ -67,7 +78,14 @@ esp_err_t esp_schedule_nvs_remove(esp_schedule_t *schedule);
 esp_err_t esp_schedule_nvs_remove_all(void);
 esp_schedule_handle_t *esp_schedule_nvs_get_all(uint8_t *schedule_count);
 bool esp_schedule_nvs_is_enabled(void);
-esp_err_t esp_schedule_nvs_init(char *nvs_partition);
+esp_err_t esp_schedule_nvs_init(char *nvs_partition, esp_schedule_priv_data_callbacks_t *priv_data_callbacks);
+
+/* Free private data that the library loaded from NVS via the on_load callback
+ * but that never reached the application (e.g. an expired schedule deleted
+ * during init). Invokes the registered on_free callback if any; a no-op
+ * otherwise. Must not be used on application-owned private data. */
+void esp_schedule_nvs_free_loaded_priv_data(void *priv_data);
+#endif /* ESP_SCHEDULE_NVS_ENABLED */
 
 /* Returns true if the trigger configuration is valid, i.e. it sets no field its
  * type does not read and no combination without a coherent reading. Logs the
