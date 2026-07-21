@@ -162,3 +162,30 @@ s3.solar.longitude = -122.4194;
 ```
 
 The day is selected first, then the actual sunrise/sunset instant for that day is computed for your location. Days with no solar event (polar night/day) are skipped.
+
+## Glue Layers
+
+This component makes use of the following glue abstraction layers under `glue`:
+- `glue_log.h`: Logging
+- `glue_mem.h`: Memory allocation
+- `glue_nvs.h`: Non-Volatile Storage
+- `glue_time.h`: Time provider and synchronization
+- `glue_timer.h`: Timer implementation
+
+### As an ESP-IDF component
+
+When using this component normally, the default glue implementations are used:
+- Logging: `glue/esp/glue_log_impl.h`
+- Memory allocation: `glue/esp/glue_mem_impl.h`
+- Non-Volatile Storage: `glue/esp/nvs.c`
+- Time provider and synchronization: `glue/esp/time.c`
+- Timer implementation: `glue/esp/timer.c`
+
+### Custom glue implementations
+
+If the underlying implementations are required to be changed, then you would need to implement a custom `CMakeLists.txt` for this component:
+1. Common non-glue sources and include directories can be included using `esp_schedule_variables.cmake`.
+2. Append your glue sources and include directories to the variables provided.
+3. Use the variables to build your target library (e.g., passing them to `idf_component_register`).
+
+The [default implementation](#as-an-esp-idf-component) does this in this component's `CMakeLists.txt` with the default glue implementations.

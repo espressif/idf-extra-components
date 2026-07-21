@@ -8,8 +8,9 @@
 #include <stdbool.h>
 #include <time.h>
 #include <inttypes.h>
-#include "esp_log.h"
-#include "esp_sntp.h"
+#include "glue_time.h"
+#include "glue_log.h"
+#include "glue_mem.h"
 #include "esp_daylight.h"
 #include "esp_schedule_internal.h"
 
@@ -66,7 +67,7 @@ static const char *TAG = "esp_schedule";
 static bool init_done = false;
 
 // Forward declarations for static functions
-static void esp_schedule_common_timer_cb(TimerHandle_t timer);
+static void esp_schedule_common_timer_cb(void *priv_data);
 
 /*
  * Unified date-based next occurrence calculation.
@@ -309,10 +310,10 @@ time_t esp_schedule_calc_solar_time_for_time_utc(bool is_sunrise, time_t time_ut
 
     bool calc_ok = esp_daylight_calc_sunrise_sunset_utc(year, month, day, latitude, longitude, &sunrise_utc, &sunset_utc);
     if (!calc_ok) {
-        ESP_LOGW(TAG, "Failed to calculate %s for date %04d-%02d-%02d at latitude %.5f, longitude %.5f (likely polar night/day condition)",
-                 is_sunrise ? "sunrise" : "sunset",
-                 year, month, day, latitude, longitude
-                );
+        ESP_SCHEDULE_LOGW(TAG, "Failed to calculate %s for date %04d-%02d-%02d at latitude %.5f, longitude %.5f (likely polar night/day condition)",
+                          is_sunrise ? "sunrise" : "sunset",
+                          year, month, day, latitude, longitude
+                         );
         return 0;
     }
     time_t solar_time = is_sunrise ? sunrise_utc : sunset_utc;
@@ -344,7 +345,7 @@ time_t esp_schedule_get_next_valid_solar_time(time_t now, const esp_schedule_tri
             // Outside validity window or not in the future -> advance to next valid day
         } else if (validity && validity->end_time && solar_time > validity->end_time) {
             // Past validity window -> return 0
-            ESP_LOGD(TAG, "Schedule %s: next solar event is past validity end_time.", schedule_name);
+            ESP_SCHEDULE_LOGD(TAG, "Schedule %s: next solar event is past validity end_time.", schedule_name);
             return 0;
         } else {
             return solar_time;
@@ -352,11 +353,11 @@ time_t esp_schedule_get_next_valid_solar_time(time_t now, const esp_schedule_tri
 
         // Advance anchor to next day
         if (!esp_schedule_get_next_date_time(day_end + 1, MINUTES_IN_DAY - 1, trigger->day.repeat_days, trigger->date.day, trigger->date.repeat_months, match_year, validity, &day_end)) {
-            ESP_LOGD(TAG, "Schedule %s: no further day matches the date/day-of-week arm.", schedule_name);
+            ESP_SCHEDULE_LOGD(TAG, "Schedule %s: no further day matches the date/day-of-week arm.", schedule_name);
             return 0;
         }
     }
-    ESP_LOGD(TAG, "Schedule %s: no solar event found within 370 candidate days.", schedule_name);
+    ESP_SCHEDULE_LOGD(TAG, "Schedule %s: no solar event found within 370 candidate days.", schedule_name);
     return 0;
 }
 #endif /* CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT */
@@ -380,24 +381,24 @@ static bool esp_schedule_date_arm_is_valid(const esp_schedule_trigger_t *trigger
     /* V3: a months mask with no day-of-month would mean every day of those
      * months, which is never the intended schedule. */
     if (trigger->date.day == 0 && trigger->date.repeat_months != 0) {
-        ESP_LOGE(TAG, "Schedule %s: date.repeat_months is set but date.day is 0. Set date.day.", schedule_name);
+        ESP_SCHEDULE_LOGE(TAG, "Schedule %s: date.repeat_months is set but date.day is 0. Set date.day.", schedule_name);
         return false;
     }
     /* V4: a recurrence or a year bound with no date pattern to apply it to. */
     if (trigger->date.day == 0 && trigger->date.repeat_months == 0 &&
             (trigger->date.year != 0 || trigger->date.repeat_every_year)) {
-        ESP_LOGE(TAG, "Schedule %s: date.year/date.repeat_every_year set with no date.day or date.repeat_months to apply it to.", schedule_name);
+        ESP_SCHEDULE_LOGE(TAG, "Schedule %s: date.year/date.repeat_every_year set with no date.day or date.repeat_months to apply it to.", schedule_name);
         return false;
     }
     /* V5: "only year N" and "every year" are contradictory. */
     if (trigger->date.year != 0 && trigger->date.repeat_every_year) {
-        ESP_LOGE(TAG, "Schedule %s: date.year and date.repeat_every_year are mutually exclusive.", schedule_name);
+        ESP_SCHEDULE_LOGE(TAG, "Schedule %s: date.year and date.repeat_every_year are mutually exclusive.", schedule_name);
         return false;
     }
     /* V6: repeat_every_year recurs *over the month set*, so with no mask it
      * would be inert. date.year is exempt: it still constrains the arm. */
     if (trigger->date.repeat_every_year && trigger->date.repeat_months == 0) {
-        ESP_LOGE(TAG, "Schedule %s: date.repeat_every_year needs date.repeat_months to recur over (use ESP_SCHEDULE_MONTH_ALL for every month).", schedule_name);
+        ESP_SCHEDULE_LOGE(TAG, "Schedule %s: date.repeat_every_year needs date.repeat_months to recur over (use ESP_SCHEDULE_MONTH_ALL for every month).", schedule_name);
         return false;
     }
     return true;
@@ -426,21 +427,21 @@ bool esp_schedule_trigger_is_valid(const esp_schedule_trigger_t *trigger, const 
          * or before the base time, so the arm path would find nothing to fire and
          * the schedule would silently never run. */
         if (trigger->relative_seconds <= 0) {
-            ESP_LOGE(TAG, "Schedule %s: relative_seconds must be > 0, got %d.", schedule_name, trigger->relative_seconds);
+            ESP_SCHEDULE_LOGE(TAG, "Schedule %s: relative_seconds must be > 0, got %d.", schedule_name, trigger->relative_seconds);
             return false;
         }
         return true;
     case ESP_SCHEDULE_TYPE_DAYS_OF_WEEK:
         /* V1: this type reads only day.repeat_days. */
         if (esp_schedule_date_arm_present(trigger)) {
-            ESP_LOGE(TAG, "Schedule %s: DAYS_OF_WEEK reads only day.repeat_days, but a date.* field is set.", schedule_name);
+            ESP_SCHEDULE_LOGE(TAG, "Schedule %s: DAYS_OF_WEEK reads only day.repeat_days, but a date.* field is set.", schedule_name);
             return false;
         }
         return true;
     case ESP_SCHEDULE_TYPE_DATE:
         /* V2: DATE has no day-of-week arm. */
         if (trigger->day.repeat_days != 0) {
-            ESP_LOGE(TAG, "Schedule %s: DATE reads only date.*, but day.repeat_days is set. Use DAYS_OF_WEEK instead.", schedule_name);
+            ESP_SCHEDULE_LOGE(TAG, "Schedule %s: DATE reads only date.*, but day.repeat_days is set. Use DAYS_OF_WEEK instead.", schedule_name);
             return false;
         }
         return esp_schedule_date_arm_is_valid(trigger, schedule_name);
@@ -452,7 +453,7 @@ bool esp_schedule_trigger_is_valid(const esp_schedule_trigger_t *trigger, const 
          * populated is ambiguous, not a union. */
         if (trigger->day.repeat_days != 0) {
             if (esp_schedule_date_arm_present(trigger)) {
-                ESP_LOGE(TAG, "Schedule %s: solar day.repeat_days and date.* are mutually exclusive arms; only one may be set.", schedule_name);
+                ESP_SCHEDULE_LOGE(TAG, "Schedule %s: solar day.repeat_days and date.* are mutually exclusive arms; only one may be set.", schedule_name);
                 return false;
             }
             return true; /* day-of-week arm */
@@ -541,7 +542,7 @@ static bool esp_schedule_set_next_scheduled_time_utc(const char *schedule_name, 
     time_t now;
 
     /* Get current time */
-    time(&now);
+    esp_schedule_get_time(&now);
     /* Always recompute the next occurrence for repeating date/day-of-week/solar
      * triggers instead of reusing a stored next_scheduled_time_utc. This keeps
      * the fire time correct after a timezone change (picked up on the next arm)
@@ -582,7 +583,7 @@ static bool esp_schedule_set_next_scheduled_time_utc(const char *schedule_name, 
     if (trigger->type == ESP_SCHEDULE_TYPE_SUNRISE || trigger->type == ESP_SCHEDULE_TYPE_SUNSET) {
         time_t solar_time = esp_schedule_get_next_valid_solar_time(now, trigger, validity, schedule_name);
         if (solar_time == 0) {
-            ESP_LOGW(TAG, "Solar schedule %s has no next occurrence (no sunrise/sunset at this location/date, no remaining matching day, or past the validity window). Enable debug logs for the cause.", schedule_name);
+            ESP_SCHEDULE_LOGW(TAG, "Solar schedule %s has no next occurrence (no sunrise/sunset at this location/date, no remaining matching day, or past the validity window). Enable debug logs for the cause.", schedule_name);
             return false;
         }
 
@@ -617,7 +618,7 @@ static bool esp_schedule_set_next_scheduled_time_utc(const char *schedule_name, 
 static uint32_t esp_schedule_get_next_schedule_time_diff(esp_schedule_t *schedule)
 {
     time_t now;
-    time(&now);
+    esp_schedule_get_time(&now);
 
     if (!esp_schedule_set_next_scheduled_time_utc(schedule->name, &schedule->trigger, &schedule->validity)) {
         schedule->trigger.next_scheduled_time_utc = 0;
@@ -633,7 +634,7 @@ static uint32_t esp_schedule_get_next_schedule_time_diff(esp_schedule_t *schedul
     localtime_r(&schedule->trigger.next_scheduled_time_utc, &schedule_time);
     memset(time_str, 0, sizeof(time_str));
     strftime(time_str, sizeof(time_str), "%c %z[%Z]", &schedule_time);
-    ESP_LOGI(TAG, "Schedule %s will be active on: %s. DST: %s", schedule->name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
+    ESP_SCHEDULE_LOGI(TAG, "Schedule %s will be active on: %s. DST: %s", schedule->name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
 
     /* Clamp before the uint32_t cast: casting a double outside uint32_t range is
      * undefined behavior. */
@@ -648,39 +649,30 @@ static uint32_t esp_schedule_get_next_schedule_time_diff(esp_schedule_t *schedul
 
 static void esp_schedule_stop_timer(esp_schedule_t *schedule)
 {
-    xTimerStop(schedule->timer, portMAX_DELAY);
+    esp_schedule_timer_stop(schedule->timer);
 }
 
 /*
- * Arm the FreeRTOS software timer for the given number of seconds. The period
- * is computed in 64-bit and clamped so that a large seconds value cannot
- * overflow the 32-bit tick math ((seconds * 1000) used to overflow for diffs
- * beyond ~49 days). If the requested delay exceeds what a single TickType_t
- * period can represent, it is clamped; esp_schedule_common_timer_cb re-arms for
- * the remaining time when it detects an early expiry.
+ * Arm the schedule timer for the given number of seconds. The underlying timer is
+ * created on the first arm and reused on every later arm. The glue layer owns the
+ * conversion to its native period and splits a delay too long to be represented
+ * in one period across several of them; esp_schedule_common_timer_cb also re-arms
+ * for the remaining time if it ever detects an early expiry.
  */
 static void esp_schedule_arm_timer(esp_schedule_t *schedule, uint32_t seconds)
 {
-    uint64_t ticks = ((uint64_t)seconds * 1000ULL) / (uint64_t)portTICK_PERIOD_MS;
-    if (ticks == 0) {
-        ticks = 1;
+    if (!esp_schedule_timer_start(&schedule->timer, seconds, esp_schedule_common_timer_cb, (void *)schedule)) {
+        ESP_SCHEDULE_LOGE(TAG, "Failed to arm timer for schedule %s", schedule->name);
+        schedule->trigger.next_scheduled_time_utc = 0;
     }
-    /* portMAX_DELAY is the maximum representable period. Clamp to one below it so
-     * it is never confused with the "block forever" sentinel. */
-    const uint64_t max_ticks = (uint64_t)portMAX_DELAY - 1;
-    if (ticks > max_ticks) {
-        ticks = max_ticks;
-    }
-    xTimerStop(schedule->timer, portMAX_DELAY);
-    xTimerChangePeriod(schedule->timer, (TickType_t)ticks, portMAX_DELAY);
 }
 
 static void esp_schedule_start_timer(esp_schedule_t *schedule)
 {
     time_t current_time = 0;
-    time(&current_time);
+    esp_schedule_get_time(&current_time);
     if (current_time < SECONDS_TILL_2020) {
-        ESP_LOGE(TAG, "Time is not updated");
+        ESP_SCHEDULE_LOGE(TAG, "Time is not updated");
         /* Time is no longer valid (e.g. RTC lost). Stop any already-armed timer
          * and clear the chosen time so we don't keep firing on a stale diff. It
          * will be recomputed once time is synced and the schedule re-enabled. */
@@ -695,7 +687,7 @@ static void esp_schedule_start_timer(esp_schedule_t *schedule)
 
     /* Check if schedule calculation failed (returns 0) */
     if (schedule->next_scheduled_time_diff == 0) {
-        ESP_LOGW(TAG, "Schedule %s calculation failed or returned invalid time. Skipping timer creation.", schedule->name);
+        ESP_SCHEDULE_LOGW(TAG, "Schedule %s calculation failed or returned invalid time. Skipping timer creation.", schedule->name);
         /* Stop any already-armed timer so a stale diff cannot still fire, then
          * reset timestamp to indicate schedule is not active */
         if (schedule->timer) {
@@ -705,7 +697,7 @@ static void esp_schedule_start_timer(esp_schedule_t *schedule)
         return;
     }
 
-    ESP_LOGI(TAG, "Starting a timer for %"PRIu32" seconds for schedule %s", schedule->next_scheduled_time_diff, schedule->name);
+    ESP_SCHEDULE_LOGI(TAG, "Starting a timer for %"PRIu32" seconds for schedule %s", schedule->next_scheduled_time_diff, schedule->name);
 
     if (schedule->timestamp_cb) {
         schedule->timestamp_cb((esp_schedule_handle_t)schedule, (uint32_t)schedule->trigger.next_scheduled_time_utc, schedule->priv_data);
@@ -714,12 +706,8 @@ static void esp_schedule_start_timer(esp_schedule_t *schedule)
     esp_schedule_arm_timer(schedule, schedule->next_scheduled_time_diff);
 }
 
-static void esp_schedule_common_timer_cb(TimerHandle_t timer)
+static void esp_schedule_common_timer_cb(void *priv_data)
 {
-    void *priv_data = pvTimerGetTimerID(timer);
-    if (priv_data == NULL) {
-        return;
-    }
     esp_schedule_t *schedule = (esp_schedule_t *)priv_data;
 
     /* Guard against a premature timer expiry: if the scheduled instant has not
@@ -728,9 +716,9 @@ static void esp_schedule_common_timer_cb(TimerHandle_t timer)
      * esp_schedule_start_timer recomputes the diff from the still-future
      * next_scheduled_time_utc, so it re-arms for what remains. */
     time_t now = 0;
-    time(&now);
+    esp_schedule_get_time(&now);
     if (schedule->trigger.next_scheduled_time_utc > now) {
-        ESP_LOGW(TAG, "Schedule %s fired early; rescheduling for the remaining time", schedule->name);
+        ESP_SCHEDULE_LOGW(TAG, "Schedule %s fired early; rescheduling for the remaining time", schedule->name);
         esp_schedule_start_timer(schedule);
         return;
     }
@@ -741,12 +729,12 @@ static void esp_schedule_common_timer_cb(TimerHandle_t timer)
      * that is now outside the window; the re-arm below will find no further
      * valid occurrence and leave the schedule disarmed. */
     if (schedule->validity.end_time != 0 && now > schedule->validity.end_time) {
-        ESP_LOGW(TAG, "Schedule %s expired before dispatch; suppressing out-of-window trigger", schedule->name);
+        ESP_SCHEDULE_LOGW(TAG, "Schedule %s expired before dispatch; suppressing out-of-window trigger", schedule->name);
         esp_schedule_start_timer(schedule);
         return;
     }
 
-    ESP_LOGI(TAG, "Schedule %s triggered", schedule->name);
+    ESP_SCHEDULE_LOGI(TAG, "Schedule %s triggered", schedule->name);
     if (schedule->trigger_cb) {
         schedule->trigger_cb((esp_schedule_handle_t)schedule, schedule->priv_data);
     }
@@ -756,10 +744,10 @@ static void esp_schedule_common_timer_cb(TimerHandle_t timer)
 
 static void esp_schedule_delete_timer(esp_schedule_t *schedule)
 {
-    xTimerDelete(schedule->timer, portMAX_DELAY);
+    esp_schedule_timer_cancel(&schedule->timer);
 }
 
-static void esp_schedule_create_timer(esp_schedule_t *schedule)
+static void esp_schedule_prepare_timer(esp_schedule_t *schedule)
 {
     /* RELATIVE only: computing the diff here anchors the absolute target at
      * create time (the target is computed once and then reused, see
@@ -771,18 +759,15 @@ static void esp_schedule_create_timer(esp_schedule_t *schedule)
     if (schedule->trigger.type == ESP_SCHEDULE_TYPE_RELATIVE && esp_schedule_nvs_is_enabled()) {
         schedule->next_scheduled_time_diff = esp_schedule_get_next_schedule_time_diff(schedule);
     }
-
-    /* Temporarily setting the timer for 1 (anything greater than 0) tick. This will get changed when xTimerChangePeriod() is called. */
-    schedule->timer = xTimerCreate("schedule", 1, pdFALSE, (void *)schedule, esp_schedule_common_timer_cb);
 }
 
-esp_err_t esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config)
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config)
 {
     if (schedule_config == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
     if (handle == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
     esp_schedule_t *schedule = (esp_schedule_t *)handle;
 
@@ -819,13 +804,13 @@ esp_err_t esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *
     schedule_config->timestamp_cb = schedule->timestamp_cb;
     schedule_config->priv_data = schedule->priv_data;
     schedule_config->validity = schedule->validity;
-    return ESP_OK;
+    return ESP_SCHEDULE_RET_OK;
 }
 
-esp_err_t esp_schedule_enable(esp_schedule_handle_t handle)
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_enable(esp_schedule_handle_t handle)
 {
     if (handle == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
     esp_schedule_t *schedule = (esp_schedule_t *)handle;
     esp_schedule_start_timer(schedule);
@@ -837,13 +822,13 @@ esp_err_t esp_schedule_enable(esp_schedule_handle_t handle)
     if (schedule->trigger.next_scheduled_time_utc > 0 && esp_schedule_trigger_is_one_shot(&schedule->trigger)) {
         esp_schedule_nvs_add(schedule);
     }
-    return ESP_OK;
+    return ESP_SCHEDULE_RET_OK;
 }
 
-esp_err_t esp_schedule_disable(esp_schedule_handle_t handle)
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_disable(esp_schedule_handle_t handle)
 {
     if (handle == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
     esp_schedule_t *schedule = (esp_schedule_t *)handle;
     esp_schedule_stop_timer(schedule);
@@ -851,7 +836,7 @@ esp_err_t esp_schedule_disable(esp_schedule_handle_t handle)
      * It would be re-computed after enabling.
      */
     schedule->trigger.next_scheduled_time_utc = 0;
-    return ESP_OK;
+    return ESP_SCHEDULE_RET_OK;
 }
 
 /*
@@ -867,7 +852,7 @@ static bool esp_schedule_config_time_of_day_is_valid(const esp_schedule_config_t
     return (schedule_config->trigger.hours < 24 && schedule_config->trigger.minutes < 60);
 }
 
-static esp_err_t esp_schedule_set(esp_schedule_t *schedule, esp_schedule_config_t *schedule_config)
+static ESP_SCHEDULE_RETURN_TYPE esp_schedule_set(esp_schedule_t *schedule, esp_schedule_config_t *schedule_config)
 {
     /* Setting everything apart from name. */
     schedule->trigger.type = schedule_config->trigger.type;
@@ -906,28 +891,28 @@ static esp_err_t esp_schedule_set(esp_schedule_t *schedule, esp_schedule_config_
     schedule->priv_data = schedule_config->priv_data;
     schedule->validity = schedule_config->validity;
     esp_schedule_nvs_add(schedule);
-    return ESP_OK;
+    return ESP_SCHEDULE_RET_OK;
 }
 
-esp_err_t esp_schedule_edit(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config)
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_edit(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config)
 {
     if (handle == NULL || schedule_config == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
     esp_schedule_t *schedule = (esp_schedule_t *)handle;
     if (strncmp(schedule->name, schedule_config->name, sizeof(schedule->name)) != 0) {
-        ESP_LOGE(TAG, "Schedule name mismatch. Expected: %s, Passed: %s", schedule->name, schedule_config->name);
-        return ESP_FAIL;
+        ESP_SCHEDULE_LOGE(TAG, "Schedule name mismatch. Expected: %s, Passed: %s", schedule->name, schedule_config->name);
+        return ESP_SCHEDULE_RET_FAIL;
     }
 
     if (!esp_schedule_config_time_of_day_is_valid(schedule_config)) {
-        ESP_LOGE(TAG, "Invalid time of day for schedule %s: %u:%u. Expected hours in [0,23] and minutes in [0,59].",
-                 schedule_config->name, (unsigned int)schedule_config->trigger.hours, (unsigned int)schedule_config->trigger.minutes);
-        return ESP_ERR_INVALID_ARG;
+        ESP_SCHEDULE_LOGE(TAG, "Invalid time of day for schedule %s: %u:%u. Expected hours in [0,23] and minutes in [0,59].",
+                          schedule_config->name, (unsigned int)schedule_config->trigger.hours, (unsigned int)schedule_config->trigger.minutes);
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
 
     if (!esp_schedule_trigger_is_valid(&schedule_config->trigger, schedule_config->name)) {
-        return ESP_ERR_INVALID_ARG;
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
 
     /* Editing a schedule with relative time should also reset it. */
@@ -935,24 +920,24 @@ esp_err_t esp_schedule_edit(esp_schedule_handle_t handle, esp_schedule_config_t 
         schedule->trigger.next_scheduled_time_utc = 0;
     }
     esp_schedule_set(schedule, schedule_config);
-    ESP_LOGD(TAG, "Schedule %s edited", schedule->name);
-    return ESP_OK;
+    ESP_SCHEDULE_LOGD(TAG, "Schedule %s edited", schedule->name);
+    return ESP_SCHEDULE_RET_OK;
 }
 
-esp_err_t esp_schedule_delete(esp_schedule_handle_t handle)
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_delete(esp_schedule_handle_t handle)
 {
     if (handle == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return ESP_SCHEDULE_RET_INVALID_ARG;
     }
     esp_schedule_t *schedule = (esp_schedule_t *)handle;
-    ESP_LOGI(TAG, "Deleting schedule %s", schedule->name);
+    ESP_SCHEDULE_LOGI(TAG, "Deleting schedule %s", schedule->name);
     if (schedule->timer) {
         esp_schedule_stop_timer(schedule);
         esp_schedule_delete_timer(schedule);
     }
     esp_schedule_nvs_remove(schedule);
-    free(schedule);
-    return ESP_OK;
+    ESP_SCHEDULE_FREE(schedule);
+    return ESP_SCHEDULE_RET_OK;
 }
 
 esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config)
@@ -961,18 +946,18 @@ esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config
         return NULL;
     }
     if (strlen(schedule_config->name) <= 0) {
-        ESP_LOGE(TAG, "Set schedule failed. Please enter a unique valid name for the schedule.");
+        ESP_SCHEDULE_LOGE(TAG, "Set schedule failed. Please enter a unique valid name for the schedule.");
         return NULL;
     }
 
     if (schedule_config->trigger.type == ESP_SCHEDULE_TYPE_INVALID) {
-        ESP_LOGE(TAG, "Schedule type is invalid.");
+        ESP_SCHEDULE_LOGE(TAG, "Schedule type is invalid.");
         return NULL;
     }
 
     if (!esp_schedule_config_time_of_day_is_valid(schedule_config)) {
-        ESP_LOGE(TAG, "Invalid time of day for schedule %s: %u:%u. Expected hours in [0,23] and minutes in [0,59].",
-                 schedule_config->name, (unsigned int)schedule_config->trigger.hours, (unsigned int)schedule_config->trigger.minutes);
+        ESP_SCHEDULE_LOGE(TAG, "Invalid time of day for schedule %s: %u:%u. Expected hours in [0,23] and minutes in [0,59].",
+                          schedule_config->name, (unsigned int)schedule_config->trigger.hours, (unsigned int)schedule_config->trigger.minutes);
         return NULL;
     }
 
@@ -980,35 +965,30 @@ esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config
         return NULL;
     }
 
-    esp_schedule_t *schedule = (esp_schedule_t *)MEM_CALLOC_EXTRAM(1, sizeof(esp_schedule_t));
+    esp_schedule_t *schedule = (esp_schedule_t *)ESP_SCHEDULE_CALLOC(1, sizeof(esp_schedule_t));
     if (schedule == NULL) {
-        ESP_LOGE(TAG, "Could not allocate handle");
+        ESP_SCHEDULE_LOGE(TAG, "Could not allocate handle");
         return NULL;
     }
     strlcpy(schedule->name, schedule_config->name, sizeof(schedule->name));
 
     esp_schedule_set(schedule, schedule_config);
 
-    esp_schedule_create_timer(schedule);
-    ESP_LOGD(TAG, "Schedule %s created", schedule->name);
+    esp_schedule_prepare_timer(schedule);
+    ESP_SCHEDULE_LOGD(TAG, "Schedule %s created", schedule->name);
     return (esp_schedule_handle_t)schedule;
 }
 
 esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, uint8_t *schedule_count)
 {
-    if (!esp_sntp_enabled()) {
-        ESP_LOGI(TAG, "Initializing SNTP");
-        esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-        esp_sntp_setservername(0, "pool.ntp.org");
-        esp_sntp_init();
-    }
+    esp_schedule_timesync_init();
 
     if (!enable_nvs) {
         return NULL;
     }
 
     if (schedule_count == NULL) {
-        ESP_LOGE(TAG, "schedule_count cannot be NULL when NVS is enabled");
+        ESP_SCHEDULE_LOGE(TAG, "schedule_count cannot be NULL when NVS is enabled");
         return NULL;
     }
 
@@ -1022,10 +1002,10 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
     *schedule_count = 0;
     handle_list = esp_schedule_nvs_get_all(schedule_count);
     if (handle_list == NULL) {
-        ESP_LOGI(TAG, "No schedules found in NVS");
+        ESP_SCHEDULE_LOGI(TAG, "No schedules found in NVS");
         return NULL;
     }
-    ESP_LOGI(TAG, "Schedules found in NVS: %"PRIu8, *schedule_count);
+    ESP_SCHEDULE_LOGI(TAG, "Schedules found in NVS: %"PRIu8, *schedule_count);
     /* Start/Delete the schedules */
     esp_schedule_t *schedule = NULL;
     for (size_t handle_count = 0; handle_count < *schedule_count; handle_count++) {
@@ -1041,7 +1021,7 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
                           esp_schedule_set_next_scheduled_time_utc(schedule->name, &schedule->trigger, &schedule->validity);
         if (!has_future) {
             /* This schedule is invalid or has already expired. */
-            ESP_LOGI(TAG, "Schedule %s cannot be armed (invalid config, or does not repeat and has already expired). Deleting it.", schedule->name);
+            ESP_SCHEDULE_LOGI(TAG, "Schedule %s cannot be armed (invalid config, or does not repeat and has already expired). Deleting it.", schedule->name);
             esp_schedule_delete((esp_schedule_handle_t)schedule);
             /* Removing the schedule from the list */
             handle_list[handle_count] = handle_list[*schedule_count - 1];
@@ -1049,7 +1029,7 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
             handle_count--;
             continue;
         }
-        esp_schedule_create_timer(schedule);
+        esp_schedule_prepare_timer(schedule);
         esp_schedule_start_timer(schedule);
     }
     init_done = true;

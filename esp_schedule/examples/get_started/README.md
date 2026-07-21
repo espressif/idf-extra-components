@@ -210,5 +210,5 @@ If you run out of memory when creating many schedules:
 
 ## Further Reading
 
-- [ESP Schedule API Reference](../../include/esp_schedule.h)
+- [ESP Schedule API Reference](../../include/common/esp_schedule_untyped.h)
 - [ESP Schedule README](../../README.md)

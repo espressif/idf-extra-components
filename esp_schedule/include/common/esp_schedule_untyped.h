@@ -4,13 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @file esp_schedule_untyped.h
+ * @brief Untyped (platform-agnostic) interface for the esp_schedule component.
+ *
+ * @note Do not include this header directly. Include a typed binding (e.g.
+ *       include/esp/esp_schedule.h) that defines ESP_SCHEDULE_RETURN_TYPE and the
+ *       return-value macros, then includes this file:
+ *       - ESP_SCHEDULE_RETURN_TYPE            : the API return type (e.g. esp_err_t)
+ *       - ESP_SCHEDULE_RET_OK / _FAIL / _NO_MEM / _INVALID_ARG / _INVALID_STATE
+ */
+
 #pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
-#include "esp_err.h"
-#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -194,7 +203,7 @@ esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config
  * @return ESP_OK on success.
  * @return error in case of failure.
  */
-esp_err_t esp_schedule_delete(esp_schedule_handle_t handle);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_delete(esp_schedule_handle_t handle);
 
 /** Edit Schedule
  *
@@ -211,7 +220,7 @@ esp_err_t esp_schedule_delete(esp_schedule_handle_t handle);
  * @return ESP_OK on success.
  * @return error in case of failure.
  */
-esp_err_t esp_schedule_edit(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_edit(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config);
 
 /** Enable Schedule
  *
@@ -224,7 +233,7 @@ esp_err_t esp_schedule_edit(esp_schedule_handle_t handle, esp_schedule_config_t 
  * @return ESP_OK on success.
  * @return error in case of failure.
  */
-esp_err_t esp_schedule_enable(esp_schedule_handle_t handle);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_enable(esp_schedule_handle_t handle);
 
 /** Disable Schedule
  *
@@ -237,7 +246,7 @@ esp_err_t esp_schedule_enable(esp_schedule_handle_t handle);
  * @return ESP_OK on success.
  * @return error in case of failure.
  */
-esp_err_t esp_schedule_disable(esp_schedule_handle_t handle);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_disable(esp_schedule_handle_t handle);
 
 /** Get Schedule
  *
@@ -250,7 +259,7 @@ esp_err_t esp_schedule_disable(esp_schedule_handle_t handle);
  * @return ESP_OK on success.
  * @return error in case of failure.
  */
-esp_err_t esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config);
 
 #ifdef __cplusplus
 }
