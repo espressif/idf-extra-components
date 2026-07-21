@@ -6,10 +6,8 @@
 
 #pragma once
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/timers.h"
+#include "glue_timer.h"
 #include "esp_schedule.h"
-#include "esp_heap_caps.h"
 
 /* NVS support */
 #if defined(CONFIG_ESP_SCHEDULE_ENABLE_NVS) && CONFIG_ESP_SCHEDULE_ENABLE_NVS
@@ -18,23 +16,11 @@
 #define ESP_SCHEDULE_NVS_ENABLED 0
 #endif
 
-/** Memory allocation macros for external RAM */
-#if ((CONFIG_SPIRAM || CONFIG_SPIRAM_SUPPORT) && \
-        (CONFIG_SPIRAM_USE_CAPS_ALLOC || CONFIG_SPIRAM_USE_MALLOC))
-#define MEM_ALLOC_EXTRAM(size)         heap_caps_malloc_prefer(size, 2, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL)
-#define MEM_CALLOC_EXTRAM(num, size)   heap_caps_calloc_prefer(num, size, 2, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL)
-#define MEM_REALLOC_EXTRAM(ptr, size)  heap_caps_realloc_prefer(ptr, size, 2, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL)
-#else
-#define MEM_ALLOC_EXTRAM(size)         malloc(size)
-#define MEM_CALLOC_EXTRAM(num, size)   calloc(num, size)
-#define MEM_REALLOC_EXTRAM(ptr, size)  realloc(ptr, size)
-#endif
-
 typedef struct esp_schedule {
     char name[MAX_SCHEDULE_NAME_LEN + 1];
     esp_schedule_trigger_t trigger;
     uint32_t next_scheduled_time_diff;
-    TimerHandle_t timer;
+    esp_schedule_timer_handle_t timer;
     esp_schedule_trigger_cb_t trigger_cb;
     esp_schedule_timestamp_cb_t timestamp_cb;
     void *priv_data;
@@ -68,17 +54,19 @@ typedef struct esp_schedule_persistent {
     esp_schedule_trigger_t trigger;
     esp_schedule_validity_t validity;
 } esp_schedule_persistent_t;
+#endif /* ESP_SCHEDULE_NVS_ENABLED */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-esp_err_t esp_schedule_nvs_add(esp_schedule_t *schedule);
-esp_err_t esp_schedule_nvs_remove(esp_schedule_t *schedule);
-esp_err_t esp_schedule_nvs_remove_all(void);
+#if ESP_SCHEDULE_NVS_ENABLED
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_nvs_add(esp_schedule_t *schedule);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_nvs_remove(esp_schedule_t *schedule);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_nvs_remove_all(void);
 esp_schedule_handle_t *esp_schedule_nvs_get_all(uint8_t *schedule_count);
 bool esp_schedule_nvs_is_enabled(void);
-esp_err_t esp_schedule_nvs_init(char *nvs_partition, esp_schedule_priv_data_callbacks_t *priv_data_callbacks);
+ESP_SCHEDULE_RETURN_TYPE esp_schedule_nvs_init(char *nvs_partition, esp_schedule_priv_data_callbacks_t *priv_data_callbacks);
 
 /* Free private data that the library loaded from NVS via the on_load callback
  * but that never reached the application (e.g. an expired schedule deleted

@@ -13,6 +13,9 @@
 #include "esp_netif.h"
 #include "nvs.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
 #include "unity.h"
 #include "esp_schedule_internal.h"
 #if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
@@ -2178,4 +2181,89 @@ TEST_CASE("start_timer stops on time loss", "[esp_schedule]")
 
     settimeofday(&tv, NULL);
     esp_schedule_delete(handle);
+}
+
+/* --- a repeating schedule must re-arm from its own callback without deadlocking
+ * the FreeRTOS timer daemon ---
+ *
+ * Regression: the timer glue serializes the timer callback against cancel() with
+ * a non-recursive mutex, held across the whole callback body. Re-arming a
+ * repeating schedule runs inside that callback (in the timer daemon task) via
+ * trigger_cb -> esp_schedule_start_timer -> esp_schedule_arm_timer. If arm goes
+ * through timer_start()->timer_cancel() (which re-takes the same mutex) the
+ * daemon deadlocks against itself on the first fire, freezing EVERY software
+ * timer in the system. The fix re-arms an existing timer in place via
+ * esp_schedule_timer_reset(), which never touches the callback mutex.
+ *
+ * Detection: fire the schedule once, then confirm the daemon is still alive by
+ * checking that an INDEPENDENT software timer, armed to expire AFTER the re-arm,
+ * actually runs. Under the deadlock the daemon is stuck inside the schedule's
+ * callback and the canary never fires. (Checking next_scheduled_time_utc would
+ * NOT catch the bug: start_timer updates it before the deadlocking arm call.) */
+static volatile uint32_t s_rearm_fire_count = 0;
+static void rearm_trigger_cb(esp_schedule_handle_t handle, void *priv_data)
+{
+    (void)handle;
+    (void)priv_data;
+    s_rearm_fire_count++;
+}
+
+static volatile bool s_canary_fired = false;
+static void canary_timer_cb(TimerHandle_t t)
+{
+    (void)t;
+    s_canary_fired = true;
+}
+
+TEST_CASE("repeating schedule re-arms without deadlock", "[esp_schedule]")
+{
+    /* Pin the clock ~2s before a daily 12:00 slot so the first fire is quick.
+     * The engine works in local time; the default device TZ is UTC so a
+     * make_time_local() instant matches the UTC epoch fed to settimeofday(). */
+    time_t slot = make_time_local(2025, 6, 16, 12, 0, 0);
+    struct timeval tv = { .tv_sec = slot - 2, .tv_usec = 0 };
+    settimeofday(&tv, NULL);
+
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "rearm");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 12;
+    config.trigger.minutes = 0;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_EVERYDAY;
+    config.validity.end_time = 2147483647;
+    config.trigger_cb = rearm_trigger_cb;
+
+    esp_schedule_handle_t handle = NULL;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_create(&config, &handle));
+
+    s_rearm_fire_count = 0;
+    s_canary_fired = false;
+
+    /* Canary: an independent one-shot timer that expires ~1.5s AFTER the
+     * schedule fires (and re-arms). It shares the one timer daemon task, so it
+     * can only fire if that task did not deadlock. Ticks are wall-clock
+     * independent, so the pinned time does not affect it. */
+    TimerHandle_t canary = xTimerCreate("canary", pdMS_TO_TICKS(3500), pdFALSE, NULL, canary_timer_cb);
+    TEST_ASSERT_NOT_NULL_MESSAGE(canary, "failed to create canary timer");
+    TEST_ASSERT_EQUAL_MESSAGE(pdPASS, xTimerStart(canary, portMAX_DELAY), "failed to start canary timer");
+
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_enable(handle));
+
+    esp_schedule_t *sched = (esp_schedule_t *)handle;
+    TEST_ASSERT_TRUE_MESSAGE(sched->trigger.next_scheduled_time_utc == slot, "armed for the 2s-away slot");
+
+    /* vTaskDelay is driven by the tick ISR, not the timer daemon, so it returns
+     * even if the daemon has deadlocked. */
+    vTaskDelay(pdMS_TO_TICKS(6000));
+
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(1, s_rearm_fire_count, "repeating trigger must have fired exactly once");
+    TEST_ASSERT_TRUE_MESSAGE(s_canary_fired,
+                             "timer daemon must survive the re-arm (canary fired) -> no deadlock");
+    /* Fixed path also re-arms for the next occurrence (next day). */
+    TEST_ASSERT_TRUE_MESSAGE(sched->trigger.next_scheduled_time_utc >= slot + 23 * 3600,
+                             "schedule must have re-armed for the next day");
+
+    xTimerDelete(canary, portMAX_DELAY);
+    esp_schedule_delete(handle);
+    settimeofday(&tv, NULL);
 }
