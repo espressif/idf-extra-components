@@ -1,0 +1,91 @@
+menu "ISO-TP Echo Configuration"
+    menu "TWAI Basic Configuration"
+        config EXAMPLE_TX_GPIO_NUM
+            int "TX GPIO Number"
+            default 5
+            range 0 48
+            help
+                GPIO pin number for TWAI transmission.
+
+        config EXAMPLE_RX_GPIO_NUM
+            int "RX GPIO Number"
+            default 4
+            range 0 48
+            help
+                GPIO pin number for TWAI reception.
+
+        config EXAMPLE_BITRATE
+            int "TWAI Bitrate"
+            default 500000
+            range 25000 1000000
+            help
+                TWAI bitrate in bits per second.
+                Common values: 125000, 250000, 500000, 1000000
+
+        config EXAMPLE_TWAI_TX_QUEUE_DEPTH
+            int "TWAI TX Queue Length"
+            default 16
+            range 1 64
+            help
+                Length of the TWAI transmit queue.
+
+    endmenu
+
+    menu "ISO-TP Configuration"
+        config EXAMPLE_ISOTP_TX_ID
+            hex "TX Message ID"
+            default 0x7E8
+            help
+                TWAI ID for transmitting ISO-TP messages.
+
+        config EXAMPLE_ISOTP_RX_ID
+            hex "RX Message ID"
+            default 0x7E0
+            help
+                TWAI ID for receiving ISO-TP messages.
+
+        config EXAMPLE_ISOTP_TX_BUFFER_SIZE
+            int "ISO-TP TX Buffer Size"
+            default 4096
+            range 256 8192
+            help
+                Size of the ISO-TP transmission buffer.
+
+        config EXAMPLE_ISOTP_RX_BUFFER_SIZE
+            int "ISO-TP RX Buffer Size"
+            default 4096
+            range 256 8192
+            help
+                Size of the ISO-TP reception buffer.
+
+        config EXAMPLE_ISOTP_TX_FRAME_POOL_SIZE
+            int "ISO-TP TX Frame Pool Size"
+            default 8
+            range 1 32
+            help
+                Number of TX frames in the ISO-TP transmission pool.
+    endmenu
+
+    menu "Task Configuration"
+        config EXAMPLE_ECHO_TASK_STACK_SIZE
+            int "Task Stack Size"
+            default 4096
+            range 2048 32768
+            help
+                Stack size for the echo task.
+
+        config EXAMPLE_ECHO_TASK_PRIORITY
+            int "Task Priority"
+            default 10
+            range 1 25
+            help
+                FreeRTOS priority for the echo task.
+
+        config EXAMPLE_ECHO_POLL_DELAY_MS
+            int "Poll Interval (ms)"
+            default 1
+            range 1 100
+            help
+                Delay between consecutive ISO-TP protocol polls.
+    endmenu
+endmenu
