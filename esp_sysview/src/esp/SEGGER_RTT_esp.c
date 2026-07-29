@@ -7,10 +7,10 @@
 #include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "SEGGER_RTT.h"
+#include "SEGGER_RTT_esp.h"
 #include "SEGGER_SYSVIEW.h"
 #include "SEGGER_SYSVIEW_Conf.h"
 
-#include "esp_log.h"
 #include "esp_cpu.h"
 #include "esp_trace_port_transport.h"
 #include "esp_trace_port_encoder.h"
@@ -18,7 +18,7 @@
 #include "adapter_encoder_sysview.h"
 #include "esp_private/startup_internal.h"
 
-const static char *TAG = "segger_rtt";
+/* No ESP_LOGx here, these functions can run in ISR context, use ESP_EARLY_LOGx instead */
 
 #define SYSVIEW_EVENTS_BUF_SZ         255U
 
@@ -48,38 +48,32 @@ static uint8_t s_down_buf[SYSVIEW_DOWN_BUF_SIZE];
 *  Function description
 *    Flushes buffered events.
 *
-*  Parameters
-*    min_sz  Threshold for flushing data. If current filling level is above this value, data will be flushed. JTAG destinations only.
-*    tmo     Timeout for operation (in us). Use ESP_APPTRACE_TMO_INFINITE to wait indefinitely.
-*
 *  Return value
-*    None.
+*    ESP_OK on success, an error code otherwise. Buffered events are kept on error.
 */
-void SEGGER_RTT_ESP_FlushNoLock(void)
+esp_err_t SEGGER_RTT_ESP_FlushNoLock(void)
 {
-    esp_err_t res;
     esp_trace_encoder_t *encoder = SEGGER_SYSVIEW_ESP_GetEncoder();
 
     if (!encoder) {
-        ESP_LOGE(TAG, "Encoder not initialized");
-        return;
+        return ESP_ERR_INVALID_STATE;
     }
 
     esp_trace_transport_t *tp = encoder->tp;
+    esp_err_t write_res = ESP_OK;
 
     if (s_events_buf_filled > 0) {
-        res = tp->vt->write(tp, s_events_buf, s_events_buf_filled, SEGGER_HOST_WAIT_TMO);
-        if (res != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to write buffered events (%d)!", res);
+        write_res = tp->vt->write(tp, s_events_buf, s_events_buf_filled, SEGGER_HOST_WAIT_TMO);
+        if (write_res == ESP_OK) {
+            s_events_buf_filled = 0;
         }
-    }
-    // flush even if we failed to write buffered events, because no new events will be sent after STOP
-    res = tp->vt->flush_nolock(tp);
-    if (res != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to flush buffered events (%d)!", res);
+        // otherwise keep the events for the next call
     }
 
-    s_events_buf_filled = 0;
+    // flush even if the write failed, it frees space in the transport
+    esp_err_t flush_res = tp->vt->flush_nolock(tp);
+
+    return (write_res != ESP_OK) ? write_res : flush_res;
 }
 
 /*********************************************************************
@@ -91,13 +85,15 @@ void SEGGER_RTT_ESP_FlushNoLock(void)
 *
 *
 *  Return value
-*    None.
+*    ESP_OK on success, an error code otherwise.
 */
-void SEGGER_RTT_ESP_Flush(void)
+esp_err_t SEGGER_RTT_ESP_Flush(void)
 {
     SEGGER_SYSVIEW_LOCK();
-    SEGGER_RTT_ESP_FlushNoLock();
+    esp_err_t res = SEGGER_RTT_ESP_FlushNoLock();
     SEGGER_SYSVIEW_UNLOCK();
+
+    return res;
 }
 
 /*********************************************************************
@@ -194,8 +190,7 @@ unsigned SEGGER_RTT_WriteSkipNoLock(unsigned BufferIndex, const void *pBuffer, u
     }
 
     if (NumBytes > SYSVIEW_EVENTS_BUF_SZ) {
-        ESP_LOGE(TAG, "Too large event %u bytes!", NumBytes);
-        return 0;
+        return 0;  /* the caller sees the event was dropped */
     }
     if (link_type == ESP_TRACE_LINK_DEBUG_PROBE) {
         if (esp_cpu_get_core_id()) { // dual core specific code
@@ -209,14 +204,16 @@ unsigned SEGGER_RTT_WriteSkipNoLock(unsigned BufferIndex, const void *pBuffer, u
             }
         }
 
-        if (s_events_buf_filled + NumBytes > SYSVIEW_EVENTS_BUF_SZ) {
+    }
 
-            esp_err_t res = tp->vt->write(tp, s_events_buf, s_events_buf_filled, SEGGER_HOST_WAIT_TMO);
-            if (res != ESP_OK) {
-                return 0; // skip current data buffer only, accumulated events are kept
-            }
-            s_events_buf_filled = 0;
+    // Checked for every link type, a failed write keeps the events buffered
+    if (s_events_buf_filled + NumBytes > SYSVIEW_EVENTS_BUF_SZ) {
+
+        esp_err_t res = tp->vt->write(tp, s_events_buf, s_events_buf_filled, SEGGER_HOST_WAIT_TMO);
+        if (res != ESP_OK) {
+            return 0; // skip current data buffer only, accumulated events are kept
         }
+        s_events_buf_filled = 0;
     }
     memcpy(&s_events_buf[s_events_buf_filled], pBuffer, NumBytes);
     s_events_buf_filled += NumBytes;

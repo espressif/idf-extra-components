@@ -15,7 +15,7 @@ extern "C" {
 /**
  * @brief Flushes remaining data in SystemView trace buffer to host.
  *
- * @return ESP_OK.
+ * @return ESP_OK on success, an error code otherwise.
  */
 esp_err_t esp_sysview_flush(void);
 
@@ -41,7 +41,7 @@ esp_err_t esp_sysview_heap_trace_start(uint32_t tmo);
 /**
  * @brief  Stops SystemView heap tracing.
  *
- * @return ESP_OK.
+ * @return ESP_OK on success, an error code otherwise.
  */
 esp_err_t esp_sysview_heap_trace_stop(void);
 
