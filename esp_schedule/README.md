@@ -163,6 +163,26 @@ s3.solar.longitude = -122.4194;
 
 The day is selected first, then the actual sunrise/sunset instant for that day is computed for your location. Days with no solar event (polar night/day) are skipped.
 
+## Timer Task Stack Requirement
+
+> **Set `CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH` to at least 3072.** The 2048-byte default is not enough and overflows the timer daemon task on some IDF versions.
+
+With the default ESP-IDF glue, a schedule is driven by a FreeRTOS software timer, so its callback runs on the shared timer daemon task (`Tmr Svc`). A repeating schedule re-arms itself from inside that callback, and the re-arm computes the next occurrence through the date engine and formats it for logging (`localtime_r`, `strftime`) — all on the daemon's stack.
+
+An overflow here is not local to your schedule: it takes down the one task that services **every** software timer in the application. It surfaces as
+
+```
+***ERROR*** A stack overflow in task Tmr Svc has been detected.
+```
+
+Add to `sdkconfig.defaults`:
+
+```
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072
+```
+
+If you supply a [custom timer glue](#custom-glue-implementations) that dispatches callbacks on its own task instead, size that task's stack for the same work.
+
 ## Glue Layers
 
 This component makes use of the following glue abstraction layers under `glue`:

@@ -1,2 +1,8 @@
 # Disable watchdog
 CONFIG_ESP_TASK_WDT_INIT=n
+
+# A schedule re-arms from inside its own timer callback, which runs on the
+# FreeRTOS timer daemon task. That path formats the next fire time (strftime,
+# localtime_r) and runs the date engine, which does not fit in the 2048-byte
+# default on every IDF version.
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072
