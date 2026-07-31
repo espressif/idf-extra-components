@@ -4,8 +4,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @file esp_schedule.h
+ * @brief The complete public interface of the esp_schedule component.
+ *
+ * Two halves, in this order: the scheduling API, then the porting interface.
+ *
+ * esp_schedule reaches the outside world - timers, storage, wall-clock time, the
+ * heap and the log - only through the function pointers in the second half.
+ * esp_schedule_init() installs the ESP-IDF implementations of all of them;
+ * esp_schedule_init_with_config() lets an integrator supply their own. Both are
+ * declared here, so there is one place to compare them.
+ *
+ * @note Anything that only calls esp_schedule_init_with_config() never
+ *       references esp_schedule_init(), which is the sole referrer of the
+ *       ESP-IDF implementations. They therefore stay out of the link entirely -
+ *       no FreeRTOS timer, nvs_flash or esp_log dependency is pulled in on
+ *       behalf of this component. See src/esp_schedule_default.c.
+ */
+
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
@@ -251,6 +271,207 @@ esp_err_t esp_schedule_disable(esp_schedule_handle_t handle);
  * @return error in case of failure.
  */
 esp_err_t esp_schedule_get(esp_schedule_handle_t handle, esp_schedule_config_t *schedule_config);
+
+/* Timer **********************************************************************/
+
+/** Opaque timer handle owned by the timer implementation. */
+typedef void *esp_schedule_timer_handle_t;
+
+/** Called by the timer implementation when a timer expires.
+ *
+ * @param[in] priv_data Private data given to esp_schedule_timer_ops_t::start.
+ */
+typedef void (*esp_schedule_timer_cb_t)(void *priv_data);
+
+/** One-shot timer operations. All members are required.
+ *
+ * @note Callback bodies must be serialized against each other: at most one
+ *       esp_schedule_timer_cb_t may be executing at any time, across all
+ *       timers. esp_schedule relies on this to detect a schedule deleting
+ *       itself from its own trigger callback, where the deletion has to be
+ *       deferred until the callback returns. A port that dispatched two
+ *       schedules concurrently on two tasks would defeat that detection and
+ *       free a schedule while its callback is still running.
+ *
+ *       Serializing under a single mutex held for the whole callback satisfies
+ *       both this and the @c cancel barrier below. It must be recursive, or
+ *       taken in a way that tolerates re-entry, because the callback may call
+ *       back into @c start or @c cancel on the same task.
+ */
+typedef struct esp_schedule_timer_ops {
+    /** Arm a one-shot timer for @c delay_seconds.
+     *
+     * Creates the timer on the first call for a given handle and reuses it on
+     * later calls. @c cb and @c priv_data are (re)bound on every call.
+     *
+     * The implementation must support delays longer than its native period can
+     * represent, and must tolerate being called from within @c cb.
+     *
+     * @param[in,out] p_timer_handle NULL-valued on first use; set to the created
+     *                               handle and reused thereafter.
+     * @return true if the timer is armed, false otherwise.
+     */
+    bool (*start)(esp_schedule_timer_handle_t *p_timer_handle, uint32_t delay_seconds,
+                  esp_schedule_timer_cb_t cb, void *priv_data);
+
+    /** Stop a timer without destroying it. Must tolerate a NULL handle. */
+    void (*stop)(esp_schedule_timer_handle_t timer_handle);
+
+    /** Stop and destroy a timer, then set @c *p_timer_handle to NULL.
+     *
+     * Must not return while a callback is still executing, and must tolerate
+     * being called from within that callback.
+     */
+    void (*cancel)(esp_schedule_timer_handle_t *p_timer_handle);
+} esp_schedule_timer_ops_t;
+
+/* Storage ********************************************************************/
+
+/** Opaque storage handle owned by the storage implementation. */
+typedef void *esp_schedule_store_handle_t;
+
+/** Callback for esp_schedule_nvs_ops_t::foreach_key.
+ *
+ * @return true to continue iterating, false to stop early.
+ */
+typedef bool (*esp_schedule_key_cb_t)(const char *key, void *ctx);
+
+/** Key/value storage operations.
+ *
+ * Leave every member NULL to build without persistence; schedules then live
+ * only for the lifetime of the process. If any member is set they must all be.
+ */
+typedef struct esp_schedule_nvs_ops {
+    /** Open @c name_space in @c partition. @c partition may be NULL for the
+     * implementation's default. */
+    esp_err_t (*open)(const char *partition, const char *name_space, bool readonly,
+                      esp_schedule_store_handle_t *p_handle);
+
+    /** Flush any pending writes and release the handle.
+     *
+     * @note This is the commit point. Writes made since open() need not be
+     *       durable until close() returns, which lets an implementation batch
+     *       them; esp_schedule never relies on a partial batch being visible.
+     */
+    void (*close)(esp_schedule_store_handle_t handle);
+
+    /** Read the value of @c key.
+     *
+     * With @c value NULL, set @c *p_value_len to the stored size and return
+     * ESP_OK. Otherwise read at most @c *p_value_len bytes and update it to the
+     * number read.
+     *
+     * @return ESP_ERR_NVS_NOT_FOUND (or ESP_ERR_NOT_FOUND) if @c key is absent.
+     */
+    esp_err_t (*read)(esp_schedule_store_handle_t handle, const char *key,
+                      void *value, size_t *p_value_len);
+
+    /** Write @c value_len bytes under @c key, replacing any existing value. */
+    esp_err_t (*write)(esp_schedule_store_handle_t handle, const char *key,
+                       const void *value, size_t value_len);
+
+    /** Erase @c key, or every key in the namespace when @c key is NULL. */
+    esp_err_t (*erase)(esp_schedule_store_handle_t handle, const char *key);
+
+    /** Invoke @c cb once per key in the namespace.
+     *
+     * Takes a partition/namespace rather than an open handle so the
+     * implementation is free to use whatever iteration primitive it has. The
+     * key passed to @c cb is owned by the implementation and need only stay
+     * valid for the duration of the call, which keeps iteration allocation-free.
+     */
+    esp_err_t (*foreach_key)(const char *partition, const char *name_space,
+                             esp_schedule_key_cb_t cb, void *ctx);
+} esp_schedule_nvs_ops_t;
+
+/* Time synchronization *******************************************************/
+
+/** Time synchronization operations. @c get_time is required. */
+typedef struct esp_schedule_time_sync_ops {
+    /** Current UTC time. Also stored to @c p_time when that is non-NULL. */
+    time_t (*get_time)(time_t *p_time);
+
+    /** Start time synchronisation, if the platform has any. May be NULL. */
+    void (*timesync_init)(void);
+} esp_schedule_time_sync_ops_t;
+
+/* Memory *********************************************************************/
+
+/** Heap operations. All members are required. */
+typedef struct esp_schedule_mem_ops {
+    void *(*malloc)(size_t size);
+    void *(*calloc)(size_t num, size_t size);
+    void (*free)(void *ptr);
+} esp_schedule_mem_ops_t;
+
+/* Log ************************************************************************/
+
+/** Log severity, ordered from most to least severe. */
+typedef enum esp_schedule_log_level {
+    ESP_SCHEDULE_LOG_ERROR = 0,
+    ESP_SCHEDULE_LOG_WARN,
+    ESP_SCHEDULE_LOG_INFO,
+    ESP_SCHEDULE_LOG_DEBUG,
+    ESP_SCHEDULE_LOG_VERBOSE,
+} esp_schedule_log_level_t;
+
+/** Emit one already-formatted log line. May be NULL, which discards all output.
+ *
+ * @c message is NUL-terminated and owned by the caller; it is only valid for
+ * the duration of the call, so an implementation that defers must copy it.
+ *
+ * Formatting happens before this is called, so a port needs no varargs printf
+ * of its own. It also keeps va_list handling entirely inside the component:
+ * were the list passed across this boundary, an implementation that called
+ * va_end() on it would double-end the caller's list, which is undefined.
+ *
+ * Calls above the compile-time ceiling are removed by the preprocessor and
+ * never reach this function. The ceiling is CONFIG_LOG_MAXIMUM_LEVEL, or
+ * CONFIG_ESP_SCHEDULE_LOG_LEVEL when CONFIG_ESP_SCHEDULE_LOG_LEVEL_OVERRIDE is
+ * enabled.
+ */
+typedef void (*esp_schedule_log_fn_t)(esp_schedule_log_level_t level, const char *tag,
+                                      const char *message);
+
+/* Port configuration *********************************************************/
+
+/** The complete set of operations esp_schedule needs from its environment.
+ *
+ * Copied by value during init, so a caller may build it on the stack.
+ */
+typedef struct esp_schedule_port_config {
+    esp_schedule_timer_ops_t timer;          /**< Required. */
+    esp_schedule_nvs_ops_t nvs;              /**< Optional; all-NULL disables persistence. */
+    esp_schedule_time_sync_ops_t time_sync;  /**< Required, but only get_time within it. */
+    esp_schedule_mem_ops_t mem;              /**< Required. */
+    esp_schedule_log_fn_t log;               /**< Optional; NULL discards all output. */
+} esp_schedule_port_config_t;
+
+/**
+ * @brief Initialize ESP Schedule against a caller-supplied port.
+ *
+ * Behaves exactly like esp_schedule_init(), except that the platform
+ * operations come from @c port instead of the built-in ESP-IDF ones. Using
+ * this entry point in place of esp_schedule_init() keeps the ESP-IDF
+ * implementations out of the binary.
+ *
+ * @param[in] port Operations to install. Copied; need not outlive the call.
+ *                 Persistence is unavailable if @c port->nvs is all-NULL,
+ *                 whatever @c enable_nvs says.
+ * @param[in] enable_nvs Whether to enable persistence.
+ * @param[in] nvs_partition (Optional) Partition to use, NULL for the default.
+ * @param[out] schedule_count Number of schedules restored from storage.
+ *
+ * @return Array of restored schedule handles, or NULL if there are none.
+ *
+ * @note The caller owns the returned array and must release it with the same
+ *       allocator it supplied - @c port->mem.free, not necessarily libc
+ *       free(). The array is allocated with @c port->mem.malloc. Only the array
+ *       itself is the caller's; the handles in it stay owned by the component.
+ */
+esp_schedule_handle_t *esp_schedule_init_with_config(const esp_schedule_port_config_t *port,
+        bool enable_nvs, char *nvs_partition,
+        uint8_t *schedule_count);
 
 #ifdef __cplusplus
 }
