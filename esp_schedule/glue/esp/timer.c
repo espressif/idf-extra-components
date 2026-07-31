@@ -10,6 +10,7 @@
  */
 
 #include "glue_timer.h"
+#include "glue_log.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -19,6 +20,8 @@
 #include "freertos/task.h"
 #include "freertos/timers.h"
 #include "freertos/semphr.h"
+
+static const char *TAG = "esp_schedule_timer";
 
 /* Types **********************************************************************/
 
@@ -55,13 +58,14 @@ typedef struct {
  * calling a blocking timer API, so a full timer-command queue cannot deadlock
  * the daemon against the app task.
  *
- * The mutex is non-recursive. A repeating schedule re-arms itself from inside
- * its own trigger callback (the daemon task) where the mutex is ALREADY held;
- * esp_schedule_timer_start()'s re-arm path must therefore NOT re-take it there
- * (that would self-deadlock). It skips the take when already on the daemon task
- * and takes it only from an app task, where a concurrent callback could
- * otherwise observe a half-updated (cb, priv_data) pair. See
- * esp_schedule_timer_start(). */
+ * The mutex is RECURSIVE. The user trigger callback runs with it held, and from
+ * there the user may legitimately re-enter this layer on the same task: a
+ * repeating schedule re-arms itself via esp_schedule_timer_start(), and a
+ * one-shot schedule that deletes itself reaches esp_schedule_timer_cancel().
+ * With a non-recursive mutex either re-entry would block the daemon task on a
+ * mutex the daemon itself holds, freezing every software timer in the system.
+ * Recursive ownership makes the nested take a no-op for the owning task while
+ * still serializing app tasks against an in-flight callback. */
 static portMUX_TYPE s_cb_mutex_init_lock = portMUX_INITIALIZER_UNLOCKED;
 static StaticSemaphore_t s_cb_mutex_buf;
 static SemaphoreHandle_t s_cb_mutex = NULL;
@@ -75,21 +79,31 @@ static void __ensure_cb_mutex(void)
      * section; the lock makes first-time creation race-free. */
     portENTER_CRITICAL(&s_cb_mutex_init_lock);
     if (s_cb_mutex == NULL) {
-        s_cb_mutex = xSemaphoreCreateMutexStatic(&s_cb_mutex_buf);
+        s_cb_mutex = xSemaphoreCreateRecursiveMutexStatic(&s_cb_mutex_buf);
     }
     portEXIT_CRITICAL(&s_cb_mutex_init_lock);
 }
 
 /**
  * @brief Whether the caller is running in the FreeRTOS timer daemon task.
- *
- * On the re-arm-from-callback path we are already in the daemon task holding
- * the callback mutex, so the reuse path must neither re-take it nor block on
- * the timer command queue (both would deadlock the daemon against itself).
  */
 static bool __in_timer_daemon(void)
 {
     return xTaskGetCurrentTaskHandle() == xTimerGetTimerDaemonTaskHandle();
+}
+
+/**
+ * @brief Block time to use for a timer command queue operation.
+ *
+ * FreeRTOS forbids a non-zero block time on the timer command queue from within
+ * a timer callback: if the queue is full the daemon task would end up waiting
+ * for itself to drain it. Every entry point here is reachable from the daemon
+ * task via the user trigger callback, so the block time must be chosen from the
+ * calling context rather than hardcoded.
+ */
+static TickType_t __cmd_block_ticks(void)
+{
+    return __in_timer_daemon() ? 0 : portMAX_DELAY;
 }
 
 /* Private functions **********************************************************/
@@ -159,24 +173,32 @@ static void __timer_common_cb(TimerHandle_t timer_handle)
      * priv_data is read AFTER acquiring the mutex: cancel() clears the timer ID
      * under the same mutex before freeing, so we either see a valid pointer
      * (cancel has not started) or NULL (cancel already ran). */
-    xSemaphoreTake(s_cb_mutex, portMAX_DELAY);
+    xSemaphoreTakeRecursive(s_cb_mutex, portMAX_DELAY);
     __timer_priv_data_t *timer_priv_data = __timer_priv_data_get(timer_handle);
     if (timer_priv_data == NULL) {
-        xSemaphoreGive(s_cb_mutex);
+        xSemaphoreGiveRecursive(s_cb_mutex);
         return;
     }
     if (timer_priv_data->remaining_ticks > 0) {
         /* A long delay split across multiple periods: keep counting down and
          * re-arm without invoking the user callback yet. A timer callback must
-         * never block on the timer command queue, so use a zero block time. */
+         * never block on the timer command queue, so use a zero block time.
+         *
+         * Only commit the countdown once the re-arm has actually been queued: a
+         * full command queue would otherwise consume this slice of the delay
+         * with no timer left running to serve it, and the schedule would
+         * silently never fire. */
         TickType_t period = __period_ticks(timer_priv_data->remaining_ticks);
-        timer_priv_data->remaining_ticks -= period;
-        xTimerChangePeriod(timer_handle, period, 0);
-        xSemaphoreGive(s_cb_mutex);
+        if (xTimerChangePeriod(timer_handle, period, 0) == pdPASS) {
+            timer_priv_data->remaining_ticks -= period;
+        } else {
+            ESP_SCHEDULE_LOGE(TAG, "Failed to re-arm timer; schedule is now disarmed");
+        }
+        xSemaphoreGiveRecursive(s_cb_mutex);
         return;
     }
     timer_priv_data->cb(timer_priv_data->priv_data);
-    xSemaphoreGive(s_cb_mutex);
+    xSemaphoreGiveRecursive(s_cb_mutex);
 }
 
 /* Public functions ************************************************************/
@@ -193,50 +215,36 @@ bool esp_schedule_timer_start(esp_schedule_timer_handle_t *p_timer_handle, uint3
     if (timer_handle != NULL) {
         /* Reuse the existing timer rather than cancel + recreate. A repeating
          * schedule re-arms from inside its own fired callback (daemon task);
-         * routing that through esp_schedule_timer_cancel() would re-take the
-         * callback mutex the daemon already holds -> self-deadlock of the whole
-         * timer service on the first re-arm. It would also delete the timer
-         * that is currently executing and free the priv_data the callback is
-         * still using.
+         * routing that through esp_schedule_timer_cancel() would delete the
+         * timer that is currently executing and free the priv_data the callback
+         * is still using.
          *
          * Instead, rebind the private data in place: this honors the start()
          * contract (the caller-provided cb and priv_data are set explicitly,
          * not assumed unchanged) without freeing anything the running callback
          * references, and avoids per-fire create/delete churn.
          *
-         * Mutex handling depends on the calling context:
-         *  - On the daemon task (re-arm from inside the fired callback) the
-         *    callback mutex is already held; re-taking it would self-deadlock,
-         *    and no one else can touch this priv_data while we hold it, so no
-         *    take is needed.
-         *  - From an app task a callback may be running concurrently on the
-         *    daemon and could read a half-updated (cb, priv_data) pair, so take
-         *    the mutex to serialize the rebind against it. */
-        bool on_daemon = __in_timer_daemon();
-        if (!on_daemon) {
-            xSemaphoreTake(s_cb_mutex, portMAX_DELAY);
-        }
+         * The mutex serializes the rebind against a callback running
+         * concurrently on the daemon, which could otherwise read a half-updated
+         * (cb, priv_data) pair. Re-arming from inside the fired callback takes
+         * it recursively on the task that already owns it. */
+        xSemaphoreTakeRecursive(s_cb_mutex, portMAX_DELAY);
         __timer_priv_data_t *timer_priv_data = __timer_priv_data_get(timer_handle);
         if (timer_priv_data == NULL) {
             /* A concurrent cancel() detached and is deleting this timer; there
              * is nothing safe to reuse. */
-            if (!on_daemon) {
-                xSemaphoreGive(s_cb_mutex);
-            }
+            xSemaphoreGiveRecursive(s_cb_mutex);
             return false;
         }
         timer_priv_data->cb = cb;
         timer_priv_data->priv_data = priv_data;
         timer_priv_data->remaining_ticks = remaining_ticks;
-        if (!on_daemon) {
-            xSemaphoreGive(s_cb_mutex);
-        }
+        xSemaphoreGiveRecursive(s_cb_mutex);
 
-        /* xTimerChangePeriod also (re)starts a dormant/expired timer. On the
-         * daemon task the block time MUST be zero; from an app task it may
-         * block on the command queue. */
-        xTimerChangePeriod(timer_handle, period, on_daemon ? 0 : portMAX_DELAY);
-        return true;
+        /* xTimerChangePeriod also (re)starts a dormant/expired timer. A dropped
+         * command leaves the schedule disarmed, so report it rather than
+         * claiming success. */
+        return xTimerChangePeriod(timer_handle, period, __cmd_block_ticks()) == pdPASS;
     }
 
     __timer_priv_data_t *timer_priv_data = __timer_priv_data_create(cb, priv_data);
@@ -249,7 +257,17 @@ bool esp_schedule_timer_start(esp_schedule_timer_handle_t *p_timer_handle, uint3
         free(timer_priv_data);
         return false;
     }
-    xTimerStart(timer_handle, portMAX_DELAY);
+    /* A trigger callback may create and enable a brand new schedule, so this
+     * path is reachable from the daemon task too. */
+    if (xTimerStart(timer_handle, __cmd_block_ticks()) != pdPASS) {
+        /* Detach before deleting: if the delete command itself cannot be queued
+         * the timer outlives this call, and a later expiry must find a NULL ID
+         * rather than the freed private data. */
+        vTimerSetTimerID(timer_handle, NULL);
+        xTimerDelete(timer_handle, __cmd_block_ticks());
+        free(timer_priv_data);
+        return false;
+    }
     *p_timer_handle = (esp_schedule_timer_handle_t) timer_handle;
     return true;
 }
@@ -259,7 +277,7 @@ void esp_schedule_timer_stop(esp_schedule_timer_handle_t timer_handle)
     if (timer_handle == NULL) {
         return;
     }
-    xTimerStop((TimerHandle_t) timer_handle, portMAX_DELAY);
+    xTimerStop((TimerHandle_t) timer_handle, __cmd_block_ticks());
 }
 
 void esp_schedule_timer_cancel(esp_schedule_timer_handle_t *p_timer_handle)
@@ -270,25 +288,32 @@ void esp_schedule_timer_cancel(esp_schedule_timer_handle_t *p_timer_handle)
     TimerHandle_t timer_handle = (TimerHandle_t) * p_timer_handle;
     __ensure_cb_mutex();
 
+    /* Reachable from the user trigger callback (a one-shot schedule that
+     * deletes itself when it fires), so the timer command queue must not be
+     * blocked on when running on the daemon task. */
+    TickType_t block_ticks = __cmd_block_ticks();
+
     /* Stop the timer so no new expiry is dispatched. */
     if (xTimerIsTimerActive(timer_handle) == pdTRUE) {
-        xTimerStop(timer_handle, portMAX_DELAY);
+        xTimerStop(timer_handle, block_ticks);
     }
 
     /* Detach the private data under the callback mutex. Taking the mutex is the
-     * barrier: any callback already executing runs to completion before we
-     * proceed, and any callback dispatched afterwards will read a NULL timer ID
-     * and return without touching the freed data. The mutex is released before
-     * the blocking xTimerDelete()/free() so a full timer-command queue cannot
-     * deadlock the daemon against this task. */
+     * barrier: any callback already executing on another task runs to
+     * completion before we proceed, and any callback dispatched afterwards will
+     * read a NULL timer ID and return without touching the freed data. When the
+     * caller IS the running callback the mutex is taken recursively and there is
+     * nothing to barrier against. The mutex is released before the
+     * xTimerDelete()/free() so a full timer-command queue cannot deadlock the
+     * daemon against this task. */
     __timer_priv_data_t *priv_data = __timer_priv_data_get(timer_handle);
-    xSemaphoreTake(s_cb_mutex, portMAX_DELAY);
+    xSemaphoreTakeRecursive(s_cb_mutex, portMAX_DELAY);
     if (priv_data != NULL) {
         vTimerSetTimerID(timer_handle, NULL);
     }
-    xSemaphoreGive(s_cb_mutex);
+    xSemaphoreGiveRecursive(s_cb_mutex);
 
-    xTimerDelete(timer_handle, portMAX_DELAY);
+    xTimerDelete(timer_handle, block_ticks);
     if (priv_data != NULL) {
         free(priv_data);
     }

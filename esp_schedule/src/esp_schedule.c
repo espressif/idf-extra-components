@@ -706,6 +706,23 @@ static void esp_schedule_start_timer(esp_schedule_t *schedule)
     esp_schedule_arm_timer(schedule, schedule->next_scheduled_time_diff);
 }
 
+/* Self-deletion from a trigger callback ***************************************
+ *
+ * esp_schedule_delete() called from inside trigger_cb would free the schedule
+ * that esp_schedule_common_timer_cb is still holding on its stack and re-arms
+ * below -> use-after-free. A one-shot schedule that deletes itself when it fires
+ * is a natural pattern, so the free is deferred instead: delete() tears down the
+ * timer and the NVS entry as usual but leaves the allocation to the callback,
+ * which returns without re-arming.
+ *
+ * The two flags below need no lock. The timer glue serializes every callback body
+ * under one mutex, so at most one dispatch is in flight at a time, and delete()
+ * only consults them AFTER esp_schedule_delete_timer() has barriered against any
+ * callback running on another task. Reaching that point with s_dispatching still
+ * equal to this schedule therefore means the caller IS its running callback. */
+static esp_schedule_t *s_dispatching = NULL;
+static bool s_dispatch_deleted = false;
+
 static void esp_schedule_common_timer_cb(void *priv_data)
 {
     esp_schedule_t *schedule = (esp_schedule_t *)priv_data;
@@ -736,7 +753,18 @@ static void esp_schedule_common_timer_cb(void *priv_data)
 
     ESP_SCHEDULE_LOGI(TAG, "Schedule %s triggered", schedule->name);
     if (schedule->trigger_cb) {
+        s_dispatching = schedule;
+        s_dispatch_deleted = false;
         schedule->trigger_cb((esp_schedule_handle_t)schedule, schedule->priv_data);
+        bool deleted = s_dispatch_deleted;
+        s_dispatching = NULL;
+        s_dispatch_deleted = false;
+        if (deleted) {
+            /* The callback deleted this schedule; complete the deferred free and
+             * do not touch it again. */
+            ESP_SCHEDULE_FREE(schedule);
+            return;
+        }
     }
 
     esp_schedule_start_timer(schedule);
@@ -936,6 +964,14 @@ ESP_SCHEDULE_RETURN_TYPE esp_schedule_delete(esp_schedule_handle_t handle)
         esp_schedule_delete_timer(schedule);
     }
     esp_schedule_nvs_remove(schedule);
+    /* Checked only after the timer teardown above, which barriers against a
+     * callback dispatching this schedule on another task. Still being the
+     * dispatched schedule here means this is a self-delete from its own
+     * trigger_cb, whose stack frame outlives us; hand the free back to it. */
+    if (schedule == s_dispatching) {
+        s_dispatch_deleted = true;
+        return ESP_SCHEDULE_RET_OK;
+    }
     ESP_SCHEDULE_FREE(schedule);
     return ESP_SCHEDULE_RET_OK;
 }

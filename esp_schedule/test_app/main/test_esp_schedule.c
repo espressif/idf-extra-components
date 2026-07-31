@@ -1582,13 +1582,14 @@ TEST_CASE("nvs restore drops invalid config", "[esp_schedule]")
  * the FreeRTOS timer daemon ---
  *
  * Regression: the timer glue serializes the timer callback against cancel() with
- * a non-recursive mutex, held across the whole callback body. Re-arming a
- * repeating schedule runs inside that callback (in the timer daemon task) via
- * trigger_cb -> esp_schedule_start_timer -> esp_schedule_arm_timer. If arm tore
- * the timer down and recreated it (timer_cancel() re-takes the same mutex) the
- * daemon would deadlock against itself on the first fire, freezing EVERY software
- * timer in the system. esp_schedule_timer_start() instead rebinds an existing
- * timer in place, which never re-takes the callback mutex on the daemon task.
+ * a mutex held across the whole callback body. Re-arming a repeating schedule
+ * runs inside that callback (in the timer daemon task) via trigger_cb ->
+ * esp_schedule_start_timer -> esp_schedule_arm_timer. If arm tore the timer down
+ * and recreated it, timer_cancel() would re-take that mutex on the task that
+ * already holds it; with a non-recursive mutex the daemon deadlocks against
+ * itself on the first fire, freezing EVERY software timer in the system.
+ * esp_schedule_timer_start() instead rebinds an existing timer in place, and the
+ * mutex is recursive so the re-entrant paths cannot deadlock either way.
  *
  * Detection: fire the schedule once, then confirm the daemon is still alive by
  * checking that an INDEPENDENT software timer, armed to expire AFTER the re-arm,
@@ -1660,6 +1661,65 @@ TEST_CASE("repeating schedule re-arms without deadlock", "[esp_schedule]")
 
     xTimerDelete(canary, portMAX_DELAY);
     esp_schedule_delete(handle);
+    settimeofday(&tv, NULL);
+}
+
+/* --- a schedule must survive deleting itself from its own trigger callback ---
+ *
+ * Same daemon-freeze failure mode as above, reached the other way: trigger_cb ->
+ * esp_schedule_delete -> esp_schedule_delete_timer -> esp_schedule_timer_cancel,
+ * which takes the callback mutex the daemon already holds. cancel() had no
+ * daemon-task guard at all, so a non-recursive mutex blocked the daemon forever.
+ *
+ * The free is deferred to esp_schedule_common_timer_cb for the same reason: the
+ * callback still holds the schedule on its stack and would otherwise re-arm a
+ * freed allocation.
+ *
+ * Detection: the same independent-canary trick. A hang shows up as the canary
+ * never firing; a use-after-free shows up as a heap corruption abort. */
+static volatile uint32_t s_selfdel_fire_count = 0;
+static void selfdel_trigger_cb(esp_schedule_handle_t handle, void *priv_data)
+{
+    (void)priv_data;
+    s_selfdel_fire_count++;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_delete(handle));
+}
+
+TEST_CASE("schedule deletes itself from its callback without deadlock", "[esp_schedule]")
+{
+    time_t slot = make_time_local(2025, 6, 16, 12, 0, 0);
+    struct timeval tv = { .tv_sec = slot - 2, .tv_usec = 0 };
+    settimeofday(&tv, NULL);
+
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "selfdel");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 12;
+    config.trigger.minutes = 0;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_EVERYDAY;
+    config.validity.end_time = 2147483647;
+    config.trigger_cb = selfdel_trigger_cb;
+
+    esp_schedule_handle_t handle = esp_schedule_create(&config);
+    TEST_ASSERT_NOT_NULL(handle);
+
+    s_selfdel_fire_count = 0;
+    s_canary_fired = false;
+
+    TimerHandle_t canary = xTimerCreate("canary", pdMS_TO_TICKS(3500), pdFALSE, NULL, canary_timer_cb);
+    TEST_ASSERT_NOT_NULL_MESSAGE(canary, "failed to create canary timer");
+    TEST_ASSERT_EQUAL_MESSAGE(pdPASS, xTimerStart(canary, portMAX_DELAY), "failed to start canary timer");
+
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_enable(handle));
+
+    vTaskDelay(pdMS_TO_TICKS(6000));
+
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(1, s_selfdel_fire_count, "trigger must have fired exactly once");
+    TEST_ASSERT_TRUE_MESSAGE(s_canary_fired,
+                             "timer daemon must survive the self-delete (canary fired) -> no deadlock");
+
+    xTimerDelete(canary, portMAX_DELAY);
+    /* handle is already deleted; deleting again would be a double free. */
     settimeofday(&tv, NULL);
 }
 
