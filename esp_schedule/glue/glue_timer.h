@@ -9,8 +9,7 @@
  * @brief Timer interface for the esp_schedule component
  */
 
-#ifndef __GLUE_TIMER_H__
-#define __GLUE_TIMER_H__
+#pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -63,4 +62,3 @@ void esp_schedule_timer_cancel(esp_schedule_timer_handle_t *p_timer_handle);
 }
 #endif
 
-#endif // __GLUE_TIMER_H__

@@ -5,12 +5,13 @@
  */
 
 /**
- * @file esp_nvs.c
+ * @file nvs.c
  * @brief ESP NVS implementation.
  */
 
 #include "nvs_flash.h"
 #include "glue_nvs.h"
+#include "glue_mem.h"
 
 #include <string.h>
 
@@ -102,7 +103,9 @@ esp_schedule_nvs_error_t esp_schedule_nvs_entry_get_key(esp_schedule_nvs_iterato
         return to_esp_schedule_nvs_error(err);
     }
     size_t key_len = strlen(nvs_entry.key);
-    *p_key = (char *)malloc(key_len + 1);
+    /* Freed by the caller with ESP_SCHEDULE_FREE, so it must come from the
+     * same allocator. */
+    *p_key = (char *)ESP_SCHEDULE_MALLOC(key_len + 1);
     if (*p_key == NULL) {
         return ESP_SCHEDULE_NVS_NO_MEM;
     }

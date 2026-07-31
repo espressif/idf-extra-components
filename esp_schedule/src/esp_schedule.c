@@ -775,7 +775,7 @@ static void esp_schedule_delete_timer(esp_schedule_t *schedule)
     esp_schedule_timer_cancel(&schedule->timer);
 }
 
-static void esp_schedule_prepare_timer(esp_schedule_t *schedule)
+static void esp_schedule_prepare_relative_target(esp_schedule_t *schedule)
 {
     /* RELATIVE only: computing the diff here anchors the absolute target at
      * create time (the target is computed once and then reused, see
@@ -1010,7 +1010,7 @@ esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config
 
     esp_schedule_set(schedule, schedule_config);
 
-    esp_schedule_prepare_timer(schedule);
+    esp_schedule_prepare_relative_target(schedule);
     ESP_SCHEDULE_LOGD(TAG, "Schedule %s created", schedule->name);
     return (esp_schedule_handle_t)schedule;
 }
@@ -1065,7 +1065,7 @@ esp_schedule_handle_t *esp_schedule_init(bool enable_nvs, char *nvs_partition, u
             handle_count--;
             continue;
         }
-        esp_schedule_prepare_timer(schedule);
+        esp_schedule_prepare_relative_target(schedule);
         esp_schedule_start_timer(schedule);
     }
     init_done = true;

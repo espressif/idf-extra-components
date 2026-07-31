@@ -5,7 +5,7 @@
  */
 
 /**
- * @file esp_time.c
+ * @file time.c
  * @brief ESP implementation of the time interface for the esp_schedule component
  */
 

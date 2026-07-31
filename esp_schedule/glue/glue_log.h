@@ -9,12 +9,7 @@
  * @brief Glue layer for logging.
  */
 
-#ifndef __GLUE_LOG_H__
-#define __GLUE_LOG_H__
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#pragma once
 
 /**
  * The default "glue_log_impl.h" is provided for ESP-IDF under glue/esp.
@@ -25,11 +20,11 @@ extern "C" {
  *   - ESP_SCHEDULE_LOGI(tag, fmt, ...) : Log an info message.
  *   - ESP_SCHEDULE_LOGD(tag, fmt, ...) : Log a debug message.
  *   - ESP_SCHEDULE_LOGV(tag, fmt, ...) : Log a verbose message.
+ *
+ * This header contributes macros only, so it needs no extern "C" block. The
+ * implementation header must not be wrapped in one either: it may pull in
+ * system headers of its own, and forcing C linkage on those breaks a C++
+ * consumer.
  */
 #include "glue_log_impl.h"
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __GLUE_LOG_H__ */

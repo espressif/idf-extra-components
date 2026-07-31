@@ -9,8 +9,7 @@
  * @brief NVS interface for the esp_schedule component
  */
 
-#ifndef __GLUE_NVS_H__
-#define __GLUE_NVS_H__
+#pragma once
 
 /* Includes **********************************************************************/
 #include <stddef.h>
@@ -171,4 +170,3 @@ void esp_schedule_nvs_release_iterator(esp_schedule_nvs_iterator_t iterator);
 }
 #endif
 
-#endif // __GLUE_NVS_H__

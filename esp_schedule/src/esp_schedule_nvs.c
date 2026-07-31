@@ -284,10 +284,13 @@ ESP_SCHEDULE_RETURN_TYPE esp_schedule_nvs_init(char *nvs_partition)
         ESP_SCHEDULE_LOGI(TAG, "NVS already enabled");
         return ESP_SCHEDULE_RET_OK;
     }
-    if (nvs_partition) {
-        esp_schedule_nvs_partition = strndup(nvs_partition, strlen(nvs_partition));
-    } else {
-        esp_schedule_nvs_partition = strndup("nvs", strlen("nvs"));
+    /* Copied through the glue allocator rather than strdup() so a port that
+     * overrides ESP_SCHEDULE_MALLOC keeps every allocation on one heap. */
+    const char *partition = nvs_partition ? nvs_partition : "nvs";
+    size_t partition_len = strlen(partition);
+    esp_schedule_nvs_partition = (char *)ESP_SCHEDULE_MALLOC(partition_len + 1);
+    if (esp_schedule_nvs_partition != NULL) {
+        memcpy(esp_schedule_nvs_partition, partition, partition_len + 1);
     }
     if (esp_schedule_nvs_partition == NULL) {
         ESP_SCHEDULE_LOGE(TAG, "Could not allocate nvs_partition");

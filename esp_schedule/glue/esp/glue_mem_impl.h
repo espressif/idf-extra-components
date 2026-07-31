@@ -11,6 +11,9 @@
 
 #pragma once
 
+/* The non-SPIRAM fallbacks below expand to the standard allocators. */
+#include <stdlib.h>
+
 /** Use esp_heap_caps.h for memory allocation in external RAM. */
 #include "esp_heap_caps.h"
 

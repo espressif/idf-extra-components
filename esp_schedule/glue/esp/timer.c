@@ -5,12 +5,13 @@
  */
 
 /**
- * @file esp_timer.c
+ * @file timer.c
  * @brief ESP Timer implementation.
  */
 
 #include "glue_timer.h"
 #include "glue_log.h"
+#include "glue_mem.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -40,7 +41,7 @@ typedef struct {
     esp_schedule_timer_cb_t cb;
     void *priv_data;
     uint64_t remaining_ticks; /* ticks still to wait after the current period */
-} __timer_priv_data_t;
+} esp_schedule_timer_priv_data_t;
 
 /* Callback serialization ******************************************************
  *
@@ -48,7 +49,7 @@ typedef struct {
  * while esp_schedule_timer_cancel() runs in the caller's (app) task. xTimerStop
  * only prevents FUTURE expiries; it does not wait for a callback that is already
  * executing. Without synchronization, cancel() would free() the priv_data (and
- * the caller then frees the schedule) while __timer_common_cb is still
+ * the caller then frees the schedule) while esp_schedule_timer_common_cb is still
  * dereferencing them in the daemon task -> use-after-free.
  *
  * A single global mutex serializes the callback body against cancel(). The
@@ -70,7 +71,7 @@ static portMUX_TYPE s_cb_mutex_init_lock = portMUX_INITIALIZER_UNLOCKED;
 static StaticSemaphore_t s_cb_mutex_buf;
 static SemaphoreHandle_t s_cb_mutex = NULL;
 
-static void __ensure_cb_mutex(void)
+static void esp_schedule_ensure_cb_mutex(void)
 {
     if (s_cb_mutex != NULL) {
         return;
@@ -87,7 +88,7 @@ static void __ensure_cb_mutex(void)
 /**
  * @brief Whether the caller is running in the FreeRTOS timer daemon task.
  */
-static bool __in_timer_daemon(void)
+static bool esp_schedule_in_timer_daemon(void)
 {
     return xTaskGetCurrentTaskHandle() == xTimerGetTimerDaemonTaskHandle();
 }
@@ -101,9 +102,9 @@ static bool __in_timer_daemon(void)
  * task via the user trigger callback, so the block time must be chosen from the
  * calling context rather than hardcoded.
  */
-static TickType_t __cmd_block_ticks(void)
+static TickType_t esp_schedule_cmd_block_ticks(void)
 {
-    return __in_timer_daemon() ? 0 : portMAX_DELAY;
+    return esp_schedule_in_timer_daemon() ? 0 : portMAX_DELAY;
 }
 
 /* Private functions **********************************************************/
@@ -111,7 +112,7 @@ static TickType_t __cmd_block_ticks(void)
 /**
  * @brief Convert a delay in seconds to timer ticks (64-bit to avoid overflow).
  */
-static uint64_t __ticks_from_seconds(uint32_t delay_seconds)
+static uint64_t esp_schedule_ticks_from_seconds(uint32_t delay_seconds)
 {
     return (((uint64_t) delay_seconds) * 1000) / portTICK_PERIOD_MS;
 }
@@ -119,7 +120,7 @@ static uint64_t __ticks_from_seconds(uint32_t delay_seconds)
 /**
  * @brief Clamp a 64-bit tick count to a valid single timer period (>0).
  */
-static TickType_t __period_ticks(uint64_t total_ticks)
+static TickType_t esp_schedule_period_ticks(uint64_t total_ticks)
 {
     if (total_ticks == 0) {
         return 1; /* a timer period must be strictly greater than 0 */
@@ -138,9 +139,9 @@ static TickType_t __period_ticks(uint64_t total_ticks)
  *
  * @return Pointer to the timer private data.
  */
-static __timer_priv_data_t *__timer_priv_data_create(esp_schedule_timer_cb_t cb, void *priv_data)
+static esp_schedule_timer_priv_data_t *esp_schedule_timer_priv_data_create(esp_schedule_timer_cb_t cb, void *priv_data)
 {
-    __timer_priv_data_t *data = calloc(1, sizeof(__timer_priv_data_t));
+    esp_schedule_timer_priv_data_t *data = ESP_SCHEDULE_CALLOC(1, sizeof(esp_schedule_timer_priv_data_t));
     if (data == NULL) {
         return NULL;
     }
@@ -156,9 +157,9 @@ static __timer_priv_data_t *__timer_priv_data_create(esp_schedule_timer_cb_t cb,
  *
  * @return Pointer to the timer private data.
  */
-static __timer_priv_data_t *__timer_priv_data_get(esp_schedule_timer_handle_t timer_handle)
+static esp_schedule_timer_priv_data_t *esp_schedule_timer_priv_data_get(esp_schedule_timer_handle_t timer_handle)
 {
-    return (__timer_priv_data_t *) pvTimerGetTimerID(timer_handle);
+    return (esp_schedule_timer_priv_data_t *) pvTimerGetTimerID(timer_handle);
 }
 
 /**
@@ -166,15 +167,15 @@ static __timer_priv_data_t *__timer_priv_data_get(esp_schedule_timer_handle_t ti
  *
  * @param[in] timer_handle Timer handle.
  */
-static void __timer_common_cb(TimerHandle_t timer_handle)
+static void esp_schedule_timer_common_cb(TimerHandle_t timer_handle)
 {
-    __ensure_cb_mutex();
+    esp_schedule_ensure_cb_mutex();
     /* Hold the mutex for the whole callback so cancel() can barrier against it.
      * priv_data is read AFTER acquiring the mutex: cancel() clears the timer ID
      * under the same mutex before freeing, so we either see a valid pointer
      * (cancel has not started) or NULL (cancel already ran). */
     xSemaphoreTakeRecursive(s_cb_mutex, portMAX_DELAY);
-    __timer_priv_data_t *timer_priv_data = __timer_priv_data_get(timer_handle);
+    esp_schedule_timer_priv_data_t *timer_priv_data = esp_schedule_timer_priv_data_get(timer_handle);
     if (timer_priv_data == NULL) {
         xSemaphoreGiveRecursive(s_cb_mutex);
         return;
@@ -188,7 +189,7 @@ static void __timer_common_cb(TimerHandle_t timer_handle)
          * full command queue would otherwise consume this slice of the delay
          * with no timer left running to serve it, and the schedule would
          * silently never fire. */
-        TickType_t period = __period_ticks(timer_priv_data->remaining_ticks);
+        TickType_t period = esp_schedule_period_ticks(timer_priv_data->remaining_ticks);
         if (xTimerChangePeriod(timer_handle, period, 0) == pdPASS) {
             timer_priv_data->remaining_ticks -= period;
         } else {
@@ -205,11 +206,11 @@ static void __timer_common_cb(TimerHandle_t timer_handle)
 
 bool esp_schedule_timer_start(esp_schedule_timer_handle_t *p_timer_handle, uint32_t delay_seconds, esp_schedule_timer_cb_t cb, void *priv_data)
 {
-    __ensure_cb_mutex();
+    esp_schedule_ensure_cb_mutex();
     TimerHandle_t timer_handle = (TimerHandle_t) * p_timer_handle;
 
-    uint64_t total_ticks = __ticks_from_seconds(delay_seconds);
-    TickType_t period = __period_ticks(total_ticks);
+    uint64_t total_ticks = esp_schedule_ticks_from_seconds(delay_seconds);
+    TickType_t period = esp_schedule_period_ticks(total_ticks);
     uint64_t remaining_ticks = (total_ticks > period) ? (total_ticks - period) : 0;
 
     if (timer_handle != NULL) {
@@ -229,7 +230,7 @@ bool esp_schedule_timer_start(esp_schedule_timer_handle_t *p_timer_handle, uint3
          * (cb, priv_data) pair. Re-arming from inside the fired callback takes
          * it recursively on the task that already owns it. */
         xSemaphoreTakeRecursive(s_cb_mutex, portMAX_DELAY);
-        __timer_priv_data_t *timer_priv_data = __timer_priv_data_get(timer_handle);
+        esp_schedule_timer_priv_data_t *timer_priv_data = esp_schedule_timer_priv_data_get(timer_handle);
         if (timer_priv_data == NULL) {
             /* A concurrent cancel() detached and is deleting this timer; there
              * is nothing safe to reuse. */
@@ -244,28 +245,28 @@ bool esp_schedule_timer_start(esp_schedule_timer_handle_t *p_timer_handle, uint3
         /* xTimerChangePeriod also (re)starts a dormant/expired timer. A dropped
          * command leaves the schedule disarmed, so report it rather than
          * claiming success. */
-        return xTimerChangePeriod(timer_handle, period, __cmd_block_ticks()) == pdPASS;
+        return xTimerChangePeriod(timer_handle, period, esp_schedule_cmd_block_ticks()) == pdPASS;
     }
 
-    __timer_priv_data_t *timer_priv_data = __timer_priv_data_create(cb, priv_data);
+    esp_schedule_timer_priv_data_t *timer_priv_data = esp_schedule_timer_priv_data_create(cb, priv_data);
     if (timer_priv_data == NULL) {
         return false;
     }
     timer_priv_data->remaining_ticks = remaining_ticks;
-    timer_handle = xTimerCreate("schedule", period, pdFALSE, timer_priv_data, __timer_common_cb);
+    timer_handle = xTimerCreate("schedule", period, pdFALSE, timer_priv_data, esp_schedule_timer_common_cb);
     if (timer_handle == NULL) {
-        free(timer_priv_data);
+        ESP_SCHEDULE_FREE(timer_priv_data);
         return false;
     }
     /* A trigger callback may create and enable a brand new schedule, so this
      * path is reachable from the daemon task too. */
-    if (xTimerStart(timer_handle, __cmd_block_ticks()) != pdPASS) {
+    if (xTimerStart(timer_handle, esp_schedule_cmd_block_ticks()) != pdPASS) {
         /* Detach before deleting: if the delete command itself cannot be queued
          * the timer outlives this call, and a later expiry must find a NULL ID
          * rather than the freed private data. */
         vTimerSetTimerID(timer_handle, NULL);
-        xTimerDelete(timer_handle, __cmd_block_ticks());
-        free(timer_priv_data);
+        xTimerDelete(timer_handle, esp_schedule_cmd_block_ticks());
+        ESP_SCHEDULE_FREE(timer_priv_data);
         return false;
     }
     *p_timer_handle = (esp_schedule_timer_handle_t) timer_handle;
@@ -277,7 +278,7 @@ void esp_schedule_timer_stop(esp_schedule_timer_handle_t timer_handle)
     if (timer_handle == NULL) {
         return;
     }
-    xTimerStop((TimerHandle_t) timer_handle, __cmd_block_ticks());
+    xTimerStop((TimerHandle_t) timer_handle, esp_schedule_cmd_block_ticks());
 }
 
 void esp_schedule_timer_cancel(esp_schedule_timer_handle_t *p_timer_handle)
@@ -286,12 +287,12 @@ void esp_schedule_timer_cancel(esp_schedule_timer_handle_t *p_timer_handle)
         return;
     }
     TimerHandle_t timer_handle = (TimerHandle_t) * p_timer_handle;
-    __ensure_cb_mutex();
+    esp_schedule_ensure_cb_mutex();
 
     /* Reachable from the user trigger callback (a one-shot schedule that
      * deletes itself when it fires), so the timer command queue must not be
      * blocked on when running on the daemon task. */
-    TickType_t block_ticks = __cmd_block_ticks();
+    TickType_t block_ticks = esp_schedule_cmd_block_ticks();
 
     /* Stop the timer so no new expiry is dispatched. */
     if (xTimerIsTimerActive(timer_handle) == pdTRUE) {
@@ -306,7 +307,7 @@ void esp_schedule_timer_cancel(esp_schedule_timer_handle_t *p_timer_handle)
      * nothing to barrier against. The mutex is released before the
      * xTimerDelete()/free() so a full timer-command queue cannot deadlock the
      * daemon against this task. */
-    __timer_priv_data_t *priv_data = __timer_priv_data_get(timer_handle);
+    esp_schedule_timer_priv_data_t *priv_data = esp_schedule_timer_priv_data_get(timer_handle);
     xSemaphoreTakeRecursive(s_cb_mutex, portMAX_DELAY);
     if (priv_data != NULL) {
         vTimerSetTimerID(timer_handle, NULL);
@@ -315,7 +316,7 @@ void esp_schedule_timer_cancel(esp_schedule_timer_handle_t *p_timer_handle)
 
     xTimerDelete(timer_handle, block_ticks);
     if (priv_data != NULL) {
-        free(priv_data);
+        ESP_SCHEDULE_FREE(priv_data);
     }
     *p_timer_handle = NULL;
 }

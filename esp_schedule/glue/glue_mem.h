@@ -9,12 +9,7 @@
  * @brief Memory interface for the esp_schedule component
  */
 
-#ifndef __GLUE_MEM_H__
-#define __GLUE_MEM_H__
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#pragma once
 
 /**
  * The default "glue_mem_impl.h" is provided for ESP-IDF under glue/esp.
@@ -24,11 +19,11 @@ extern "C" {
  *   - ESP_SCHEDULE_CALLOC(num, size) : calloc implementation.
  *   - ESP_SCHEDULE_REALLOC(ptr, size) : realloc implementation.
  *   - ESP_SCHEDULE_FREE(ptr) : free implementation.
+ *
+ * This header contributes macros only, so it needs no extern "C" block. The
+ * implementation header must not be wrapped in one either: it may pull in
+ * system headers of its own, and forcing C linkage on those breaks a C++
+ * consumer.
  */
 #include "glue_mem_impl.h"
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __GLUE_MEM_H__ */

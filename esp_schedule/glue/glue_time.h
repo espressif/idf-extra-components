@@ -9,8 +9,7 @@
  * @brief Time interface for the esp_schedule component
  */
 
-#ifndef __GLUE_TIME_H__
-#define __GLUE_TIME_H__
+#pragma once
 
 #include <time.h>
 
@@ -34,4 +33,3 @@ void esp_schedule_timesync_init(void);
 }
 #endif
 
-#endif /* __GLUE_TIME_H__ */
