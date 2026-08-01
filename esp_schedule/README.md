@@ -162,3 +162,97 @@ s3.solar.longitude = -122.4194;
 ```
 
 The day is selected first, then the actual sunrise/sunset instant for that day is computed for your location. Days with no solar event (polar night/day) are skipped.
+
+## Timer Task Stack Requirement
+
+> **Set `CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH` to at least 3072.** The 2048-byte default is not enough and overflows the timer daemon task on some IDF versions.
+
+With the default ESP-IDF port, a schedule is driven by a FreeRTOS software timer, so its callback runs on the shared timer daemon task (`Tmr Svc`). A repeating schedule re-arms itself from inside that callback, and the re-arm computes the next occurrence through the date engine and formats it for logging (`localtime_r`, `strftime`) — all on the daemon's stack.
+
+Logging costs one more frame than it looks: `esp_schedule_log()` formats into a 160-byte stack buffer before handing the finished string to `port->log`, and the default port's `ESP_LOGx` then formats a second time. Both frames land on the daemon stack alongside the work above. Lowering the log ceiling compiles those calls out and reclaims the stack with them: either globally via `CONFIG_LOG_MAXIMUM_LEVEL`, or for this component alone by enabling `CONFIG_ESP_SCHEDULE_LOG_LEVEL_OVERRIDE` and setting `CONFIG_ESP_SCHEDULE_LOG_LEVEL`.
+
+An overflow here is not local to your schedule: it takes down the one task that services **every** software timer in the application. It surfaces as
+
+```
+***ERROR*** A stack overflow in task Tmr Svc has been detected.
+```
+
+Add to `sdkconfig.defaults`:
+
+```
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072
+```
+
+If you supply a [custom port](#custom-ports) that dispatches callbacks on its own task instead, size that task's stack for the same work.
+
+## Port Layer
+
+This component reaches the outside world only through the function pointers declared in [`include/esp_schedule.h`](include/esp_schedule.h):
+
+| Group | Type | Required | Provides |
+| --- | --- | --- | --- |
+| `timer` | `esp_schedule_timer_ops_t` | yes | one-shot relative timers |
+| `time_sync` | `esp_schedule_time_sync_ops_t` | `get_time` only | absolute wall-clock time, optional time sync |
+| `mem` | `esp_schedule_mem_ops_t` | yes | `malloc` / `calloc` / `free` |
+| `nvs` | `esp_schedule_nvs_ops_t` | no — all-NULL disables persistence | key/value storage |
+| `log` | `esp_schedule_log_fn_t` | no — NULL discards output | one pre-formatted line at a time |
+
+### As an ESP-IDF component
+
+`esp_schedule_init()` installs the ESP-IDF implementations, so nothing extra is needed:
+
+- Timers: `port/esp/timer.c` (FreeRTOS software timers)
+- Time: `port/esp/time.c` (`time()` and SNTP)
+- Memory: `port/esp/mem.c` (libc allocator)
+- Storage: `port/esp/nvs.c` (`nvs_flash`)
+- Logging: `port/esp/log.c` (`esp_log`)
+
+### Mixing the defaults with your own
+
+The default tables are public, in [`include/esp_schedule_esp_port.h`](include/esp_schedule_esp_port.h), so a port need not be written from scratch. Keep the groups you want and replace the rest:
+
+```c
+#include "esp_schedule_esp_port.h"
+
+esp_schedule_port_config_t port = {
+    .timer = esp_schedule_esp_timer_ops,
+    .nvs   = esp_schedule_esp_nvs_ops,
+    .time_sync  = esp_schedule_esp_time_sync_ops,
+    .mem   = esp_schedule_esp_mem_ops,
+    .log   = esp_schedule_esp_log,
+};
+
+port.time_sync.timesync_init = NULL;   /* keep time(), do not start SNTP */
+port.mem = my_pool_ops;           /* or swap a whole group out */
+
+uint8_t count = 0;
+esp_schedule_handle_t *restored = esp_schedule_init_with_config(&port, true, NULL, &count);
+```
+
+Individual members can be overridden like this, but only where the table says the member is optional — `time_sync.get_time` and every member of `timer` and `mem` are required, and `esp_schedule_init_with_config()` rejects a table missing one with `ESP_ERR_INVALID_ARG`.
+
+You pay for what you name: referencing a table links its implementation and that implementation's dependency. `test_app/main/test_app_main.c` uses exactly this pattern.
+
+> **SNTP:** nulling `timesync_init` stops SNTP being *started*, but naming `esp_schedule_esp_time_sync_ops` still links `port/esp/time.c` and with it `esp_sntp`. To remove the dependency rather than just the call, set `CONFIG_ESP_SCHEDULE_ENABLE_SNTP=n` — the default table then carries a NULL `timesync_init` on its own and `esp_sntp` is not referenced at all. Use that if the clock comes from an RTC or is set by the application.
+
+### Custom ports
+
+Fill in an `esp_schedule_port_config_t` and call `esp_schedule_init_with_config()` instead of `esp_schedule_init()`. No custom `CMakeLists.txt` is involved:
+
+```c
+static const esp_schedule_port_config_t port = {
+    .timer = { .start = my_timer_start, .stop = my_timer_stop, .cancel = my_timer_cancel },
+    .time_sync  = { .get_time = my_get_time },
+    .mem   = { .malloc = my_malloc, .calloc = my_calloc, .free = my_free },
+    .log   = my_log,   /* optional */
+    /* .nvs left zeroed: schedules live only for this run */
+};
+
+uint8_t count = 0;
+esp_schedule_handle_t *restored = esp_schedule_init_with_config(&port, false, NULL, &count);
+/* Allocated with port.mem.malloc, so release it with port.mem.free - not libc
+ * free(), unless your port happens to wrap the libc allocator. */
+my_free(restored);
+```
+
+The port is validated once at install time and copied by value, so it may be built on the stack. `esp_schedule_init()` is the only referrer of the ESP-IDF implementations, so an application that calls only `esp_schedule_init_with_config()` never links them — no FreeRTOS timer, `nvs_flash`, SNTP or `esp_log` dependency is pulled in on this component's behalf. Set `CONFIG_ESP_SCHEDULE_DISABLE_DEFAULT_PORT=y` to stop compiling them altogether.

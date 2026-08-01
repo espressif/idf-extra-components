@@ -19,6 +19,12 @@ repos:
         additional_dependencies:
             - "toml; python_version < '3.11'"
             - pyyaml
+    -   id: esp_schedule_port_isolation
+        name: esp_schedule default-port isolation
+        language: python
+        entry: python esp_schedule/check_port_isolation.py
+        pass_filenames: false
+        files: '^esp_schedule/(src|include|port)/.*\.[ch]$'
 -   repo: https://github.com/espressif/esp-idf-kconfig.git
     rev: v2.5.0
     hooks:

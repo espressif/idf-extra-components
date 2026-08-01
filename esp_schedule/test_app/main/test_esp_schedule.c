@@ -10,8 +10,10 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include "esp_err.h"
-#include "esp_netif.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
 #include "unity.h"
 #include "esp_schedule_internal.h"
 #if CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT
@@ -703,10 +705,6 @@ TEST_CASE("solar variants", "[esp_schedule]")
 /* --- esp_schedule_init must not dereference a NULL schedule_count --- */
 TEST_CASE("init null schedule_count", "[esp_schedule]")
 {
-    /* esp_schedule_init() runs timesync (SNTP), which needs the TCP/IP stack up.
-     * On a device this is already initialized; bring it up here for the test. */
-    esp_netif_init();
-
     /* NVS-off path used to write *schedule_count unconditionally. */
     esp_schedule_handle_t *h = esp_schedule_init(false, NULL, NULL);
     TEST_ASSERT_NULL_MESSAGE(h, "init(false, NULL, NULL) should return NULL and not crash");
@@ -1545,7 +1543,6 @@ TEST_CASE("dst rainmaker fall back fires once", "[esp_schedule]")
  * combinations that are now rejected. --- */
 TEST_CASE("nvs restore drops invalid config", "[esp_schedule]")
 {
-    esp_netif_init(); /* esp_schedule_init() runs SNTP, which needs the TCP/IP stack */
     /* app_main() already brought up NVS for this test app. Start from an empty
      * schedule namespace so the count assertions below are exact. */
     TEST_ASSERT_EQUAL(ESP_OK, esp_schedule_nvs_remove_all());
@@ -1566,13 +1563,164 @@ TEST_CASE("nvs restore drops invalid config", "[esp_schedule]")
     uint8_t count = 0xFF;
     esp_schedule_handle_t *handle_list = esp_schedule_init(true, NULL, &count);
     TEST_ASSERT_EQUAL_MESSAGE(0, count, "invalid stored config must not be armed");
-    free(handle_list);
+    ESP_SCHEDULE_FREE(handle_list);
 
     /* It was also removed from NVS, so it cannot come back on the next boot. */
     count = 0xFF;
     handle_list = esp_schedule_nvs_get_all(&count);
     TEST_ASSERT_EQUAL_MESSAGE(0, count, "invalid stored config must be deleted from NVS");
-    free(handle_list);
+    ESP_SCHEDULE_FREE(handle_list);
+}
+
+/* --- a repeating schedule must re-arm from its own callback without deadlocking
+ * the FreeRTOS timer daemon ---
+ *
+ * Regression: the timer glue serializes the timer callback against cancel() with
+ * a mutex held across the whole callback body. Re-arming a repeating schedule
+ * runs inside that callback (in the timer daemon task) via trigger_cb ->
+ * esp_schedule_start_timer -> esp_schedule_arm_timer. If arm tore the timer down
+ * and recreated it, timer_cancel() would re-take that mutex on the task that
+ * already holds it; with a non-recursive mutex the daemon deadlocks against
+ * itself on the first fire, freezing EVERY software timer in the system.
+ * esp_schedule_timer_start() instead rebinds an existing timer in place, and the
+ * mutex is recursive so the re-entrant paths cannot deadlock either way.
+ *
+ * Detection: fire the schedule once, then confirm the daemon is still alive by
+ * checking that an INDEPENDENT software timer, armed to expire AFTER the re-arm,
+ * actually runs. Under the deadlock the daemon is stuck inside the schedule's
+ * callback and the canary never fires. (Checking next_scheduled_time_utc would
+ * NOT catch the bug: start_timer updates it before the deadlocking arm call.) */
+static volatile uint32_t s_rearm_fire_count = 0;
+static void rearm_trigger_cb(esp_schedule_handle_t handle, void *priv_data)
+{
+    (void)handle;
+    (void)priv_data;
+    s_rearm_fire_count++;
+}
+
+static volatile bool s_canary_fired = false;
+static void canary_timer_cb(TimerHandle_t t)
+{
+    (void)t;
+    s_canary_fired = true;
+}
+
+TEST_CASE("repeating schedule re-arms without deadlock", "[esp_schedule]")
+{
+    /* Pin the clock ~2s before a daily 12:00 slot so the first fire is quick.
+     * The engine works in local time; the default device TZ is UTC so a
+     * make_time_local() instant matches the UTC epoch fed to settimeofday(). */
+    time_t slot = make_time_local(2025, 6, 16, 12, 0, 0);
+    struct timeval saved = {0};
+    gettimeofday(&saved, NULL);
+    struct timeval tv = { .tv_sec = slot - 2, .tv_usec = 0 };
+    settimeofday(&tv, NULL);
+
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "rearm");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 12;
+    config.trigger.minutes = 0;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_EVERYDAY;
+    config.validity.end_time = 2147483647;
+    config.trigger_cb = rearm_trigger_cb;
+
+    esp_schedule_handle_t handle = esp_schedule_create(&config);
+    TEST_ASSERT_NOT_NULL(handle);
+
+    s_rearm_fire_count = 0;
+    s_canary_fired = false;
+
+    /* Canary: an independent one-shot timer that expires ~1.5s AFTER the
+     * schedule fires (and re-arms). It shares the one timer daemon task, so it
+     * can only fire if that task did not deadlock. Ticks are wall-clock
+     * independent, so the pinned time does not affect it. */
+    TimerHandle_t canary = xTimerCreate("canary", pdMS_TO_TICKS(3500), pdFALSE, NULL, canary_timer_cb);
+    TEST_ASSERT_NOT_NULL_MESSAGE(canary, "failed to create canary timer");
+    TEST_ASSERT_EQUAL_MESSAGE(pdPASS, xTimerStart(canary, portMAX_DELAY), "failed to start canary timer");
+
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_enable(handle));
+
+    esp_schedule_t *sched = (esp_schedule_t *)handle;
+    TEST_ASSERT_TRUE_MESSAGE(sched->trigger.next_scheduled_time_utc == slot, "armed for the 2s-away slot");
+
+    /* vTaskDelay is driven by the tick ISR, not the timer daemon, so it returns
+     * even if the daemon has deadlocked. */
+    vTaskDelay(pdMS_TO_TICKS(6000));
+
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(1, s_rearm_fire_count, "repeating trigger must have fired exactly once");
+    TEST_ASSERT_TRUE_MESSAGE(s_canary_fired,
+                             "timer daemon must survive the re-arm (canary fired) -> no deadlock");
+    /* Fixed path also re-arms for the next occurrence (next day). */
+    TEST_ASSERT_TRUE_MESSAGE(sched->trigger.next_scheduled_time_utc >= slot + 23 * 3600,
+                             "schedule must have re-armed for the next day");
+
+    xTimerDelete(canary, portMAX_DELAY);
+    esp_schedule_delete(handle);
+    /* Restore the clock this test pinned, so a later test that reads it is not
+     * silently running in June 2025. */
+    settimeofday(&saved, NULL);
+}
+
+/* --- a schedule must survive deleting itself from its own trigger callback ---
+ *
+ * Same daemon-freeze failure mode as above, reached the other way: trigger_cb ->
+ * esp_schedule_delete -> esp_schedule_delete_timer -> esp_schedule_timer_cancel,
+ * which takes the callback mutex the daemon already holds. cancel() had no
+ * daemon-task guard at all, so a non-recursive mutex blocked the daemon forever.
+ *
+ * The free is deferred to esp_schedule_common_timer_cb for the same reason: the
+ * callback still holds the schedule on its stack and would otherwise re-arm a
+ * freed allocation.
+ *
+ * Detection: the same independent-canary trick. A hang shows up as the canary
+ * never firing; a use-after-free shows up as a heap corruption abort. */
+static volatile uint32_t s_selfdel_fire_count = 0;
+static void selfdel_trigger_cb(esp_schedule_handle_t handle, void *priv_data)
+{
+    (void)priv_data;
+    s_selfdel_fire_count++;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_delete(handle));
+}
+
+TEST_CASE("schedule deletes itself from its callback without deadlock", "[esp_schedule]")
+{
+    time_t slot = make_time_local(2025, 6, 16, 12, 0, 0);
+    struct timeval saved = {0};
+    gettimeofday(&saved, NULL);
+    struct timeval tv = { .tv_sec = slot - 2, .tv_usec = 0 };
+    settimeofday(&tv, NULL);
+
+    esp_schedule_config_t config = {0};
+    strcpy(config.name, "selfdel");
+    config.trigger.type = ESP_SCHEDULE_TYPE_DAYS_OF_WEEK;
+    config.trigger.hours = 12;
+    config.trigger.minutes = 0;
+    config.trigger.day.repeat_days = ESP_SCHEDULE_DAY_EVERYDAY;
+    config.validity.end_time = 2147483647;
+    config.trigger_cb = selfdel_trigger_cb;
+
+    esp_schedule_handle_t handle = esp_schedule_create(&config);
+    TEST_ASSERT_NOT_NULL(handle);
+
+    s_selfdel_fire_count = 0;
+    s_canary_fired = false;
+
+    TimerHandle_t canary = xTimerCreate("canary", pdMS_TO_TICKS(3500), pdFALSE, NULL, canary_timer_cb);
+    TEST_ASSERT_NOT_NULL_MESSAGE(canary, "failed to create canary timer");
+    TEST_ASSERT_EQUAL_MESSAGE(pdPASS, xTimerStart(canary, portMAX_DELAY), "failed to start canary timer");
+
+    TEST_ASSERT_EQUAL_INT(ESP_OK, (int)esp_schedule_enable(handle));
+
+    vTaskDelay(pdMS_TO_TICKS(6000));
+
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(1, s_selfdel_fire_count, "trigger must have fired exactly once");
+    TEST_ASSERT_TRUE_MESSAGE(s_canary_fired,
+                             "timer daemon must survive the self-delete (canary fired) -> no deadlock");
+
+    xTimerDelete(canary, portMAX_DELAY);
+    /* handle is already deleted; deleting again would be a double free. */
+    settimeofday(&saved, NULL);
 }
 
 /* Unity runs setUp()/tearDown() before/after every TEST_CASE. tearDown()
