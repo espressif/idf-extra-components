@@ -67,6 +67,13 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
         dev->chip.num_planes = 2;
         break;
+    case GIGADEVICE_DI_99:
+        dev->chip.log2_page_size = 12; // 4096 bytes per page
+        dev->chip.num_blocks = 4096;
+        // Same parity grouping as GD5F4GM7 (GIGADEVICE_DI_94) above.
+        dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
+        dev->chip.num_planes = 2;
+        break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
     }
