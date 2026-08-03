@@ -51,6 +51,7 @@ extern "C" {
 #define GIGADEVICE_DI_91              0x91
 #define GIGADEVICE_DI_81              0x81
 #define GIGADEVICE_DI_94              0x94   // GD5F4GM7UExxG
+#define GIGADEVICE_DI_99              0x99   // GD5F8GM8UExxG
 
 // Alliance Memory
 #define ALLIANCE_DI_25                0x25   // AS5F31G04SND-08LIN
