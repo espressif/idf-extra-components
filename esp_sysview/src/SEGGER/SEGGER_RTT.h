@@ -401,10 +401,6 @@ unsigned     SEGGER_RTT_PutCharSkipNoLock       (unsigned BufferIndex, char c);
 unsigned     SEGGER_RTT_GetAvailWriteSpace      (unsigned BufferIndex);
 unsigned     SEGGER_RTT_GetBytesInBuffer        (unsigned BufferIndex);
 
-// Espressif specific functions
-void         SEGGER_RTT_ESP_FlushNoLock         (void);
-void         SEGGER_RTT_ESP_Flush               (void);
-
 //
 // Function macro for performance optimization
 //

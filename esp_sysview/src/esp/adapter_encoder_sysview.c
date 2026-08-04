@@ -17,6 +17,7 @@
 #include "esp_trace_util.h"
 #include "SEGGER_SYSVIEW.h"
 #include "SEGGER_RTT.h"
+#include "SEGGER_RTT_esp.h"
 
 /*
  * This adapter is used to create a public system-wide APIs for SystemView.
@@ -120,7 +121,8 @@ static void panic_handler(esp_trace_encoder_t *enc, const void *info)
     (void)enc;
     (void)info;
 
-    SEGGER_RTT_ESP_Flush();
+    /* No lock here, the panicking core may already hold it */
+    SEGGER_RTT_ESP_FlushNoLock();
 }
 
 /**
@@ -153,11 +155,44 @@ static void give_lock(esp_trace_encoder_t *enc, unsigned int_state)
 }
 
 /**
+ * @brief Flushes buffered events from task context.
+ *
+ * @param enc Pointer to the encoder structure. Must not be NULL.
+ *
+ * @return ESP_OK on success, otherwise \see esp_err_t
+ */
+static esp_err_t flush(esp_trace_encoder_t *enc)
+{
+    if (!enc || !enc->tp || !enc->tp->vt->flush_nolock) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    /* One call may be too short to send all the data, so repeat it and release
+     * the lock in between to keep interrupts enabled */
+    esp_trace_tmo_t tmo;
+    esp_trace_tmo_init(&tmo, SYSVIEW_FLUSH_TMO_US);
+
+    esp_err_t err;
+    do {
+        unsigned int int_state = take_lock(enc, ESP_TRACE_TMO_INFINITE);
+        err = SEGGER_RTT_ESP_FlushNoLock();
+        give_lock(enc, int_state);
+
+        if (err != ESP_ERR_TIMEOUT && err != ESP_ERR_NO_MEM) {
+            break;  /* done, or an error that repeating cannot fix */
+        }
+    } while (esp_trace_tmo_check(&tmo) == ESP_OK);
+
+    return err;
+}
+
+/**
  * @brief Sysview encoder vtable.
  */
 static const esp_trace_encoder_vtable_t s_sysview_vt = {
     .init                  = init,
     .panic_handler         = panic_handler,
+    .flush                 = flush,
     .take_lock             = take_lock,
     .give_lock             = give_lock,
 #if CONFIG_ESP_TRACE_FUNCTION_TRACE
