@@ -20,69 +20,18 @@
 #include "spi_nand_flash.h"
 #include "nand_private/nand_impl_wrap.h"
 #include "unity.h"
-#include "soc/spi_pins.h"
 #include "sdkconfig.h"
 #include "esp_blockdev.h"
 #include "esp_nand_blockdev.h"
 #include "spi_nand_flash_test_helpers.h"
-
-
-// Pin mapping
-// ESP32 (VSPI)
-#ifdef CONFIG_IDF_TARGET_ESP32
-#define HOST_ID     SPI3_HOST
-#define PIN_MOSI     SPI3_IOMUX_PIN_NUM_MOSI
-#define PIN_MISO     SPI3_IOMUX_PIN_NUM_MISO
-#define PIN_CLK      SPI3_IOMUX_PIN_NUM_CLK
-#define PIN_CS       SPI3_IOMUX_PIN_NUM_CS
-#define PIN_WP       SPI3_IOMUX_PIN_NUM_WP
-#define PIN_HD       SPI3_IOMUX_PIN_NUM_HD
-#define SPI_DMA_CHAN SPI_DMA_CH_AUTO
-#else // Other chips (SPI2/HSPI)
-#define HOST_ID      SPI2_HOST
-#define PIN_MOSI     SPI2_IOMUX_PIN_NUM_MOSI
-#define PIN_MISO     SPI2_IOMUX_PIN_NUM_MISO
-#define PIN_CLK      SPI2_IOMUX_PIN_NUM_CLK
-#define PIN_CS       SPI2_IOMUX_PIN_NUM_CS
-#define PIN_WP       SPI2_IOMUX_PIN_NUM_WP
-#define PIN_HD       SPI2_IOMUX_PIN_NUM_HD
-#define SPI_DMA_CHAN SPI_DMA_CH_AUTO
-#endif
+#include "test_spi_nand_common.h"
 
 static void do_single_write_test(esp_blockdev_handle_t bdl, uint32_t start_page, uint16_t page_count);
-static void setup_bus(spi_host_device_t host_id)
-{
-    spi_bus_config_t spi_bus_cfg = {
-        .mosi_io_num = PIN_MOSI,
-        .miso_io_num = PIN_MISO,
-        .sclk_io_num = PIN_CLK,
-        .quadhd_io_num = PIN_HD,
-        .quadwp_io_num = PIN_WP,
-        .max_transfer_sz = 64,
-    };
-    esp_err_t ret = spi_bus_initialize(host_id, &spi_bus_cfg, SPI_DMA_CHAN);
-    TEST_ESP_OK(ret);
-}
-
-static void setup_chip(spi_device_handle_t *spi, uint8_t flags)
-{
-    setup_bus(HOST_ID);
-
-    spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = 40 * 1000 * 1000,
-        .mode = 0,
-        .spics_io_num = PIN_CS,
-        .queue_size = 10,
-        .flags = flags,
-    };
-
-    TEST_ESP_OK(spi_bus_add_device(HOST_ID, &devcfg, spi));
-}
 
 static void setup_nand_flash(spi_device_handle_t *spi_handle, spi_nand_flash_io_mode_t mode, uint8_t flags, esp_blockdev_handle_t *bdl_handle)
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, flags);
+    spi_nand_test_setup_chip(&spi, flags);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -98,9 +47,9 @@ static void setup_nand_flash(spi_device_handle_t *spi_handle, spi_nand_flash_io_
 
 static void deinit_nand_flash(spi_device_handle_t spi, esp_blockdev_handle_t bdl_handle)
 {
+    (void)spi;
     bdl_handle->ops->release(bdl_handle);
-    spi_bus_remove_device(spi);
-    spi_bus_free(HOST_ID);
+    spi_nand_flash_test_teardown();
 }
 
 TEST_CASE("erase nand flash using block device interface [via dhara]", "[spi_nand_flash]")
@@ -255,7 +204,7 @@ static void test_nand_operations(spi_nand_flash_io_mode_t mode, uint8_t flags)
 {
 
     spi_device_handle_t spi;
-    setup_chip(&spi, flags);
+    spi_nand_test_setup_chip(&spi, flags);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -321,7 +270,7 @@ TEST_CASE("verify ioctl (bad blocks and ecc stats) works with bdl interface", "[
     uint8_t flags = SPI_DEVICE_HALFDUPLEX;
 
     spi_device_handle_t spi;
-    setup_chip(&spi, flags);
+    spi_nand_test_setup_chip(&spi, flags);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -348,7 +297,7 @@ TEST_CASE("verify ioctl (bad blocks and ecc stats) works with bdl interface", "[
 TEST_CASE("Flash BDL geometry and device_flags after nand_flash_get_blockdev", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -384,7 +333,7 @@ TEST_CASE("Flash BDL geometry and device_flags after nand_flash_get_blockdev", "
 TEST_CASE("Flash BDL multi-block erase honours erase_len", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -428,7 +377,7 @@ TEST_CASE("Flash BDL multi-block erase honours erase_len", "[spi_nand_flash][bdl
 TEST_CASE("Flash BDL GET_NAND_FLASH_INFO ioctl", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -455,7 +404,7 @@ TEST_CASE("Flash BDL GET_NAND_FLASH_INFO ioctl", "[spi_nand_flash][bdl]")
 TEST_CASE("nand_flash_get_blockdev and spi_nand_flash_wl_get_blockdev error paths", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
     spi_nand_flash_config_t config = {
         .device_handle = spi,
         .flags = SPI_DEVICE_HALFDUPLEX,
@@ -482,7 +431,7 @@ TEST_CASE("nand_flash_get_blockdev and spi_nand_flash_wl_get_blockdev error path
 TEST_CASE("Flash BDL erase invalid args", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -509,7 +458,7 @@ TEST_CASE("Flash BDL erase invalid args", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL unsupported ioctl returns ESP_ERR_NOT_SUPPORTED", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -530,7 +479,7 @@ TEST_CASE("Flash BDL unsupported ioctl returns ESP_ERR_NOT_SUPPORTED", "[spi_nan
 TEST_CASE("Flash BDL COPY_PAGE ioctl", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -581,7 +530,7 @@ TEST_CASE("Flash BDL COPY_PAGE ioctl", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL GET_PAGE_ECC_STATUS ioctl", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -617,7 +566,7 @@ TEST_CASE("Flash BDL GET_PAGE_ECC_STATUS ioctl", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL read invalid args", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -656,7 +605,7 @@ TEST_CASE("Flash BDL read invalid args", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL write invalid args", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -694,7 +643,7 @@ TEST_CASE("Flash BDL write invalid args", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL multi-page read and write", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -746,7 +695,7 @@ TEST_CASE("Flash BDL multi-page read and write", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL release then create again (no use-after-free)", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -777,7 +726,7 @@ TEST_CASE("Flash BDL release then create again (no use-after-free)", "[spi_nand_
 TEST_CASE("Flash BDL sync returns success", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -797,7 +746,7 @@ TEST_CASE("Flash BDL sync returns success", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL ioctl with NULL args returns error", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -820,7 +769,7 @@ TEST_CASE("Flash BDL ioctl with NULL args returns error", "[spi_nand_flash][bdl]
 TEST_CASE("Flash BDL zero-length read and write", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -844,7 +793,7 @@ TEST_CASE("Flash BDL zero-length read and write", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL sub-page (partial page) read", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -895,7 +844,7 @@ TEST_CASE("Flash BDL sub-page (partial page) read", "[spi_nand_flash][bdl]")
 TEST_CASE("Flash BDL multi-page spanning block boundary", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -942,7 +891,7 @@ TEST_CASE("Flash BDL multi-page spanning block boundary", "[spi_nand_flash][bdl]
 TEST_CASE("Flash BDL read at end of device (last byte)", "[spi_nand_flash][bdl]")
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,

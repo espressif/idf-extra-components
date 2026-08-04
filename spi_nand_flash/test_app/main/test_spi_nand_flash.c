@@ -20,67 +20,16 @@
 #include "spi_nand_flash.h"
 #include "nand_private/nand_impl_wrap.h"
 #include "unity.h"
-#include "soc/spi_pins.h"
 #include "sdkconfig.h"
 #include "spi_nand_flash_test_helpers.h"
-
-
-// Pin mapping
-// ESP32 (VSPI)
-#ifdef CONFIG_IDF_TARGET_ESP32
-#define HOST_ID     SPI3_HOST
-#define PIN_MOSI     SPI3_IOMUX_PIN_NUM_MOSI
-#define PIN_MISO     SPI3_IOMUX_PIN_NUM_MISO
-#define PIN_CLK      SPI3_IOMUX_PIN_NUM_CLK
-#define PIN_CS       SPI3_IOMUX_PIN_NUM_CS
-#define PIN_WP       SPI3_IOMUX_PIN_NUM_WP
-#define PIN_HD       SPI3_IOMUX_PIN_NUM_HD
-#define SPI_DMA_CHAN SPI_DMA_CH_AUTO
-#else // Other chips (SPI2/HSPI)
-#define HOST_ID      SPI2_HOST
-#define PIN_MOSI     SPI2_IOMUX_PIN_NUM_MOSI
-#define PIN_MISO     SPI2_IOMUX_PIN_NUM_MISO
-#define PIN_CLK      SPI2_IOMUX_PIN_NUM_CLK
-#define PIN_CS       SPI2_IOMUX_PIN_NUM_CS
-#define PIN_WP       SPI2_IOMUX_PIN_NUM_WP
-#define PIN_HD       SPI2_IOMUX_PIN_NUM_HD
-#define SPI_DMA_CHAN SPI_DMA_CH_AUTO
-#endif
+#include "test_spi_nand_common.h"
 
 static void do_single_write_test(spi_nand_flash_device_t *flash, uint32_t start_page, uint16_t page_count);
-static void setup_bus(spi_host_device_t host_id)
-{
-    spi_bus_config_t spi_bus_cfg = {
-        .mosi_io_num = PIN_MOSI,
-        .miso_io_num = PIN_MISO,
-        .sclk_io_num = PIN_CLK,
-        .quadhd_io_num = PIN_HD,
-        .quadwp_io_num = PIN_WP,
-        .max_transfer_sz = 64,
-    };
-    esp_err_t ret = spi_bus_initialize(host_id, &spi_bus_cfg, SPI_DMA_CHAN);
-    TEST_ESP_OK(ret);
-}
-
-static void setup_chip(spi_device_handle_t *spi, uint8_t flags)
-{
-    setup_bus(HOST_ID);
-
-    spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = 40 * 1000 * 1000,
-        .mode = 0,
-        .spics_io_num = PIN_CS,
-        .queue_size = 10,
-        .flags = flags,
-    };
-
-    TEST_ESP_OK(spi_bus_add_device(HOST_ID, &devcfg, spi));
-}
 
 static void setup_nand_flash(spi_nand_flash_device_t **out_handle, spi_device_handle_t *spi_handle, spi_nand_flash_io_mode_t mode, uint8_t flags)
 {
     spi_device_handle_t spi;
-    setup_chip(&spi, flags);
+    spi_nand_test_setup_chip(&spi, flags);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -96,9 +45,9 @@ static void setup_nand_flash(spi_nand_flash_device_t **out_handle, spi_device_ha
 
 static void deinit_nand_flash(spi_nand_flash_device_t *flash, spi_device_handle_t spi)
 {
+    (void)spi;
     spi_nand_flash_deinit_device(flash);
-    spi_bus_remove_device(spi);
-    spi_bus_free(HOST_ID);
+    spi_nand_flash_test_teardown();
 }
 
 TEST_CASE("erase nand flash", "[spi_nand_flash]")
@@ -353,6 +302,7 @@ TEST_CASE("Fail safe test if chip is not detected", "[spi_nand_flash]")
     };
     esp_err_t ret = spi_bus_initialize(HOST_ID, &spi_bus_cfg, SPI_DMA_CHAN);
     TEST_ESP_OK(ret);
+    spi_nand_test_mark_bus_initialized();
 
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = 40 * 1000 * 1000,
@@ -362,6 +312,7 @@ TEST_CASE("Fail safe test if chip is not detected", "[spi_nand_flash]")
         .flags = SPI_DEVICE_HALFDUPLEX,
     };
     TEST_ESP_OK(spi_bus_add_device(HOST_ID, &devcfg, &spi));
+    spi_nand_test_set_spi_handle(spi);
 
     spi_nand_flash_config_t nand_flash_config = {
         .device_handle = spi,
@@ -371,6 +322,5 @@ TEST_CASE("Fail safe test if chip is not detected", "[spi_nand_flash]")
     esp_err_t err = spi_nand_flash_init_device(&nand_flash_config, &device_handle);
     TEST_ASSERT_TRUE(err != ESP_OK);
 
-    spi_bus_remove_device(spi);
-    spi_bus_free(HOST_ID);
+    spi_nand_flash_test_teardown();
 }
