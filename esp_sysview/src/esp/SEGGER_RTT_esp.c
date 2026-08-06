@@ -192,6 +192,16 @@ unsigned SEGGER_RTT_WriteSkipNoLock(unsigned BufferIndex, const void *pBuffer, u
     if (NumBytes > SYSVIEW_EVENTS_BUF_SZ) {
         return 0;  /* the caller sees the event was dropped */
     }
+
+    // Apptrace/JTAG uses each flush to exchange a transport block with the host.
+    // Flush pending events first so TRACE_STOP is sent in the next block.
+    if (event_id == SYSVIEW_EVTID_TRACE_STOP && s_events_buf_filled > 0) {
+        esp_err_t res = SEGGER_RTT_ESP_FlushNoLock();
+        if (res != ESP_OK) {
+            return 0;
+        }
+    }
+
     if (link_type == ESP_TRACE_LINK_DEBUG_PROBE) {
         if (esp_cpu_get_core_id()) { // dual core specific code
             // use the highest - 1 bit of event ID to indicate core ID
@@ -218,17 +228,21 @@ unsigned SEGGER_RTT_WriteSkipNoLock(unsigned BufferIndex, const void *pBuffer, u
     memcpy(&s_events_buf[s_events_buf_filled], pBuffer, NumBytes);
     s_events_buf_filled += NumBytes;
 
+    /* Send all accumulated events before stopping and flush the transport. */
+    if (event_id == SYSVIEW_EVTID_TRACE_STOP) {
+        esp_err_t res = SEGGER_RTT_ESP_FlushNoLock();
+        return res == ESP_OK ? NumBytes : 0;
+    }
+
     if (link_type != ESP_TRACE_LINK_DEBUG_PROBE) {
-        esp_err_t res = tp->vt->write(tp, pBuffer, NumBytes, SEGGER_HOST_WAIT_TMO);
+        // An earlier failed write may have left events in the buffer
+        esp_err_t res = tp->vt->write(tp, s_events_buf, s_events_buf_filled, SEGGER_HOST_WAIT_TMO);
         if (res != ESP_OK) {
-            return 0; // skip current data buffer only, accumulated events are kept
+            return 0; // accumulated events are kept for the next call
         }
         s_events_buf_filled = 0;
     }
 
-    if (event_id == SYSVIEW_EVTID_TRACE_STOP) {
-        SEGGER_RTT_ESP_FlushNoLock();
-    }
     return NumBytes;
 }
 
