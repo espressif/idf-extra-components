@@ -628,12 +628,11 @@ FATFS support has been moved to a separate `spi_nand_flash_fatfs` component. If 
 uses FATFS with NAND flash:
 1. Add `spi_nand_flash_fatfs` as a dependency in your `idf_component.yml`.
 2. Include headers from `spi_nand_flash_fatfs` instead of the old unified headers.
-3. Use **`spi_nand_flash_init_device()`** and keep **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled**.
-   When BDL is enabled, `spi_nand_flash_init_device()` returns `ESP_ERR_NOT_SUPPORTED`. **This release does not
-   provide FatFs on top of the wear-leveling BDL** (`esp_blockdev_t`); that will be added in a
-   future component update.
-4. Aside from the component split and the BDL constraint above, FatFs usage matches 0.x
-   (same mount helpers and diskio behavior).
+3. Choose **one** path:
+   - **Legacy (ESP-IDF 5.0+):** Use **`spi_nand_flash_init_device()`** with **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled**, then **`esp_vfs_fat_nand_mount()`**. Example: **`spi_nand_flash_fatfs/examples/nand_flash`**.
+   - **BDL + FatFS (ESP-IDF 6.1+, added in `spi_nand_flash_fatfs` 1.1.0):** Enable **`CONFIG_NAND_FLASH_ENABLE_BDL=y`**, use **`spi_nand_flash_init_with_layers()`**, then ESP-IDF **`esp_vfs_fat_bdl_mount()`**. Optional pre-format: **`esp_vfs_fat_nand_bdl_format()`**. Example: **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**.
+4. Aside from the component split and the path choice above, legacy FatFs usage matches 0.x
+   (same mount helpers and diskio behavior when BDL is off).
 
 ### For Existing Projects (Legacy API)
 
@@ -655,8 +654,9 @@ New projects are encouraged to use the Block Device Layer API, which provides:
   for most workloads prefer the **wear-leveling** BDL (Dhara FTL: wear leveling, bad-block
   management, logical sectors). Raw flash BDL is mainly for diagnostics, bring-up etc.
 - Advanced diagnostics operations (ECC stats, bad block tracking)
-- Integration with consumers of **`esp_blockdev_t`** (this release does **not** include
-  FatFs-on-BDL for SPI NAND; use **`spi_nand_flash_fatfs`** with BDL off for FatFs)
+- Integration with consumers of **`esp_blockdev_t`**, including FatFS via ESP-IDF
+  **`esp_vfs_fat_bdl_mount()`** on ESP-IDF 6.1+ (see **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**).
+  Legacy FatFS (**`esp_vfs_fat_nand_*`**) still requires BDL off.
 - Fine-grained control over layers
 
 ### Enabling BDL Support
