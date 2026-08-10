@@ -36,43 +36,54 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
     case GIGADEVICE_DI_21:
     case GIGADEVICE_DI_81:
     case GIGADEVICE_DI_91:
+        // GD5F1GQ5 / GD5F1GM7: single-plane, Internal Data Move has no parity restriction
         dev->chip.num_blocks = 1024;
+        break;
+    case GIGADEVICE_DI_32:
+    case GIGADEVICE_DI_22:
+        dev->chip.num_blocks = 2048;
         break;
     case GIGADEVICE_DI_52:
     case GIGADEVICE_DI_42:
-    case GIGADEVICE_DI_32:
-    case GIGADEVICE_DI_22:
+        // GD5F2GQ5: single-plane; IDM requires same odd/even block parity
+        dev->chip.num_blocks = 2048;
+        dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
+        break;
     case GIGADEVICE_DI_92:
     case GIGADEVICE_DI_82:
+        // GD5F2GM7: single-plane; IDM requires same odd/even block parity
         dev->chip.num_blocks = 2048;
+        dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
         break;
-    case GIGADEVICE_DI_55:
-    case GIGADEVICE_DI_45:
     case GIGADEVICE_DI_35:
     case GIGADEVICE_DI_25:
         dev->chip.num_blocks = 4096;
         break;
+    case GIGADEVICE_DI_55:
+    case GIGADEVICE_DI_45:
+        // GD5F4GQ6: single-plane; IDM requires same odd/even block parity
+        // (2Gb partition limit for IDM is deferred)
+        dev->chip.num_blocks = 4096;
+        dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
+        break;
     case GIGADEVICE_DI_95:
     case GIGADEVICE_DI_85:
+        // GD5F4GM8: single-plane; IDM requires same odd/even block parity
+        // (2Gb partition limit for IDM is deferred)
         dev->chip.num_blocks = 4096;
-        // Not hardware dual-plane: num_planes models odd/even block parity required
-        // for Internal Data Move (GD5F4GM8 datasheet §9.5). See nand_copy().
-        dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
-        dev->chip.num_planes = 2;
+        dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
         break;
     case GIGADEVICE_DI_94:
+        // GD5F4GM7UExxG: single-plane; IDM requires same odd/even block parity
         dev->chip.log2_page_size = 12;  // 4096 bytes per page
         dev->chip.num_blocks = 2048;
-        // Same parity grouping as GD5F4GM8 (GIGADEVICE_DI_95) above.
-        dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
-        dev->chip.num_planes = 2;
+        dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
         break;
     case GIGADEVICE_DI_99:
+        // GD5F8GM8UExxG: single-plane; IDM requires same odd/even block parity
         dev->chip.log2_page_size = 12; // 4096 bytes per page
         dev->chip.num_blocks = 4096;
-        // Same parity grouping as GD5F4GM7 (GIGADEVICE_DI_94) above.
-        dev->chip.flags = NAND_FLAG_HAS_PROG_PLANE_SELECT | NAND_FLAG_HAS_READ_PLANE_SELECT;
-        dev->chip.num_planes = 2;
+        dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
