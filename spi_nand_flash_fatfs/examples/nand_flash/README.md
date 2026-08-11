@@ -1,28 +1,114 @@
 | Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
 | ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- | -------- |
 
-# SPI NAND Flash Example
+# SPI NAND Flash Example (Legacy FatFS)
 
-This example demonstrates how to use the SPI NAND Flash driver with FAT filesystem in ESP-IDF.
+This example mounts FatFS on SPI NAND using the **legacy** path: **`spi_nand_flash_init_device()`** + **`esp_vfs_fat_nand_mount()`**. Keep **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled**.
+
+For the **BDL + FatFS** path (ESP-IDF 6.1+, BDL on), see [`examples/nand_flash_bdl`](../nand_flash_bdl/README.md).
+
+Canonical source: [`main/spi_nand_flash_example_main.c`](main/spi_nand_flash_example_main.c).
+
+## Use in your own project
+
+### 1. Add the component dependency
+
+```bash
+idf.py add-dependency "espressif/spi_nand_flash_fatfs"
+```
+
+Or add to your project's `idf_component.yml`:
+
+```yaml
+dependencies:
+  espressif/spi_nand_flash_fatfs:
+    version: "*"
+```
+
+This also resolves `espressif/spi_nand_flash` transitively.
+
+### 2. Declare the component in CMake
+
+In your main component's `CMakeLists.txt`:
+
+```cmake
+idf_component_register(SRCS "main.c"
+                       INCLUDE_DIRS "."
+                       PRIV_REQUIRES spi_nand_flash_fatfs)
+```
+
+### 3. Required headers
+
+Match the includes in [`main/spi_nand_flash_example_main.c`](main/spi_nand_flash_example_main.c):
+
+```c
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "esp_system.h"
+#include "soc/spi_pins.h"
+#include "esp_vfs_fat_nand.h"
+```
+
+`esp_vfs_fat_nand.h` pulls in `spi_nand_flash.h` and the SPI driver headers transitively.
+
+### 4. Initialization flow
+
+Follow the same order as `example_init_nand_flash()` in [`main/spi_nand_flash_example_main.c`](main/spi_nand_flash_example_main.c):
+
+1. **SPI bus** — `spi_bus_initialize()` with `spi_bus_config_t` (MOSI, MISO, CLK, WP, HD GPIOs).
+2. **SPI device** — `spi_bus_add_device()` with `spi_device_interface_config_t` (clock, CS, mode, `flags`).
+3. **NAND driver** — `spi_nand_flash_init_device()` with `spi_nand_flash_config_t`.
+4. **FAT mount** — `esp_vfs_fat_nand_mount()` with `esp_vfs_fat_mount_config_t`.
+5. **File I/O** — standard `fopen()` / `fprintf()` / `fgets()` on paths under the mount point (e.g. `/nandflash/hello.txt`).
+6. **Cleanup** — `esp_vfs_fat_nand_unmount()`, then `spi_nand_flash_deinit_device()`, `spi_bus_remove_device()`, `spi_bus_free()` (see `example_deinit_nand_flash()`).
+
+Default pin macros (`HOST_ID`, `PIN_MOSI`, etc.) are defined at the top of the example source. Adjust them for your board or use the tables in [Hardware Required](#hardware-required) below.
+
+### 5. `spi_nand_flash_config_t`
+
+Populated in `example_init_nand_flash()` before `spi_nand_flash_init_device()`:
+
+| Field | Description |
+|-------|-------------|
+| `device_handle` | `spi_device_handle_t` returned by `spi_bus_add_device()` |
+| `io_mode` | `SPI_NAND_IO_MODE_SIO` in this example; also `DIO`, `DOUT`, `QIO`, or `QOUT` |
+| `flags` | `SPI_DEVICE_HALFDUPLEX` for half-duplex (required for DIO/DOUT/QIO/QOUT); `0` for full-duplex SIO. This value has to match the half-duplex flag in `spi_device_interface_config_t.flags` |
+| `gc_factor` | Optional wear-leveling GC tuning; omit or set `0` for the driver default |
+
+Full struct documentation is in [`spi_nand_flash.h`](../../../spi_nand_flash/include/spi_nand_flash.h).
+
+### 6. Mount configuration
+
+```c
+esp_vfs_fat_mount_config_t config = {
+    .max_files = 4,
+    .format_if_mount_failed = false,  // or true to format on first mount failure
+    // Cluster size used when formatting. Must be a power of 2 between the
+    // NAND sector/page size and 128 * sector size. Larger values improve
+    // sequential throughput; smaller values waste less space for small files.
+    // 16 KiB matches this example (and common ESP-IDF FatFs samples);
+    // use 0 to default to one sector per cluster.
+    .allocation_unit_size = 16 * 1024,
+};
+esp_err_t ret = esp_vfs_fat_nand_mount("/nandflash", flash, &config);
+```
+
+In this example project, `format_if_mount_failed` is controlled by `CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED` in menuconfig.
+
+### 7. Prerequisites
+
+- Keep **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled** (Component config → SPI NAND Flash). `spi_nand_flash_init_device()` returns `ESP_ERR_NOT_SUPPORTED` when BDL is enabled, and FatFs mount helpers require the legacy handle.
+- See also [`spi_nand_flash_fatfs` component README](../../README.md#requirements-read-first).
 
 ## Hardware Required
 
 * Any ESP board from the supported targets list above
-* An external SPI NAND Flash chip connected to the following pins:
-  * For ESP32 (SPI3):
-    - MOSI - SPI3_IOMUX_PIN_NUM_MOSI (23)
-    - MISO - SPI3_IOMUX_PIN_NUM_MISO (19)
-    - CLK  - SPI3_IOMUX_PIN_NUM_CLK (18)
-    - CS   - SPI3_IOMUX_PIN_NUM_CS (5)
-    - WP   - SPI3_IOMUX_PIN_NUM_WP (22)
-    - HD   - SPI3_IOMUX_PIN_NUM_HD (21)
-  * For other ESP chips (SPI2):
-    - MOSI - SPI2_IOMUX_PIN_NUM_MOSI (13)
-    - MISO - SPI2_IOMUX_PIN_NUM_MISO (12)
-    - CLK  - SPI2_IOMUX_PIN_NUM_CLK (14)
-    - CS   - SPI2_IOMUX_PIN_NUM_CS (15)
-    - WP   - SPI2_IOMUX_PIN_NUM_WP (2)
-    - HD   - SPI2_IOMUX_PIN_NUM_HD (4)
+* An external SPI NAND Flash chip connected to the SPI pins selected in the example source
+  ([`main/spi_nand_flash_example_main.c`](main/spi_nand_flash_example_main.c)):
+  * **ESP32:** SPI3 host with `SPI3_IOMUX_PIN_NUM_*` (IOMUX defaults: MOSI 23, MISO 19, CLK 18, CS 5, WP 22, HD 21)
+  * **Other targets:** SPI2 host with `SPI2_IOMUX_PIN_NUM_*` — GPIO numbers differ by chip (for example ESP32-S3 vs ESP32-C3 vs ESP32-P4). Prefer the macros in `soc/spi_pins.h`, or override the `PIN_*` defines for your board wiring.
 
 ## Configuration
 

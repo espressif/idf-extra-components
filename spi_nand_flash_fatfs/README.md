@@ -19,37 +19,31 @@ Choose **one** integration path; they use different init APIs and Kconfig:
 
 ## Dependencies
 
-- `spi_nand_flash` component (driver)
+- `spi_nand_flash` component (driver; pulled in automatically)
 - ESP-IDF `fatfs` component
 - ESP-IDF `vfs` component
 
 ## Usage
 
+Pick **one** path from [Requirements](#requirements-read-first). Both need SPI bus setup and a filled **`spi_nand_flash_config_t`** before NAND init.
+
+**Full end-to-end guides** (dependency, CMake, headers, SPI init, config fields, mount, file I/O) live in the example READMEs — those are the canonical references:
+
 ### Legacy mode (`esp_vfs_fat_nand_*`)
 
-```c
-#include "spi_nand_flash.h"
-#include "esp_vfs_fat_nand.h"
-
-// CONFIG_NAND_FLASH_ENABLE_BDL must be off
-spi_nand_flash_device_t *nand_device;
-spi_nand_flash_init_device(&config, &nand_device);
-
-esp_vfs_fat_mount_config_t mount_config = {
-    .max_files = 4,
-    .format_if_mount_failed = true,
-};
-esp_vfs_fat_nand_mount("/nand", nand_device, &mount_config);
-
-FILE *f = fopen("/nand/test.txt", "w");
-// ...
-esp_vfs_fat_nand_unmount("/nand", nand_device);
-spi_nand_flash_deinit_device(nand_device);
-```
+- Mount helpers: **`esp_vfs_fat_nand_mount()`** / **`esp_vfs_fat_nand_unmount()`** in `esp_vfs_fat_nand.h`, on a handle from **`spi_nand_flash_init_device()`**
+- **`CONFIG_NAND_FLASH_ENABLE_BDL` must be off**
+- Integration guide: [`examples/nand_flash/README.md`](examples/nand_flash/README.md)
+- Source: [`examples/nand_flash/main/spi_nand_flash_example_main.c`](examples/nand_flash/main/spi_nand_flash_example_main.c)
 
 ### BDL mode (`esp_vfs_fat_bdl_*`)
 
-Use the wear-leveling block device from **`spi_nand_flash_init_with_layers()`** with **`esp_vfs_fat_bdl_mount()`**. To format unconditionally before mount (e.g. chosen **`allocation_unit_size`**), call **`esp_vfs_fat_nand_bdl_format()`** with the same **`esp_vfs_fat_mount_config_t`**, then mount. Details: **`examples/nand_flash_bdl/README.md`**.
+- Init: **`spi_nand_flash_init_with_layers()`** → wear-leveling **`esp_blockdev_t`**
+- Mount: ESP-IDF **`esp_vfs_fat_bdl_mount()`** / **`esp_vfs_fat_bdl_unmount()`**
+- Optional pre-format: **`esp_vfs_fat_nand_bdl_format()`** (this component) with the same **`esp_vfs_fat_mount_config_t`**
+- **`CONFIG_NAND_FLASH_ENABLE_BDL=y`**, ESP-IDF **6.1+**
+- Integration guide: [`examples/nand_flash_bdl/README.md`](examples/nand_flash_bdl/README.md)
+- Source: [`examples/nand_flash_bdl/main/spi_nand_flash_bdl_example_main.c`](examples/nand_flash_bdl/main/spi_nand_flash_bdl_example_main.c)
 
 ## Examples (this component)
 
@@ -61,4 +55,4 @@ All paths are under **`spi_nand_flash_fatfs/examples/`**:
 | `nand_flash_bdl` | BDL + `esp_vfs_fat_bdl_*` | **On** | 6.1+ |
 | `nand_flash_debug_app` | Diagnostics only (no VFS) | **Off** | 5.0+ |
 
-See each example’s `README.md` for wiring and menuconfig.
+See each example’s `README.md` for wiring, menuconfig, and **Use in your own project**.
