@@ -81,3 +81,6 @@
 [submodule "lua/lua"]
 	path = lua/lua
 	url = https://github.com/lua/lua.git
+[submodule "usrsctp/usrsctp"]
+	path = usrsctp/usrsctp
+	url = https://github.com/sctplab/usrsctp.git
