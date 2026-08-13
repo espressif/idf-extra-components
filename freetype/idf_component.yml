@@ -1,5 +1,5 @@
-version: "2.14.2"
-description: freetype C library
+version: "2.14.3"
+description: FreeType C library
 url: https://github.com/espressif/idf-extra-components/tree/master/freetype
 repository: "https://github.com/espressif/idf-extra-components.git"
 documentation: "https://freetype.org/freetype2/docs/documentation.html"

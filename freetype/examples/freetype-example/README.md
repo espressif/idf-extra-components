@@ -2,7 +2,7 @@
 
 This is a simple example of initializing FreeType library, loading a font from a filesystem, and rendering a line of text.
 
-The font file (DejaVu Sans) is downloaded at compile time and is added into a SPIFFS filesystem image. The filesystem is flashed to the board together with the application. The example loads the font file and renders "FreeType" text into the console as ASCII art.
+The font file (DejaVu Sans) is downloaded at compile time and is added into a LittleFS filesystem image. The filesystem is flashed to the board together with the application. The example loads the font file and renders "FreeType" text into the console as ASCII art.
 
 This example doesn't require any special hardware and can run on any development board.
 
@@ -45,7 +45,4 @@ I (2208) example: Rendering char: 'e'
                                             ##   ##
                                            +#.   ##
                                           ##+    ##
-
-
-
 ```

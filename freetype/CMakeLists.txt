@@ -17,4 +17,9 @@ add_subdirectory(freetype output)
 # https://gitlab.freedesktop.org/freetype/freetype/-/issues/1299
 target_compile_options(freetype PRIVATE "-Wno-dangling-pointer")
 
+# Suppress `unused-but-set-variable` warning triggered by `ft_stroke_border_get_counts`
+# in FreeType 2.14.3 (src/base/ftstroke.c). This flag is applied at the target
+# level and therefore affects all FreeType sources built in this component.
+target_compile_options(freetype PRIVATE "-Wno-unused-but-set-variable")
+
 target_link_libraries(${COMPONENT_LIB} INTERFACE freetype)
