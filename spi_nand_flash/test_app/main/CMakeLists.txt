@@ -1,4 +1,4 @@
-set(src "test_app_main.c")
+set(src "test_app_main.c" "test_spi_nand_common.c")
 
 if(CONFIG_NAND_FLASH_ENABLE_BDL)
     list(APPEND src "test_spi_nand_flash_bdl.c")

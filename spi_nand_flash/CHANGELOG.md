@@ -2,6 +2,9 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1]
+- fix: free SPI bus in Unity tearDown so a failed test case does not leave the bus initialized for later cases
+
 ## [1.4.0]
 - feat: added support for Gigadevice GD5F8GM8UExxG NAND flash
 
