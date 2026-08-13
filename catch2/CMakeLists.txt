@@ -15,7 +15,7 @@ idf_build_get_property(target IDF_TARGET)
 if(NOT target STREQUAL "linux")
     target_link_libraries(${catch_target} PUBLIC idf::pthread)
     # Work around a linking dependency issue in ESP-IDF
-    target_link_libraries(${COMPONENT_LIB} PUBLIC "-Wl,-u getentropy")
+    target_link_options(${COMPONENT_LIB} INTERFACE "-u getentropy")
 endif()
 
 # If console component is present in the build, include the console
