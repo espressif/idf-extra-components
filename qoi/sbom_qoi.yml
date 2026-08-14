@@ -1,0 +1,7 @@
+name: qoi
+version: 0.20260529.0
+cpe: cpe:2.3:a:phoboslab:qoi:{}:*:*:*:*:*:*:*
+supplier: 'Organization: phoboslab <https://phoboslab.org>'
+description: QOI - The "Quite OK Image" format for fast, lossless image compression
+url: https://github.com/phoboslab/qoi
+hash: 97bacc86a9c4abf5a2d452102dc26546c4c670b9
