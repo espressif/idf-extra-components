@@ -1,0 +1,8 @@
+dependencies:
+  espressif/freetype:
+    version: "*"
+    override_path: "../../.."
+  espressif/libpng:
+    version: "*"
+    override_path: "../../../../libpng"
+  joltwallet/littlefs: "~1.22.3"
