@@ -1,3 +1,7 @@
+## 1.0.3
+
+- fix: Bypass the dispatcher and call the real Flash operations directly when the stack resides in internal DRAM. This prevents deadlocks that could arise from nested calls to flash operation interfaces (e.g. specifically, calling a flash operation from within a flash operation already executing under the scheduler) and avoids unnecessary task scheduling overhead.
+
 ## 1.0.2
 
 - fix: Bypass the dispatcher and call the real Flash operations directly when it is not initialized yet, so early-boot Flash access (e.g. partition loading and core dump probing during system startup).
