@@ -28,10 +28,13 @@ extern "C" {
 
 #define INVALID_PAGE 0xFFFF
 
-// For some GigaDevice parts, these encode odd/even block parity in the column
-// address (not a second physical plane). See get_column_address() in nand_impl.c.
+// True hardware dual-plane devices (e.g. Micron MT29F2G): plane index is encoded
+// in the column address. See get_column_address() in nand_impl.c.
 #define NAND_FLAG_HAS_PROG_PLANE_SELECT       BIT(0)
 #define NAND_FLAG_HAS_READ_PLANE_SELECT       BIT(1)
+// Single-plane devices whose Internal Data Move requires same odd/even block
+// parity (e.g. some GigaDevice parts). nand_copy() uses a RAM path when parity differs.
+#define NAND_FLAG_IDM_SAME_PARITY_REQUIRED    BIT(2)
 
 // Legacy typedef for compatibility - now uses nand_flash_geometry_t internally
 typedef nand_flash_geometry_t spi_nand_chip_t;
