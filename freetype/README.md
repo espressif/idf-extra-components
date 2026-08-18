@@ -28,7 +28,35 @@ Include the FreeType header and use the API as usual:
 #include "freetype/ftglyph.h"
 ```
 
-This component disables optional dependencies (HarfBuzz, BZIP2, Brotli, PNG, and ZLIB) by default to keep the binary size small. Note that the **WOFF2** font format relies on Brotli decompression and is therefore **not supported** in this configuration. Please use TTF/OTF instead.
+### ZLIB support
+
+FreeType enables gzip-compressed font reading by default. It uses its bundled zlib implementation unless `espressif/zlib` is available, in which case it uses the IDF component through `find_package(ZLIB)`.
+
+To use the IDF zlib component, add the following to your **project-level** `idf_component.yml`:
+
+```yaml
+dependencies:
+  espressif/freetype: "^2.14.3"
+  espressif/zlib: "^1.3.2"
+```
+
+Users can provide another zlib implementation by setting both `ZLIB_LIBRARY` and `ZLIB_INCLUDE_DIR` at project level. These settings take precedence over the IDF zlib shim.
+
+### PNG support
+
+PNG-compressed embedded bitmaps require `espressif/libpng`; without it, PNG support is disabled.
+
+To enable PNG support, add `espressif/libpng` to the same project-level manifest:
+
+```yaml
+dependencies:
+  espressif/freetype: "^2.14.3"
+  espressif/libpng: "^1.6.58"
+```
+
+### Other optional dependencies
+
+The remaining optional dependencies (HarfBuzz, BZIP2, and Brotli) are disabled by default to keep the binary size small. Note that the **WOFF2** font format relies on Brotli decompression and is therefore **not supported** in this configuration. Please use TTF/OTF instead.
 
 ## Example
 
