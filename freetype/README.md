@@ -58,9 +58,10 @@ dependencies:
 
 The remaining optional dependencies (HarfBuzz, BZIP2, and Brotli) are disabled by default to keep the binary size small. Note that the **WOFF2** font format relies on Brotli decompression and is therefore **not supported** in this configuration. Please use TTF/OTF instead.
 
-## Example
+## Examples
 
-An example is available in [examples/freetype-example](examples/freetype-example/README.md), which loads the DejaVu Sans font from filesystem and renders the text "FreeType" into the console as ASCII art.
+- [FreeType example](examples/freetype-example/README.md) loads the DejaVu Sans font from a filesystem and renders the text "FreeType" into the console as ASCII art.
+- [Color emoji example](examples/color-emoji-example/README.md) loads a bundled CBDT/CBLC emoji font; FreeType uses the `libpng` component internally to decode its PNG bitmap glyph.
 
 ## Documentation
 

@@ -1,0 +1,4 @@
+dependencies:
+  espressif/brotli:
+    version: "*"
+    override_path: "../../.."

@@ -1,0 +1,21 @@
+version: "1.2.0"
+description: Brotli C compression and decompression library
+url: https://github.com/espressif/idf-extra-components/tree/master/brotli
+repository: "https://github.com/espressif/idf-extra-components.git"
+documentation: "https://brotli.org/"
+issues: "https://github.com/espressif/idf-extra-components/issues" # URL of the issue tracker
+dependencies:
+  idf: ">=5.1"
+files:
+  exclude:
+    - "brotli/brotli/csharp/**/*"
+    - "brotli/brotli/docs/**/*"
+    - "brotli/brotli/go/**/*"
+    - "brotli/brotli/java/**/*"
+    - "brotli/brotli/js/**/*"
+    - "brotli/brotli/python/**/*"
+    - "brotli/brotli/research/**/*"
+sbom:
+  manifests:
+    - path: sbom_brotli.yml
+      dest: brotli
