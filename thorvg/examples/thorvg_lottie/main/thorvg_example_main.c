@@ -220,6 +220,7 @@ void app_main(void)
         .lcd_param_bits = 8, // according to SH8601 spec
         .flags = {
             .quad_mode = true, // QSPI mode
+            .psram_dma_direct = true, // let SPI DMA mount PSRAM buffer directly, no need to copy to internal RAM first
         },
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(EXAMPLE_LCD_SPI_HOST, &io_config, &io_handle));

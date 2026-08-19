@@ -2,9 +2,11 @@
 set(TVG_LIB libthorvg)
 set(TVG_INC_DIR thorvg/src/bindings/capi)
 set(TVG_SUBDIR "${CMAKE_CURRENT_SOURCE_DIR}/thorvg")
-set(TVG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build")
-set(TVG_CROSS_CFG "${CMAKE_CURRENT_BINARY_DIR}/thorvg_build/cross_file.txt")
+set(TVG_EP_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thorvg_ep")
+set(TVG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/thorvg_meson_build")
+set(TVG_CROSS_CFG "${TVG_BUILD_DIR}/cross_file.txt")
 set(TVG_STATIC_LIB "${TVG_BUILD_DIR}/src/libthorvg-1.a")
+set(TVG_REQUIRES cxx)
 
 set(TVG_LOADERS_OPTION "")
 
@@ -45,7 +47,7 @@ endif()
 idf_component_register(
     SRCS dummy.c
     INCLUDE_DIRS "${TVG_INC_DIR}"
-    PRIV_REQUIRES pthread)
+    PRIV_REQUIRES cxx pthread)
 
 target_compile_options(${COMPONENT_LIB} INTERFACE
     $<$<COMPILE_LANGUAGE:C>:-Wno-ignored-qualifiers>
@@ -65,7 +67,9 @@ function(expand_response_file input_flags output_var)
         if(EXISTS "${response_file}")
             file(STRINGS "${response_file}" flags)
         else()
-            set(flags "")
+            message(FATAL_ERROR
+                "ESP-IDF compiler response file does not exist: ${response_file}. "
+                "ThorVG cannot be built safely without the complete toolchain flags.")
         endif()
     else()
         separate_arguments(flags)
@@ -80,6 +84,19 @@ endfunction()
 expand_response_file("${CMAKE_CXX_FLAGS}" compiler_args)
 expand_response_file("${CMAKE_EXE_LINKER_FLAGS}" linker_args)
 
+# Meson applies cpp_args twice during its cross-compiler sanity check. GCC
+# cannot load a specs file twice because it redefines compiler driver specs.
+# Keep -specs in cpp_args: picolibc.specs also configures preprocessing and
+# compilation, not only linking. Skip only the redundant sanity check when a
+# specs file is present; ESP-IDF has already validated the configured compiler.
+set(TVG_SKIP_MESON_SANITY_CHECK false)
+foreach(flag IN LISTS compiler_args)
+    if(flag MATCHES "^-specs=")
+        set(TVG_SKIP_MESON_SANITY_CHECK true)
+        break()
+    endif()
+endforeach()
+
 message(STATUS "CMAKE_CXX_FLAGS: ${compiler_args}")
 message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${linker_args}")
 
@@ -88,7 +105,7 @@ if(TVG_THREADS STREQUAL "true")
     idf_component_get_property(pthread_lib "pthread" COMPONENT_LIB GENERATOR_EXPRESSION)
     set(pthread_lib_path_expr "$<TARGET_FILE_DIR:${pthread_lib}>")
     list(APPEND linker_args "-L${pthread_lib_path_expr}")
-    set(TVG_REQUIRES pthread)
+    list(APPEND TVG_REQUIRES pthread)
 endif()
 
 # Convert the list of arguments (arg;arg;arg) to a string "'arg', 'arg', 'arg'"
@@ -97,22 +114,24 @@ set(MESON_CXX_FLAGS "'${MESON_CXX_FLAGS}'")
 list(JOIN linker_args "', '" MESON_LINKER_FLAGS)
 set(MESON_LINKER_FLAGS "'${MESON_LINKER_FLAGS}'")
 
-# Please note, xtensa is not recognized by Meson, but "riscv32" is a safe generic option
-# Always use "riscv32" as cpu_family in cross_file.txt to avoid Meson warnings
+# Meson has no Xtensa cpu family. ThorVG uses this value only to enable x86/ARM
+# SIMD paths, neither of which applies to ESP targets, so "riscv32" safely
+# keeps SIMD disabled for both Xtensa and RISC-V ESP chips.
 set(cpu_family "riscv32")
 
 # Two-step generation of cross_file.txt to expand CMake variables...
 configure_file(${CMAKE_CURRENT_LIST_DIR}/cross_file.txt.in ${TVG_CROSS_CFG}.tmp)
 # ...and then expand generator expressions
 file(GENERATE OUTPUT ${TVG_CROSS_CFG} INPUT ${TVG_CROSS_CFG}.tmp)
+add_custom_target(${TVG_LIB}_cross_file DEPENDS ${TVG_CROSS_CFG})
 
 include(ExternalProject)
 
 ExternalProject_Add(${TVG_LIB}_target
-    PREFIX ${TVG_BUILD_DIR}
+    PREFIX ${TVG_EP_PREFIX}
     SOURCE_DIR ${TVG_SUBDIR}
     BINARY_DIR ${TVG_BUILD_DIR}
-    CONFIGURE_COMMAND meson setup ${TVG_BUILD_DIR} ${TVG_SUBDIR}
+    CONFIGURE_COMMAND ${MESON_EXECUTABLE} setup ${TVG_BUILD_DIR} ${TVG_SUBDIR}
     --cross-file ${TVG_CROSS_CFG}
     -Dbindings=capi
     -Dextra=
@@ -121,10 +140,13 @@ ExternalProject_Add(${TVG_LIB}_target
     -Dthreads=${TVG_THREADS}
     -Dlog=${TVG_LOG} # allow log output
     -Dloaders=${TVG_LOADERS_OPTION}   # Pass the loaders option to Meson
-    BUILD_COMMAND ninja -C ${TVG_BUILD_DIR}
+    BUILD_COMMAND ${MESON_EXECUTABLE} compile -C ${TVG_BUILD_DIR}
     INSTALL_COMMAND ""
     BUILD_BYPRODUCTS ${TVG_STATIC_LIB}
+    USES_TERMINAL_CONFIGURE TRUE
+    USES_TERMINAL_BUILD TRUE
 )
+ExternalProject_Add_StepDependencies(${TVG_LIB}_target configure ${TVG_LIB}_cross_file)
 
 add_prebuilt_library(${TVG_LIB} ${TVG_STATIC_LIB} PRIV_REQUIRES ${TVG_REQUIRES})
 add_dependencies(${TVG_LIB} ${TVG_LIB}_target)
