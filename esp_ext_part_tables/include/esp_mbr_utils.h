@@ -46,7 +46,12 @@ uint32_t esp_mbr_chs_arr_val_get(const uint8_t chs[3]);
 void esp_mbr_lba_to_chs_arr(uint8_t chs[3], uint32_t lba);
 
 /**
- * @brief Align an LBA value according to sector size and alignment requirements.
+ * @brief Align an LBA value up according to sector size and alignment requirements.
+ *
+ * Rounds @p lba up to the next multiple of `alignment / sector_size` sectors. Any
+ * ratio is supported (it does not have to be a power of two). An alignment of
+ * `ESP_EXT_PART_ALIGN_NONE`, a zero alignment, or a zero sector size leaves the LBA
+ * untouched, as does an alignment that is at most one sector.
  *
  * @param[in] lba         Logical Block Address to align.
  * @param[in] sector_size Sector size enumeration.
@@ -58,7 +63,7 @@ uint32_t esp_mbr_lba_align(uint32_t lba, esp_ext_part_sector_size_t sector_size,
 /**
  * @brief Generate default supported MBR partition types for a given internal type.
  *
- * @param[in] type Internal artition type to generate supported types from internal `esp_ext_part_type_known_t` enum.
+ * @param[in] type Internal partition type to generate supported types from internal `esp_ext_part_type_known_t` enum.
  * @return MBR partition type code.
  */
 uint8_t esp_mbr_generate_default_supported_partition_types(uint8_t type);

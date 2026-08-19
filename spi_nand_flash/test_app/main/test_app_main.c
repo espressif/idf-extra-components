@@ -9,6 +9,7 @@
 #include "esp_heap_caps.h"
 #include "esp_newlib.h"
 #include "unity_test_utils_memory.h"
+#include "test_spi_nand_common.h"
 
 void setUp(void)
 {
@@ -17,6 +18,8 @@ void setUp(void)
 
 void tearDown(void)
 {
+    /* Unity aborts on assertion failure and skips in-test deinit; free SPI here. */
+    spi_nand_flash_test_teardown();
     esp_reent_cleanup();    //clean up some of the newlib's lazy allocations
     unity_utils_evaluate_leaks_direct(32);
 }

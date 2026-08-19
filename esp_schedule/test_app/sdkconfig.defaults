@@ -1,0 +1,26 @@
+# Disable watchdog
+CONFIG_ESP_TASK_WDT_INIT=n
+
+# A schedule re-arms from inside its own timer callback, which runs on the
+# FreeRTOS timer daemon task. That path formats the next fire time (strftime,
+# localtime_r) and runs the date engine, which does not fit in the 2048-byte
+# default on every IDF version.
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072
+
+# Required, not merely preferred. Most tests pin the clock with settimeofday(),
+# so an SNTP sync completing mid-test would move time under them.
+#
+# It also has to be off for the ports to match. test_app_main.c installs the
+# port through esp_schedule_init_with_config() with timesync_init NULL, while
+# the esp_schedule_init() calls inside the tests build the default table. With
+# SNTP enabled those two tables differ in exactly that member,
+# esp_schedule_port_equal() rejects the second install, and every in-test
+# esp_schedule_init() returns NULL instead of restoring from NVS - which fails
+# "nvs restore drops invalid config" and makes "init null schedule_count" pass
+# for the wrong reason. With SNTP off the default table carries a NULL
+# timesync_init itself, so both tables are identical and the second install is
+# the intended same-port no-op.
+#
+# test_app_main.c has a #error guarding this, so the coupling cannot break
+# silently.
+CONFIG_ESP_SCHEDULE_ENABLE_SNTP=n

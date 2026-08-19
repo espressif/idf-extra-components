@@ -209,8 +209,8 @@ target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-function)
 
 if(CONFIG_LIBSODIUM_USE_MBEDTLS_SHA)
     target_compile_options(${COMPONENT_LIB} PRIVATE
-        "$<$<COMPILE_LANGUAGE:C>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/port_include/sodium/crypto_hash_sha256.h>"
-        "$<$<COMPILE_LANGUAGE:C>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/port_include/sodium/crypto_hash_sha512.h>")
+        "$<$<COMPILE_LANGUAGE:C>:-include${CMAKE_CURRENT_SOURCE_DIR}/port_include/sodium/crypto_hash_sha256.h>"
+        "$<$<COMPILE_LANGUAGE:C>:-include${CMAKE_CURRENT_SOURCE_DIR}/port_include/sodium/crypto_hash_sha512.h>")
 endif()
 
 if(CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_DISABLE)

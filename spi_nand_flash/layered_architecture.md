@@ -21,6 +21,7 @@ When enabled, provides:
 - Flash Block Device Layer (raw NAND flash access)
 - Wear-Leveling Block Device Layer (logical page access with wear leveling)
 - Advanced layered API (`spi_nand_flash_init_with_layers`)
+- Optional **FAT + VFS on the WL BDL** (ESP-IDF 6.1+): use **`esp_vfs_fat_bdl_mount()`** / **`esp_vfs_fat_bdl_unmount()`** with the wear-leveling handle from **`spi_nand_flash_init_with_layers()`** (FatFS **`diskio_bdl`**). Optional pre-format: **`esp_vfs_fat_nand_bdl_format()`** in `spi_nand_flash_fatfs`. Example: **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**. The legacy FatFS integration (**`esp_vfs_fat_nand_mount()`** in `spi_nand_flash_fatfs`) still requires **BDL off** and **`spi_nand_flash_init_device()`**.
 
 When disabled, only the legacy API is available.
 
@@ -128,6 +129,8 @@ Application / Filesystem
 │ - Register access                                            │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+In this mode, “Application / Filesystem” may be your own block-device consumer or a FAT volume: on ESP-IDF 6.1+, mounting FAT on the WL BDL uses **`esp_vfs_fat_bdl_mount()`** (see **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**), which is separate from the legacy **`esp_vfs_fat_nand_*`** helpers in `spi_nand_flash_fatfs`.
 
 ### Key Improvements
 
@@ -284,7 +287,8 @@ src/
     ├── nand_alliance.c         # Alliance NAND flash support
     ├── nand_micron.c           # Micron NAND flash support
     ├── nand_zetta.c            # Zetta NAND flash support
-    └── nand_xtx.c              # XTX NAND flash support
+    ├── nand_xtx.c              # XTX NAND flash support
+    └── nand_macronix.c         # Macronix NAND flash support
 ```
 
 ## API Usage
@@ -624,12 +628,11 @@ FATFS support has been moved to a separate `spi_nand_flash_fatfs` component. If 
 uses FATFS with NAND flash:
 1. Add `spi_nand_flash_fatfs` as a dependency in your `idf_component.yml`.
 2. Include headers from `spi_nand_flash_fatfs` instead of the old unified headers.
-3. Use **`spi_nand_flash_init_device()`** and keep **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled**.
-   When BDL is enabled, `spi_nand_flash_init_device()` returns `ESP_ERR_NOT_SUPPORTED`. **This release does not
-   provide FatFs on top of the wear-leveling BDL** (`esp_blockdev_t`); that will be added in a
-   future component update.
-4. Aside from the component split and the BDL constraint above, FatFs usage matches 0.x
-   (same mount helpers and diskio behavior).
+3. Choose **one** path:
+   - **Legacy (ESP-IDF 5.0+):** Use **`spi_nand_flash_init_device()`** with **`CONFIG_NAND_FLASH_ENABLE_BDL` disabled**, then **`esp_vfs_fat_nand_mount()`**. Example: **`spi_nand_flash_fatfs/examples/nand_flash`**.
+   - **BDL + FatFS (ESP-IDF 6.1+, added in `spi_nand_flash_fatfs` 1.1.0):** Enable **`CONFIG_NAND_FLASH_ENABLE_BDL=y`**, use **`spi_nand_flash_init_with_layers()`**, then ESP-IDF **`esp_vfs_fat_bdl_mount()`**. Optional pre-format: **`esp_vfs_fat_nand_bdl_format()`**. Example: **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**.
+4. Aside from the component split and the path choice above, legacy FatFs usage matches 0.x
+   (same mount helpers and diskio behavior when BDL is off).
 
 ### For Existing Projects (Legacy API)
 
@@ -651,8 +654,9 @@ New projects are encouraged to use the Block Device Layer API, which provides:
   for most workloads prefer the **wear-leveling** BDL (Dhara FTL: wear leveling, bad-block
   management, logical sectors). Raw flash BDL is mainly for diagnostics, bring-up etc.
 - Advanced diagnostics operations (ECC stats, bad block tracking)
-- Integration with consumers of **`esp_blockdev_t`** (this release does **not** include
-  FatFs-on-BDL for SPI NAND; use **`spi_nand_flash_fatfs`** with BDL off for FatFs)
+- Integration with consumers of **`esp_blockdev_t`**, including FatFS via ESP-IDF
+  **`esp_vfs_fat_bdl_mount()`** on ESP-IDF 6.1+ (see **`spi_nand_flash_fatfs/examples/nand_flash_bdl`**).
+  Legacy FatFS (**`esp_vfs_fat_nand_*`**) still requires BDL off.
 - Fine-grained control over layers
 
 ### Enabling BDL Support
@@ -724,6 +728,7 @@ else()
                      "src/devices/nand_micron.c"
                      "src/devices/nand_zetta.c"
                      "src/devices/nand_xtx.c"
+                     "src/devices/nand_macronix.c"
                      "src/nand_impl.c"
                      "src/nand_diag_api.c"
                      "src/spi_nand_flash_test_helpers.c"
@@ -743,6 +748,7 @@ The component supports NAND flash chips from multiple manufacturers:
 | Micron | `src/devices/nand_micron.c` | MT29F1G01 |
 | Zetta | `src/devices/nand_zetta.c` | ZD35Q1GA |
 | XTX | `src/devices/nand_xtx.c` | XT26G01C |
+| Macronix | `src/devices/nand_macronix.c` | MX35LF2GE4AD, MX35LF4GE4AD |
 
 Device detection is automatic based on JEDEC manufacturer and device IDs.
 

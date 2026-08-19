@@ -62,6 +62,7 @@ Revision: $Rev: 7745 $
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "SEGGER_SYSVIEW.h"
+#include "esp_app_desc.h"
 #include "esp_intr_alloc.h"
 #include "soc/soc.h"
 #include "soc/interrupts.h"
@@ -128,6 +129,11 @@ static void _cbSendSystemDesc(void)
         strncat(irq_str, esp_isr_names[i], sizeof(irq_str) - strlen(irq_str) - 1);
         SEGGER_SYSVIEW_SendSysDesc(irq_str);
     }
+    /* Application ELF identity so host tools can resolve the matching ELF */
+    char elf_desc[sizeof("ELF_SHA256=") + CONFIG_APP_RETRIEVE_LEN_ELF_SHA];
+    strlcpy(elf_desc, "ELF_SHA256=", sizeof(elf_desc));
+    strlcat(elf_desc, esp_app_get_elf_sha256_str(), sizeof(elf_desc));
+    SEGGER_SYSVIEW_SendSysDesc(elf_desc);
 }
 
 /*********************************************************************

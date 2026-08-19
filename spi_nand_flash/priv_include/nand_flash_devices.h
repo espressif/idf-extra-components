@@ -24,6 +24,8 @@ extern "C" {
 #define SPI_NAND_FLASH_MICRON_MI      0x2C
 #define SPI_NAND_FLASH_ZETTA_MI       0xBA
 #define SPI_NAND_FLASH_XTX_MI         0x0B
+#define SPI_NAND_FLASH_FM_MI          0xA1  // Fudan Microelectronics
+#define SPI_NAND_FLASH_MACRONIX_MI    0xC2
 
 //=============================================================================
 // DEVICE IDs
@@ -48,6 +50,8 @@ extern "C" {
 #define GIGADEVICE_DI_82              0x82
 #define GIGADEVICE_DI_91              0x91
 #define GIGADEVICE_DI_81              0x81
+#define GIGADEVICE_DI_94              0x94   // GD5F4GM7UExxG
+#define GIGADEVICE_DI_99              0x99   // GD5F8GM8UExxG
 
 // Alliance Memory
 #define ALLIANCE_DI_25                0x25   // AS5F31G04SND-08LIN
@@ -78,6 +82,13 @@ extern "C" {
 
 // XTX
 #define XTX_DI_37                     0x37
+
+// Fudan Microelectronics
+#define FM_DI_D5                      0xD5
+
+// Macronix
+#define MACRONIX_DI_26                0x26   //MX35LF2GE4AD (2Gb)
+#define MACRONIX_DI_37                0x37   //MX35LF4GE4AD (4Gb)
 
 //=============================================================================
 // DEVICE INITIALIZATION FUNCTIONS
@@ -112,6 +123,16 @@ esp_err_t spi_nand_zetta_init(spi_nand_flash_device_t *dev);
  * @brief Initialize XTX NAND flash
  */
 esp_err_t spi_nand_xtx_init(spi_nand_flash_device_t *dev);
+
+/**
+ * @brief Initialize Fudan Microelectronics NAND flash
+ */
+esp_err_t spi_nand_fm_init(spi_nand_flash_device_t *dev);
+
+/**
+ * @brief Initialize Macronix NAND flash
+ */
+esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev);
 
 #ifdef __cplusplus
 }

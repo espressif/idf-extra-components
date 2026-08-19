@@ -1,6 +1,8 @@
 name: libjpeg-turbo
 version: 3.1.1
-cpe: cpe:3.1.1:a:libjpeg:libjpeg:{}:*:*:*:*:*:*:*
+cpe:
+  - cpe:2.3:a:libjpeg-turbo:libjpeg-turbo:{}:*:*:*:*:*:*:*
+  - cpe:2.3:a:d.r.commander:libjpeg-turbo:{}:*:*:*:*:*:*:*
 supplier: 'Organization: libjpeg-turbo'
 description: libjpeg-turbo is a JPEG image codec library
 url: https://github.com/libjpeg-turbo/libjpeg-turbo

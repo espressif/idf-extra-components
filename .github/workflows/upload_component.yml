@@ -63,6 +63,7 @@ jobs:
             onewire_bus
             pcap
             pid_ctrl
+            qoi
             qrcode
             quirc
             sh2lib

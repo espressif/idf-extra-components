@@ -2,6 +2,24 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2]
+- fix: use Internal Data Move same-parity handling for GigaDevice chips that require it (GD5F2GQ5, GD5F2GM7, GD5F4GQ6, GD5F4GM8, GD5F4GM7, GD5F8GM8), without treating them as hardware dual-plane
+
+## [1.4.1]
+- fix: free SPI bus in Unity tearDown so a failed test case does not leave the bus initialized for later cases
+
+## [1.4.0]
+- feat: added support for Gigadevice GD5F8GM8UExxG NAND flash
+
+## [1.3.0]
+- feat: added support for Macronix MX35LF2GE4AD, MX35LF4GE4AD NAND flash
+
+## [1.2.0]
+- feat: added support for Gigadevice GD5F4GM7UExxG NAND flash
+
+## [1.1.0]
+- feat: added support for Fudan Microelectronics (FM25S005BI3) NAND flash
+
 ## [1.0.3]
 ### Dependencies
 - **Dhara** is now consumed as the in-repo `espressif/dhara` component at **1.0.0** (vendored upstream snapshot; the git submodule under `dhara/` is removed). The manifest dependency range is **`1.*`** (was `0.1.*`), matching the new component version with the same `override_path: "../dhara"` layout.

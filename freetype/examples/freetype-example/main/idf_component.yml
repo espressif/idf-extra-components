@@ -2,3 +2,4 @@ dependencies:
   espressif/freetype:
     version: "*"
     override_path: "../../.."
+  joltwallet/littlefs: "~1.22.3"

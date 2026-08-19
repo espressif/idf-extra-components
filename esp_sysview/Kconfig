@@ -1,11 +1,20 @@
 menu "SEGGER SystemView Configuration"
     depends on ESP_TRACE_LIB_EXTERNAL
+
+    config SEGGER_SYSVIEW_UART_AVAILABLE
+        bool
+        default y if ESP_TRACE_TRANSPORT_APPTRACE && (APPTRACE_DEST_UART || APPTRACE_DEST_ALL)
+
     choice SEGGER_SYSVIEW_DEST_CPU
         prompt "CPU to trace"
-        depends on ESP_TRACE_TRANSPORT_APPTRACE && APPTRACE_DEST_UART && !ESP_SYSTEM_SINGLE_CORE_MODE
+        depends on SEGGER_SYSVIEW_UART_AVAILABLE && !ESP_SYSTEM_SINGLE_CORE_MODE
         default SEGGER_SYSVIEW_DEST_CPU_0
         help
-            Define the CPU to trace.
+            Select the CPU to trace when SystemView uses a single UART stream.
+
+            UART transport carries one SystemView stream, so events from only one
+            CPU can be represented reliably. JTAG tracing can keep
+            events from multiple CPUs and this option is ignored there.
 
         config SEGGER_SYSVIEW_DEST_CPU_0
             bool "CPU0"

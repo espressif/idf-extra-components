@@ -5,3 +5,10 @@ CONFIG_ESP_SCHEDULE_ENABLE_DAYLIGHT=y
 
 # Example can become pretty big, so enable larger partition
 CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# A schedule re-arms from inside its own timer callback, which runs on the
+# FreeRTOS timer daemon task. That path formats the next fire time (strftime,
+# localtime_r) and runs the date engine, which does not fit in the 2048-byte
+# default on every IDF version. See "Timer Task Stack Requirement" in the
+# component README.
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072

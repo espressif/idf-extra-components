@@ -1,5 +1,28 @@
 menu "ESP Schedule Configuration"
 
+    config ESP_SCHEDULE_DISABLE_DEFAULT_PORT
+        bool "Do not build the default ESP-IDF port"
+        default n
+        help
+            Exclude esp_schedule_init() and the ESP-IDF implementations of the
+            platform operations it installs - FreeRTOS software timers,
+            nvs_flash storage, SNTP time and esp_log logging - from the build.
+
+            Note that the default port runs schedule callbacks on the shared
+            FreeRTOS timer daemon task, which needs
+            CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH raised to at least 3072; see
+            "Timer Task Stack Requirement" in the component README. A port of
+            your own that dispatches on its own task avoids that.
+
+            You do not need this just to use your own port. The default port
+            already costs nothing at run time: it lives in its own object files,
+            referenced only by esp_schedule_init(), so an application calling
+            esp_schedule_init_with_config() never links it in the first place.
+
+            Enable this only when those sources must not be compiled at all.
+            esp_schedule_init() then does not exist, and
+            esp_schedule_init_with_config() becomes the only entry point.
+
     config ESP_SCHEDULE_ENABLE_DAYLIGHT
         bool "Enable Daylight (Sunrise/Sunset) Schedules"
         default y
@@ -16,5 +39,48 @@ menu "ESP Schedule Configuration"
 
             If disabled, ESP_SCHEDULE_TYPE_SUNRISE and ESP_SCHEDULE_TYPE_SUNSET
             will not be available.
+
+    config ESP_SCHEDULE_ENABLE_SNTP
+        bool "Start SNTP from esp_schedule_init()"
+        default y
+        help
+            Whether the default ESP-IDF port starts SNTP when esp_schedule_init()
+            installs it.
+
+            Disable this if the clock comes from somewhere else - an RTC, or a
+            time set by the application over a link with no internet access.
+            esp_schedule needs a valid wall clock but does not care who set it;
+            with this disabled it reads wall time and never touches the network.
+
+            Disabling also drops the esp_sntp dependency rather than leaving it
+            linked and unused.
+
+            Note that esp_schedule still refuses to arm a schedule until the
+            clock reads past 2020, so whatever sets the time must do so before
+            enabling schedules.
+
+    config ESP_SCHEDULE_LOG_LEVEL_OVERRIDE
+        bool "Set a log level for esp_schedule separate from the global one"
+        default n
+        help
+            By default esp_schedule follows CONFIG_LOG_MAXIMUM_LEVEL. Enable
+            this to give the component its own ceiling instead.
+
+            Calls above the ceiling are removed by the preprocessor, format
+            string included, so lowering it saves flash and - because schedule
+            callbacks run on the FreeRTOS timer daemon task - stack. See
+            "Timer Task Stack Requirement" in the component README.
+
+    config ESP_SCHEDULE_LOG_LEVEL
+        int "esp_schedule log level"
+        depends on ESP_SCHEDULE_LOG_LEVEL_OVERRIDE
+        range -1 4
+        default 2
+        help
+            Highest severity esp_schedule will emit: -1 none, 0 error, 1 warn,
+            2 info, 3 debug, 4 verbose.
+
+            This is esp_schedule_log_level_t, which starts at error = 0. It is
+            not esp_log_level_t, which reserves 0 for none.
 
 endmenu

@@ -17,11 +17,14 @@
 #include "esp_trace_util.h"
 #include "SEGGER_SYSVIEW.h"
 #include "SEGGER_RTT.h"
+#include "SEGGER_RTT_esp.h"
 
 /*
  * This adapter is used to create a public system-wide APIs for SystemView.
  * All encoding and transport operations are done by SystemView component. (SEGGER_RTT_esp.c)
  */
+
+extern void esp_trace_notify_recording_state(bool active) __attribute__((weak));
 
 #define SYSVIEW_FLUSH_TMO_US (1000 * 1000)  /* 1second */
 #define SYSVIEW_FLUSH_THRESH 0
@@ -51,6 +54,10 @@ static esp_err_t init(esp_trace_encoder_t *enc, const void *enc_cfg)
     const esp_trace_sysview_config_t *cfg = enc_cfg;
     int dest_cpu = 0;  // Default to CPU0
 
+#if CONFIG_SEGGER_SYSVIEW_DEST_CPU_1
+    dest_cpu = 1;
+#endif
+
     if (cfg) {
         dest_cpu = cfg->dest_cpu;
     }
@@ -64,6 +71,10 @@ static esp_err_t init(esp_trace_encoder_t *enc, const void *enc_cfg)
     /* Segger Sysview needs locking mechanism. */
     esp_trace_lock_init(&ctx->lock);
     ctx->dest_cpu = dest_cpu;
+    ctx->filter_by_cpu = true;
+    if (enc->tp && enc->tp->vt && enc->tp->vt->get_link_type) {
+        ctx->filter_by_cpu = (enc->tp->vt->get_link_type(enc->tp) != ESP_TRACE_LINK_DEBUG_PROBE);
+    }
     enc->ctx = ctx;
 
     if (SEGGER_SYSVIEW_ESP_SetEncoder(enc) != 0) {
@@ -84,6 +95,14 @@ static esp_err_t init(esp_trace_encoder_t *enc, const void *enc_cfg)
 
     SEGGER_SYSVIEW_Conf();
 
+#if CONFIG_ESP_TRACE_FUNCTION_TRACE
+    esp_sysview_function_trace_register();
+#endif
+
+    if (esp_trace_notify_recording_state) {
+        esp_trace_notify_recording_state(SEGGER_SYSVIEW_Started() != 0);
+    }
+
     initialized = true;
 
     return ESP_OK;
@@ -102,7 +121,8 @@ static void panic_handler(esp_trace_encoder_t *enc, const void *info)
     (void)enc;
     (void)info;
 
-    SEGGER_RTT_ESP_Flush();
+    /* No lock here, the panicking core may already hold it */
+    SEGGER_RTT_ESP_FlushNoLock();
 }
 
 /**
@@ -135,13 +155,50 @@ static void give_lock(esp_trace_encoder_t *enc, unsigned int_state)
 }
 
 /**
+ * @brief Flushes buffered events from task context.
+ *
+ * @param enc Pointer to the encoder structure. Must not be NULL.
+ *
+ * @return ESP_OK on success, otherwise \see esp_err_t
+ */
+static esp_err_t flush(esp_trace_encoder_t *enc)
+{
+    if (!enc || !enc->tp || !enc->tp->vt->flush_nolock) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    /* One call may be too short to send all the data, so repeat it and release
+     * the lock in between to keep interrupts enabled */
+    esp_trace_tmo_t tmo;
+    esp_trace_tmo_init(&tmo, SYSVIEW_FLUSH_TMO_US);
+
+    esp_err_t err;
+    do {
+        unsigned int int_state = take_lock(enc, ESP_TRACE_TMO_INFINITE);
+        err = SEGGER_RTT_ESP_FlushNoLock();
+        give_lock(enc, int_state);
+
+        if (err != ESP_ERR_TIMEOUT && err != ESP_ERR_NO_MEM) {
+            break;  /* done, or an error that repeating cannot fix */
+        }
+    } while (esp_trace_tmo_check(&tmo) == ESP_OK);
+
+    return err;
+}
+
+/**
  * @brief Sysview encoder vtable.
  */
 static const esp_trace_encoder_vtable_t s_sysview_vt = {
     .init                  = init,
     .panic_handler         = panic_handler,
+    .flush                 = flush,
     .take_lock             = take_lock,
     .give_lock             = give_lock,
+#if CONFIG_ESP_TRACE_FUNCTION_TRACE
+    .function_enter        = esp_sysview_function_enter,
+    .function_exit         = esp_sysview_function_exit,
+#endif
 };
 
 ESP_TRACE_REGISTER_ENCODER("sysview", &s_sysview_vt);

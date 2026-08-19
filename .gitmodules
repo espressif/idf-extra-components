@@ -81,3 +81,7 @@
 [submodule "lua/lua"]
 	path = lua/lua
 	url = https://github.com/lua/lua.git
+
+[submodule "qoi/qoi"]
+	path = qoi/qoi
+	url = https://github.com/phoboslab/qoi.git

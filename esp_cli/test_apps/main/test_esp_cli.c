@@ -18,6 +18,7 @@
 #include "esp_cli_commands.h"
 
 #include "sdkconfig.h"
+#include "esp_idf_version.h"
 #include "esp_vfs.h"
 #include "esp_vfs_common.h"
 #include "driver/esp_private/uart_vfs.h"
@@ -26,6 +27,15 @@
 #include "driver/esp_private/usb_serial_jtag_vfs.h"
 #include "driver/usb_serial_jtag_vfs.h"
 #include "driver/usb_serial_jtag.h"
+
+/* Since IDF v6.0 the tables returned by esp_vfs_uart_get_vfs() and
+ * esp_vfs_usb_serial_jtag_get_vfs() hold context-pointer function variants,
+ * so they must be registered with ESP_VFS_FLAG_CONTEXT_PTR. */
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+#define TEST_VFS_REGISTER_FLAGS ESP_VFS_FLAG_CONTEXT_PTR
+#else
+#define TEST_VFS_REGISTER_FLAGS 0
+#endif
 
 static size_t s_on_enter_nb_of_calls = 0;
 static size_t s_pre_executor_nb_of_calls = 0;
@@ -130,7 +140,7 @@ static void test_uart_install(int *in_fd, int *out_fd)
 
     /* register the vfs, create a FD used to interface the UART */
     const esp_vfs_fs_ops_t *uart_vfs = esp_vfs_uart_get_vfs();
-    TEST_ASSERT_EQUAL(ESP_OK, esp_vfs_register_fs("/dev/test_uart", uart_vfs, 0, NULL));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_vfs_register_fs("/dev/test_uart", uart_vfs, TEST_VFS_REGISTER_FLAGS, NULL));
     /* open in blocking mode */
     const int uart_fd = open("/dev/test_uart/0", 0);
     TEST_ASSERT(uart_fd != -1);
@@ -165,7 +175,7 @@ static void test_usj_install(int *in_fd, int *out_fd)
 
     /* register the vfs, create a FD used to interface the USJ */
     const esp_vfs_fs_ops_t *usj_vfs = esp_vfs_usb_serial_jtag_get_vfs();
-    TEST_ASSERT_EQUAL(ESP_OK, esp_vfs_register_fs("/dev/test_usj", usj_vfs, 0, NULL));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_vfs_register_fs("/dev/test_usj", usj_vfs, TEST_VFS_REGISTER_FLAGS, NULL));
     /* open in blocking mode */
     const int usj_fd = open("/dev/test_usj/0", 0);
     TEST_ASSERT(usj_fd != -1);

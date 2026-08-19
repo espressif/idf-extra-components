@@ -79,22 +79,3 @@ void *SEGGER_SYSVIEW_ESP_GetEncoder(void)
 {
     return s_encoder;
 }
-
-/*********************************************************************
-*
-*       SEGGER_SYSVIEW_ESP_GetDestCpu()
-*
-*  Function description
-*    Gets the destination CPU from the encoder context.
-*
-*  Parameters
-*    None
-*
-*  Return value
-*    CPU ID (0 or 1) to trace
-*/
-int SEGGER_SYSVIEW_ESP_GetDestCpu(void)
-{
-    sysview_encoder_ctx_t *ctx = s_encoder->ctx;
-    return ctx->dest_cpu;
-}

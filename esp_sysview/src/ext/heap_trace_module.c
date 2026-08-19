@@ -7,6 +7,7 @@
 #include <sdkconfig.h>
 #include "SEGGER_SYSVIEW.h"
 #include "SEGGER_RTT.h"
+#include "SEGGER_RTT_esp.h"
 #include "esp_app_trace.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -51,8 +52,7 @@ esp_err_t esp_sysview_heap_trace_start(uint32_t tmo)
 esp_err_t esp_sysview_heap_trace_stop(void)
 {
     ESP_EARLY_LOGV(TAG, "%s", __func__);
-    SEGGER_RTT_ESP_Flush();
-    return ESP_OK;
+    return SEGGER_RTT_ESP_Flush();
 }
 
 void esp_sysview_heap_trace_alloc(const void *addr, uint32_t size, const void *callers)
@@ -92,6 +92,5 @@ void esp_sysview_heap_trace_free(const void *addr, const void *callers)
 
 esp_err_t esp_sysview_flush(void)
 {
-    SEGGER_RTT_ESP_Flush();
-    return ESP_OK;
+    return SEGGER_RTT_ESP_Flush();
 }

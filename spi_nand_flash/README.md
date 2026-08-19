@@ -67,17 +67,38 @@ For layered architecture, BDL usage, API details, and **upgrading from 0.x to 1.
 At present, `spi_nand_flash` component is compatible with the chips produced by the following manufacturers and and their respective model numbers:
 
 * Winbond - W25N01GVxxxG/T/R, W25N512GVxIG/IT, W25N512GWxxR/T, W25N01JWxxxG/T, W25N02KVxxIR/U, W25N04KVxxIR/U
-* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG, GD5F1GM7xExxG
+* Gigadevice -  GD5F1GQ5UExxG, GD5F1GQ5RExxG, GD5F2GQ5UExxG, GD5F2GQ5RExxG, GD5F2GM7xExxG, GD5F4GQ6UExxG, GD5F4GQ6RExxG, GD5F4GM8xExxG, GD5F1GM7xExxG, GD5F4GM7UExxG, GD5F8GM8UExxG
 * Alliance - AS5F31G04SND-08LIN, AS5F32G04SND-08LIN, AS5F12G04SND-10LIN, AS5F34G04SND-08LIN, AS5F14G04SND-10LIN, AS5F38G04SND-08LIN, AS5F18G04SND-10LIN
 * Micron - MT29F4G01ABAFDWB, MT29F1G01ABAFDSF-AAT:F, MT29F2G01ABAGDWB-IT:G
 * Zetta - ZD35Q1GC
 * XTX - XT26G08D
+* Fudan Microelectronics (FMSH) - FM25S005BI3
+* Macronix - MX35LF2GE4AD, MX35LF4GE4AD
+
+**GigaDevice voltage classes:** Parts ending in **UExxG** are rated for 2.7–3.6 V and are suitable for typical ESP32 3.3 V SPI designs. Parts ending in **RExxG** are rated for 1.7–2.0 V and are not recommended for direct connection to 3.3 V ESP GPIO/SPI without level shifting and a 1.8 V supply. Some `RExx` variants remain in the driver from earlier releases for backward compatibility; new additions target the 3.3 V `UExx` parts only (for example, **GD5F4GM7UExxG**, not GD5F4GM7RExxG).
+
+## Driver configuration
+
+Before calling **`spi_nand_flash_init_device()`** (legacy) or **`spi_nand_flash_init_with_layers()`** (BDL), initialize the ESP-IDF SPI bus (`spi_bus_initialize()`, `spi_bus_add_device()`) and pass the resulting `spi_device_handle_t` in **`spi_nand_flash_config_t`** (same struct for both init APIs):
+
+| Field | Description |
+|-------|-------------|
+| `device_handle` | `spi_device_handle_t` from `spi_bus_add_device()` |
+| `io_mode` | `SPI_NAND_IO_MODE_SIO`, `DIO`, `DOUT`, `QIO`, or `QOUT` |
+| `flags` | `SPI_DEVICE_HALFDUPLEX` for half-duplex (required for DIO/DOUT/QIO/QOUT); `0` for full-duplex SIO. This value has to match the half-duplex flag in `spi_device_interface_config_t.flags` |
+| `gc_factor` | Optional wear-leveling GC tuning; `0` uses the driver default |
+
+See `spi_nand_flash_config_t` in [`include/spi_nand_flash.h`](include/spi_nand_flash.h). End-to-end SPI + config setup is shown in the FatFS example READMEs below.
 
 ## FATFS Integration
 
-For FATFS filesystem support, use the separate [`spi_nand_flash_fatfs`](../spi_nand_flash_fatfs) component:
-- Provides diskio adapters and VFS mount helpers for the **legacy** `spi_nand_flash_device_t` path only
-- **Do not enable BDL** if you use this FatFs stack on the same NAND instance (see [`spi_nand_flash_fatfs/README.md`](../spi_nand_flash_fatfs/README.md))
+Use the separate [`spi_nand_flash_fatfs`](../spi_nand_flash_fatfs) component for filesystem examples and helpers:
+
+1. **Legacy mode (ESP-IDF 5.0+, BDL off):** `spi_nand_flash_init_device()` and **`esp_vfs_fat_nand_mount()`** / **`esp_vfs_fat_nand_unmount()`** from `spi_nand_flash_fatfs` (this component’s diskio). Integration guide: [`spi_nand_flash_fatfs/examples/nand_flash/README.md`](../spi_nand_flash_fatfs/examples/nand_flash/README.md).
+
+2. **BDL + FatFS (ESP-IDF 6.1+, `CONFIG_NAND_FLASH_ENABLE_BDL=y`):** `spi_nand_flash_init_with_layers()` and ESP-IDF’s **`esp_vfs_fat_bdl_mount()`** / **`esp_vfs_fat_bdl_unmount()`** (generic `diskio_bdl`; does not use `esp_vfs_fat_nand_*`). Integration guide: [`spi_nand_flash_fatfs/examples/nand_flash_bdl/README.md`](../spi_nand_flash_fatfs/examples/nand_flash_bdl/README.md).
+
+Details and Kconfig rules: [`spi_nand_flash_fatfs/README.md`](../spi_nand_flash_fatfs/README.md).
 
 ## Troubleshooting
 
