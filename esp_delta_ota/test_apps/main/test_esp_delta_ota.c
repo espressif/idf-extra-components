@@ -11,7 +11,6 @@
 #include "unity.h"
 #include "esp_delta_ota.h"
 
-
 extern const uint8_t base_bin_start[] asm("_binary_base_bin_start");
 extern const uint8_t base_bin_end[]   asm("_binary_base_bin_end");
 extern const uint8_t new_bin_end[]   asm("_binary_new_bin_end");

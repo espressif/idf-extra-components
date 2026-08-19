@@ -25,7 +25,6 @@ typedef struct {
     int recv_buffer_size;   ///< The pre-negotiated recv buffer size used by both the host and the slave.
 } essl_sdio_config_t;
 
-
 /**
  * @brief Initialize the ESSL SDIO device and get its handle.
  *

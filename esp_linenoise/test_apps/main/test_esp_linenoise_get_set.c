@@ -51,7 +51,6 @@ TEST_CASE("set and get dumb mode", "[esp_linenoise]")
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_is_dumb_mode(h, &is_dumb_mode));
     TEST_ASSERT_FALSE(is_dumb_mode);
 
-
     TEST_ASSERT_EQUAL(ESP_OK, esp_linenoise_delete_instance(h));
 }
 
@@ -174,7 +173,6 @@ static ssize_t test_write(int fd, const void *buf, size_t count)
     (void)count;
     return -1;
 }
-
 
 TEST_CASE("get read_func and write_func", "[esp_linenoise]")
 {

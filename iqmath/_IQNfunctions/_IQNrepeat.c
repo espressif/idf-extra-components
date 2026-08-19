@@ -43,7 +43,4 @@ int32_t _IQrepeat(int32_t A, int32_t B)
     return __IQopRepeat(A, B);
 }
 
-
 #endif
-
-

@@ -1082,7 +1082,7 @@ TEST_CASE("date months mask year scoping", "[esp_schedule]")
     TEST_ASSERT_EQUAL_MESSAGE(0, esp_schedule_date_arm_match_year(&tr, now), "DATE-4 -> unconstrained");
     time_t t4 = 0;
     TEST_ASSERT_TRUE(esp_schedule_get_next_date_time(t2, 7 * 60, 0, 15, months,
-                     esp_schedule_date_arm_match_year(&tr, t2), &validity, &t4));
+                                                     esp_schedule_date_arm_match_year(&tr, t2), &validity, &t4));
     assert_time_eq("DATE-4 wraps into the next year", t4, make_time_local(2026, 6, 15, 7, 0, 0));
 
     /* DATE-5 - an explicit year: that year regardless of `now`, and the bound

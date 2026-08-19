@@ -48,7 +48,7 @@ extern "C"
  * \param[in] priv Private data to be passed to the flush callback. Will
  * be the same as the one passed to json_gen_str_start()
  */
-typedef void (*json_gen_flush_cb_t) (char *buf, void *priv);
+typedef void (*json_gen_flush_cb_t)(char *buf, void *priv);
 
 /** JSON String structure
  *

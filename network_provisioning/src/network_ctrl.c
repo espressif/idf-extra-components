@@ -26,8 +26,8 @@ static esp_err_t cmd_ctrl_reset_handler(NetworkCtrlPayload *req,
                                         void *priv_data);
 
 static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
-        NetworkCtrlPayload *resp,
-        void *priv_data);
+                                         NetworkCtrlPayload *resp,
+                                         void *priv_data);
 
 static network_ctrl_cmd_t cmd_table[] = {
     {
@@ -97,7 +97,7 @@ static esp_err_t cmd_ctrl_reset_handler(NetworkCtrlPayload *req,
 }
 
 static esp_err_t cmd_ctrl_reprov_handler(NetworkCtrlPayload *req,
-        NetworkCtrlPayload *resp, void *priv_data)
+                                         NetworkCtrlPayload *resp, void *priv_data)
 {
     network_ctrl_handlers_t *h = (network_ctrl_handlers_t *) priv_data;
     if (!h) {
@@ -182,7 +182,7 @@ static void network_ctrl_cmd_cleanup(NetworkCtrlPayload *resp, void *priv_data)
 }
 
 static esp_err_t network_ctrl_cmd_dispatcher(NetworkCtrlPayload *req,
-        NetworkCtrlPayload *resp, void *priv_data)
+                                             NetworkCtrlPayload *resp, void *priv_data)
 {
     esp_err_t ret;
 

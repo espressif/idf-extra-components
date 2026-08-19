@@ -21,7 +21,6 @@
 #include "esp_private/touch_element_private.h"
 #include "esp_rom_sys.h"
 
-
 #define TE_CLASS_ITEM(cls, cls_type, cls_item)  ((&((cls)[cls_type]))->cls_item)
 
 #define TE_CLASS_FOREACH(cls_var, cls_start, cls_end)                         \
@@ -113,7 +112,7 @@ RTC_FAST_ATTR uint32_t threshold_shadow[TOUCH_PAD_MAX - 1] = {0};
 /* Note: T0 is an internal channel that does not have a corresponding external GPIO. */
 const int touch_sensor_channel_io_map[TOUCH_LL_CHAN_NUM] = {
     -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
-    };
+};
 
 /**
  * Internal de-noise channel(Touch channel 0) equivalent capacitance table, depends on hardware design
@@ -213,7 +212,7 @@ esp_err_t touch_element_start(void)
         return ESP_OK;
     } while (0);
 
-    ESP_LOGE(TE_TAG, "Touch interface start failed:(%s)", __FUNCTION__ );
+    ESP_LOGE(TE_TAG, "Touch interface start failed:(%s)", __FUNCTION__);
     xSemaphoreGive(s_te_obj->mutex);
     return ret;
 }
@@ -531,10 +530,9 @@ bool te_object_check_channel(const touch_pad_t *channel_array, uint8_t channel_s
     return false;
 
 INITIALIZED:
-    ESP_LOGE(TE_TAG, "Current channel [%d] has been initialized:(%s)", current_channel, __FUNCTION__ );
+    ESP_LOGE(TE_TAG, "Current channel [%d] has been initialized:(%s)", current_channel, __FUNCTION__);
     return true;
 }
-
 
 static inline esp_err_t te_object_set_threshold(void)
 {
@@ -711,7 +709,7 @@ static esp_err_t te_hw_init(const touch_elem_hw_config_t *hardware_init)
     ret = rtc_isr_register(te_intr_cb, NULL, intr_mask, 0);
     TE_CHECK(ret == ESP_OK, ret);
     touch_ll_intr_enable((touch_pad_intr_mask_t)(TOUCH_LL_INTR_MASK_ACTIVE | TOUCH_LL_INTR_MASK_SCAN_DONE |
-                         TOUCH_LL_INTR_MASK_INACTIVE | TOUCH_LL_INTR_MASK_TIMEOUT));
+                                                 TOUCH_LL_INTR_MASK_INACTIVE | TOUCH_LL_INTR_MASK_TIMEOUT));
     TE_CHECK(ret == ESP_OK, ret);
     /*< Internal de-noise configuration */
     touch_pad_denoise_t denoise_config;

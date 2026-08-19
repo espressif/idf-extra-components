@@ -29,7 +29,7 @@ static esp_err_t cmd_set_config_handler(NetworkConfigPayload *req,
                                         NetworkConfigPayload *resp, void *priv_data);
 
 static esp_err_t cmd_apply_config_handler(NetworkConfigPayload *req,
-        NetworkConfigPayload *resp, void *priv_data);
+                                          NetworkConfigPayload *resp, void *priv_data);
 
 static network_prov_config_cmd_t cmd_table[] = {
     {
@@ -104,7 +104,7 @@ static esp_err_t cmd_get_status_handler(NetworkConfigPayload *req,
 
                     connected->bssid.len  = sizeof(resp_data.conn_info.bssid);
                     connected->bssid.data = (uint8_t *) strndup(resp_data.conn_info.bssid,
-                                            sizeof(resp_data.conn_info.bssid));
+                                                                sizeof(resp_data.conn_info.bssid));
                     if (connected->bssid.data == NULL) {
                         free(connected->ip4_addr);
                         free(connected);
@@ -332,7 +332,7 @@ static esp_err_t cmd_set_config_handler(NetworkConfigPayload *req,
 }
 
 static esp_err_t cmd_apply_config_handler(NetworkConfigPayload *req,
-        NetworkConfigPayload *resp, void  *priv_data)
+                                          NetworkConfigPayload *resp, void  *priv_data)
 {
     ESP_LOGD(TAG, "Enter cmd_apply_config_handler");
     network_prov_config_handlers_t *h = (network_prov_config_handlers_t *) priv_data;
@@ -477,7 +477,7 @@ static void network_prov_config_command_cleanup(NetworkConfigPayload *resp, void
 }
 
 static esp_err_t network_prov_config_command_dispatcher(NetworkConfigPayload *req,
-        NetworkConfigPayload *resp, void *priv_data)
+                                                        NetworkConfigPayload *resp, void *priv_data)
 {
     esp_err_t ret;
 
@@ -499,7 +499,7 @@ static esp_err_t network_prov_config_command_dispatcher(NetworkConfigPayload *re
 }
 
 esp_err_t network_prov_config_data_handler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
-        uint8_t **outbuf, ssize_t *outlen, void *priv_data)
+                                           uint8_t **outbuf, ssize_t *outlen, void *priv_data)
 {
     NetworkConfigPayload *req;
     NetworkConfigPayload resp;

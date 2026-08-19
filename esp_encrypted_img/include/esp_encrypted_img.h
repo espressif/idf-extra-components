@@ -98,7 +98,6 @@ typedef struct {
     size_t data_out_len;    /*!< Output data length */
 } pre_enc_decrypt_arg_t;
 
-
 /**
 * @brief  This function returns esp_decrypt_handle_t handle.
 *
@@ -109,7 +108,6 @@ typedef struct {
 *    - esp_decrypt_handle_t handle
 */
 esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cfg);
-
 
 /**
 * @brief  This function performs decryption on input data.
@@ -130,7 +128,6 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 *    - ESP_OK                           Success
 */
 esp_err_t esp_encrypted_img_decrypt_data(esp_decrypt_handle_t ctx, pre_enc_decrypt_arg_t *args);
-
 
 /**
 * @brief  Clean-up decryption process.

@@ -48,7 +48,7 @@ void touch_hal_deinit(void)
     touch_ll_timeout_disable();
     touch_ll_waterproof_enable(false);
     touch_ll_denoise_enable(false);
-    touch_pad_t prox_pad[TOUCH_LL_PROXIMITY_CHANNEL_NUM] = {[0 ... (TOUCH_LL_PROXIMITY_CHANNEL_NUM - 1)] = 0};
+    touch_pad_t prox_pad[TOUCH_LL_PROXIMITY_CHANNEL_NUM] = {[0 ...(TOUCH_LL_PROXIMITY_CHANNEL_NUM - 1)] = 0};
     touch_ll_proximity_set_channel_num((const touch_pad_t *)prox_pad);
     touch_ll_sleep_set_channel_num(0);
     touch_ll_sleep_enable_proximity_sensing(false);

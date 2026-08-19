@@ -34,7 +34,6 @@
 #include "coap_config.h"
 #include "coap3/coap.h"
 
-
 #ifndef CONFIG_COAP_CLIENT_SUPPORT
 #error COAP_CLIENT_SUPPORT needs to be enabled
 #endif /* COAP_CLIENT_SUPPORT */
@@ -162,7 +161,7 @@ verify_cn_callback(const char *cn,
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
 
 static void
-coap_log_handler (coap_log_t level, const char *message)
+coap_log_handler(coap_log_t level, const char *message)
 {
     uint32_t esp_level = ESP_LOG_INFO;
     const char *cp = strchr(message, '\n');
@@ -185,7 +184,7 @@ coap_start_psk_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t
     static char client_sni[256];
 
     memset(client_sni, 0, sizeof(client_sni));
-    memset (&dtls_psk, 0, sizeof(dtls_psk));
+    memset(&dtls_psk, 0, sizeof(dtls_psk));
     dtls_psk.version = COAP_DTLS_CPSK_SETUP_VERSION;
     dtls_psk.validate_ih_call_back = NULL;
     dtls_psk.ih_call_back_arg = NULL;
@@ -201,7 +200,7 @@ coap_start_psk_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t
     dtls_psk.psk_info.key.length = sizeof(EXAMPLE_COAP_PSK_KEY) - 1;
 #ifdef CONFIG_COAP_OSCORE_SUPPORT
     return coap_new_client_session_oscore_psk(ctx, NULL, dst_addr, proto,
-            &dtls_psk, oscore_conf);
+                                              &dtls_psk, oscore_conf);
 #else /* ! CONFIG_COAP_OSCORE_SUPPORT */
     return coap_new_client_session_psk2(ctx, NULL, dst_addr, proto,
                                         &dtls_psk);
@@ -219,7 +218,7 @@ coap_start_pki_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t
     static coap_dtls_pki_t dtls_pki;
     static char client_sni[256];
 
-    memset (&dtls_pki, 0, sizeof(dtls_pki));
+    memset(&dtls_pki, 0, sizeof(dtls_pki));
     dtls_pki.version = COAP_DTLS_PKI_SETUP_VERSION;
     if (ca_pem_bytes) {
         /*
@@ -264,7 +263,7 @@ coap_start_pki_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_uri_t
 
 #ifdef CONFIG_COAP_OSCORE_SUPPORT
     return coap_new_client_session_oscore_pki(ctx, NULL, dst_addr, proto,
-            &dtls_pki, oscore_conf);
+                                              &dtls_pki, oscore_conf);
 #else /* ! CONFIG_COAP_OSCORE_SUPPORT */
     return coap_new_client_session_pki(ctx, NULL, dst_addr, proto,
                                        &dtls_pki);
@@ -278,7 +277,7 @@ coap_start_anon_pki_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_
     static coap_dtls_pki_t dtls_pki;
     static char client_sni[256];
 
-    memset (&dtls_pki, 0, sizeof(dtls_pki));
+    memset(&dtls_pki, 0, sizeof(dtls_pki));
     dtls_pki.version = COAP_DTLS_PKI_SETUP_VERSION;
     memset(client_sni, 0, sizeof(client_sni));
     if (uri->host.length) {
@@ -294,7 +293,7 @@ coap_start_anon_pki_session(coap_context_t *ctx, coap_address_t *dst_addr, coap_
 
 #ifdef CONFIG_COAP_OSCORE_SUPPORT
     return coap_new_client_session_oscore_pki(ctx, NULL, dst_addr, proto,
-            &dtls_pki, oscore_conf);
+                                              &dtls_pki, oscore_conf);
 #else /* ! CONFIG_COAP_OSCORE_SUPPORT */
     return coap_new_client_session_pki(ctx, NULL, dst_addr, proto,
                                        &dtls_pki);
@@ -488,7 +487,7 @@ clean_up:
 
 void app_main(void)
 {
-    ESP_ERROR_CHECK( nvs_flash_init() );
+    ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 

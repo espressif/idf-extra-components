@@ -71,7 +71,6 @@ static int json_gen_add_to_str(json_gen_str_t *jstr, const char *str)
     return 0;
 }
 
-
 void json_gen_str_start(json_gen_str_t *jstr, char *buf, int buf_size,
                         json_gen_flush_cb_t flush_cb, void *priv)
 {
@@ -103,14 +102,12 @@ static inline void json_gen_handle_comma(json_gen_str_t *jstr)
     }
 }
 
-
 static int json_gen_handle_name(json_gen_str_t *jstr, const char *name)
 {
     json_gen_add_to_str(jstr, "\"");
     json_gen_add_to_str(jstr, name);
     return json_gen_add_to_str(jstr, "\":");
 }
-
 
 int json_gen_start_object(json_gen_str_t *jstr)
 {
@@ -124,7 +121,6 @@ int json_gen_end_object(json_gen_str_t *jstr)
     jstr->comma_req = true;
     return json_gen_add_to_str(jstr, "}");
 }
-
 
 int json_gen_start_array(json_gen_str_t *jstr)
 {

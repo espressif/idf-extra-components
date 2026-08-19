@@ -210,7 +210,7 @@ typedef struct network_prov_config_handlers {
  * (protocomm `protocomm_req_handler_t`) using `protocomm_add_endpoint()`
  */
 esp_err_t network_prov_config_data_handler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
-        uint8_t **outbuf, ssize_t *outlen, void *priv_data);
+                                           uint8_t **outbuf, ssize_t *outlen, void *priv_data);
 
 #ifdef __cplusplus
 }

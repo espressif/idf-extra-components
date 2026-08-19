@@ -73,7 +73,6 @@ typedef struct esp_encrypted_img_handle {
     char *cache_buf;
 } esp_encrypted_img_t;
 
-
 typedef struct {
     char magic[MAGIC_SIZE];
 #if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)

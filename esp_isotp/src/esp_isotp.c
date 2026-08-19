@@ -417,7 +417,6 @@ esp_err_t esp_isotp_delete(esp_isotp_handle_t handle)
     return ret;
 }
 
-
 /**
  * @brief Poll the ISO-TP link. Call this periodically from a task.
  *

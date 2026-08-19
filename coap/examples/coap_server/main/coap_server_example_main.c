@@ -125,7 +125,7 @@ hnd_espressif_put(coap_resource_t *resource,
 
     coap_resource_notify_observers(resource, NULL);
 
-    if (strcmp (espressif_data, INITIAL_DATA) == 0) {
+    if (strcmp(espressif_data, INITIAL_DATA) == 0) {
         coap_pdu_set_code(response, COAP_RESPONSE_CODE_CREATED);
     } else {
         coap_pdu_set_code(response, COAP_RESPONSE_CODE_CHANGED);
@@ -138,8 +138,8 @@ hnd_espressif_put(coap_resource_t *resource,
         snprintf(espressif_data, sizeof(espressif_data), INITIAL_DATA);
         espressif_data_len = strlen(espressif_data);
     } else {
-        espressif_data_len = size > sizeof (espressif_data) ? sizeof (espressif_data) : size;
-        memcpy (espressif_data, data, espressif_data_len);
+        espressif_data_len = size > sizeof(espressif_data) ? sizeof(espressif_data) : size;
+        memcpy(espressif_data, data, espressif_data_len);
     }
 }
 
@@ -192,7 +192,7 @@ verify_cn_callback(const char *cn,
 #endif /* CONFIG_COAP_MBEDTLS_PKI */
 
 static void
-coap_log_handler (coap_log_t level, const char *message)
+coap_log_handler(coap_log_t level, const char *message)
 {
     uint32_t esp_level = ESP_LOG_INFO;
     const char *cp = strchr(message, '\n');
@@ -273,7 +273,7 @@ static void coap_example_server(void *p)
         unsigned int server_key_bytes = server_key_end - server_key_start;
         coap_dtls_pki_t dtls_pki;
 
-        memset (&dtls_pki, 0, sizeof(dtls_pki));
+        memset(&dtls_pki, 0, sizeof(dtls_pki));
         dtls_pki.version = COAP_DTLS_PKI_SETUP_VERSION;
         if (ca_pem_bytes) {
             /*
@@ -432,7 +432,7 @@ clean_up:
 
 void app_main(void)
 {
-    ESP_ERROR_CHECK( nvs_flash_init() );
+    ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 

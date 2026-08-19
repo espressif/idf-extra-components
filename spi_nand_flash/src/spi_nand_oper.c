@@ -181,8 +181,8 @@ static bool spi_nand_buf_dma_aligned(const void *buf, size_t alignment)
  * handles alignment internally.
  */
 static void spi_nand_tx_prepare_write_buffers(spi_nand_flash_device_t *handle,
-        const uint8_t *user_buf, uint16_t length,
-        const uint8_t **out_data_write, bool *out_manual_dma)
+                                              const uint8_t *user_buf, uint16_t length,
+                                              const uint8_t **out_data_write, bool *out_manual_dma)
 {
     *out_data_write = user_buf;
     *out_manual_dma = false;
@@ -220,7 +220,7 @@ static void spi_nand_tx_prepare_write_buffers(spi_nand_flash_device_t *handle,
  * address phase and must be skipped (see spi_nand_fast_read).
  */
 static void spi_nand_rx_prepare_read_buffers(spi_nand_flash_device_t *handle, uint8_t *user_buf, uint16_t length,
-        uint8_t **out_data_read, uint16_t *out_data_read_len)
+                                             uint8_t **out_data_read, uint16_t *out_data_read_len)
 {
     size_t alignment = spi_nand_get_dma_alignment();
     uint16_t aligned_len = check_length_alignment(handle, length, alignment);

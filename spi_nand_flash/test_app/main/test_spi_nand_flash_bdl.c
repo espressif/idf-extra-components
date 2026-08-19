@@ -263,7 +263,6 @@ TEST_CASE("verify nand_prog, nand_read, nand_is_free works (bypassing dhara) usi
     test_nand_operations(SPI_NAND_IO_MODE_SIO, SPI_DEVICE_HALFDUPLEX);
 }
 
-
 TEST_CASE("verify ioctl (bad blocks and ecc stats) works with bdl interface", "[spi_nand_flash]")
 {
     spi_nand_flash_io_mode_t mode = SPI_NAND_IO_MODE_SIO;
@@ -289,7 +288,6 @@ TEST_CASE("verify ioctl (bad blocks and ecc stats) works with bdl interface", "[
     memset(&ecc_stats, 0xFF, sizeof(ecc_stats));
     TEST_ESP_OK(nand_bdl->ops->ioctl(nand_bdl, ESP_BLOCKDEV_CMD_GET_ECC_STATS, &ecc_stats));
     TEST_ASSERT_TRUE(ecc_stats.ecc_threshold != 0xFF);
-
 
     deinit_nand_flash(spi, nand_bdl);
 }

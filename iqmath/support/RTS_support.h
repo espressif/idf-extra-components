@@ -179,7 +179,6 @@ static inline int_fast32_t __mpyfx_uw(uint_fast16_t arg1, uint_fast16_t arg2)
     return (((uint_fast32_t)arg1 * (uint_fast32_t)arg2) << 1);
 }
 
-
 ////////////////////////////////////////////////////////////
 //                                                        //
 //                 32-bit functions                       //

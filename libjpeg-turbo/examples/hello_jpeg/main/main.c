@@ -18,7 +18,6 @@
 
 uint16_t *pixels;
 
-
 void app_main(void)
 {
     printf("app_main started\n");

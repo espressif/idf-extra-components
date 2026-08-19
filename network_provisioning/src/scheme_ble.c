@@ -99,7 +99,6 @@ esp_err_t network_prov_mgr_keep_ble_on(uint8_t is_on_after_ble_stop)
 }
 #endif // ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
 
-
 esp_err_t network_prov_scheme_ble_set_service_uuid(uint8_t *uuid128)
 {
     if (!uuid128) {
@@ -237,7 +236,7 @@ static esp_err_t set_config_endpoint(void *config, const char *endpoint_name, ui
     }
 
     protocomm_ble_name_uuid_t *lookup_table = (
-                realloc(ble_config->nu_lookup, (ble_config->nu_lookup_count + 1) * sizeof(protocomm_ble_name_uuid_t)));
+                                                  realloc(ble_config->nu_lookup, (ble_config->nu_lookup_count + 1) * sizeof(protocomm_ble_name_uuid_t)));
     if (!lookup_table) {
         ESP_LOGE(TAG, "Error allocating memory for EP-UUID lookup table");
         free(copy_ep_name);

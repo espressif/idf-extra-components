@@ -126,9 +126,9 @@ static void flash_dispatcher_task(void *arg)
             break;
         case FLASH_OP_WRITE_ENCRYPTED:
             result = __real_esp_flash_write_encrypted(req->chip,
-                     req->args.write_encrypted.address,
-                     req->args.write_encrypted.buffer,
-                     req->args.write_encrypted.size);
+                                                      req->args.write_encrypted.address,
+                                                      req->args.write_encrypted.buffer,
+                                                      req->args.write_encrypted.size);
             break;
         case FLASH_OP_ERASE_REGION:
             result = __real_esp_flash_erase_region(req->chip,
@@ -189,13 +189,13 @@ esp_err_t esp_flash_dispatcher_init(const esp_flash_dispatcher_config_t *cfg)
     }
 
     BaseType_t rc = xTaskCreatePinnedToCoreWithCaps(flash_dispatcher_task,
-                    "flash_dispatcher",
-                    cfg->task_stack_size,
-                    NULL,
-                    cfg->task_priority,
-                    &s_flash_dispatcher_ctx.task,
-                    cfg->task_core_id,
-                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+                                                    "flash_dispatcher",
+                                                    cfg->task_stack_size,
+                                                    NULL,
+                                                    cfg->task_priority,
+                                                    &s_flash_dispatcher_ctx.task,
+                                                    cfg->task_core_id,
+                                                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
     if (rc != pdPASS) {
         vSemaphoreDeleteWithCaps(s_flash_dispatcher_ctx.dispatch_mutex);

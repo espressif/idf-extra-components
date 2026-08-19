@@ -246,7 +246,7 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle)
 
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 esp_err_t spi_nand_flash_init_with_layers(spi_nand_flash_config_t *config,
-        esp_blockdev_handle_t *wl_bdl)
+                                          esp_blockdev_handle_t *wl_bdl)
 {
     ESP_RETURN_ON_FALSE(config && wl_bdl, ESP_ERR_INVALID_ARG, TAG, "Invalid arguments");
 

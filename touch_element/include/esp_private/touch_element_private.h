@@ -68,10 +68,10 @@ typedef enum {
 
 typedef struct  {
     touch_elem_handle_t handle;
-    bool (*check_channel) (touch_pad_t);
-    esp_err_t (*set_threshold) (void);
-    void (*process_state) (void);
-    void (*update_state) (touch_pad_t, te_state_t);
+    bool (*check_channel)(touch_pad_t);
+    esp_err_t (*set_threshold)(void);
+    void (*process_state)(void);
+    void (*update_state)(touch_pad_t, te_state_t);
 } te_object_methods_t;
 
 /* -------------------------------------------- Waterproof basic type --------------------------------------------- */

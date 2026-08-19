@@ -51,5 +51,3 @@ esp_err_t esp_flash_dispatcher_init(const esp_flash_dispatcher_config_t *cfg);
 #ifdef __cplusplus
 }
 #endif
-
-

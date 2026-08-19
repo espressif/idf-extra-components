@@ -34,7 +34,6 @@
  */
 #define TYPE_PU      (1)
 
-
 #if ((!defined (__IQMATH_USE_MATHACL__)) || (!defined (__MSPM0_HAS_MATHACL__)))
 /**
  * @brief Computes the sine of an UIQ31 input.
@@ -197,7 +196,7 @@ __STATIC_INLINE int_fast32_t __IQNcalcCos(uint_fast32_t uiq31Input)
 #pragma inline=forced
 #endif
 __STATIC_INLINE int_fast32_t __IQNsin_cos(int_fast32_t iqNInput, const int8_t q_value,
-        const int8_t type, const int8_t format)
+                                          const int8_t type, const int8_t format)
 {
     uint8_t ui8Sign = 0;
     uint_fast16_t ui16IntState;
@@ -339,7 +338,7 @@ __STATIC_INLINE int_fast32_t __IQNsin_cos(int_fast32_t iqNInput, const int8_t q_
 #pragma inline=forced
 #endif
 __STATIC_INLINE int_fast32_t __IQNsin_cos(int_fast32_t iqNInput, const int8_t q_value,
-        const int8_t type, const int8_t format)
+                                          const int8_t type, const int8_t format)
 {
     int_fast32_t res, res1, resMult, resDiv;
     int_fast32_t iq31input;

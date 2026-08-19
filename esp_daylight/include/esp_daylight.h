@@ -40,8 +40,8 @@ typedef struct {
  * @return true on success, false if sun doesn't rise/set (polar day/night)
  */
 bool esp_daylight_calc_sunrise_sunset_utc(int year, int month, int day,
-        double latitude, double longitude,
-        time_t *sunrise_utc, time_t *sunset_utc);
+                                          double latitude, double longitude,
+                                          time_t *sunrise_utc, time_t *sunset_utc);
 
 /**
  * @brief Calculate sunrise and sunset times using location struct
@@ -56,8 +56,8 @@ bool esp_daylight_calc_sunrise_sunset_utc(int year, int month, int day,
  * @return true on success, false if sun doesn't rise/set (polar day/night)
  */
 bool esp_daylight_calc_sunrise_sunset_location(int year, int month, int day,
-        const esp_daylight_location_t *location,
-        time_t *sunrise_utc, time_t *sunset_utc);
+                                               const esp_daylight_location_t *location,
+                                               time_t *sunrise_utc, time_t *sunset_utc);
 
 /**
  * @brief Apply time offset to a base timestamp

@@ -75,7 +75,6 @@ typedef struct esp_linenoise_completions {
     char **cvec;  /**< Array of completion strings. */
 } esp_linenoise_completions_t;
 
-
 inline __attribute__((always_inline))
 esp_linenoise_instance_t *esp_linenoise_create_instance_static(void)
 {

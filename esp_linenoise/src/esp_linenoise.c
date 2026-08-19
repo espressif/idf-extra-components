@@ -401,7 +401,7 @@ static int esp_linenoise_get_columns(esp_linenoise_instance_t *instance)
         /* If `written` is equal or bigger than ESP_LINENOISE_COMMAND_MAX_LEN, it
          * means that the output has been truncated because the size provided
          * is too smalstate. */
-        assert (written < ESP_LINENOISE_COMMAND_MAX_LEN);
+        assert(written < ESP_LINENOISE_COMMAND_MAX_LEN);
 
         /* Send the command with `write`, which is not buffered. */
         if (config->write_bytes_cb(fd, seq, written) == -1) {
@@ -784,7 +784,7 @@ static int esp_linenoise_edit(esp_linenoise_instance_t *instance, char *buffer, 
             return state->len;
         }
 
-        if ( (get_millis() - t1) < ESP_LINENOISE_PASTE_KEY_DELAY && c != ENTER) {
+        if ((get_millis() - t1) < ESP_LINENOISE_PASTE_KEY_DELAY && c != ENTER) {
             /* Pasting data, insert characters without formatting.
             * This can only be performed when the cursor is at the end of the
             * line. */
@@ -1205,7 +1205,7 @@ esp_err_t esp_linenoise_create_instance(const esp_linenoise_config_t *config, es
         instance->config.write_bytes_cb(instance->config.out_fd, buf, len);
     }
 
-    *out_handle =  (esp_linenoise_handle_t)instance;
+    *out_handle = (esp_linenoise_handle_t)instance;
 
     return ESP_OK;
 }

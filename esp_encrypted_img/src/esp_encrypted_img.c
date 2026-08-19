@@ -410,13 +410,13 @@ exit:
     mbedtls_ctr_drbg_context ctr_drbg;
     const char *pers = "mbedtls_pk_encrypt";
 
-    mbedtls_ctr_drbg_init( &ctr_drbg );
-    mbedtls_entropy_init( &entropy );
-    mbedtls_pk_init( &pk );
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
+    mbedtls_pk_init(&pk);
 
-    if ((ret = mbedtls_ctr_drbg_seed( &ctr_drbg, mbedtls_entropy_func,
-                                      &entropy, (const unsigned char *) pers,
-                                      strlen(pers))) != 0) {
+    if ((ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func,
+                                     &entropy, (const unsigned char *) pers,
+                                     strlen(pers))) != 0) {
         ESP_LOGE(TAG, "failed\n  ! mbedtls_ctr_drbg_seed returned -0x%04x\n", (unsigned int) - ret);
         goto exit;
     }
@@ -424,17 +424,17 @@ exit:
     ESP_LOGI(TAG, "Reading RSA private key");
 
 #if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-    if ( (ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) handle->rsa_pem, handle->rsa_len, NULL, 0)) != 0) {
+    if ((ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) handle->rsa_pem, handle->rsa_len, NULL, 0)) != 0) {
 #else
-    if ( (ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) handle->rsa_pem, handle->rsa_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
+    if ((ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) handle->rsa_pem, handle->rsa_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
 #endif
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_keyfile returned -0x%04x\n", (unsigned int) - ret );
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_keyfile returned -0x%04x\n", (unsigned int) - ret);
         goto exit;
     }
 
-    if (( ret = mbedtls_pk_decrypt( &pk, (const unsigned char *)enc_gcm, ENC_GCM_KEY_SIZE, (unsigned char *)handle->gcm_key, &olen, GCM_KEY_SIZE,
-                                    mbedtls_ctr_drbg_random, &ctr_drbg ) ) != 0 ) {
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_decrypt returned -0x%04x\n", (unsigned int) - ret );
+    if ((ret = mbedtls_pk_decrypt(&pk, (const unsigned char *)enc_gcm, ENC_GCM_KEY_SIZE, (unsigned char *)handle->gcm_key, &olen, GCM_KEY_SIZE,
+                                  mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_decrypt returned -0x%04x\n", (unsigned int) - ret);
         goto exit;
     }
     void *tmp_buf = realloc(handle->cache_buf, CACHE_BUF_SIZE);
@@ -453,9 +453,9 @@ exit:
         free(handle->rsa_pem);
         handle->rsa_pem = NULL;
     }
-    mbedtls_pk_free( &pk );
-    mbedtls_entropy_free( &entropy );
-    mbedtls_ctr_drbg_free( &ctr_drbg );
+    mbedtls_pk_free(&pk);
+    mbedtls_entropy_free(&entropy);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
     return (ret);
 #endif /* CONFIG_MBEDTLS_VER_4_X_SUPPORT */
 }
@@ -582,15 +582,15 @@ exit:
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
 
-    mbedtls_ctr_drbg_init( &ctr_drbg );
-    mbedtls_entropy_init( &entropy );
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
 
 #if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-    if ( (ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) rsa_pem, rsa_len, NULL, 0)) != 0) {
+    if ((ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) rsa_pem, rsa_len, NULL, 0)) != 0) {
 #else
-    if ( (ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) rsa_pem, rsa_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
+    if ((ret = mbedtls_pk_parse_key(&pk, (const unsigned char *) rsa_pem, rsa_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg)) != 0) {
 #endif
-        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_key returned -0x%04x\n", (unsigned int) - ret );
+        ESP_LOGE(TAG, "failed\n  ! mbedtls_pk_parse_key returned -0x%04x\n", (unsigned int) - ret);
         goto exit;
     }
 
@@ -749,7 +749,7 @@ static esp_err_t compute_ecc_key_with_hmac(hmac_key_id_t hmac_key, mbedtls_mpi *
     }
 
     err = esp_encrypted_img_pbkdf2_hmac_sha256(hmac_key, pbkdf2_salt, sizeof(pbkdf2_salt),
-            PBKDF2_ITERATIONS, HMAC_OUTPUT_SIZE, hmac_output);
+                                               PBKDF2_ITERATIONS, HMAC_OUTPUT_SIZE, hmac_output);
     if (err != 0) {
         ESP_LOGE(TAG, "Failed to calculate ECC key: [0x%02X] (%s)", err, esp_err_to_name(err));
         goto cleanup;
@@ -859,7 +859,6 @@ static unsigned char *get_kdf_salt_from_header(const char *data, size_t len)
     }
     return kdf_salt;
 }
-
 
 static int derive_gcm_key(const char *data, esp_encrypted_img_t *handle)
 {

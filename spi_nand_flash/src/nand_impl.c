@@ -499,7 +499,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
     uint16_t dst_column_addr = get_column_address(handle, dst_block, 0);
 
     bool need_ram_copy = nand_copy_needs_ram_path(handle->chip.flags, src_block, dst_block,
-                         src_column_addr, dst_column_addr);
+                                                  src_column_addr, dst_column_addr);
 
     if (need_ram_copy) {
         // Copy through RAM when HW Internal Data Move is not valid for this src/dst pair.

@@ -116,4 +116,3 @@ esp_err_t esp_vfs_fat_nand_unmount(const char *base_path, spi_nand_flash_device_
     esp_err_t err = esp_vfs_fat_unregister_path(base_path);
     return err;
 }
-

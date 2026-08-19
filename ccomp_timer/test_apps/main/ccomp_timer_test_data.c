@@ -18,7 +18,6 @@
 
 #include "sdkconfig.h"
 
-
 #if CONFIG_IDF_TARGET_ESP32
 #define CACHE_WAYS              2
 #define CACHE_LINE_SIZE         32
@@ -89,9 +88,9 @@ static void prepare_access_pattern(int hit_rate, const uint8_t *cached, ccomp_te
 
     for (int i = 0, h = 0, i_h = 1, m = -1, i_m = 0; i < TEST_SIZE; i++, h += i_h, m += i_m) {
         if (i_m) {
-            accesses[i] = (uint8_t *) (cached + CACHE_SIZE + i);
+            accesses[i] = (uint8_t *)(cached + CACHE_SIZE + i);
         } else {
-            accesses[i] = (uint8_t *) (cached + i);
+            accesses[i] = (uint8_t *)(cached + i);
         }
 
         if (h >= hits) {

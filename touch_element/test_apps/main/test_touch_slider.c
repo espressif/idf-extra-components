@@ -129,7 +129,6 @@ void test_slider_callback_trigger_and_check(touch_slider_handle_t handle, touch_
     }
 }
 
-
 static void test_slider_disp_event(void)
 {
     touch_slider_handle_t slider_handle;
@@ -163,7 +162,6 @@ static void test_slider_disp_event(void)
     TEST_ESP_OK(touch_slider_delete(slider_handle));
     touch_slider_uninstall();
 }
-
 
 static void test_slider_disp_callback(void)
 {

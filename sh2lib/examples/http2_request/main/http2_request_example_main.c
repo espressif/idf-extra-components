@@ -44,7 +44,6 @@
 /* A GET request that keeps streaming current time every second */
 #define HTTP2_STREAMING_GET_PATH  "/index.html"
 
-
 int handle_get_response(struct sh2lib_handle *handle, const char *data, size_t len, int flags)
 {
     if (len) {

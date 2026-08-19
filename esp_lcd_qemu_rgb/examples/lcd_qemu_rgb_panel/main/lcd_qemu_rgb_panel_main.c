@@ -44,7 +44,6 @@ static SemaphoreHandle_t lvgl_mux = NULL;
 
 extern void example_lvgl_demo_ui(lv_disp_t *disp);
 
-
 static void example_lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
 {
     esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t) drv->user_data;

@@ -27,12 +27,12 @@ static esp_err_t cmd_scan_start_handler(NetworkScanPayload *req,
                                         void *priv_data);
 
 static esp_err_t cmd_scan_status_handler(NetworkScanPayload *req,
-        NetworkScanPayload *resp,
-        void *priv_data);
+                                         NetworkScanPayload *resp,
+                                         void *priv_data);
 
 static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
-        NetworkScanPayload *resp,
-        void *priv_data);
+                                         NetworkScanPayload *resp,
+                                         void *priv_data);
 
 static network_prov_scan_cmd_t cmd_table[] = {
     {
@@ -130,7 +130,7 @@ static esp_err_t cmd_scan_start_handler(NetworkScanPayload *req,
 }
 
 static esp_err_t cmd_scan_status_handler(NetworkScanPayload *req,
-        NetworkScanPayload *resp, void *priv_data)
+                                         NetworkScanPayload *resp, void *priv_data)
 {
     bool scan_finished = false;
     uint16_t result_count = 0;
@@ -187,7 +187,7 @@ static esp_err_t cmd_scan_status_handler(NetworkScanPayload *req,
 }
 
 static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
-        NetworkScanPayload *resp, void *priv_data)
+                                         NetworkScanPayload *resp, void *priv_data)
 {
     esp_err_t err = ESP_OK;
     network_prov_scan_handlers_t *h = (network_prov_scan_handlers_t *) priv_data;
@@ -405,7 +405,6 @@ static esp_err_t cmd_scan_result_handler(NetworkScanPayload *req,
     return err;
 }
 
-
 static int lookup_cmd_handler(int cmd_id)
 {
     for (size_t i = 0; i < sizeof(cmd_table) / sizeof(network_prov_scan_cmd_t); i++) {
@@ -488,7 +487,7 @@ static void network_prov_scan_cmd_cleanup(NetworkScanPayload *resp, void *priv_d
 }
 
 static esp_err_t network_prov_scan_cmd_dispatcher(NetworkScanPayload *req,
-        NetworkScanPayload *resp, void *priv_data)
+                                                  NetworkScanPayload *resp, void *priv_data)
 {
     esp_err_t ret;
 

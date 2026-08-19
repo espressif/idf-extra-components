@@ -166,7 +166,6 @@ __STATIC_INLINE int_fast32_t __IQNsqrt(int_fast32_t iqNInputX, int_fast32_t iqNI
         }
     }
 
-
     /* Use left most byte as index into lookup table (range: 32-128) */
     ui8Index = uiq32Input >> 25;
     ui8Index -= 32;
