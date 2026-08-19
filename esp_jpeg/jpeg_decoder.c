@@ -90,7 +90,6 @@ esp_err_t esp_jpeg_decode(esp_jpeg_image_cfg_t *cfg, esp_jpeg_image_output_t *im
         ESP_RETURN_ON_FALSE(workbuf_size != 0, ESP_ERR_INVALID_ARG, TAG, "Working buffer size not defined!");
     }
 
-
     cfg->priv.read = 0;
 
     /* Prepare image */
@@ -211,8 +210,8 @@ static jpeg_decode_out_t jpeg_decode_out_cb(JDEC *dec, void *bitmap, JRECT *rect
     uint8_t *dst = (uint8_t *)cfg->outbuf;
     for (int y = rect->top; y <= rect->bottom; y++) {
         for (int x = rect->left; x <= rect->right; x++) {
-            if ( (JD_FORMAT == 0 && cfg->out_format == JPEG_IMAGE_FORMAT_RGB888) ||
-                    (JD_FORMAT == 1 && cfg->out_format == JPEG_IMAGE_FORMAT_RGB565) ) {
+            if ((JD_FORMAT == 0 && cfg->out_format == JPEG_IMAGE_FORMAT_RGB888) ||
+                    (JD_FORMAT == 1 && cfg->out_format == JPEG_IMAGE_FORMAT_RGB565)) {
                 /* Output image format is same as set in TJPGD */
                 for (int b = 0; b < ESP_JPEG_COLOR_BYTES; b++) {
                     if (cfg->flags.swap_color_bytes) {

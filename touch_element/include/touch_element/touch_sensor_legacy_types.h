@@ -163,7 +163,6 @@ typedef enum {
     TOUCH_SMOOTH_IIR_FILTER_8,              /*!< IIR filter adopted for smooth data, smooth data equals 1/8 raw data + 7/8 last smooth data */
 } touch_smooth_filter_mode_t;
 
-
 /********************************/
 #define TOUCH_PAD_BIT_MASK_ALL              (0x7FFF)
 #define TOUCH_PAD_SLOPE_DEFAULT             (TOUCH_PAD_SLOPE_7)

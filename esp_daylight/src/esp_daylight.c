@@ -105,8 +105,8 @@ static double solar_declination_rad(double gamma)
 }
 
 bool esp_daylight_calc_sunrise_sunset_utc(int year, int month, int day,
-        double latitude, double longitude,
-        time_t *sunrise_utc, time_t *sunset_utc)
+                                          double latitude, double longitude,
+                                          time_t *sunrise_utc, time_t *sunset_utc)
 {
     // Constants
     const double ZENITH_DEG = 90.833; // geometric zenith for sunrise/sunset
@@ -173,16 +173,16 @@ bool esp_daylight_calc_sunrise_sunset_utc(int year, int month, int day,
 }
 
 bool esp_daylight_calc_sunrise_sunset_location(int year, int month, int day,
-        const esp_daylight_location_t *location,
-        time_t *sunrise_utc, time_t *sunset_utc)
+                                               const esp_daylight_location_t *location,
+                                               time_t *sunrise_utc, time_t *sunset_utc)
 {
     if (!location) {
         return false;
     }
 
     return esp_daylight_calc_sunrise_sunset_utc(year, month, day,
-            location->latitude, location->longitude,
-            sunrise_utc, sunset_utc);
+                                                location->latitude, location->longitude,
+                                                sunrise_utc, sunset_utc);
 }
 
 time_t esp_daylight_apply_offset(time_t base_time, int offset_minutes)

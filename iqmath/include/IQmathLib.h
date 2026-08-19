@@ -2080,7 +2080,6 @@ extern _iq1 _IQ1mpy(_iq1 A, _iq1 B);
 extern int32_t _IQrepeat(int32_t A, int32_t B);
 #endif
 
-
 #endif /* DOXYGEN_SHOULD_SKIP_THIS */
 
 /**

@@ -42,7 +42,7 @@
  * gc_factor == 0 selects the driver default.
  */
 static spi_nand_flash_device_t *make_ftl_dev(size_t flash_size = FTL_TEST_FLASH_SIZE,
-        uint8_t gc_factor = 0)
+                                             uint8_t gc_factor = 0)
 {
     nand_file_mmap_emul_config_t emul = {"", flash_size, /*keep_dump=*/false};
     spi_nand_flash_config_t cfg = {&emul, gc_factor, SPI_NAND_IO_MODE_SIO, 0};

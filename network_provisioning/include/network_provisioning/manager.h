@@ -160,38 +160,38 @@ typedef struct network_prov_scheme {
      * start the provisioning service associated with a protocomm instance
      * and a scheme specific configuration
      */
-    esp_err_t (*prov_start) (protocomm_t *pc, void *config);
+    esp_err_t (*prov_start)(protocomm_t *pc, void *config);
 
     /**
      * Function which is to be called by the manager to stop the
      * provisioning service previously associated with a protocomm instance
      */
-    esp_err_t (*prov_stop) (protocomm_t *pc);
+    esp_err_t (*prov_stop)(protocomm_t *pc);
 
     /**
      * Function which is to be called by the manager to generate
      * a new configuration for the provisioning service, that is
      * to be passed to prov_start()
      */
-    void *(*new_config) (void);
+    void *(*new_config)(void);
 
     /**
      * Function which is to be called by the manager to delete a
      * configuration generated using new_config()
      */
-    void (*delete_config) (void *config);
+    void (*delete_config)(void *config);
 
     /**
      * Function which is to be called by the manager to set the
      * service name and key values in the configuration structure
      */
-    esp_err_t (*set_config_service) (void *config, const char *service_name, const char *service_key);
+    esp_err_t (*set_config_service)(void *config, const char *service_name, const char *service_key);
 
     /**
      * Function which is to be called by the manager to set a protocomm endpoint
      * with an identifying name and UUID in the configuration structure
      */
-    esp_err_t (*set_config_endpoint) (void *config, const char *endpoint_name, uint16_t uuid);
+    esp_err_t (*set_config_endpoint)(void *config, const char *endpoint_name, uint16_t uuid);
 
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /**
@@ -584,8 +584,8 @@ esp_err_t network_prov_mgr_endpoint_create(const char *ep_name);
  *  - ESP_FAIL    : Failure
  */
 esp_err_t network_prov_mgr_endpoint_register(const char *ep_name,
-        protocomm_req_handler_t handler,
-        void *user_ctx);
+                                             protocomm_req_handler_t handler,
+                                             void *user_ctx);
 
 /**
  * @brief   Unregister the handler for an endpoint
@@ -785,7 +785,6 @@ esp_err_t network_prov_mgr_reset_thread_sm_state_on_failure(void);
 esp_err_t network_prov_mgr_reset_thread_sm_state_for_reprovision(void);
 
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
-
 
 #ifdef __cplusplus
 }

@@ -194,8 +194,8 @@ static void test_button_disp_event(void)
         };
         TEST_ESP_OK(touch_button_create(&button_config, &button_handle[i]));
         TEST_ESP_OK(touch_button_subscribe_event(button_handle[i],
-                    TOUCH_ELEM_EVENT_ON_PRESS | TOUCH_ELEM_EVENT_ON_RELEASE | TOUCH_ELEM_EVENT_ON_LONGPRESS,
-                    (void *) button_channel_array[i]));
+                                                 TOUCH_ELEM_EVENT_ON_PRESS | TOUCH_ELEM_EVENT_ON_RELEASE | TOUCH_ELEM_EVENT_ON_LONGPRESS,
+                                                 (void *) button_channel_array[i]));
         TEST_ESP_OK(touch_button_set_longpress(button_handle[i], 300));
         TEST_ESP_OK(touch_button_set_dispatch_method(button_handle[i], TOUCH_ELEM_DISP_EVENT));
     }
@@ -238,8 +238,8 @@ static void test_button_disp_callback(void)
         };
         TEST_ESP_OK(touch_button_create(&button_config, &button_handle[i]));
         TEST_ESP_OK(touch_button_subscribe_event(button_handle[i],
-                    TOUCH_ELEM_EVENT_ON_PRESS | TOUCH_ELEM_EVENT_ON_RELEASE | TOUCH_ELEM_EVENT_ON_LONGPRESS,
-                    (void *) &monitor));
+                                                 TOUCH_ELEM_EVENT_ON_PRESS | TOUCH_ELEM_EVENT_ON_RELEASE | TOUCH_ELEM_EVENT_ON_LONGPRESS,
+                                                 (void *) &monitor));
         TEST_ESP_OK(touch_button_set_dispatch_method(button_handle[i], TOUCH_ELEM_DISP_CALLBACK));
         TEST_ESP_OK(touch_button_set_callback(button_handle[i], &test_button_handler));
         TEST_ESP_OK(touch_button_set_longpress(button_handle[i], 300));
@@ -492,7 +492,6 @@ static void test_button_random_trigger_concurrent(void)
         BaseType_t os_ret = xTaskCreate(test_random_trigger_concurrent_task, "test_random_trigger_concurrent_task", 1024 * 4, (void *)&sem_and_monitor[i], 10, NULL);
         TEST_ASSERT(os_ret == pdPASS);
     }
-
 
     uint32_t run_count = 0;
     while (1) {

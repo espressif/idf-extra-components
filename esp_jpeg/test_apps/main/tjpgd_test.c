@@ -10,7 +10,6 @@
 #include "sdkconfig.h"
 #include "unity.h"
 
-
 #include "jpeg_decoder.h"
 #include "test_logo_jpg.h"
 #include "test_logo_rgb888.h"
@@ -325,4 +324,3 @@ TEST_CASE("Test JPEG invalid marker 0xFFFF", "[esp_jpeg]")
 
     free(decoded);
 }
-

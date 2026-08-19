@@ -78,7 +78,7 @@ typedef char *(*esp_linenoise_hints_t)(const char *str, int *color, int *bold);
  *
  * @param ptr Pointer to the hint string to be freed.
  */
-typedef void (*esp_linenoise_free_hints_t)( void *ptr);
+typedef void (*esp_linenoise_free_hints_t)(void *ptr);
 
 /**
  * @brief Function pointer type for reading bytes.

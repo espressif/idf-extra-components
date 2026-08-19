@@ -26,7 +26,6 @@ extern "C" {
 
 typedef struct spi_nand_flash_device_t spi_nand_flash_device_t;
 
-
 #ifdef CONFIG_IDF_TARGET_LINUX
 #include "nand_linux_mmap_emul.h"
 #endif
@@ -233,7 +232,7 @@ esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle);
  *         - ESP_ERR_NOT_FOUND: NAND device not detected
  */
 esp_err_t spi_nand_flash_init_with_layers(spi_nand_flash_config_t *config,
-        esp_blockdev_handle_t *wl_bdl);
+                                          esp_blockdev_handle_t *wl_bdl);
 #endif // CONFIG_NAND_FLASH_ENABLE_BDL
 
 #ifdef __cplusplus

@@ -470,8 +470,8 @@ typedef struct esp_schedule_port_config {
  *       itself is the caller's; the handles in it stay owned by the component.
  */
 esp_schedule_handle_t *esp_schedule_init_with_config(const esp_schedule_port_config_t *port,
-        bool enable_nvs, char *nvs_partition,
-        uint8_t *schedule_count);
+                                                     bool enable_nvs, char *nvs_partition,
+                                                     uint8_t *schedule_count);
 
 #ifdef __cplusplus
 }

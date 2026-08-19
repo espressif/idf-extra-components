@@ -91,7 +91,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 
     // Find the patch_data partition where pytest writes the patch
     const esp_partition_t *p = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
-                               ESP_PARTITION_SUBTYPE_ANY, "patch_data");
+                                                        ESP_PARTITION_SUBTYPE_ANY, "patch_data");
 
     if (p == NULL) {
         ESP_LOGE(TAG, "patch_data partition not found");
@@ -151,7 +151,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 static esp_err_t root_head_handler(httpd_req_t *req)
 {
     const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
-                                       ESP_PARTITION_SUBTYPE_ANY, "patch_data");
+                                                                ESP_PARTITION_SUBTYPE_ANY, "patch_data");
 
     if (partition == NULL) {
         ESP_LOGE(TAG, "Partition not found");

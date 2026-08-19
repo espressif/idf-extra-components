@@ -45,7 +45,6 @@ static const char *TAG = "example";
 #define EXAMPLE_LOTTIE_SIZE_HOR     368
 #define EXAMPLE_LOTTIE_SIZE_VER     448
 
-
 static const sh8601_lcd_init_cmd_t lcd_init_cmds[] = {
     {0x11, (uint8_t[]){0x00}, 0, 120},
     {0x44, (uint8_t[]){0x01, 0xD1}, 2, 0},
@@ -221,6 +220,7 @@ void app_main(void)
         .lcd_param_bits = 8, // according to SH8601 spec
         .flags = {
             .quad_mode = true, // QSPI mode
+            .psram_dma_direct = true, // let SPI DMA mount PSRAM buffer directly, no need to copy to internal RAM first
         },
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(EXAMPLE_LCD_SPI_HOST, &io_config, &io_handle));

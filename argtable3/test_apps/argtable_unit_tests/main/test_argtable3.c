@@ -30,7 +30,6 @@ TEST_CASE("argument constructors create valid structs", "[argtable3]")
     TEST_ASSERT_NOT_NULL(argLit1);
     free(argLit1);
 
-
     arg_int_t *argInt0 = arg_int0("i", "int", "<n>", "Optional int");
     TEST_ASSERT_NOT_NULL(argInt0);
     free(argInt0);

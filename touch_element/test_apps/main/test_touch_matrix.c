@@ -227,7 +227,7 @@ static void test_matrix_disp_event(void)
     printf("Touch matrix event test start\n");
     for (int i = 0; i < 10; i++) {
         printf("Touch matrix event test... (%d/10)\n", i + 1);
-        uint32_t button_num = random() % ( MATRIX_CHANNEL_NUM_X * MATRIX_CHANNEL_NUM_Y );
+        uint32_t button_num = random() % (MATRIX_CHANNEL_NUM_X * MATRIX_CHANNEL_NUM_Y);
         test_matrix_event_trigger_and_check(matrix_handle, TOUCH_MATRIX_EVT_ON_PRESS, button_num);
         test_matrix_event_trigger_and_check(matrix_handle, TOUCH_MATRIX_EVT_ON_LONGPRESS, button_num);
         test_matrix_event_trigger_and_check(matrix_handle, TOUCH_MATRIX_EVT_ON_RELEASE, button_num);
@@ -386,7 +386,7 @@ static void test_matrix_event_change_lp(void)
     printf("Touch matrix event change longtime test start\n");
     for (int i = 0; i < 10; i++) {
         printf("Touch matrix event change longtime test... (%d/10)\n", i + 1);
-        uint32_t button_num = random() % ( MATRIX_CHANNEL_NUM_X * MATRIX_CHANNEL_NUM_Y );
+        uint32_t button_num = random() % (MATRIX_CHANNEL_NUM_X * MATRIX_CHANNEL_NUM_Y);
         TEST_ESP_OK(touch_matrix_set_longpress(matrix_handle, 200 + (i + 1) * 50));
         test_matrix_event_trigger_and_check(matrix_handle, TOUCH_MATRIX_EVT_ON_LONGPRESS, button_num);
         test_matrix_event_simulator(matrix_handle, TOUCH_MATRIX_EVT_ON_RELEASE, button_num); //Reset hardware

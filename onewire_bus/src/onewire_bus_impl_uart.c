@@ -295,4 +295,3 @@ err:
     xSemaphoreGive(bus_uart->bus_mutex);
     return ret;
 }
-

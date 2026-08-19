@@ -21,7 +21,6 @@ static const char *TAG = "lcd_qemu.rgb";
 static rgb_qemu_dev_t *s_rgb_dev = (void *) 0x21000000;
 static uint32_t *s_rgb_framebuffer = (void *) 0x20000000;
 
-
 /* Software handler for the RGB Qemu virtual panel */
 typedef struct esp_rgb_qemu_t {
     esp_lcd_panel_t base;  // Base class of generic lcd panel

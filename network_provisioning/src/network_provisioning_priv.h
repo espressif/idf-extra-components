@@ -47,8 +47,8 @@ esp_err_t network_prov_mgr_done(void);
  *  - ESP_FAIL  : Provisioning app not running
  */
 esp_err_t network_prov_mgr_wifi_scan_start(bool blocking, bool passive,
-        uint8_t group_channels,
-        uint32_t period_ms);
+                                           uint8_t group_channels,
+                                           uint32_t period_ms);
 
 /**
  * @brief   Use to query the state of Wi-Fi scan

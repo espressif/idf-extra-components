@@ -31,7 +31,7 @@ bool esp_encrypted_is_hmac_key_burnt_in_efuse(hmac_key_id_t hmac_key_id)
 }
 
 int esp_encrypted_img_pbkdf2_hmac_sha256(hmac_key_id_t hmac_key_id, const unsigned char *salt, size_t salt_len,
-        size_t iteration_count, size_t key_length, unsigned char *output)
+                                         size_t iteration_count, size_t key_length, unsigned char *output)
 {
     int ret = -1;
     int j;

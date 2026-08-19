@@ -43,8 +43,8 @@ extern const network_prov_scheme_t network_prov_scheme_ble;
 }
 
 void network_prov_scheme_ble_event_cb_free_btdm(void *user_data, network_prov_cb_event_t event, void *event_data);
-void network_prov_scheme_ble_event_cb_free_ble (void *user_data, network_prov_cb_event_t event, void *event_data);
-void network_prov_scheme_ble_event_cb_free_bt  (void *user_data, network_prov_cb_event_t event, void *event_data);
+void network_prov_scheme_ble_event_cb_free_ble(void *user_data, network_prov_cb_event_t event, void *event_data);
+void network_prov_scheme_ble_event_cb_free_bt(void *user_data, network_prov_cb_event_t event, void *event_data);
 
 /**
  * @brief   Set the 128 bit GATT service UUID used for provisioning

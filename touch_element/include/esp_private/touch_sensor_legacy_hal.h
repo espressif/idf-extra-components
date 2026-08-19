@@ -97,7 +97,6 @@ void touch_hal_filter_set_config(const touch_filter_config_t *filter_info);
  */
 void touch_hal_filter_get_config(touch_filter_config_t *filter_info);
 
-
 /************************ Denoise register setting ************************/
 
 /**
@@ -128,7 +127,6 @@ void touch_hal_denoise_get_config(touch_pad_denoise_t *denoise);
  * such as noise introduced by the power supply and external EMI.
  */
 void touch_hal_denoise_enable(void);
-
 
 /************************ Waterproof register setting ************************/
 
@@ -171,7 +169,6 @@ void touch_hal_waterproof_enable(void);
  *     - false: Configured error.
  */
 bool touch_hal_enable_proximity(touch_pad_t touch_num, bool enabled);
-
 
 /************** sleep pad setting ***********************/
 

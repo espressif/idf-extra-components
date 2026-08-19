@@ -73,8 +73,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/plain");
     const esp_partition_t *p = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
-                               ESP_PARTITION_SUBTYPE_APP_OTA_1, NULL);
-
+                                                        ESP_PARTITION_SUBTYPE_APP_OTA_1, NULL);
 
     assert(p != NULL);
 

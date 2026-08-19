@@ -145,7 +145,6 @@ static esp_err_t dhara_erase_block(spi_nand_flash_device_t *handle, uint32_t blo
     return nand_erase_block(handle, block);
 }
 
-
 const spi_nand_ops dhara_nand_ops = {
     .init = &dhara_init,
     .deinit = &dhara_deinit,
@@ -177,7 +176,6 @@ esp_err_t nand_wl_detach_ops(spi_nand_flash_device_t *handle)
 }
 
 /*------------------------------------------------------------------------------------------------------*/
-
 
 // The following APIs are implementations required by the Dhara library.
 // Please refer to the header file dhara/nand.h for details.

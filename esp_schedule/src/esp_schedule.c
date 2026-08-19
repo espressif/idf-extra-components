@@ -1059,8 +1059,8 @@ esp_schedule_handle_t esp_schedule_create(esp_schedule_config_t *schedule_config
 }
 
 esp_schedule_handle_t *esp_schedule_init_with_config(const esp_schedule_port_config_t *port,
-        bool enable_nvs, char *nvs_partition,
-        uint8_t *schedule_count)
+                                                     bool enable_nvs, char *nvs_partition,
+                                                     uint8_t *schedule_count)
 {
     /* Clear the out-parameter up front so every early return below reports zero
      * restored schedules rather than leaving the caller's variable untouched.

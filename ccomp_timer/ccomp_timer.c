@@ -15,7 +15,6 @@
 #include "esp_log.h"
 #include "esp_intr_alloc.h"
 
-
 esp_err_t ccomp_timer_start(void)
 {
     esp_err_t err = ESP_OK;

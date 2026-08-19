@@ -25,7 +25,7 @@ struct pid_ctrl_block_iq_t {
     _iq min_output;
     _iq max_integral;
     _iq min_integral;
-    _iq (*calculate_func)(struct pid_ctrl_block_iq_t *pid, _iq error);
+    _iq(*calculate_func)(struct pid_ctrl_block_iq_t *pid, _iq error);
 };
 
 static inline _iq pid_clamp_iq(_iq value, _iq min_value, _iq max_value)

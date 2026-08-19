@@ -1314,7 +1314,6 @@ static inline void touch_ll_sleep_read_chan_data(uint8_t type, uint32_t *data)
     }
 }
 
-
 /**
  * Select touch sensor dbias to save power in sleep mode.
  *

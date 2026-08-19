@@ -1,0 +1,42 @@
+DEFAULT:
+  # These formatting options will be used by default.
+  options: "--style=otbs --attach-namespaces --attach-classes --indent=spaces=4 --convert-tabs --align-reference=name --keep-one-line-statements --pad-header --pad-oper --unpad-paren --max-continuation-indent=120"
+
+submodules:
+  # Do not reformat code maintained by external submodule projects.
+  check: false
+  include:
+  - "/argtable3/argtable3/"
+  - "/brotli/brotli/"
+  - "/catch2/Catch2/"
+  - "/cbor/tinycbor/"
+  - "/coap/libcoap/"
+  - "/coremark/coremark/"
+  - "/cjson/cJSON/"
+  - "/dhara/dhara/"
+  - "/eigen/eigen/"
+  - "/esp_delta_ota/detools/"
+  - "/esp_isotp/isotp-c/"
+  - "/esp_jpeg/tjpgd/"
+  - "/esp_sysview/src/SEGGER/"
+  - "/esp_sysview/src/Sample/"
+  - "/expat/expat/"
+  - "/fmt/fmt/"
+  - "/freetype/freetype/"
+  - "/libjpeg-turbo/libjpeg-turbo/"
+  - "/libpng/libpng/"
+  - "/libsodium/libsodium/"
+  - "/lua/lua/"
+  - "/nghttp/nghttp2/"
+  - "/qoi/qoi/"
+  - "/qrcode/qrcodegen*"
+  - "/quirc/quirc/"
+  - "/supertinycron/supertinycron/"
+  - "/thorvg/thorvg/"
+  - "/zlib/zlib/"
+
+generated_code:
+  # protobuf-c output is generated and must not be reformatted.
+  check: false
+  include:
+  - "/network_provisioning/proto-c/"

@@ -262,7 +262,7 @@ esp_err_t nand_flash_get_blockdev(spi_nand_flash_config_t *config,
  *       and bad block management automatically.
  */
 esp_err_t spi_nand_flash_wl_get_blockdev(esp_blockdev_handle_t nand_bdl,
-        esp_blockdev_handle_t *out_bdl_handle_ptr);
+                                         esp_blockdev_handle_t *out_bdl_handle_ptr);
 
 #ifdef __cplusplus
 }

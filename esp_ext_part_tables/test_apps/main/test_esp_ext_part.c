@@ -61,7 +61,7 @@ static void print_esp_ext_part_list_items(esp_ext_part_list_item_t *head)
                i,
                esp_ext_part_bytes_to_sector_count(it->info.address, ESP_EXT_PART_SECTOR_SIZE_512B), it->info.address,
                esp_ext_part_bytes_to_sector_count(it->info.size, ESP_EXT_PART_SECTOR_SIZE_512B), it->info.size,
-               (uint32_t) (it->info.type));
+               (uint32_t)(it->info.type));
         i++;
     } while ((it = esp_ext_part_list_item_next(it)) != NULL);
 }

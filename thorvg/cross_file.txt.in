@@ -10,6 +10,9 @@ strip = '${CMAKE_STRIP}'
 cpp_args = ['-D_GNU_SOURCE','-D__linux__','-Wno-format','-Wno-stringop-truncation',${MESON_CXX_FLAGS}]
 cpp_link_args = [${MESON_LINKER_FLAGS}]
 
+[properties]
+skip_sanity_check = ${TVG_SKIP_MESON_SANITY_CHECK}
+
 [host_machine]
 system = 'esp-idf'
 cpu_family = '${cpu_family}'

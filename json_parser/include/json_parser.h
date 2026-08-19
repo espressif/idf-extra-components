@@ -77,4 +77,3 @@ int json_arr_get_strlen(jparse_ctx_t *jctx, uint32_t index, int *strlen);
 #endif
 
 #endif /* _JSON_PARSER_H_ */
-

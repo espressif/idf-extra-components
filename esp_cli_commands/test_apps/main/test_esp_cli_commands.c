@@ -241,7 +241,6 @@ TEST_CASE("test dynamic command set", "[esp_cli_commands]")
     TEST_ASSERT_EQUAL(ESP_OK, esp_cli_commands_execute("help", &cmd_ret, handle_set_2, NULL));
     TEST_ASSERT_EQUAL(0, cmd_ret);
 
-
     /* unregister dynamically registered commands */
     for (size_t i = 0; i < nb_cmds; i++) {
         TEST_ASSERT_EQUAL(ESP_OK, esp_cli_commands_unregister_cmd(cmd_list[i]));

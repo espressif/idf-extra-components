@@ -33,7 +33,6 @@ struct my_error_mgr {
 
 typedef struct my_error_mgr *my_error_ptr;
 
-
 void my_error_exit(j_common_ptr cinfo)
 {
     printf("Error - my_error_exit()! \n");
@@ -60,7 +59,6 @@ esp_err_t decode_image(uint16_t **pixels)
 
     cinfo_print->err = jpeg_std_error(&jerr.pub);
     jerr.pub.error_exit = my_error_exit;
-
 
     jpeg_create_decompress(cinfo);
 

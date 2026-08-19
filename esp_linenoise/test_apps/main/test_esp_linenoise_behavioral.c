@@ -1066,7 +1066,6 @@ TEST_CASE("Create and use 2 esp_linenoise instances", "[esp_linenoise]")
     test_send_characters(s_socket_fd_b[1], test_msg_b);
     test_send_characters(s_socket_fd_b[1], "\n");
 
-
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -1129,8 +1128,6 @@ TEST_CASE("tests that esp_linenoise_abort actually forces esp_linenoise_get_line
     xTaskCreate(get_line_task_w_args, "freertos_task", 2048, &args_b, 5, NULL);
     pthread_mutex_lock(&lock_b);
 
-
-
     /* send test message to instance */
     const char dummy_message[] = "dummy_message";
     test_send_characters(s_socket_fd_a[1], dummy_message);
@@ -1147,8 +1144,6 @@ TEST_CASE("tests that esp_linenoise_abort actually forces esp_linenoise_get_line
     /* check that the message was processed by the instance A */
     TEST_ASSERT_EQUAL_STRING(dummy_message, args_a.buf);
 
-
-
     /* send dummy message to instance B, that should still be running */
     test_send_characters(s_socket_fd_b[1], dummy_message);
 
@@ -1163,8 +1158,6 @@ TEST_CASE("tests that esp_linenoise_abort actually forces esp_linenoise_get_line
 
     /* check that the message was processed by the instance B */
     TEST_ASSERT_EQUAL_STRING(dummy_message, args_b.buf);
-
-
 
     /* start instance A and repeat test to make sure it is possible to restart an instance
      * even after aborting it */

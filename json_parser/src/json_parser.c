@@ -27,7 +27,7 @@ static bool token_matches_str(jparse_ctx_t *ctx, json_tok_t *tok, const char *st
 {
     const char *js = ctx->js;
     return ((strncmp(js + tok->start, str, strlen(str)) == 0)
-            && (strlen(str) == (size_t) (tok->end - tok->start)));
+            && (strlen(str) == (size_t)(tok->end - tok->start)));
 }
 
 static json_tok_t *json_skip_elem(json_tok_t *token)
@@ -45,7 +45,7 @@ static int json_tok_to_bool(jparse_ctx_t *jctx, json_tok_t *tok, bool *val)
 {
     if (token_matches_str(jctx, tok, "true") || token_matches_str(jctx, tok, "1")) {
         *val = true;
-    } else if  (token_matches_str(jctx, tok, "false") || token_matches_str(jctx, tok, "0")) {
+    } else if (token_matches_str(jctx, tok, "false") || token_matches_str(jctx, tok, "0")) {
         *val = false;
     } else {
         return -OS_FAIL;
@@ -471,4 +471,3 @@ int json_parse_end_static(jparse_ctx_t *jctx)
     memset(jctx, 0, sizeof(jparse_ctx_t));
     return OS_SUCCESS;
 }
-

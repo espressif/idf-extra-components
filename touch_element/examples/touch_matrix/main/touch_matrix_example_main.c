@@ -113,7 +113,7 @@ void app_main(void)
     ESP_ERROR_CHECK(touch_matrix_create(&matrix_config, &matrix_handle));
     /* Subscribe touch matrix events (On Press, On Release, On LongPress) */
     ESP_ERROR_CHECK(touch_matrix_subscribe_event(matrix_handle,
-                    TOUCH_ELEM_EVENT_ON_PRESS | TOUCH_ELEM_EVENT_ON_RELEASE | TOUCH_ELEM_EVENT_ON_LONGPRESS, NULL));
+                                                 TOUCH_ELEM_EVENT_ON_PRESS | TOUCH_ELEM_EVENT_ON_RELEASE | TOUCH_ELEM_EVENT_ON_LONGPRESS, NULL));
 #ifdef CONFIG_TOUCH_ELEM_EVENT
     /* Set EVENT as the dispatch method */
     ESP_ERROR_CHECK(touch_matrix_set_dispatch_method(matrix_handle, TOUCH_ELEM_DISP_EVENT));

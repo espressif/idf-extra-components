@@ -3,7 +3,6 @@
 #include "esp_cli_commands.h"
 #include "command_utils.h"
 
-
 // Context for the command (must be known at compile time for static registration)
 static int hello_cmd_ctx = 0;
 

@@ -22,7 +22,6 @@ esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev)
              "macronix-0x%02" PRIx8, device_id);
     ESP_LOGD(TAG, "%s: device_id: %x\n", __func__, device_id);
 
-
     dev->chip.has_quad_enable_bit = 1;
     dev->chip.quad_enable_bit_pos = 0;
     switch (device_id) {

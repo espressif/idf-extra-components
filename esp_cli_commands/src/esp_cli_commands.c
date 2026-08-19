@@ -400,7 +400,6 @@ esp_cli_command_set_handle_t esp_cli_commands_create_cmd_set(const char **cmd_se
         return NULL;
     }
 
-
     esp_cli_command_t *static_cmd_ptrs_temp[ESP_CLI_COMMANDS_COUNT];
     esp_cli_command_t *dynamic_cmd_ptrs_temp[esp_cli_dynamic_commands_get_number_of_cmd()];
     create_cmd_set_ctx_t ctx = {
@@ -420,8 +419,8 @@ esp_cli_command_set_handle_t esp_cli_commands_create_cmd_set(const char **cmd_se
 
     /* if no static command was found, return a static set with 0 items in it */
     esp_err_t ret_val = update_cmd_set_with_temp_info(&cmd_ptr_sets->static_set,
-                        ctx.static_cmd_count,
-                        ctx.static_cmd_ptrs);
+                                                      ctx.static_cmd_count,
+                                                      ctx.static_cmd_ptrs);
     if (ret_val == ESP_ERR_NO_MEM) {
         free(cmd_ptr_sets);
         return NULL;
