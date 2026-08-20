@@ -14,7 +14,7 @@ set(srcs
     "libcoap/src/coap_io.c"
     "libcoap/src/coap_layers.c"
     "libcoap/src/coap_mbedtls.c"
-    "libcoap/src/coap_mem.c"
+    "port/coap_mem.c"
     "libcoap/src/coap_net.c"
     "libcoap/src/coap_netif.c"
     "libcoap/src/coap_notls.c"
