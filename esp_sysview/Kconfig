@@ -28,6 +28,15 @@ menu "SEGGER SystemView Configuration"
 
     endchoice
 
+    config SEGGER_SYSVIEW_OPTIMIZE_SPEED
+        bool "Compile SystemView for speed (-O2)"
+        default y
+        help
+            Compile this component with -O2 regardless of the project-wide
+            optimization level. Every trace event record runs through this
+            code, so its speed directly sets the per-event tracing overhead
+            and the minimum observable spacing between events.
+
     config SEGGER_SYSVIEW_MAX_TASKS
         int "Maximum supported tasks"
         range 1 64

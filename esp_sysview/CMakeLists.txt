@@ -46,6 +46,10 @@ if(CONFIG_ESP_TRACE_LIB_EXTERNAL)
     # This allows freertos component to find esp_trace_freertos_impl.h
     idf_component_get_property(freertos_lib freertos COMPONENT_LIB)
     target_include_directories(${freertos_lib} INTERFACE ${include_dirs})
+
+    if(CONFIG_SEGGER_SYSVIEW_OPTIMIZE_SPEED)
+        target_compile_options(${COMPONENT_LIB} PRIVATE -O2)
+    endif()
 else()
     idf_component_register(REQUIRES "${requires}" PRIV_REQUIRES "${priv_requires}")
 endif()
