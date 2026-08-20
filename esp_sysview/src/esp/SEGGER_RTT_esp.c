@@ -30,6 +30,8 @@
 #define SEGGER_HOST_WAIT_TMO    CONFIG_SEGGER_SYSVIEW_BUF_WAIT_TMO
 #endif
 
+unsigned SEGGER_RTT_ESP_DownPollCnt;
+
 static uint8_t s_events_buf[SYSVIEW_EVENTS_BUF_SZ];
 static uint16_t s_events_buf_filled;
 static uint8_t s_down_buf[SYSVIEW_DOWN_BUF_SIZE];
