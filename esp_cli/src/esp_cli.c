@@ -242,13 +242,12 @@ void esp_cli(esp_cli_handle_t handle)
          * or a null character */
         if ((strncmp(ESP_CLI_QUIT_CMD_STR, cmd_line, ESP_CLI_QUIT_CMD_SIZE) == 0) &&
                 ((cmd_line[ESP_CLI_QUIT_CMD_SIZE] == ' ') || (cmd_line[ESP_CLI_QUIT_CMD_SIZE] == '\0'))) {
-            /* quit command received, call esp_cli_stop() */
-            if (esp_cli_stop(handle) == ESP_OK) {
-                /* if esp_cli_stop() was successful, retry the while condition.
-                 * the esp_cli state should have been changed which will force
-                 * the while to break */
-                continue;
+            /* quit command received, check if the instance as a command set registered
+             * and check that the quit command is in the set */
+            if (esp_cli_commands_find_command(handle->config.command_set_handle, ESP_CLI_QUIT_CMD_STR)) {
+                (void)esp_cli_stop(handle);
             }
+            continue;
         }
 #endif // CONFIG_ESP_CLI_HAS_QUIT_CMD
 
