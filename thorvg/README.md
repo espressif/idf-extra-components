@@ -2,8 +2,22 @@
 
 [![Component Registry](https://components.espressif.com/components/espressif/thorvg/badge.svg)](https://components.espressif.com/components/espressif/thorvg)
 
-ThorVG is an open-source graphics library designed for creating vector-based scenes and animations. Embracing the philosophy of "Simpler is better," the ThorVG project offers intuitive and user-friendly interfaces, all the while maintaining a compact size and minimal software complexity.
+This component integrates [ThorVG](https://github.com/thorvg/thorvg) with ESP-IDF and exposes its C API through `thorvg_capi.h`. It uses ThorVG's CPU renderer and supports optional loaders configured at build time.
 
-This component is based on [ThorVG](https://github.com/thorvg/thorvg).
+## Install
 
-To learn more about how to use this component, please check [README.md](https://github.com/thorvg/thorvg/blob/main/README.md).
+Install `espressif/thorvg` from the [ESP Component Registry](https://components.espressif.com/components/espressif/thorvg) using the ESP-IDF Component Manager.
+
+## Configure
+
+Run `idf.py menuconfig` and open **Component config → ThorVG Support Options** to configure:
+
+- Loader support (Lottie, SVG, PNG, JPEG, WebP, and fonts)
+- Multithreading
+- Log output
+
+## API and examples
+
+Include `thorvg_capi.h` in your application. For API usage and reference, see the [official ThorVG native API documentation](https://www.thorvg.org/native-apis).
+
+A complete ESP-IDF example is available in [examples/thorvg_lottie](examples/thorvg_lottie/README.md).

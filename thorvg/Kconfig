@@ -34,6 +34,14 @@ menu "ThorVG Support Options"
             bool "Enable webp loader support"
             default n
 
+        config THORVG_OTF_LOADER_SUPPORT
+            bool "Enable OpenType (otf) font loader support"
+            default n
+
+        config THORVG_TTF_LOADER_SUPPORT
+            bool "Enable TrueType (ttf) font loader support"
+            default n
+
     endmenu
 
 endmenu

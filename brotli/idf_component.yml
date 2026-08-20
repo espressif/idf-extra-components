@@ -8,13 +8,16 @@ dependencies:
   idf: ">=5.1"
 files:
   exclude:
-    - "brotli/brotli/csharp/**/*"
-    - "brotli/brotli/docs/**/*"
-    - "brotli/brotli/go/**/*"
-    - "brotli/brotli/java/**/*"
-    - "brotli/brotli/js/**/*"
-    - "brotli/brotli/python/**/*"
-    - "brotli/brotli/research/**/*"
+    - "brotli/csharp/**/*"
+    - "brotli/docs/**/*"
+    - "brotli/fetch-spec/**/*"
+    - "brotli/go/**/*"
+    - "brotli/java/**/*"
+    - "brotli/js/**/*"
+    - "brotli/python/**/*"
+    - "brotli/research/**/*"
+    - "brotli/scripts/**/*"
+    - "brotli/tests/**/*"
 sbom:
   manifests:
     - path: sbom_brotli.yml
