@@ -30,6 +30,14 @@ if(CONFIG_THORVG_WEBP_LOADER_SUPPORT)
     list(APPEND TVG_LOADERS_OPTION "webp")
 endif()
 
+if(CONFIG_THORVG_OTF_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "otf")
+endif()
+
+if(CONFIG_THORVG_TTF_LOADER_SUPPORT)
+    list(APPEND TVG_LOADERS_OPTION "ttf")
+endif()
+
 list(JOIN TVG_LOADERS_OPTION "," TVG_LOADERS_OPTION)
 
 if(CONFIG_THORVG_LOG_ENABLED)
@@ -134,6 +142,7 @@ ExternalProject_Add(${TVG_LIB}_target
     CONFIGURE_COMMAND ${MESON_EXECUTABLE} setup ${TVG_BUILD_DIR} ${TVG_SUBDIR}
     --cross-file ${TVG_CROSS_CFG}
     -Dbindings=capi
+    -Dengines=cpu
     -Dextra=
     -Ddefault_library=static # build static library
     -Db_staticpic=false # no -fPIC
