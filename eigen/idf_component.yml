@@ -1,6 +1,25 @@
-
-version: "3.4.0~2"
-description: Eigen port to ESP
+version: "5.0.1"
+description: Eigen is a C++ template library for linear algebra
 url: https://github.com/espressif/idf-extra-components/tree/master/eigen
+repository: https://github.com/espressif/idf-extra-components.git
+documentation: https://libeigen.gitlab.io/
+issues: https://github.com/espressif/idf-extra-components/issues
 dependencies:
-  idf: ">=4.3.0"
+  idf: ">=5.0"
+files:
+  exclude:
+    - "eigen/.gitlab/**/*"
+    - "eigen/.gitlab-ci.yml"
+    - "eigen/bench/**/*"
+    - "eigen/blas/**/*"
+    - "eigen/ci/**/*"
+    - "eigen/cmake/**/*"
+    - "eigen/doc/**/*"
+    - "eigen/failtest/**/*"
+    - "eigen/lapack/**/*"
+    - "eigen/scripts/**/*"
+    - "eigen/test/**/*"
+sbom:
+  manifests:
+    - path: sbom_eigen.yml
+      dest: eigen

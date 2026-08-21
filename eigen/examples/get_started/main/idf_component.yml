@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+dependencies:
+  espressif/eigen:
+    version: "*"
+    # This line define the local path of the eigen component because this
+    # example is part of the eigen component. This line is optional.
+    override_path: "../../.."
