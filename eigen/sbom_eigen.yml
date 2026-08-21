@@ -1,0 +1,8 @@
+name: eigen
+version: 5.0.1
+cpe: cpe:2.3:a:eigen:eigen:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Eigen <https://libeigen.gitlab.io/>'
+description: Eigen is a C++ template library for linear algebra.
+url: https://gitlab.com/libeigen/eigen
+hash: bc3b39870ecb690a623a3f49149a358b95c5781d
+license: MPL-2.0
