@@ -9,6 +9,11 @@ on:
     branches:
       - master
 
+# A newer commit supersedes older work on the same branch or pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   prepare:
     name: Prepare pipeline
