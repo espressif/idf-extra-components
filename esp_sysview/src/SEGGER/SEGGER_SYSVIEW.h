@@ -425,7 +425,6 @@ void SEGGER_SYSVIEW_X_OnEventRecorded             (unsigned NumBytes);
 *       Espressif specific functions
 */
 int SEGGER_SYSVIEW_ESP_SetEncoder(void *encoder);
-void *SEGGER_SYSVIEW_ESP_GetEncoder(void);
 
 #ifdef __cplusplus
 }

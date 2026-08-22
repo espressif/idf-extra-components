@@ -7,15 +7,12 @@
 
 #include "esp_trace_port_encoder.h"
 #include "esp_trace_port_transport.h"
-#include "adapter_encoder_sysview.h"
+#include "SEGGER_SYSVIEW_esp.h"
 
 static const char *TAG = "sysview-esp";
 
-/**
- * @brief Encoder reference used by RTT layer
- * Set by SEGGER_SYSVIEW_ESP_SetEncoder() during encoder init.
- */
-static esp_trace_encoder_t *s_encoder = NULL;
+esp_trace_encoder_t *s_sysview_encoder;
+esp_trace_link_types_t s_sysview_link_type;
 
 /*********************************************************************
 *
@@ -55,27 +52,8 @@ int SEGGER_SYSVIEW_ESP_SetEncoder(void *encoder)
         return -1;
     }
 
-    s_encoder = enc;
+    s_sysview_link_type = enc->tp->vt->get_link_type(enc->tp);
+    s_sysview_encoder = enc;
 
     return 0;
-}
-
-/*********************************************************************
-*
-*       SEGGER_SYSVIEW_ESP_GetEncoder()
-*
-*  Function description
-*    Returns the encoder handle for accessing transport functions.
-*    This is used by SEGGER_SYSVIEW_Config_FreeRTOS.c to access
-*    transport lock functions.
-*
-*  Parameters
-*    None
-*
-*  Return value
-*    Pointer to encoder instance, or NULL if not initialized.
-*/
-void *SEGGER_SYSVIEW_ESP_GetEncoder(void)
-{
-    return s_encoder;
 }
