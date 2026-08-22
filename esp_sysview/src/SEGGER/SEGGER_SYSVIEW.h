@@ -251,6 +251,22 @@ struct SEGGER_SYSVIEW_MODULE_STRUCT {
 
 typedef void (SEGGER_SYSVIEW_SEND_SYS_DESC_FUNC)(void);
 
+/*
+* The callback function for sending packets
+* @param pStartPacket: the start of the packet
+* @param pEndPacket: the end of the packet
+* @param EventId: the event id
+* @param Timestamp: the timestamp
+*/
+typedef void (SEGGER_SYSVIEW_SendPacket_Dump)(U8 *pStartPacket, U8 *pEndPacket, unsigned int EventId, U32 Timestamp);
+
+/*
+* Set the callback function for sending packets
+* Use this function to subscribe and unsubscribe from the packet sending process
+* @param pfSendPacketCallback: the callback function
+*/
+void SEGGER_SYSVIEW_SetSendPacketCallback(SEGGER_SYSVIEW_SendPacket_Dump *pfSendPacketCallback);
+
 
 /*********************************************************************
 *
