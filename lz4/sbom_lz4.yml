@@ -1,0 +1,7 @@
+name: lz4
+version: 1.10.0
+cpe: cpe:2.3:a:lz4_project:lz4:{}:*:*:*:*:*:*:*
+supplier: 'Organization: lz4_project <https://lz4.org/>'
+description: Extremely fast lossless compression algorithm library
+url: https://github.com/lz4/lz4
+hash: ebb370ca83af193212df4dcbadcc5d87bc0de2f0

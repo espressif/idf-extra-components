@@ -89,3 +89,7 @@
 [submodule "brotli/brotli"]
 	path = brotli/brotli
 	url = https://github.com/google/brotli.git
+
+[submodule "lz4/lz4"]
+	path = lz4/lz4
+	url = https://github.com/lz4/lz4.git

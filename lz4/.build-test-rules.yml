@@ -1,0 +1,9 @@
+lz4/test_apps/test_lz4:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32s3", "esp32c3", "esp32c5"]
+      reason: "Sufficient to test on representative Xtensa and RISC-V targets"
+
+lz4/examples/pcm_lz4:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32s3", "esp32c3", "esp32c5"]
+      reason: "Sufficient to test on representative Xtensa and RISC-V targets"

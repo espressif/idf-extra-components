@@ -59,6 +59,7 @@ jobs:
             led_strip
             libsodium
             lua
+            lz4
             network_provisioning
             nghttp
             onewire_bus
