@@ -434,8 +434,9 @@ fail:
     return ret;
 }
 
-#define PACK_2BITS_STATUS(status, bit1, bit0)         ((((status) & (bit1)) << 1) | ((status) & (bit0)))
-#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   ((((status) & (bit2)) << 2) | (((status) & (bit1)) << 1) | ((status) & (bit0)))
+#define ECC_STATUS_SHIFT 4
+#define PACK_2BITS_STATUS(status, bit1, bit0)         (((status) & ((bit1) | (bit0))) >> ECC_STATUS_SHIFT)
+#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   (((status) & ((bit2) | (bit1) | (bit0))) >> ECC_STATUS_SHIFT)
 
 static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
 {
