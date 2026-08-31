@@ -49,6 +49,9 @@ typedef struct spi_nand_transaction_t spi_nand_transaction_t;
 #define REG_PROTECT         0xA0
 #define REG_CONFIG          0xB0
 #define REG_STATUS          0xC0
+#define REG_STATUS_EXT      0xF0
+
+#define STAT_ECCSE_SHIFT    4
 
 #define STAT_BUSY           1 << 0
 #define STAT_WRITE_ENABLED  1 << 1

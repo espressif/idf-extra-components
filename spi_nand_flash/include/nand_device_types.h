@@ -30,6 +30,7 @@ typedef enum {
 typedef struct {
     uint8_t ecc_status_reg_len_in_bits;     /*!< Length of ECC status register in bits */
     uint8_t ecc_data_refresh_threshold;     /*!< ECC error threshold for data refresh */
+    bool has_ecc_status_extension;          /*!< Chip has extended ECC status in register F0h */
     nand_ecc_status_t ecc_corrected_bits_status; /*!< Current ECC correction status */
 } nand_ecc_data_t;
 
