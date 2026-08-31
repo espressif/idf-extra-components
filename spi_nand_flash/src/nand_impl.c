@@ -450,12 +450,41 @@ fail:
                                                        (!!((status) & (bit1)) << 1) | \
                                                         !!((status) & (bit0)))
 
+/* Map the ECC status on devices with ECCSE bits in a separate register
+ * to the nand_ecc_status_t enum type. The first two bits from the normal
+ * status register does not map to the enum values as it does for chips
+ * with three ECC bits in the status register.
+ */
+static nand_ecc_status_t refine_ecc_status_ext(spi_nand_flash_device_t *dev, nand_ecc_status_t eccs)
+{
+    if (eccs == NAND_ECC_BITS_CORRECTED) {          // 01b: 1-7 bits corrected
+        uint8_t ext;
+        if (spi_nand_read_register(dev, REG_STATUS_EXT, &ext) != ESP_OK) {
+            ESP_LOGW(TAG, "%s: failed to read ECC status extension register", __func__);
+            return NAND_ECC_4_TO_6_BITS_CORRECTED; // We know at least some bits were corrected
+        }
+        switch ((ext >> STAT_ECCSE_SHIFT) & 0x3) {
+        case 0:  return NAND_ECC_1_TO_3_BITS_CORRECTED;  // 1-4 bits corrected
+        case 1:
+        case 2:  return NAND_ECC_4_TO_6_BITS_CORRECTED;  // 5-6 bits corrected
+        default: return NAND_ECC_7_8_BITS_CORRECTED;     // 7 bits corrected
+        }
+    }
+    if (eccs == NAND_ECC_MAX_BITS_CORRECTED) {      // 11b: 8 bits corrected
+        return NAND_ECC_7_8_BITS_CORRECTED;
+    }
+    return eccs;                                    // 00b no errors / 10b not corrected
+}
+
 static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
 {
     bool is_ecc_err = false;
     nand_ecc_status_t bits_corrected_status = NAND_ECC_OK;
     if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 2) {
         bits_corrected_status = PACK_2BITS_STATUS(status, STAT_ECC1, STAT_ECC0);
+        if (dev->chip.ecc_data.has_ecc_status_extension) {
+            bits_corrected_status = refine_ecc_status_ext(dev, bits_corrected_status);
+        }
     } else if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 3) {
         bits_corrected_status = PACK_3BITS_STATUS(status, STAT_ECC2, STAT_ECC1, STAT_ECC0);
     } else {

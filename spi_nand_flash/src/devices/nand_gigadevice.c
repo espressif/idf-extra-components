@@ -72,6 +72,7 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         // (2Gb partition limit for IDM is deferred)
         dev->chip.num_blocks = 4096;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
+        dev->chip.ecc_data.has_ecc_status_extension = true;
         break;
     case GIGADEVICE_DI_94:
         // GD5F4GM7UExxG: single-plane; IDM requires same odd/even block parity
