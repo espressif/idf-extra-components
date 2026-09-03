@@ -1,0 +1,7 @@
+name: raylib
+version: 6.2.0
+cpe: cpe:2.3:a:raylib:raylib:{}:*:*:*:*:*:*:*
+supplier: 'Organization: raylib'
+description: Simple and easy-to-use library to enjoy video games programming
+url: https://github.com/raysan5/raylib/
+hash: 02566453880e06bec97f5b8160fa6fe1e98397ca
