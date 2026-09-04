@@ -1,0 +1,5 @@
+dependencies:
+  idf: ">=5.3"
+  espressif/tg28_sw:
+    version: "*"
+    override_path: "../../../"

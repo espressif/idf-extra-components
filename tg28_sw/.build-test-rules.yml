@@ -1,0 +1,9 @@
+tg28_sw/test_apps:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: TG28_SW requires an I2C controller
+
+tg28_sw/examples/get_started:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: TG28_SW example targets I2C-capable chips

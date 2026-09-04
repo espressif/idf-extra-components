@@ -1,0 +1,5 @@
+dependencies:
+  idf: ">=5.3"
+  espressif/rx8130ce:
+    version: "*"
+    override_path: "../../../"

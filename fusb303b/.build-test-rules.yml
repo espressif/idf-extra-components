@@ -1,0 +1,9 @@
+fusb303b/test_apps:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: FUSB303B requires an I2C controller
+
+fusb303b/examples/get_started:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: FUSB303B example targets I2C-capable chips

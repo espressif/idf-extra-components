@@ -1,0 +1,9 @@
+rx8130ce/test_apps:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: RX8130CE requires an I2C controller
+
+rx8130ce/examples/get_started:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: RX8130CE example targets I2C-capable chips

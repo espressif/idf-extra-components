@@ -31,33 +31,36 @@ body:
         - coremark
         - dhara
         - eigen
+        - esp_cli
+        - esp_cli_commands
         - esp_daylight
         - esp_delta_ota
-        - esp_cli_commands
         - esp_encrypted_img
-        - esp_flash_dispatcher
         - esp_ext_part_tables
+        - esp_flash_dispatcher
         - esp_gcov
         - esp_isotp
         - esp_jpeg
         - esp_lcd_qemu_rgb
+        - esp_lcd_touch_cst820
+        - esp_linenoise
         - esp_schedule
-        - esp_cli
         - esp_serial_slave_link
         - esp_sysview
         - expat
         - fmt
         - freetype
+        - fusb303b
         - iqmath
         - jsmn
         - json_generator
         - json_parser
         - led_strip
+        - libjpeg-turbo
         - libpng
         - libsodium
         - lua
         - lz4
-        - esp_linenoise
         - network_provisioning
         - nghttp
         - onewire_bus
@@ -66,15 +69,16 @@ body:
         - qoi
         - qrcode
         - quirc
+        - rx8130ce
         - sh2lib
         - spi_nand_flash
         - spi_nand_flash_fatfs
         - supertinycron
+        - tg28_sw
         - thorvg
         - touch_element
         - unit-test-app
         - zlib
-        - libjpeg-turbo
         - Other
     validations:
       required: true

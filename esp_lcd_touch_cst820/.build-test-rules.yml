@@ -1,0 +1,9 @@
+esp_lcd_touch_cst820/test_apps:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: CST820 requires an I2C controller
+
+esp_lcd_touch_cst820/examples/get_started:
+  disable:
+    - if: SOC_I2C_SUPPORTED != 1
+      reason: CST820 example targets I2C-capable chips
