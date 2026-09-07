@@ -3,10 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #include <string.h>
+#include <inttypes.h>
 #include "esp_check.h"
 #include "esp_err.h"
 #include "spi_nand_oper.h"
@@ -15,6 +16,10 @@
 #include "nand_device_types.h"
 
 #define ROM_WAIT_THRESHOLD_US 1000
+/* Vendor tables pass typical tR/tPROG/tBERS; datasheet max is often several
+ * times that. Bound hangs at 10× typical plus one tick so max/tick rounding
+ * cannot false-timeout. Wrong if actual BUSY exceeds 10× the delay passed in. */
+#define NAND_WAIT_READY_TIMEOUT_MULT 10U
 
 static const char *TAG = "nand_hal";
 
@@ -169,6 +174,16 @@ static esp_err_t wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_
         esp_rom_delay_us(expected_operation_time_us);
     }
 
+    /* Hang bound only. Success path still polls until BUSY clears. */
+    uint64_t timeout_us = (uint64_t)expected_operation_time_us * NAND_WAIT_READY_TIMEOUT_MULT;
+    uint32_t timeout_ms = (uint32_t)((timeout_us + 999U) / 1000U);
+    if (timeout_ms == 0) {
+        timeout_ms = 1;
+    }
+    TickType_t timeout_ticks = (timeout_ms + portTICK_PERIOD_MS - 1U) / portTICK_PERIOD_MS;
+    timeout_ticks += 1;
+    TickType_t start_tick = xTaskGetTickCount();
+
     while (true) {
         uint8_t status;
         ESP_RETURN_ON_ERROR(spi_nand_read_register(dev, REG_STATUS, &status), TAG, "");
@@ -178,6 +193,13 @@ static esp_err_t wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_
                 *status_out = status;
             }
             break;
+        }
+
+        if ((xTaskGetTickCount() - start_tick) >= timeout_ticks) {
+            ESP_LOGE(TAG, "STAT_BUSY timeout: status=0x%02x, expected_op=%" PRIu32 " us, waited=%" PRIu32 " ms",
+                     status, expected_operation_time_us,
+                     (uint32_t)timeout_ticks * portTICK_PERIOD_MS);
+            return ESP_ERR_TIMEOUT;
         }
 
         if (expected_operation_time_us >= ROM_WAIT_THRESHOLD_US) {
