@@ -257,7 +257,7 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
                       fail, TAG, "");
 
     memcpy(&markers, handle->read_buffer, sizeof(markers));
-    ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
+    ESP_LOGV(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
     *is_bad_status = (markers[0] != 0xFF || markers[1] != 0xFF);
     return ret;
 
@@ -297,6 +297,10 @@ esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t block)
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
+    // Reload the just-programmed page into cache before reading it back: spi_nand_read()
+    // only reads from cache, and the cache is not guaranteed to still hold the programmed
+    // data straight after program_execute on all chips.
+    ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
     ret = s_verify_write(handle, (uint8_t *)&markers, column_addr, 4);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: mark_bad write verification failed for block=%"PRIu32" and page=%"PRIu32"", __func__, block, first_block_page);
@@ -310,7 +314,7 @@ fail:
 
 esp_err_t nand_erase_block(spi_nand_flash_device_t *handle, uint32_t block)
 {
-    ESP_LOGD(TAG, "erase_block, block=%"PRIu32",", block);
+    ESP_LOGV(TAG, "erase_block, block=%"PRIu32",", block);
     esp_err_t ret = ESP_OK;
     uint8_t status;
 
@@ -335,7 +339,7 @@ fail:
 
 static esp_err_t nand_erase_good_block(spi_nand_flash_device_t *handle, uint32_t block)
 {
-    ESP_LOGD(TAG, "erase_block, block=%"PRIu32",", block);
+    ESP_LOGV(TAG, "erase_block, block=%"PRIu32",", block);
     esp_err_t ret = ESP_OK;
     bool is_bad = false;
     ret = nand_is_bad(handle, block, &is_bad);
@@ -394,6 +398,10 @@ esp_err_t nand_prog(spi_nand_flash_device_t *handle, uint32_t page, const uint8_
     }
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
+    // Reload the just-programmed page into cache before reading it back: spi_nand_read()
+    // only reads from cache, and the cache is not guaranteed to still hold the programmed
+    // data straight after program_execute on all chips.
+    ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, NULL), fail, TAG, "");
     ret = s_verify_write(handle, data, column_addr, handle->chip.page_size);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: prog page=%"PRIu32" write verification failed", __func__, page);
@@ -426,7 +434,7 @@ esp_err_t nand_is_free(spi_nand_flash_device_t *handle, uint32_t page, bool *is_
                                     column_addr, 4), fail, TAG, "");
 
     memcpy(&markers, handle->read_buffer, sizeof(markers));
-    ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%02x,%02x,", page, markers[2], markers[3]);
+    ESP_LOGV(TAG, "is free, page=%"PRIu32", used_marker=%02x,%02x,", page, markers[2], markers[3]);
     *is_free_status = (markers[2] == 0xFF && markers[3] == 0xFF);
     return ret;
 fail:
