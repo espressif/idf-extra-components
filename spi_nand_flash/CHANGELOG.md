@@ -2,6 +2,9 @@
 
 Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4]
+- fix: correct ECC status bit extraction in PACK_2BITS_STATUS and PACK_3BITS_STATUS
+
 ## [1.4.3]
 - fix: add STAT_BUSY hang timeout in wait_for_ready
 

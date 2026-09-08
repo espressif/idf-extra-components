@@ -434,9 +434,12 @@ fail:
     return ret;
 }
 
-#define ECC_STATUS_SHIFT 4
-#define PACK_2BITS_STATUS(status, bit1, bit0)         (((status) & ((bit1) | (bit0))) >> ECC_STATUS_SHIFT)
-#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   (((status) & ((bit2) | (bit1) | (bit0))) >> ECC_STATUS_SHIFT)
+// Each STAT_ECCx bit flag may live at an arbitrary bit position in the status byte.
+// `!!(status & bitN)` collapses that flag down to 0b0 or 0b1 regardless of its
+// original position, so it can then be shifted into its correct place (bit N)
+// in the packed result, producing a plain 0..3 / 0..7 value matching nand_ecc_status_t.
+#define PACK_2BITS_STATUS(status, bit1, bit0)         ((!!((status) & (bit1)) << 1) | !!((status) & (bit0)))
+#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   ((!!((status) & (bit2)) << 2) | (!!((status) & (bit1)) << 1) | !!((status) & (bit0)))
 
 static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
 {
