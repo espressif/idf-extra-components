@@ -364,6 +364,17 @@ __STATIC_INLINE int_fast32_t __IQNsin_cos(int_fast32_t iqNInput, const int8_t q_
         /* shift from q_value to IQ31 for sin/cos calculation */
         iq31input = (uint_fast32_t)resDiv << (31 - q_value);
     }
+
+#ifdef _IQMATH_MATHACL_SINCOS_BUG_WORKAROUND_
+    /*! Workaround to fix error seen for 0xC0000000 and 0x80000000
+    * inputs to the OP1 register of MATHACL. The workaround is to make the
+    * LSB as 1 for all inputs, this ensures that 0xC0000000 and 0x80000000 never
+    * occur. A common approach of making LSB to 1 is preferred as it consumes
+    * less cycles(and negligible error in the result) than checking and excluding
+    * the specific problematic inputs using if statements */
+    iq31input |= 0x1;
+#endif
+
     /*
      * write control
      * operation = sincos, iterations = 31
