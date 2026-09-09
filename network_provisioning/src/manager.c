@@ -1207,14 +1207,14 @@ esp_err_t network_prov_mgr_get_wifi_disconnect_reason(network_prov_wifi_sta_fail
 
 static void debug_print_wifi_credentials(wifi_sta_config_t sta, const char *pretext)
 {
-    size_t passlen = strlen((const char *) sta.password);
+    size_t passlen = strnlen((const char *) sta.password, sizeof(sta.password));
     ESP_LOGD(TAG, "%s Wi-Fi SSID     : %.*s", pretext,
              strnlen((const char *) sta.ssid, sizeof(sta.ssid)), (const char *) sta.ssid);
 
     if (passlen) {
         /* Mask password partially if longer than 3, else mask it completely */
         memset(sta.password + (passlen > 3), '*', passlen - 2 * (passlen > 3));
-        ESP_LOGD(TAG, "%s Wi-Fi Password : %s", pretext, (const char *) sta.password);
+        ESP_LOGD(TAG, "%s Wi-Fi Password : %.*s", pretext, (int) passlen, (const char *) sta.password);
     }
 }
 
@@ -1232,7 +1232,7 @@ esp_err_t network_prov_mgr_is_wifi_provisioned(bool *provisioned)
         return ESP_FAIL;
     }
 
-    if (strlen((const char *) wifi_cfg.sta.ssid)) {
+    if (strnlen((const char *) wifi_cfg.sta.ssid, sizeof(wifi_cfg.sta.ssid))) {
         *provisioned = true;
         debug_print_wifi_credentials(wifi_cfg.sta, "Found");
     }
