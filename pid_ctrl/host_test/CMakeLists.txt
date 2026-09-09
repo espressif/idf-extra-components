@@ -2,4 +2,4 @@ cmake_minimum_required(VERSION 3.16)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 set(COMPONENTS main)
-project(pid_ctrl_test)
+project(pid_ctrl_host_test)
