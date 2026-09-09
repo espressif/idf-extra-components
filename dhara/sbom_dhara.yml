@@ -4,4 +4,4 @@ cpe: cpe:2.3:a:dhara:dhara:{}:*:*:*:*:*:*:*
 supplier: 'Organization: Espressif Systems'
 description: NAND Flash translation layer for small MCUs (vendored from https://github.com/dlbeer/dhara at baseline 1b166e41b74b4a62ee6001ba5fab7a8805e80ea2; Espressif may apply patches — see VENDORED_UPSTREAM.md)
 url: https://github.com/dlbeer/dhara
-hash: 5e835ab9a98d0188d7a3ca5940677608f27ca9e5
+hash: b6831348a8d8a2d14da9b041f3191d91415c40f0

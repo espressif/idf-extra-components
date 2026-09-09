@@ -1,3 +1,26 @@
+## [1.0.1]
+
+### Fixes / hardening (Espressif patches on vendored baseline)
+
+- Fix `dhara_journal_peek()` returning a stale bad-block `tail` when retries are exhausted; return `DHARA_PAGE_NONE` instead.
+- Fix unsigned underflow / out-of-bounds `memset` in `hdr_clear_user()` when the page is smaller than header+cookie.
+- Make `recover_from()`'s fast path also require checkpoint alignment before accepting the recovered head.
+- Avoid negative-shift undefined behaviour in `dhara_journal_capacity()` when `log2_ppc > log2_ppb`.
+- Make `dhara_map_gc()` perform at most one GC step per call.
+- Clamp `dhara_map_size()` to `dhara_map_capacity()`.
+- Make `dhara_journal_root()` defensively handle an empty journal.
+- Add a compile-time guard against `dhara_sector_t` truncation in `ck_set_count()`.
+
+### Docs
+
+- Clarify intentional contracts / edge cases in journal and map helpers (comments only).
+- Document that `find_head()` cannot fail (resume's `< 0` check is always false).
+- Document why the two `memcpy` of `DHARA_META_SIZE` in `journal.c` are in-bounds.
+
+### API
+
+- `dhara_journal_read_meta()` now takes `const struct dhara_journal *` (source-compatible).
+
 ## [1.0.0]
 
 ### Versioning

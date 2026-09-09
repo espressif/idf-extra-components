@@ -81,8 +81,23 @@ static inline void hdr_set_bb_last(uint8_t *buf, dhara_page_t count)
 /* Clear user metadata */
 static inline void hdr_clear_user(uint8_t *buf, uint8_t log2_page_size)
 {
-    memset(buf + DHARA_HEADER_SIZE + DHARA_COOKIE_SIZE, 0xff,
-           (1 << log2_page_size) - DHARA_HEADER_SIZE - DHARA_COOKIE_SIZE);
+    const size_t page_size = (size_t)1 << log2_page_size;
+    const size_t reserved = DHARA_HEADER_SIZE + DHARA_COOKIE_SIZE;
+
+    /* Every dhara journal page must be large enough to hold the
+     * checkpoint header + cookie (a precondition that already applies
+     * elsewhere, e.g. choose_ppc()'s max_meta computation). If
+     * page_size were ever smaller than that (misconfigured NAND
+     * geometry), the unsigned subtraction below would underflow to a
+     * huge length and memset() would write far past the end of buf.
+     * Clamp defensively instead: this is a no-op for every real NAND
+     * page size (always >> 20 bytes in practice).
+     */
+    if (page_size <= reserved) {
+        return;
+    }
+
+    memset(buf + reserved, 0xff, page_size - reserved);
 }
 
 /* Obtain pointers to user data */
@@ -138,6 +153,14 @@ static dhara_page_t next_upage(const struct dhara_journal *j,
 /* Calculate a checkpoint period: the largest value of ppc such that
  * (2**ppc - 1) metadata blocks can fit on a page with one journal
  * header.
+ *
+ * Note: this can legitimately return `max` itself (not just values
+ * strictly below it). `max` is always the block's log2_ppb, so
+ * ppc == max means "one checkpoint group per block" -- a degenerate
+ * but valid configuration, not an overflow. All call sites in this
+ * file rely on the resulting invariant log2_ppc <= log2_ppb (e.g.
+ * dhara_journal_capacity()'s good_cps shift), which holds whether or
+ * not the loop reaches `max`.
  */
 static int choose_ppc(int log2_page_size, int max)
 {
@@ -222,6 +245,16 @@ void dhara_journal_init(struct dhara_journal *j,
 /* Find the first checkpoint-containing block. If a block contains any
  * checkpoints at all, then it must contain one in the first checkpoint
  * location -- otherwise, we would have considered the block eraseable.
+ *
+ * Note: the retry counter `i` is incremented for every block examined,
+ * including bad ones -- bad blocks are NOT exempt from the
+ * DHARA_MAX_RETRIES budget. This is intentional and consistent with
+ * every other DHARA_MAX_RETRIES loop in this file (prepare_head(),
+ * dump_meta(), dhara_journal_peek(), dhara_journal_enqueue(),
+ * dhara_journal_copy()): DHARA_MAX_RETRIES bounds how many consecutive
+ * bad blocks we are willing to tolerate before giving up, so that
+ * pathological runs of bad blocks can't turn an O(log N) search into
+ * an unbounded scan. It is not meant to "skip bad blocks for free".
  */
 static int find_checkblock(struct dhara_journal *j,
                            dhara_block_t blk, dhara_block_t *where,
@@ -302,7 +335,7 @@ static dhara_block_t find_last_checkblock(struct dhara_journal *j,
  * the group is truly unprogrammed, or if it was partially programmed
  * with some all-0xff user pages (which changes nothing for us).
  */
-static int cp_free(struct dhara_journal *j, dhara_page_t first_user)
+static int cp_free(const struct dhara_journal *j, dhara_page_t first_user)
 {
     const int count = 1 << j->log2_ppc;
     int i;
@@ -343,6 +376,17 @@ static dhara_page_t find_last_group(struct dhara_journal *j,
         }
     }
 
+    /* Precondition (guaranteed by the only call site, in
+     * dhara_journal_resume(): `blk` was already validated by
+     * find_checkblock()/find_last_checkblock() to have a valid
+     * checkpoint magic at group 0's last page): group 0 in `blk` is
+     * always programmed, so this fallback is never actually reached
+     * in practice -- cp_free() will report group 0 as non-free before
+     * the search can conclude "everything is free". It is kept as a
+     * defensive fallback; if it were ever reached, `blk << log2_ppb`
+     * is exactly the start of group 0, which is the correct answer
+     * when group 0 is the only programmed group.
+     */
     return blk << j->nand->log2_ppb;
 }
 
@@ -361,6 +405,20 @@ static int find_root(struct dhara_journal *j, dhara_page_t start,
                              j->page_buf, err) &&
                 (hdr_has_magic(j->page_buf)) &&
                 (hdr_get_epoch(j->page_buf) == j->epoch)) {
+            /* p is the checkpoint header page (the LAST page of this
+             * checkpoint group); j->root ("the last written user
+             * page") is therefore the page immediately before it, not
+             * the first page of the group. This matches push_meta(),
+             * which likewise sets j->root = old_head (the page just
+             * written, i.e. header_page - 1) right before programming
+             * the header at header_page. Verified against a
+             * fm_agent-generated report that inferred root should be
+             * (first_checkpoint_page - 1) instead -- that reading
+             * would point root at a page in the *previous* checkpoint
+             * group (potentially its own header page), contradicting
+             * both push_meta()'s behaviour and root's documented
+             * meaning.
+             */
             j->root = p - 1;
             return 0;
         }
@@ -372,9 +430,17 @@ static int find_root(struct dhara_journal *j, dhara_page_t start,
     return -1;
 }
 
+/* Locate the next free user page after the last good checkpoint.
+ *
+ * Always returns 0: the scan uses dhara_nand_is_free() only as an
+ * informational probe and treats wrapping onto the next block as
+ * success, so there is no I/O error path. `err` is unused and is
+ * retained only to match find_root()'s signature.
+ */
 static int find_head(struct dhara_journal *j, dhara_page_t start,
                      dhara_error_t *err)
 {
+    (void)err;
     j->head = next_upage(j, start);
     if (!j->head) {
         roll_stats(j);
@@ -460,7 +526,12 @@ int dhara_journal_resume(struct dhara_journal *j, dhara_error_t *err)
     j->bb_last = hdr_get_bb_last(j->page_buf);
     hdr_clear_user(j->page_buf, j->nand->log2_page_size);
 
-    /* Perform another linear scan to find the next free user page */
+    /* Perform another linear scan to find the next free user page.
+     * find_head() currently cannot fail (always returns 0, never writes
+     * *err), so this < 0 check is always false. It is kept as a
+     * defensive counterpart to find_root() above so a future fallible
+     * find_head() still resets the journal.
+     */
     if (find_head(j, last_group, err) < 0) {
         reset_journal(j);
         return -1;
@@ -482,7 +553,15 @@ dhara_page_t dhara_journal_capacity(const struct dhara_journal *j)
     const dhara_block_t max_bad = j->bb_last > j->bb_current ?
                                   j->bb_last : j->bb_current;
     const dhara_block_t good_blocks = j->nand->num_blocks - max_bad - 1;
-    const int log2_cpb = j->nand->log2_ppb - j->log2_ppc;
+    /* log2_ppc <= log2_ppb is a class invariant established by
+     * choose_ppc() in dhara_journal_init() and relied upon throughout
+     * this file. Clamp defensively so that this can never become a
+     * shift by a negative amount (undefined behaviour in C) if that
+     * invariant is ever violated (e.g. j->log2_ppc corrupted/mutated
+     * directly). This is a no-op for every valid journal.
+     */
+    const int log2_cpb = j->nand->log2_ppb > j->log2_ppc ?
+                         j->nand->log2_ppb - j->log2_ppc : 0;
     const dhara_page_t good_cps = good_blocks << log2_cpb;
 
     /* Good checkpoints * (checkpoint period - 1) */
@@ -512,14 +591,18 @@ dhara_page_t dhara_journal_size(const struct dhara_journal *j)
     return num_pages - num_cps;
 }
 
-int dhara_journal_read_meta(struct dhara_journal *j, dhara_page_t p,
+int dhara_journal_read_meta(const struct dhara_journal *j, dhara_page_t p,
                             uint8_t *buf, dhara_error_t *err)
 {
     /* Offset of metadata within the metadata page */
     const dhara_page_t ppc_mask = (1 << j->log2_ppc) - 1;
     const size_t offset = hdr_user_offset(p & ppc_mask);
 
-    /* Special case: buffered metadata */
+    /* Special case: buffered metadata. `p` is a user page (API
+     * contract), so p & ppc_mask is in [0, ppc-2] and
+     * offset + DHARA_META_SIZE stays inside the checkpoint page laid
+     * out by choose_ppc(). `buf` is the caller's DHARA_META_SIZE slot.
+     */
     if (align_eq(p, j->head, j->log2_ppc)) {
         memcpy(buf, j->page_buf + offset, DHARA_META_SIZE);
         return 0;
@@ -564,11 +647,39 @@ dhara_page_t dhara_journal_peek(struct dhara_journal *j)
 
             blk = next_block(j->nand, blk);
         }
+
+        /* Retries exhausted: every block we tried (up to
+         * DHARA_MAX_RETRIES) was bad, and none of them was head's
+         * block. Per this function's contract ("return the page
+         * that's ready to read. If no page is ready, return
+         * DHARA_PAGE_NONE"), we must not hand back j->tail here --
+         * it still points into a block we just proved is bad, and
+         * callers (e.g. dhara_map_sync()/dhara_map_gc()) rely on
+         * DHARA_PAGE_NONE to distinguish "nothing ready" from "safe
+         * to read/recycle this page".
+         */
+        return DHARA_PAGE_NONE;
     }
 
     return j->tail;
 }
 
+/* wrap(a, b) computes a "wrapped distance" using a single subtraction
+ * rather than true modulo (a % b). This is correct ONLY because both
+ * call sites in dhara_journal_dequeue() guarantee a < 2*b:
+ *   - raw_size:   a = head + chip_size - tail, with head,tail in
+ *                 [0, chip_size) -> a in (0, 2*chip_size)
+ *   - root_offset: a = head + chip_size - root, with root in
+ *                 [0, chip_size) when it's a real page (a in (0,
+ *                 2*chip_size) too); when root == DHARA_PAGE_NONE the
+ *                 comparison result doesn't matter because the only
+ *                 use (`if (root_offset > raw_size) j->root =
+ *                 DHARA_PAGE_NONE;`) reassigns the same DHARA_PAGE_NONE
+ *                 value regardless of the outcome.
+ * A generic "true modulo, any a/b" implementation is unnecessary here:
+ * this is a private, file-static helper with exactly these two
+ * verified-safe call sites.
+ */
 static dhara_page_t wrap(dhara_page_t a, dhara_page_t b)
 {
     return a >= b ? (a - b) : a;
@@ -755,8 +866,21 @@ static int recover_from(struct dhara_journal *j,
         return -1;
     }
 
-    /* Were we block aligned? No recovery required! */
-    if (is_aligned(old_head, j->nand->log2_ppb)) {
+    /* Were we block aligned? No recovery required!
+     *
+     * A block-aligned old_head implies checkpoint-aligned too, given
+     * the class invariant log2_ppc <= log2_ppb (established by
+     * choose_ppc() in dhara_journal_init()): every multiple of
+     * 2^log2_ppb is also a multiple of 2^log2_ppc, so there is no
+     * buffered metadata to lose here. We check both alignments
+     * explicitly (rather than relying solely on that invariant) so
+     * that this stays correct in the defensive sense even if
+     * log2_ppc were ever corrupted to exceed log2_ppb -- in that
+     * (invalid) case we now fall through to the metadata-dump path
+     * below instead of silently discarding buffered metadata.
+     */
+    if (is_aligned(old_head, j->nand->log2_ppb) &&
+            is_aligned(old_head, j->log2_ppc)) {
         dhara_nand_mark_bad(j->nand, old_head >> j->nand->log2_ppb);
         return 0;
     }
@@ -804,7 +928,9 @@ static int push_meta(struct dhara_journal *j, const uint8_t *meta,
         hdr_user_offset(j->head & ((1 << j->log2_ppc) - 1));
 
     /* We've just written a user page. Add the metadata to the
-     * buffer.
+     * buffer. `j->head` is always a user page (next_upage() skips the
+     * checkpoint header), so the slot at `offset` is one of the
+     * (2**log2_ppc - 1) meta slices choose_ppc() fitted into page_buf.
      */
     if (meta) {
         memcpy(j->page_buf + offset, meta, DHARA_META_SIZE);

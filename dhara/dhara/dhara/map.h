@@ -59,7 +59,19 @@ dhara_sector_t dhara_map_capacity(const struct dhara_map *m);
 /* Obtain the current number of allocated sectors. */
 static inline dhara_sector_t dhara_map_size(const struct dhara_map *m)
 {
-    return m->count;
+    const dhara_sector_t cap = dhara_map_capacity(m);
+
+    /* m->count is maintained by map.c to stay within [0,
+     * dhara_map_capacity(m)] -- every increment in prepare_write() is
+     * preconditioned on an explicit `m->count >= dhara_map_capacity(m)`
+     * check (DHARA_E_MAP_FULL otherwise). This clamp is a no-op
+     * whenever that invariant holds (i.e. always, in valid operation)
+     * and is a cheap (capacity is O(1) arithmetic, no NAND I/O),
+     * defense-in-depth guard against ever reporting a size outside
+     * the documented [0, capacity] range if m->count is ever
+     * corrupted.
+     */
+    return m->count > cap ? cap : m->count;
 }
 
 /* Find the physical page which holds the current data for this sector.

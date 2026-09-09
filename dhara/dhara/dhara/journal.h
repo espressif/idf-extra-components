@@ -160,14 +160,27 @@ static inline uint8_t *dhara_journal_cookie(const struct dhara_journal *j)
  */
 static inline dhara_page_t dhara_journal_root(const struct dhara_journal *j)
 {
+    /* j->root == DHARA_PAGE_NONE iff the journal is empty (head ==
+     * tail) is an invariant maintained by every mutation path in
+     * journal.c (reset_journal(), dhara_journal_peek(),
+     * dhara_journal_dequeue(), push_meta(), the resume path, etc).
+     * This check is a no-op whenever that invariant holds (which is
+     * always, in valid operation) and is a cheap belt-and-suspenders
+     * guard against ever returning a stale/desynced root for an empty
+     * journal if it's ever violated.
+     */
+    if (j->head == j->tail) {
+        return DHARA_PAGE_NONE;
+    }
+
     return j->root;
 }
 
 /* Read metadata associated with a page. This assumes that the page
- * provided is a valid data page. The actual page data is read via the
- * normal NAND interface.
+ * provided is a valid data page. `buf` must be at least DHARA_META_SIZE
+ * bytes. The actual page data is read via the normal NAND interface.
  */
-int dhara_journal_read_meta(struct dhara_journal *j, dhara_page_t p,
+int dhara_journal_read_meta(const struct dhara_journal *j, dhara_page_t p,
                             uint8_t *buf, dhara_error_t *err);
 
 /* Advance the tail to the next non-bad block and return the page that's
