@@ -50,13 +50,13 @@ typedef struct spi_nand_transaction_t spi_nand_transaction_t;
 #define REG_CONFIG          0xB0
 #define REG_STATUS          0xC0
 
-#define STAT_BUSY           1 << 0
-#define STAT_WRITE_ENABLED  1 << 1
-#define STAT_ERASE_FAILED   1 << 2
-#define STAT_PROGRAM_FAILED 1 << 3
-#define STAT_ECC0           1 << 4
-#define STAT_ECC1           1 << 5
-#define STAT_ECC2           1 << 6
+#define STAT_BUSY           (1 << 0)
+#define STAT_WRITE_ENABLED  (1 << 1)
+#define STAT_ERASE_FAILED   (1 << 2)
+#define STAT_PROGRAM_FAILED (1 << 3)
+#define STAT_ECC0           (1 << 4)
+#define STAT_ECC1           (1 << 5)
+#define STAT_ECC2           (1 << 6)
 
 size_t spi_nand_get_dma_alignment(void);
 esp_err_t spi_nand_execute_transaction(spi_nand_flash_device_t *handle, spi_nand_transaction_t *transaction);
