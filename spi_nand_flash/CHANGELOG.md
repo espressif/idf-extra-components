@@ -1,6 +1,13 @@
 # Changelog
 
-Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+All notable changes to this component will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). See [VERSIONING.md](VERSIONING.md) for this component's versioning policy.
+
+## [Unreleased]
+
+### Changed
+- Demote per-page/per-block traces (`is_bad`, `erase_block`, `is_free`) from debug to verbose log level, since they flooded the log during any full-chip scan or erase
 
 ## [1.4.3]
 - fix: add STAT_BUSY hang timeout in wait_for_ready
