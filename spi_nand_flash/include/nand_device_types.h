@@ -7,7 +7,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <stdbool.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -23,14 +22,44 @@ typedef enum {
     NAND_ECC_4_TO_6_BITS_CORRECTED = 3, /*!< 4-6 bits corrected */
     NAND_ECC_MAX_BITS_CORRECTED = NAND_ECC_4_TO_6_BITS_CORRECTED,
     NAND_ECC_7_8_BITS_CORRECTED = 5,    /*!< 7-8 bits corrected */
+    NAND_ECC_1_TO_4_BITS_CORRECTED = 7, /*!< 1-4 bits corrected (GigaDevice ECCSE cannot resolve further) */
+    NAND_ECC_5_BITS_CORRECTED = 8,      /*!< exactly 5 bits corrected (GigaDevice ECCSE) */
+    NAND_ECC_6_BITS_CORRECTED = 9,      /*!< exactly 6 bits corrected (GigaDevice ECCSE) */
+    NAND_ECC_7_BITS_CORRECTED = 10,     /*!< exactly 7 bits corrected (GigaDevice ECCSE) */
+    NAND_ECC_8_BITS_CORRECTED = 11,     /*!< exactly 8 bits corrected (GigaDevice ECCSE) */
     NAND_ECC_MAX
 } nand_ecc_status_t;
 
+/** Lowest corrected-bit count implied by a status class. Ambiguous GD 1-4 reports 4. */
+static inline uint8_t nand_ecc_min_bits_corrected(nand_ecc_status_t status)
+{
+    switch (status) {
+    case NAND_ECC_1_TO_3_BITS_CORRECTED:
+        return 1;
+    case NAND_ECC_1_TO_4_BITS_CORRECTED:
+    case NAND_ECC_4_TO_6_BITS_CORRECTED:
+        return 4;
+    case NAND_ECC_5_BITS_CORRECTED:
+        return 5;
+    case NAND_ECC_6_BITS_CORRECTED:
+        return 6;
+    case NAND_ECC_7_BITS_CORRECTED:
+    case NAND_ECC_7_8_BITS_CORRECTED:
+        return 7;
+    case NAND_ECC_8_BITS_CORRECTED:
+        return 8;
+    case NAND_ECC_OK:
+    case NAND_ECC_NOT_CORRECTED:
+    case NAND_ECC_MAX:
+    default:
+        return 0;
+    }
+}
+
 /** @brief NAND Flash ECC configuration and status */
 typedef struct {
-    uint8_t ecc_status_reg_len_in_bits;     /*!< Length of ECC status register in bits */
+    uint8_t ecc_status_reg_len_in_bits;     /*!< Length of C0h ECC status field in bits (2 or 3) */
     uint8_t ecc_data_refresh_threshold;     /*!< ECC error threshold for data refresh */
-    bool has_ecc_status_extension;          /*!< Chip has extended ECC status in register F0h */
     nand_ecc_status_t ecc_corrected_bits_status; /*!< Current ECC correction status */
 } nand_ecc_data_t;
 

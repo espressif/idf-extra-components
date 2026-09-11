@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,8 +11,26 @@
 #include "nand.h"
 #include "spi_nand_oper.h"
 #include "nand_flash_devices.h"
+#include "nand_private/nand_ecc_decode.h"
 
 static const char *TAG = "nand_gigadevice";
+
+/* GD5F4GM8 ECCSE lives in feature register F0h bits [5:4]; only meaningful when C0h ECCS is 01b. */
+#define REG_STATUS_EXT  0xF0
+
+static nand_ecc_status_t gd_decode_ecc_status(spi_nand_flash_device_t *dev, uint8_t status_c0)
+{
+    uint8_t ext = 0;
+    bool f0_ok = false;
+
+    if (nand_ecc_gd_needs_status_ext(status_c0)) {
+        f0_ok = (spi_nand_read_register(dev, REG_STATUS_EXT, &ext) == ESP_OK);
+        if (!f0_ok) {
+            ESP_LOGW(TAG, "%s: failed to read ECC status extension register", __func__);
+        }
+    }
+    return nand_ecc_decode_gd_eccse(status_c0, ext, f0_ok);
+}
 
 esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
 {
@@ -72,7 +90,7 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         // (2Gb partition limit for IDM is deferred)
         dev->chip.num_blocks = 4096;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
-        dev->chip.ecc_data.has_ecc_status_extension = true;
+        dev->decode_ecc_status = gd_decode_ecc_status;
         break;
     case GIGADEVICE_DI_94:
         // GD5F4GM7UExxG: single-plane; IDM requires same odd/even block parity

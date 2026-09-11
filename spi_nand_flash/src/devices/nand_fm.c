@@ -11,6 +11,7 @@
 #include "nand.h"
 #include "spi_nand_oper.h"
 #include "nand_flash_devices.h"
+#include "nand_private/nand_ecc_decode.h"
 
 static const char *TAG = "nand_fm";
 
@@ -27,6 +28,7 @@ esp_err_t spi_nand_fm_init(spi_nand_flash_device_t *dev)
     dev->chip.has_quad_enable_bit = 1;
     dev->chip.quad_enable_bit_pos = 0;
     dev->chip.ecc_data.ecc_status_reg_len_in_bits = 3;
+    dev->decode_ecc_status = nand_ecc_decode_3bit;
     dev->chip.erase_block_delay_us = 4000;
     dev->chip.program_page_delay_us = 400;
     dev->chip.read_page_delay_us = 105;

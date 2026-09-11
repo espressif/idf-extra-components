@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #pragma once
@@ -53,12 +53,15 @@ typedef struct {
     esp_err_t (*gc)(spi_nand_flash_device_t *handle);
 } spi_nand_ops;
 
+typedef nand_ecc_status_t (*nand_ecc_decode_fn)(spi_nand_flash_device_t *dev, uint8_t status_c0);
+
 struct spi_nand_flash_device_t {
     spi_nand_flash_config_t config;
     spi_nand_chip_t chip;                  // Geometry (legacy typedef for nand_flash_geometry_t)
     nand_device_info_t device_info;        // Device identification (manufacturer, device ID, chip name)
     const spi_nand_ops *ops;
     void *ops_priv_data;
+    nand_ecc_decode_fn decode_ecc_status;  // Per-chip C0h ECC status decoder; never NULL after init
     uint8_t *work_buffer;
     uint8_t *read_buffer;
     uint8_t *temp_buffer;
@@ -71,15 +74,8 @@ struct spi_nand_flash_device_t {
 /** @return true if corrected-bit ECC class meets or exceeds the data-refresh threshold */
 static inline bool nand_ecc_exceeds_data_refresh_threshold(const spi_nand_flash_device_t *handle)
 {
-    uint8_t min_bits_corrected = 0;
-    if (handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_1_TO_3_BITS_CORRECTED) {
-        min_bits_corrected = 1;
-    } else if (handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_4_TO_6_BITS_CORRECTED) {
-        min_bits_corrected = 4;
-    } else if (handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_7_8_BITS_CORRECTED) {
-        min_bits_corrected = 7;
-    }
-    return min_bits_corrected >= handle->chip.ecc_data.ecc_data_refresh_threshold;
+    return nand_ecc_min_bits_corrected(handle->chip.ecc_data.ecc_corrected_bits_status)
+           >= handle->chip.ecc_data.ecc_data_refresh_threshold;
 }
 
 /**

@@ -5,7 +5,14 @@ All notable changes to this component will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). See [VERSIONING.md](VERSIONING.md) for this component's versioning policy.
 
 ## [Unreleased]
+
+### Fixed
+
 - feat: map ECC status correctly on GigaDevice chips using the ECCSE bits (status register F0h)
+
+### Changed
+
+- Map ECC status through explicit per-chip lookup tables instead of casting packed C0h bits into `nand_ecc_status_t`
 
 ## [1.4.4] - 2026-09-10
 
