@@ -22,6 +22,7 @@ body:
       options:
         - argtable3
         - bdc_motor
+        - blemesh_manager
         - brotli
         - catch2
         - cbor
