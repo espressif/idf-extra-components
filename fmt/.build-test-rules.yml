@@ -1,0 +1,4 @@
+fmt/examples/hello_fmt:
+  enable:
+    - if: IDF_TARGET in ["linux", "esp32s3", "esp32c5"]
+      reason: "Host plus representative Xtensa and RISC-V targets"
