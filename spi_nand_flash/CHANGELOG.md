@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.4.3]
 - fix: add STAT_BUSY hang timeout in wait_for_ready
 
+## [Unreleased]
+- feat: map ECC status correctly on GigaDevice chips using the ECCSE bits (status register F0h)
+
 ## [1.4.2]
 - fix: use Internal Data Move same-parity handling for GigaDevice chips that require it (GD5F2GQ5, GD5F2GM7, GD5F4GQ6, GD5F4GM8, GD5F4GM7, GD5F8GM8), without treating them as hardware dual-plane
 
