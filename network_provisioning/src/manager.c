@@ -1207,9 +1207,12 @@ esp_err_t network_prov_mgr_get_wifi_disconnect_reason(network_prov_wifi_sta_fail
 
 static void debug_print_wifi_credentials(wifi_sta_config_t sta, const char *pretext)
 {
-    size_t passlen = strnlen((const char *) sta.password, sizeof(sta.password));
+    size_t passlen = 0;
+    while (passlen < sizeof(sta.password) && sta.password[passlen] != '\0') {
+        passlen++;
+    }
     ESP_LOGD(TAG, "%s Wi-Fi SSID     : %.*s", pretext,
-             strnlen((const char *) sta.ssid, sizeof(sta.ssid)), (const char *) sta.ssid);
+             (int) sizeof(sta.ssid), (const char *) sta.ssid);
 
     if (passlen) {
         /* Mask password partially if longer than 3, else mask it completely */
