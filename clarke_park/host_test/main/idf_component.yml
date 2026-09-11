@@ -1,0 +1,4 @@
+dependencies:
+  espressif/clarke_park:
+    version: "*"
+    override_path: "../.."

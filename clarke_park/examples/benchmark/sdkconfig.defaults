@@ -1,0 +1,9 @@
+# Cycle counts are only comparable when the compiler optimizes for speed, so the
+# benchmark always builds with -O2 instead of the debug default (-Og).
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# The Q-format is a compile time property, so a build only ever measures one
+# format. Q15 is the format the CORDIC hardware supports and the default of the
+# component, so the benchmark measures the configuration the component ships
+# with.
+CONFIG_CLARKE_PARK_IQ_FORMAT=15
