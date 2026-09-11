@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2023-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
 
 #include "unity.h"
-#include "esp_newlib.h"
+#include "unity_test_runner.h"
+#include "esp_heap_caps.h"
 #include "unity_test_utils_memory.h"
 
 void setUp(void)
@@ -15,12 +16,11 @@ void setUp(void)
 
 void tearDown(void)
 {
-    esp_reent_cleanup();
-    unity_utils_evaluate_leaks_direct(32);
+    unity_utils_evaluate_leaks_direct(0);
 }
 
 void app_main(void)
 {
-    printf("Running pid_ctrl component tests\n");
+    printf("Running pid_ctrl component host tests\n");
     unity_run_menu();
 }
