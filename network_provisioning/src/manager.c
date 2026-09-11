@@ -1232,7 +1232,7 @@ esp_err_t network_prov_mgr_is_wifi_provisioned(bool *provisioned)
         return ESP_FAIL;
     }
 
-    if (strnlen((const char *) wifi_cfg.sta.ssid, sizeof(wifi_cfg.sta.ssid))) {
+    if (wifi_cfg.sta.ssid[0] != '\0') {
         *provisioned = true;
         debug_print_wifi_credentials(wifi_cfg.sta, "Found");
     }
