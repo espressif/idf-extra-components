@@ -76,6 +76,7 @@ jobs:
             thorvg
             touch_element
             unit-test-app
+            xymodem
             zlib
             libpng
             libjpeg-turbo

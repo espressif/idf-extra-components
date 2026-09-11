@@ -74,6 +74,7 @@ body:
         - thorvg
         - touch_element
         - unit-test-app
+        - xymodem
         - zlib
         - libjpeg-turbo
         - Other
