@@ -67,6 +67,7 @@ body:
         - qoi
         - qrcode
         - quirc
+        - raylib
         - sh2lib
         - spi_nand_flash
         - spi_nand_flash_fatfs

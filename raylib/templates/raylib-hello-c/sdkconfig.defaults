@@ -1,0 +1,29 @@
+# ESP-IDF Configuration
+# Target is determined by the board selection
+
+//IF option("esp32_s3_box_3")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("esp32_s3_box")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("esp32_s3_lcd_ev_board")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("esp32s3_korvo_2")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("esp_vocat")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("esp32_s3_eye")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("m5stack_core_s3")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("m5stack_atom_s3")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("m5stack_atom_s3r")
+CONFIG_IDF_TARGET=esp32s3
+//ELIF option("m5stack_core_2")
+CONFIG_IDF_TARGET=esp32
+//ENDIF
+
+# PSRAM Configuration for boards that support it
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=32768

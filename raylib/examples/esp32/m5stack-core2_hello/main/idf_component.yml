@@ -1,0 +1,13 @@
+## IDF Component Manager Manifest File
+dependencies:
+  idf:
+    version: ">=5.5.0"
+  # Local raylib component - relative path from examples/esp_board_hello/main/
+  # Structure: raylib/examples/esp_board_hello/main/ -> raylib/ (up 3 levels)
+  georgik/raylib:
+    version: "*"
+    override_path: "../../../.."
+  # New boards from esp-bsp (ESP32-S3 only)
+  espressif/m5stack_core_2:
+    version: "*"
+  # P4 boards skipped - esp-generate doesn't support esp32p4 chip yet
