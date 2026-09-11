@@ -1,0 +1,8 @@
+version: "2.0.0"
+description: Simple Open EtherCAT Master (SOEM) port for ESP-IDF
+url: https://github.com/espressif/idf-extra-components/tree/master/soem
+repository: https://github.com/espressif/idf-extra-components.git
+documentation: https://docs.rt-labs.com/soem
+issues: https://github.com/espressif/idf-extra-components/issues
+dependencies:
+  idf: ">=6.0"

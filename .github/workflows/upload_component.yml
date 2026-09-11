@@ -70,6 +70,7 @@ jobs:
             qrcode
             quirc
             sh2lib
+            soem
             spi_nand_flash
             spi_nand_flash_fatfs
             supertinycron

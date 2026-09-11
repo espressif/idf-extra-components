@@ -39,6 +39,7 @@ manifest_file = [
     "qoi/.build-test-rules.yml",
     "qrcode/.build-test-rules.yml",
     "quirc/.build-test-rules.yml",
+    "soem/.build-test-rules.yml",
     "thorvg/.build-test-rules.yml",
     "touch_element/.build-test-rules.yml",
     "zlib/.build-test-rules.yml",
