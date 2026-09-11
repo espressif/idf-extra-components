@@ -1,3 +1,7 @@
+# 1.2.5 (9-September-2026)
+
+- Fix buffer overreads when Wi-Fi SSIDs or passwords are not null-terminated.
+
 # 1.2.4 (14-April-2026)
 
 - Fix incorrect fail reason reported in `NETWORK_PROV_WIFI_CRED_FAIL` event.
