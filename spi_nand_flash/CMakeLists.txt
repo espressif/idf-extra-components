@@ -5,7 +5,9 @@ set(inc include)
 set(priv_inc priv_include)
 set(srcs "src/nand.c"
          "src/dhara_glue.c"
-         "src/nand_impl_wrap.c")
+         "src/nand_impl_wrap.c"
+         "src/nand_ecc_decode.c"
+         "src/devices/nand_gigadevice_ecc_decode.c")
 
 if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" GREATER_EQUAL "6.0")
     list(APPEND reqs esp_blockdev)
