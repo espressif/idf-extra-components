@@ -1,0 +1,47 @@
+menu "Clarke Park Transform"
+
+    config CLARKE_PARK_IQ_FORMAT
+        int "IQmath Q-format (GLOBAL_IQ)"
+        range 1 30
+        default 15
+        help
+            Q-format used by the _iq backend. This value is applied as
+            GLOBAL_IQ before including IQmathLib.h, so all _IQ() / _IQtoF()
+            / _IQmpy() calls in clarke_park use this fractional bit count.
+
+            The default is 15, the format of the CORDIC hardware, so the
+            hardware accelerator (see CLARKE_PARK_USE_CORDIC_HW) can be used
+            without changing the format.
+
+            Typical choices:
+              - 15 (default): matches the CORDIC hardware, approx. +/- 1 range.
+              - 24         : higher precision, range approx. +/- 128.
+              - 8          : very large range, lower precision.
+
+            If your application #defines GLOBAL_IQ itself before including
+            clarke_park.h, that value must match this option
+            (CONFIG_CLARKE_PARK_IQ_FORMAT).
+
+    config CLARKE_PARK_USE_CORDIC_HW
+        bool "Use the hardware CORDIC accelerator for the Park transform"
+        depends on SOC_CORDIC_SUPPORTED
+        default n
+        help
+            When the chip has a CORDIC accelerator (currently ESP32-S3R,
+            see the CORDIC peripheral driver documentation), use it to
+            accelerate the sin/cos of the fixed-point Park transform.
+
+            The CORDIC hardware only supports the Q15 fixed-point format,
+            so this option only takes effect when CLARKE_PARK_IQ_FORMAT is
+            15. With any other Q-format the component transparently falls
+            back to the software IQmath implementation. The float backend is
+            never affected.
+
+            The CORDIC engine handle required by the driver is owned by the
+            clarke_park component (there is only one hardware unit, so the
+            handle is a singleton). If your application needs the CORDIC
+            unit for other computations, it must coordinate with this
+            component and must not create a second engine while the
+            clarke_park engine is in use.
+
+endmenu

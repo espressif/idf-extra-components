@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" font-family="Helvetica, Arial, sans-serif">
+  <rect width="900" height="560" fill="#ffffff"/>
+
+  <text x="450" y="36" font-size="19" font-weight="bold" text-anchor="middle" fill="#1b2631">
+    Clarke transform: balanced three phases become two stationary axes
+  </text>
+
+  <!-- ================= left panel: time domain ================= -->
+  <text x="230" y="72" font-size="15" font-weight="bold" text-anchor="middle" fill="#1b2631">Time domain: U / V / W</text>
+
+  <line x1="60" y1="270" x2="400" y2="270" stroke="#95a5a6" stroke-width="1.5"/>
+  <line x1="230" y1="105" x2="230" y2="400" stroke="#95a5a6" stroke-width="1.5"/>
+  <text x="406" y="275" font-size="13" fill="#5d6d7e">t</text>
+
+  <polyline fill="none" stroke="#c0392b" stroke-width="2.6"
+    points="60,270 68.9,261.2 77.8,252.9 86.7,245 95.6,237.7 104.5,231 113.4,225.1 122.3,220 131.2,215.7 140.1,212.3 149,209.9 157.9,208.4 166.8,207.9 175.7,208.4 184.6,209.8 193.5,212.1 202.4,215.2 211.3,219.2 220.2,223.9 229.1,229.3 238,235.3 246.9,241.8 255.8,248.8 264.7,256 273.6,263.5 282.5,271 291.4,278.5 300.3,285.8 309.2,292.8 318.1,299.4 327,305.4 335.9,310.8 344.8,315.4 353.7,319.2 362.6,322.2 371.5,324.3 380.4,325.5 389.3,325.8 398.2,325.2"/>
+  <polyline fill="none" stroke="#2471a3" stroke-width="2.6" stroke-dasharray="8,4"
+    points="60,270 68.9,284.1 77.8,297.8 86.7,311 95.6,323.5 104.5,335.1 113.4,345.5 122.3,354.7 131.2,362.4 140.1,368.6 149,373.1 157.9,375.9 166.8,377 175.7,376.4 184.6,374 193.5,370 202.4,364.5 211.3,357.5 220.2,349.3 229.1,339.9 238,329.6 246.9,318.6 255.8,307.1 264.7,295.3 273.6,283.4 282.5,271.7 291.4,260.2 300.3,249.3 309.2,239 318.1,229.6 327,221.1 335.9,213.7 344.8,207.5 353.7,202.6 362.6,199 371.5,196.9 380.4,196.1 389.3,196.8 398.2,198.8"/>
+  <polyline fill="none" stroke="#1e8449" stroke-width="2.6" stroke-dasharray="2,5"
+    points="60,270 68.9,275.9 77.8,283.5 86.7,292.4 95.6,302.4 104.5,313.2 113.4,324.5 122.3,336.1 131.2,347.5 140.1,358.6 149,369 157.9,378.5 166.8,386.8 175.7,393.8 184.6,399.1 193.5,402.7 202.4,404.4 211.3,404.1 220.2,401.9 229.1,397.8 238,391.9 246.9,384.3 255.8,375.3 264.7,365.1 273.6,354 282.5,342.2 291.4,330 300.3,317.8 309.2,305.8 318.1,294.3 327,283.6 335.9,273.8 344.8,265.2 353.7,258 362.6,252.3 371.5,248.2 380.4,245.8 389.3,245.1 398.2,246.1"/>
+
+  <g font-size="14" fill="#1b2631">
+    <line x1="60" y1="440" x2="95" y2="440" stroke="#c0392b" stroke-width="2.6"/>
+    <text x="104" y="445">u = cos(theta)</text>
+
+    <line x1="60" y1="470" x2="95" y2="470" stroke="#2471a3" stroke-width="2.6" stroke-dasharray="8,4"/>
+    <text x="104" y="475">v = cos(theta - 120)</text>
+
+    <line x1="60" y1="500" x2="95" y2="500" stroke="#1e8449" stroke-width="2.6" stroke-dasharray="2,5"/>
+    <text x="104" y="505">w = cos(theta + 120)</text>
+  </g>
+
+  <defs>
+    <marker id="ah" markerWidth="11" markerHeight="9" refX="9" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#1b2631"/>
+    </marker>
+    <marker id="ah-o" markerWidth="11" markerHeight="9" refX="9" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#d35400"/>
+    </marker>
+    <marker id="ah-p" markerWidth="11" markerHeight="9" refX="9" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#7d3c98"/>
+    </marker>
+  </defs>
+
+  <line x1="414" y1="270" x2="474" y2="270" stroke="#1b2631" stroke-width="2.2" marker-end="url(#ah)"/>
+
+  <!-- ================= right panel: alpha/beta ================= -->
+  <text x="690" y="72" font-size="15" font-weight="bold" text-anchor="middle" fill="#1b2631">Stationary frame: alpha / beta</text>
+
+  <!-- axes, origin at (690, 300) -->
+  <line x1="520" y1="300" x2="790" y2="300" stroke="#95a5a6" stroke-width="1.5"/>
+  <line x1="690" y1="120" x2="690" y2="420" stroke="#95a5a6" stroke-width="1.5"/>
+  <text x="770" y="288" font-size="14" fill="#5d6d7e">alpha</text>
+  <text x="700" y="138" font-size="14" fill="#5d6d7e">beta</text>
+
+  <!-- phase contributions (guides) -->
+  <line x1="690" y1="300" x2="762" y2="300" stroke="#c0392b" stroke-width="2" stroke-dasharray="5,4"/>
+  <text x="742" y="326" font-size="13" fill="#c0392b">u</text>
+
+  <line x1="690" y1="300" x2="648" y2="227.3" stroke="#2471a3" stroke-width="2" stroke-dasharray="5,4"/>
+  <text x="628" y="228" font-size="13" fill="#2471a3">v</text>
+
+  <line x1="690" y1="300" x2="648" y2="372.7" stroke="#1e8449" stroke-width="2" stroke-dasharray="5,4"/>
+  <text x="628" y="392" font-size="13" fill="#1e8449">w</text>
+
+  <line x1="672" y1="300" x2="672" y2="240" stroke="#7d3c98" stroke-width="2" stroke-dasharray="5,4"/>
+  <text x="546" y="243" font-size="13" fill="#7d3c98">(v + w) / 2</text>
+
+  <!-- resulting alpha and beta vectors -->
+  <line x1="690" y1="300" x2="830" y2="300" stroke="#d35400" stroke-width="4.2" marker-end="url(#ah-o)"/>
+  <text x="838" y="305" font-size="15" font-weight="bold" fill="#d35400">alpha</text>
+
+  <line x1="690" y1="300" x2="690" y2="180" stroke="#7d3c98" stroke-width="4.2" marker-end="url(#ah-p)"/>
+  <text x="700" y="170" font-size="15" font-weight="bold" fill="#7d3c98">beta</text>
+
+  <!-- formulas -->
+  <text x="690" y="462" font-size="14" text-anchor="middle" font-style="italic" fill="#1b2631">
+    alpha = (2/3) * (u - (v + w) / 2)
+  </text>
+  <text x="690" y="490" font-size="14" text-anchor="middle" font-style="italic" fill="#1b2631">
+    beta = (v - w) / sqrt(3)
+  </text>
+  <text x="690" y="524" font-size="13" text-anchor="middle" fill="#5d6d7e">
+    with u + v + w = 0, two axes hold all the information
+  </text>
+</svg>

@@ -1,0 +1,12 @@
+clarke_park/host_test:
+  enable:
+    - if: IDF_TARGET == "linux"
+      reason: "The Clarke/Park transforms are pure math, so the float and IQmath backends are fully validated on the Linux host."
+
+clarke_park/examples/benchmark:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32c3", "esp32s31"]
+      reason: "Cycle counts are only meaningful on real silicon: esp32 and esp32c3 cover Xtensa and RISC-V, esp32s31 additionally covers the CORDIC accelerated Q15 Park transform. The CORDIC hardware path is exercised here on the board."
+  disable:
+    - if: IDF_TARGET == "esp32s31" and (IDF_VERSION_MAJOR < 6 or (IDF_VERSION_MAJOR == 6 and IDF_VERSION_MINOR < 1))
+      reason: "The ESP32-S3R target (and with it the CORDIC driver) exists from IDF v6.1."
