@@ -25,7 +25,7 @@ See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/l
 ```bash
 I (320) example: encoded buffer size 67
 I (320) example: convert CBOR to JSON
-[{"chip":"esp32","unicore":false,"ip":[192,168,1,100]},3.1400001049041748,"simple(99)","2019-07-10 09:00:00+0000","undefined"]
+[{"chip":"esp32","unicore":false,"ip":[192,168,1,100]},3.140000104904175,"simple(99)","2019-07-10 09:00:00+0000","undefined"]
 I (340) example: decode CBOR manually
 Array[
   Map{

@@ -1,5 +1,8 @@
-version: "0.6.1~4"
+version: "7.0.0"
 description: "CBOR: Concise Binary Object Representation Library"
 url: https://github.com/espressif/idf-extra-components/tree/master/cbor
+repository: https://github.com/espressif/idf-extra-components.git
+documentation: https://intel.github.io/tinycbor/current/
+issues: https://github.com/espressif/idf-extra-components/issues
 dependencies:
   idf: ">=5.0"
