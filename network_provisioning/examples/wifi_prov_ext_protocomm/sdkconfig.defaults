@@ -1,0 +1,9 @@
+# Enable Bluetooth and NimBLE stack (default for RISC-V targets)
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+
+
+## For Bluedroid as binary is larger than default size
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
