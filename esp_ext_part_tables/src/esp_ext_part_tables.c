@@ -5,8 +5,8 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_idf_version.h"
@@ -23,6 +23,8 @@
 #else
 #include "sys/queue.h"
 #endif
+
+static const char *TAG = "esp_ext_part";
 
 uint64_t esp_ext_part_bytes_to_sector_count(uint64_t total_bytes, esp_ext_part_sector_size_t sector_size)
 {
@@ -92,6 +94,13 @@ esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, const esp_ext_pa
 {
     if (dst == NULL || src == NULL) {
         return ESP_ERR_INVALID_ARG;
+    }
+
+    // Overwriting a destination that still holds items would drop the only pointers to
+    // them (and to their labels), so require an empty list, like esp_mbr_parse does.
+    if (!SLIST_EMPTY(&dst->head)) {
+        ESP_LOGE(TAG, "Destination partition list is not empty, call esp_ext_part_list_deinit() before copying into it");
+        return ESP_ERR_INVALID_STATE;
     }
 
     memcpy(dst, src, sizeof(esp_ext_part_list_t)); // Copy the structure

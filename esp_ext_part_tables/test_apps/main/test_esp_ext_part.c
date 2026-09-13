@@ -94,6 +94,33 @@ TEST_CASE("Test esp_mbr_parse", "[esp_ext_part_table]")
     TEST_ASSERT_EQUAL(0, part_list.head.slh_first);
 }
 
+TEST_CASE("Test esp_mbr_parse rejects a non-empty partition list", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t part_list = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
+
+    int count_before = 0;
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list); it != NULL; it = esp_ext_part_list_item_next(it)) {
+        count_before++;
+    }
+    TEST_ASSERT_GREATER_THAN(0, count_before);
+
+    // Parsing into the same list again would merge two tables and leak the first one's
+    // items, so it must be refused and leave the list untouched.
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
+
+    int count_after = 0;
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list); it != NULL; it = esp_ext_part_list_item_next(it)) {
+        count_after++;
+    }
+    TEST_ASSERT_EQUAL(count_before, count_after);
+
+    // After deinit the same list can be reused
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+}
+
 void generate_original_mbr(esp_mbr_t *mbr)
 {
     esp_mbr_generate_extra_args_t mbr_args = {
@@ -161,6 +188,67 @@ TEST_CASE("Test esp_mbr_generate generates the (almost) same MBR as the original
     free(mbr);
     esp_ext_part_list_deinit(&part_list1);
     esp_ext_part_list_deinit(&part_list2);
+}
+
+TEST_CASE("Test esp_mbr_generate overwrites stale content in a non-blank buffer", "[esp_ext_part_table]")
+{
+    // The partition list is the single source of truth for the generated table:
+    // regenerating into a buffer that still holds an older MBR must not leave any
+    // trace of it behind, while the bootstrap code must be preserved.
+    esp_ext_part_list_t part_list = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL)); // 2 FAT12 partitions
+    TEST_ASSERT_EQUAL(0, part_list.flags & ESP_EXT_PART_LIST_FLAG_READ_ONLY);
+
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    memcpy(mbr, mbr_bin, ESP_MBR_SIZE);
+
+    // Dirty the buffer the way a previously loaded MBR would
+    mbr->partition_table[2].type = 0x0b;
+    mbr->partition_table[2].lba_start = 0x11223344;
+    mbr->partition_table[2].sector_count = 0x55667788;
+    esp_mbr_chs_arr_val_set(mbr->partition_table[2].chs_start, 0xAABBCC);
+    mbr->partition_table[3] = mbr->partition_table[2];
+    mbr->partition_table[0].status = ESP_MBR_PARTITION_STATUS_ACTIVE; // Stale "bootable" flag
+    mbr->copy_protected = ESP_MBR_COPY_PROTECTED;                     // Stale read-only marker
+    memset(mbr->bootstrap_code_modern_part1, 0xEE, sizeof(mbr->bootstrap_code_modern_part1));
+
+    TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, NULL));
+
+    // Entries the list does not cover must be zeroed, not left over
+    const esp_mbr_partition_t empty_entry = {0};
+    TEST_ASSERT_EQUAL_MEMORY(&empty_entry, &mbr->partition_table[2], sizeof(empty_entry));
+    TEST_ASSERT_EQUAL_MEMORY(&empty_entry, &mbr->partition_table[3], sizeof(empty_entry));
+
+    // Per-entry fields must not keep stale values either
+    TEST_ASSERT_EQUAL(0, mbr->partition_table[0].status);
+
+    // Copy protection follows the list, which is not read-only
+    TEST_ASSERT_EQUAL(0, mbr->copy_protected);
+
+    // Bootstrap code is preserved (that is the point of read-modify-write)
+    for (size_t i = 0; i < sizeof(mbr->bootstrap_code_modern_part1); i++) {
+        TEST_ASSERT_EQUAL_HEX8(0xEE, mbr->bootstrap_code_modern_part1[i]);
+    }
+
+    // The two real partitions still match the source table
+    TEST_ASSERT_EQUAL_MEMORY((uint8_t *) mbr_bin + ESP_MBR_PARTITION_TABLE_OFFSET,
+                             (uint8_t *) mbr + ESP_MBR_PARTITION_TABLE_OFFSET,
+                             2 * sizeof(esp_mbr_partition_t));
+
+    // Re-parsing must yield exactly the two original partitions, not four
+    esp_ext_part_list_t reparsed = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr, &reparsed, NULL));
+    int count = 0;
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&reparsed); it != NULL; it = esp_ext_part_list_item_next(it)) {
+        count++;
+    }
+    TEST_ASSERT_EQUAL(2, count);
+    TEST_ASSERT_EQUAL(0, reparsed.flags & ESP_EXT_PART_LIST_FLAG_READ_ONLY);
+
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&reparsed));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
 }
 
 TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
@@ -247,6 +335,81 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
     // Deinitialize the part list
     esp_ext_part_list_deinit(&part_list);
     it = NULL;
+}
+
+TEST_CASE("Test esp_ext_part_list_deep_copy", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t src = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &src, NULL));
+    src.sector_size = ESP_EXT_PART_SECTOR_SIZE_4KiB; // Also check the non-item fields travel
+
+    // Labels are owned by the list (MBR itself has none), so add one to prove the copy
+    // duplicates the string instead of sharing the pointer.
+    char label[] = "data";
+    esp_ext_part_list_item_t labelled = {
+        .info = {
+            .address = 64 * 1024 * 1024,
+            .size = 8 * 1024 * 1024,
+            .type = ESP_EXT_PART_TYPE_RAW_DATA,
+            .label = label,
+        }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&src, &labelled));
+
+    esp_ext_part_list_t dst = {0};
+    TEST_ESP_OK(esp_ext_part_list_deep_copy(&dst, &src));
+
+    // Same contents, including the fields outside the item list
+    TEST_ASSERT_EQUAL(src.sector_size, dst.sector_size);
+    TEST_ASSERT_EQUAL(src.flags, dst.flags);
+    TEST_ASSERT_EQUAL(src.signature.data[0], dst.signature.data[0]);
+
+    esp_ext_part_list_item_t *s = esp_ext_part_list_item_head(&src);
+    esp_ext_part_list_item_t *d = esp_ext_part_list_item_head(&dst);
+    int count = 0;
+    while (s != NULL && d != NULL) {
+        TEST_ASSERT_NOT_EQUAL(s, d); // Distinct items, not shared pointers
+        TEST_ASSERT_EQUAL_UINT64(s->info.address, d->info.address);
+        TEST_ASSERT_EQUAL_UINT64(s->info.size, d->info.size);
+        TEST_ASSERT_EQUAL(s->info.type, d->info.type);
+        TEST_ASSERT_EQUAL(s->info.flags, d->info.flags);
+        if (s->info.label != NULL) {
+            TEST_ASSERT_NOT_NULL(d->info.label);
+            TEST_ASSERT_NOT_EQUAL(s->info.label, d->info.label); // Duplicated, not shared
+            TEST_ASSERT_EQUAL_STRING(s->info.label, d->info.label);
+        } else {
+            TEST_ASSERT_NULL(d->info.label);
+        }
+        s = esp_ext_part_list_item_next(s);
+        d = esp_ext_part_list_item_next(d);
+        count++;
+    }
+    TEST_ASSERT_NULL(s);
+    TEST_ASSERT_NULL(d);
+    TEST_ASSERT_EQUAL(3, count); // 2 from the MBR + the labelled one
+
+    // The copy is independent: editing it must not touch the source
+    esp_ext_part_list_item_head(&dst)->info.size = 1;
+    TEST_ASSERT_NOT_EQUAL(1, esp_ext_part_list_item_head(&src)->info.size);
+
+    // Copying into a list that still holds items would drop them, so it is refused
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, esp_ext_part_list_deep_copy(&dst, &src));
+
+    // NULL arguments
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_list_deep_copy(NULL, &src));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_list_deep_copy(&dst, NULL));
+
+    // Freeing both must not double free the duplicated label
+    TEST_ESP_OK(esp_ext_part_list_deinit(&dst));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&src));
+
+    // An emptied destination can be copied into again
+    esp_ext_part_list_t src2 = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &src2, NULL));
+    TEST_ESP_OK(esp_ext_part_list_deep_copy(&dst, &src2));
+    TEST_ASSERT_NOT_NULL(esp_ext_part_list_item_head(&dst));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&dst));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&src2));
 }
 
 TEST_CASE("Test esp_ext_part_list_signature_t get and set", "[esp_ext_part_table]")
@@ -380,6 +543,44 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partition_
 
     // Deinitialize the part list
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list_from_mbr_correct));
+}
+
+TEST_CASE("Test esp_mbr_partition_set requires a concrete sector size", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+
+    esp_ext_part_list_item_t item = {
+        .info = {
+            .address = 1024 * 1024,
+            .size = 10 * 1024 * 1024,
+            .type = ESP_EXT_PART_TYPE_FAT12,
+        }
+    };
+
+    // A zero-initialized args struct means "all defaults" for esp_mbr_generate, but this
+    // low-level function resolves nothing: without a sector size the byte<->sector math
+    // would collapse to a zero-length entry at LBA 0, so it must be rejected instead.
+    esp_mbr_generate_extra_args_t no_sector_size = {0};
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_partition_set(mbr, 0, &item, &no_sector_size));
+    // The rejected call must not have touched the entry
+    const esp_mbr_partition_t empty_entry = {0};
+    TEST_ASSERT_EQUAL_MEMORY(&empty_entry, &mbr->partition_table[0], sizeof(empty_entry));
+
+    // Clearing an entry needs no sector size and stays allowed
+    const esp_ext_part_list_item_t none_item = { .info = { .type = ESP_EXT_PART_TYPE_NONE } };
+    TEST_ESP_OK(esp_mbr_partition_set(mbr, 0, &none_item, &no_sector_size));
+
+    // With a concrete sector size the same item is accepted
+    esp_mbr_generate_extra_args_t args = {
+        .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
+        .alignment = ESP_EXT_PART_ALIGN_NONE,
+    };
+    TEST_ESP_OK(esp_mbr_partition_set(mbr, 0, &item, &args));
+    TEST_ASSERT_EQUAL(2048, mbr->partition_table[0].lba_start);
+    TEST_ASSERT_EQUAL(20480, mbr->partition_table[0].sector_count);
+
+    free(mbr);
 }
 
 // ---------------------------------------------------------------------------

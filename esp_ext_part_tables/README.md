@@ -82,6 +82,10 @@ Whenever the parser skips a partition (an unknown/extended type, or one rejected
 from the list is functionally equivalent to the source (ignoring cosmetic differences
 such as CHS values or the disk signature).
 
+The parsed table fully defines the list, so `esp_mbr_parse` requires an empty list and
+returns `ESP_ERR_INVALID_STATE` otherwise. Call `esp_ext_part_list_deinit()` before
+parsing into a list you have already used.
+
 ## Alignment and layout validation (MBR generation)
 
 When generating an MBR (`esp_mbr_generate` / `esp_ext_part_list_bdl_write`), the
@@ -111,6 +115,12 @@ to 512 B.
 Overlapping partitions are always rejected, and a list item with type
 `ESP_EXT_PART_TYPE_NONE` (which would create a gap that truncates the parsed
 table) is rejected with `ESP_ERR_INVALID_ARG`.
+
+The partition list is the single source of truth for the generated table: all four
+MBR entries are either built from a list item or zeroed, so nothing from a
+previously loaded MBR survives in the buffer. The bootstrap code area is left
+untouched, which makes the read-modify-write cycle (parse an existing MBR, edit the
+list, regenerate with `keep_signature`) safe.
 
 ## Automatic partition placement (MBR generation)
 

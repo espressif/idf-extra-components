@@ -104,14 +104,15 @@ typedef struct {
  * @note This function is not thread-safe.
  *
  * @param[in]  mbr_buf    Pointer to a buffer containing the raw MBR data (must be at least `ESP_MBR_SIZE` bytes and start of the MBR must align with start of the buffer).
- * @param[out] part_list  Pointer to the partition list structure to be filled with parsed entries.
+ * @param[out] part_list  Pointer to the partition list structure to be filled with parsed entries. Must be empty (zero-initialized, or emptied with `esp_ext_part_list_deinit`), because the parsed table fully defines the list.
  * @param[in]  extra_args Optional extra arguments for parsing (can be NULL for defaults).
  *
  * @return
- *     - ESP_OK:              Parsing was successful.
- *     - ESP_ERR_INVALID_ARG: Invalid arguments were provided.
- *     - ESP_ERR_NOT_FOUND:   MBR signature not found or invalid MBR.
- *     - ESP_ERR_NO_MEM:      Memory allocation failed during parsing.
+ *     - ESP_OK:                Parsing was successful.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided.
+ *     - ESP_ERR_INVALID_STATE: `part_list` already holds partitions.
+ *     - ESP_ERR_NOT_FOUND:     MBR signature not found or invalid MBR.
+ *     - ESP_ERR_NO_MEM:        Memory allocation failed during parsing.
  *     - Other error codes from `esp_ext_part_list_insert`.
  */
 esp_err_t esp_mbr_parse(const void *mbr_buf,
@@ -156,9 +157,17 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
  *     result and disturbs auto-placement). Such an item is rejected with
  *     `ESP_ERR_INVALID_ARG`.
  *
+ * @note The partition table is fully rewritten from `part_list`: every one of the
+ *       `ESP_MBR_MAX_PARTITION_COUNT` entries is either built from a list item or
+ *       zeroed, so entries left over from a previously loaded MBR never survive. The
+ *       bootstrap code area is preserved, which makes read-modify-write of an existing
+ *       MBR (typically together with `keep_signature`) safe. The copy-protection
+ *       marker follows `ESP_EXT_PART_LIST_FLAG_NONE`/`ESP_EXT_PART_LIST_FLAG_READ_ONLY`
+ *       in both directions.
+ *
  * @note This function is not thread-safe.
  *
- * @param[out] mbr         Pointer to the blank MBR structure to be filled (must already be allocated and be at least `ESP_MBR_SIZE` bytes).
+ * @param[out] mbr         Pointer to the MBR structure to be filled (must already be allocated and be at least `ESP_MBR_SIZE` bytes). May contain a previously loaded MBR.
  * @param[in]  part_list   Pointer to the partition list structure containing partition entries to encode.
  * @param[in]  extra_args  Optional extra arguments for generation (can be NULL for defaults: 1 MiB alignment, KEEP_SIZE policy, no disk-bounds check).
  *
@@ -183,11 +192,20 @@ esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
  *
  * When alignment moves the partition start, `extra_args->align_policy` decides how
  * the size is treated (keep it, reject, or shrink to preserve the end; see
- * `esp_ext_part_align_policy_t`). This low-level function does NOT resolve
- * `ESP_EXT_PART_ALIGN_AUTO` to a default alignment - callers that want the 1 MiB
- * default should either go through `esp_mbr_generate` or pass a concrete alignment
- * value. It also does NOT perform overlap or disk-bounds validation (that is done
- * by `esp_mbr_generate`).
+ * `esp_ext_part_align_policy_t`). This low-level function resolves no defaults:
+ * `extra_args->sector_size` must be set to a concrete value (passing
+ * `ESP_EXT_PART_SECTOR_SIZE_UNKNOWN` returns `ESP_ERR_INVALID_ARG` rather than
+ * assuming 512 B), and `ESP_EXT_PART_ALIGN_AUTO` is not resolved to the 1 MiB
+ * default either - callers that want those defaults should go through
+ * `esp_mbr_generate`. It also does NOT perform overlap or disk-bounds validation
+ * (that is done by `esp_mbr_generate`).
+ *
+ * Clearing an entry (`item->info.type == ESP_EXT_PART_TYPE_NONE`) needs no sector
+ * size and is always accepted.
+ *
+ * The target entry is written in full: every field is either derived from `item` or
+ * zeroed, so no value from a previously present partition survives. On error the
+ * entry is left untouched.
  *
  * @note This function is not thread-safe.
  *
@@ -198,11 +216,11 @@ esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
  * @param[in,out] mbr               Pointer to the MBR structure to be updated.
  * @param[in]     partition_index   Index of the partition entry to set (0-3).
  * @param[in]     item              Pointer to the partition list item structure containing partition information.
- * @param[in]     extra_args        Extra arguments for partition entry setting (required).
+ * @param[in]     extra_args        Extra arguments for partition entry setting (required, and its `sector_size` must be set unless the entry is being cleared).
  *
  * @return
  *     - ESP_OK:                Success.
- *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, or the start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, `extra_args->sector_size` is `ESP_EXT_PART_SECTOR_SIZE_UNKNOWN`, or the start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`.
  *     - ESP_ERR_INVALID_STATE: Error filling partition entry.
  *     - ESP_ERR_INVALID_SIZE:  Alignment consumed the whole partition (PRESERVE_END policy).
  *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.

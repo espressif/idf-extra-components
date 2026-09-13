@@ -168,14 +168,20 @@ esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, const esp_ext
  * This function creates a deep copy of the source partition list into the destination partition list.
  * It allocates memory for the destination list and copies all items, including their labels.
  *
+ * Use this instead of assigning or `memcpy`ing an `esp_ext_part_list_t`: the list holds
+ * its items in an intrusive linked list and owns each item's `label` allocation, so a
+ * plain struct copy would produce two lists sharing the same items, and deinitializing
+ * both would free them twice.
+ *
  * @note This function is not thread-safe.
  *
- * @param[out] dst Pointer to the destination partition list structure (must be allocated before but not initialized, i.e. "empty").
+ * @param[out] dst Pointer to the destination partition list structure (must be allocated before and be empty, i.e. zero-initialized or emptied with `esp_ext_part_list_deinit`).
  * @param[in] src Pointer to the source partition list structure to copy from.
  *
  * @return
  *     - ESP_OK: Deep copy was successful.
  *     - ESP_ERR_INVALID_ARG: `dst` or `src` is NULL.
+ *     - ESP_ERR_INVALID_STATE: `dst` already holds partitions.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
  */
 esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, const esp_ext_part_list_t *src);
@@ -310,13 +316,14 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
  * @note This function is not thread-safe.
  *
  * @param[in] handle       Block device handle to read from.
- * @param[out] part_list   Pointer to the partition list structure to populate from the partition table.
+ * @param[out] part_list   Pointer to the partition list structure to populate from the partition table. Must be empty (zero-initialized, or emptied with `esp_ext_part_list_deinit`).
  * @param[in] type         Type of partition table to read (e.g., MBR).
  * @param[in] extra_args   Pointer to additional arguments for parsing, of the type selected by `type` (optional, can be NULL).
  *
  * @return
  *     - ESP_OK: Partition list was successfully loaded.
  *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
+ *     - ESP_ERR_INVALID_STATE: `part_list` already holds partitions.
  *     - ESP_ERR_NOT_SUPPORTED: Unsupported partition table type.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
  *     - propagated errors from BDL operations or partition table parsing functions.
