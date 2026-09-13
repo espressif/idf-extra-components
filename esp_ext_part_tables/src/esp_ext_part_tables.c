@@ -55,7 +55,7 @@ esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t *part_list)
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_list_item_t *item)
+esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, const esp_ext_part_list_item_t *item)
 {
     if (part_list == NULL || item == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -88,7 +88,7 @@ esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, esp_ext_part_list_t *src)
+esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, const esp_ext_part_list_t *src)
 {
     if (dst == NULL || src == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -147,17 +147,15 @@ esp_ext_part_list_item_t *esp_ext_part_list_next_matching(esp_ext_part_list_item
     return NULL;
 }
 
-esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *signature)
+esp_err_t esp_ext_part_list_signature_get(const esp_ext_part_list_t *part_list, esp_ext_part_list_signature_t *signature)
 {
     if (part_list == NULL || signature == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    uint32_t out = 0;
     switch (part_list->signature.type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        out = (uint32_t) part_list->signature.data[0];
-        memcpy(signature, &out, sizeof(uint32_t));
+        *signature = part_list->signature;
         break;
     default:
         return ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
@@ -165,16 +163,15 @@ esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const void *signature, esp_ext_part_signature_type_t type)
+esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const esp_ext_part_list_signature_t *signature)
 {
     if (part_list == NULL || signature == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    part_list->signature.type = type;
-    switch (type) {
+    switch (signature->type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        part_list->signature.data[0] = *((const uint32_t *) signature);
+        part_list->signature = *signature;
         break;
     default:
         return ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
@@ -183,7 +180,7 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
 }
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
-esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args)
+esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, const void *extra_args)
 {
     if (handle == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -194,18 +191,18 @@ esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_
 
     switch (type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        buf = malloc(MBR_SIZE);
+        buf = malloc(ESP_MBR_SIZE);
         if (buf == NULL) {
             return ESP_ERR_NO_MEM;
         }
 
-        err = handle->ops->read(handle, buf, MBR_SIZE, 0, MBR_SIZE);
+        err = handle->ops->read(handle, buf, ESP_MBR_SIZE, 0, ESP_MBR_SIZE);
         if (err != ESP_OK) {
             free(buf);
             return err;
         }
 
-        err = esp_mbr_parse(buf, part_list, (esp_mbr_parse_extra_args_t *) extra_args);
+        err = esp_mbr_parse(buf, part_list, (const esp_mbr_parse_extra_args_t *) extra_args);
         free(buf);
         break;
 
@@ -217,7 +214,7 @@ esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_
     return err;
 }
 
-esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args)
+esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, const esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, const void *extra_args)
 {
     if (handle == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -228,7 +225,7 @@ esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part
 
     switch (type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR: {
-        buf = calloc(1, MBR_SIZE);
+        buf = calloc(1, ESP_MBR_SIZE);
         if (buf == NULL) {
             return ESP_ERR_NO_MEM;
         }
@@ -238,19 +235,19 @@ esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part
         // esp_mbr_generate - it does not allocate a buffer of `total_size`.
         esp_mbr_generate_extra_args_t local_args = {0};
         if (extra_args != NULL) {
-            local_args = *(esp_mbr_generate_extra_args_t *) extra_args; // Caller's choices take precedence
+            local_args = *(const esp_mbr_generate_extra_args_t *) extra_args; // Caller's choices take precedence
         }
         if (local_args.total_size == 0 && handle->geometry.disk_size > 0) {
             local_args.total_size = handle->geometry.disk_size;
         }
 
-        err = esp_mbr_generate((mbr_t *) buf, part_list, &local_args);
+        err = esp_mbr_generate((esp_mbr_t *) buf, part_list, &local_args);
         if (err != ESP_OK) {
             free(buf);
             return err;
         }
 
-        err = handle->ops->write(handle, buf, 0, MBR_SIZE);
+        err = handle->ops->write(handle, buf, 0, ESP_MBR_SIZE);
         free(buf);
         break;
     }

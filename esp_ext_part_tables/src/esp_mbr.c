@@ -17,7 +17,7 @@
 
 static const char *TAG = "esp_mbr";
 
-static void ext_part_list_item_do_extra(esp_ext_part_list_item_t *item, mbr_partition_t *partition)
+static void ext_part_list_item_do_extra(esp_ext_part_list_item_t *item, const esp_mbr_partition_t *partition)
 {
     // This function is for any extra actions that might be needed for specific partition types.
     // It can be used to set flags, perform additional operations or checks if needed.
@@ -32,17 +32,17 @@ static void ext_part_list_item_do_extra(esp_ext_part_list_item_t *item, mbr_part
     }
 }
 
-esp_err_t esp_mbr_parse(void *mbr_buf,
+esp_err_t esp_mbr_parse(const void *mbr_buf,
                         esp_ext_part_list_t *part_list,
-                        esp_mbr_parse_extra_args_t *extra_args)
+                        const esp_mbr_parse_extra_args_t *extra_args)
 {
     if (mbr_buf == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    mbr_t *mbr = (mbr_t *) mbr_buf;
+    const esp_mbr_t *mbr = (const esp_mbr_t *) mbr_buf;
     // Check MBR signature
-    if (mbr->boot_signature != MBR_SIGNATURE) {
+    if (mbr->boot_signature != ESP_MBR_SIGNATURE) {
         ESP_LOGE(TAG, "MBR signature not found");
         return ESP_ERR_NOT_FOUND;
     }
@@ -64,19 +64,23 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
     }
 
     esp_err_t err = ESP_OK;
-    if (mbr->copy_protected == MBR_COPY_PROTECTED) {
+    if (mbr->copy_protected == ESP_MBR_COPY_PROTECTED) {
         part_list->flags |= ESP_EXT_PART_LIST_FLAG_READ_ONLY;
     }
 
-    err = esp_ext_part_list_signature_set(part_list, &mbr->disk_signature, ESP_EXT_PART_LIST_SIGNATURE_MBR);
+    const esp_ext_part_list_signature_t signature = {
+        .data = { mbr->disk_signature },
+        .type = ESP_EXT_PART_LIST_SIGNATURE_MBR,
+    };
+    err = esp_ext_part_list_signature_set(part_list, &signature);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set partition list (disk) signature");
         return err;
     }
 
-    mbr_partition_t *partition;
-    for (int i = 0; i < 4; i++) {
-        partition = (mbr_partition_t *) &mbr->partition_table[i];
+    const esp_mbr_partition_t *partition;
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
+        partition = &mbr->partition_table[i];
 
         // Check if the partition entry is empty and if so, skip it
         if (partition->type == 0x00) {
@@ -106,7 +110,7 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
             }
         };
 
-        if (partition->status == MBR_PARTITION_STATUS_ACTIVE) {
+        if (partition->status == ESP_MBR_PARTITION_STATUS_ACTIVE) {
             item.info.flags |= ESP_EXT_PART_FLAG_ACTIVE;
         }
 
@@ -130,7 +134,7 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
     return ESP_OK;
 }
 
-static bool mbr_partition_fill(mbr_partition_t *partition, esp_ext_part_list_item_t *item)
+static bool mbr_partition_fill(esp_mbr_partition_t *partition, const esp_ext_part_list_item_t *item)
 {
     uint32_t lba_start = partition->lba_start;
     uint32_t lba_end = lba_start - 1 + partition->sector_count;
@@ -164,14 +168,14 @@ static bool mbr_partition_fill(mbr_partition_t *partition, esp_ext_part_list_ite
     return true; // OK
 }
 
-esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_part_list_item_t *item, esp_mbr_generate_extra_args_t *extra_args)
+esp_err_t esp_mbr_partition_set(esp_mbr_t *mbr, uint8_t partition_index, const esp_ext_part_list_item_t *item, const esp_mbr_generate_extra_args_t *extra_args)
 {
-    if (mbr == NULL || partition_index >= 4 || item == NULL || extra_args == NULL) {
+    if (mbr == NULL || partition_index >= ESP_MBR_MAX_PARTITION_COUNT || item == NULL || extra_args == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     // Set defaults
-    mbr_partition_t *partition = &mbr->partition_table[partition_index];
+    esp_mbr_partition_t *partition = &mbr->partition_table[partition_index];
     uint8_t (*f_generate_supported_partition_types)(uint8_t) = esp_mbr_generate_default_supported_partition_types;
 
     // Load extra arguments if provided
@@ -181,7 +185,7 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
 
     // Check if the partition entry is empty and if so, skip it
     if (item->info.type == ESP_EXT_PART_TYPE_NONE) {
-        memset(partition, 0, sizeof(mbr_partition_t));
+        memset(partition, 0, sizeof(esp_mbr_partition_t));
         return ESP_OK; // No partition to set
     }
 
@@ -195,7 +199,7 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
 
     // Set the partition info
     if (item->info.flags & ESP_EXT_PART_FLAG_ACTIVE) {
-        partition->status = MBR_PARTITION_STATUS_ACTIVE;
+        partition->status = ESP_MBR_PARTITION_STATUS_ACTIVE;
     }
 
     uint32_t aligned_start = esp_mbr_lba_align((uint32_t) first_sector_address, extra_args->sector_size, extra_args->alignment);
@@ -249,9 +253,9 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
     return ESP_OK;
 }
 
-esp_err_t esp_mbr_generate(mbr_t *mbr,
-                           esp_ext_part_list_t *part_list,
-                           esp_mbr_generate_extra_args_t *extra_args)
+esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
+                           const esp_ext_part_list_t *part_list,
+                           const esp_mbr_generate_extra_args_t *extra_args)
 {
     if (mbr == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -290,20 +294,22 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
         args.alignment = ESP_EXT_PART_ALIGN_1MiB;
     }
 
-    mbr->boot_signature = MBR_SIGNATURE;
+    mbr->boot_signature = ESP_MBR_SIGNATURE;
     if (args.keep_signature) {
         // Use the disk signature from the partition list
-        err = esp_ext_part_list_signature_get(part_list, &mbr->disk_signature);
+        esp_ext_part_list_signature_t signature = {0};
+        err = esp_ext_part_list_signature_get(part_list, &signature);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to get disk signature from partition list");
             return err;
         }
+        mbr->disk_signature = signature.data[0];
     } else {
         mbr->disk_signature = esp_random();
     }
 
     if (part_list->flags & ESP_EXT_PART_LIST_FLAG_READ_ONLY) {
-        mbr->copy_protected = MBR_COPY_PROTECTED;
+        mbr->copy_protected = ESP_MBR_COPY_PROTECTED;
     }
 
     // Total disk size in sectors (used both for auto-fill/FILL and the bounds check).
@@ -323,8 +329,8 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
     // lands on the first aligned LBA (e.g. sector 2048 for 1 MiB / 512 B).
     uint32_t next_free_lba = 1;
     SLIST_FOREACH(it, &part_list->head, next) {
-        if (i >= MBR_MAX_PARTITION_COUNT) {
-            ESP_LOGW(TAG, "More than %d partitions in the list, only the first %d will be added to the MBR", MBR_MAX_PARTITION_COUNT, MBR_MAX_PARTITION_COUNT);
+        if (i >= ESP_MBR_MAX_PARTITION_COUNT) {
+            ESP_LOGW(TAG, "More than %d partitions in the list, only the first %d will be added to the MBR", ESP_MBR_MAX_PARTITION_COUNT, ESP_MBR_MAX_PARTITION_COUNT);
             break; // MBR can only hold 4 partitions
         }
 
@@ -390,7 +396,7 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
 
     // Validate the generated layout (using the final post-alignment LBA values).
     for (int a = 0; a < partition_count; a++) {
-        mbr_partition_t *pa = &mbr->partition_table[a];
+        esp_mbr_partition_t *pa = &mbr->partition_table[a];
         if (pa->type == 0x00) {
             continue; // Empty entry, nothing to validate
         }
@@ -406,7 +412,7 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
 
         // Overlap check against previously placed partitions.
         for (int b = 0; b < a; b++) {
-            mbr_partition_t *pb = &mbr->partition_table[b];
+            esp_mbr_partition_t *pb = &mbr->partition_table[b];
             if (pb->type == 0x00) {
                 continue;
             }
@@ -423,24 +429,24 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
     return ESP_OK;
 }
 
-esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t *mbr)
+esp_err_t esp_mbr_remove_gaps_between_partition_entries(esp_mbr_t *mbr)
 {
     if (mbr == NULL) {
         return ESP_ERR_INVALID_ARG; // Invalid MBR pointer
     }
 
     // Iterate through the partition table and remove gaps
-    mbr_partition_t *partition;
+    esp_mbr_partition_t *partition;
     uint8_t gap_index = 0; // Next index to fill
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
         partition = &mbr->partition_table[i];
         if (partition->type == 0x00) {
             continue; // Skip empty entries
         }
         if (gap_index != i) {
             // Move the partition to the next available index
-            memcpy(&mbr->partition_table[gap_index], partition, sizeof(mbr_partition_t));
-            memset(partition, 0, sizeof(mbr_partition_t)); // Clear the old entry
+            memcpy(&mbr->partition_table[gap_index], partition, sizeof(esp_mbr_partition_t));
+            memset(partition, 0, sizeof(esp_mbr_partition_t)); // Clear the old entry
         }
         gap_index++;
     }

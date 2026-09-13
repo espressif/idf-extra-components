@@ -30,23 +30,23 @@ void esp_mbr_lba_to_chs_arr(uint8_t chs[3], uint32_t lba)
     uint8_t head;
     uint8_t sector;
 
-    uint32_t sectors_per_cylinder = MBR_CHS_HEADS * MBR_CHS_SECTORS_PER_TRACK;
+    uint32_t sectors_per_cylinder = ESP_MBR_CHS_HEADS * ESP_MBR_CHS_SECTORS_PER_TRACK;
     uint32_t temp;
 
     cylinder = lba / sectors_per_cylinder;
     temp = lba % sectors_per_cylinder;
-    head = temp / MBR_CHS_SECTORS_PER_TRACK;
-    sector = (temp % MBR_CHS_SECTORS_PER_TRACK) + 1;
+    head = temp / ESP_MBR_CHS_SECTORS_PER_TRACK;
+    sector = (temp % ESP_MBR_CHS_SECTORS_PER_TRACK) + 1;
 
     // Clamp to BIOS CHS limits
-    if (cylinder > MBR_CHS_MAX_CYLINDER) {
-        cylinder = MBR_CHS_MAX_CYLINDER;
+    if (cylinder > ESP_MBR_CHS_MAX_CYLINDER) {
+        cylinder = ESP_MBR_CHS_MAX_CYLINDER;
     }
-    if (head > MBR_CHS_MAX_HEAD) {
-        head = MBR_CHS_MAX_HEAD;
+    if (head > ESP_MBR_CHS_MAX_HEAD) {
+        head = ESP_MBR_CHS_MAX_HEAD;
     }
-    if (sector > MBR_CHS_MAX_SECTOR) {
-        sector = MBR_CHS_MAX_SECTOR;
+    if (sector > ESP_MBR_CHS_MAX_SECTOR) {
+        sector = ESP_MBR_CHS_MAX_SECTOR;
     }
 
     uint8_t chs_bytes[3];
