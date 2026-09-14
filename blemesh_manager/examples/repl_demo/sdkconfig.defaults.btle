@@ -1,0 +1,7 @@
+# Controller scan-duplicate knobs — BT_LE_* naming (NimBLE-era controller).
+# Chips: esp32c5, esp32c6, esp32c61, esp32h2. The mesh-specific cache symbol is
+# gone here; the generic duplicate-scan list is used instead.
+# Wired in via SDKCONFIG_DEFAULTS in CMakeLists.txt.
+CONFIG_BT_LE_SCAN_DUPL=y
+CONFIG_BT_LE_SCAN_DUPL_TYPE_DATA_DEVICE=y
+CONFIG_BT_LE_LL_DUP_SCAN_LIST_COUNT=100
