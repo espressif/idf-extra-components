@@ -5,11 +5,13 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_idf_version.h"
 
 #include "esp_ext_part_tables.h"
 #include "esp_mbr.h"
@@ -486,3 +488,60 @@ esp_err_t esp_mbr_remove_gaps_between_partition_entries(esp_mbr_t *mbr)
 
     return ESP_OK;
 }
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+esp_err_t esp_mbr_bdl_read(esp_blockdev_handle_t handle,
+                           esp_ext_part_list_t *part_list,
+                           const esp_mbr_parse_extra_args_t *extra_args)
+{
+    if (handle == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t *buf = malloc(ESP_MBR_SIZE);
+    if (buf == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    esp_err_t err = handle->ops->read(handle, buf, ESP_MBR_SIZE, 0, ESP_MBR_SIZE);
+    if (err == ESP_OK) {
+        err = esp_mbr_parse(buf, part_list, extra_args);
+    }
+
+    free(buf);
+    return err;
+}
+
+esp_err_t esp_mbr_bdl_write(esp_blockdev_handle_t handle,
+                            const esp_ext_part_list_t *part_list,
+                            const esp_mbr_generate_extra_args_t *extra_args)
+{
+    if (handle == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t *buf = calloc(1, ESP_MBR_SIZE);
+    if (buf == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    // Auto-fill the "fits within disk" bound from the device geometry when the caller
+    // did not provide one. This is a pure arithmetic check inside esp_mbr_generate - it
+    // does not allocate a buffer of `total_size`.
+    esp_mbr_generate_extra_args_t local_args = {0};
+    if (extra_args != NULL) {
+        local_args = *extra_args; // Caller's choices take precedence
+    }
+    if (local_args.total_size == 0 && handle->geometry.disk_size > 0) {
+        local_args.total_size = handle->geometry.disk_size;
+    }
+
+    esp_err_t err = esp_mbr_generate((esp_mbr_t *) buf, part_list, &local_args);
+    if (err == ESP_OK) {
+        err = handle->ops->write(handle, buf, 0, ESP_MBR_SIZE);
+    }
+
+    free(buf);
+    return err;
+}
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))

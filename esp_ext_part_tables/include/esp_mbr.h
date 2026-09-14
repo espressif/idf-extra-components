@@ -22,6 +22,7 @@ extern "C" {
 #define ESP_MBR_PARTITION_TABLE_OFFSET 0x1BE
 #define ESP_MBR_PARTITION_STATUS_ACTIVE 0x80
 #define ESP_MBR_MAX_PARTITION_COUNT 4
+#define ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE 0xEE
 
 // MBR partition entry structure - https://en.wikipedia.org/wiki/Master_boot_record#Partition_table_entries
 #pragma pack(push, 1)
@@ -100,6 +101,12 @@ typedef struct {
  * iterated with `esp_ext_part_list_next_matching`. When any partition is skipped (an
  * unknown/extended type, or one rejected by `match`), the list is marked
  * `ESP_EXT_PART_LIST_FLAG_LOSSY`.
+ *
+ * @note A GPT disk carries a protective MBR in its first sector, so this function
+ *       succeeds on one and returns a single partition of type
+ *       `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` spanning the device. Those are not the
+ *       real partitions; this component cannot read a GPT table. Check for that type,
+ *       or probe the device with `esp_ext_part_probe`, if GPT media are possible.
  *
  * @note This function is not thread-safe.
  *
@@ -238,6 +245,66 @@ esp_err_t esp_mbr_partition_set(esp_mbr_t *mbr, uint8_t partition_index, const e
  *     - ESP_ERR_INVALID_ARG: Invalid pointer to MBR structure.
  */
 esp_err_t esp_mbr_remove_gaps_between_partition_entries(esp_mbr_t *mbr);
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+/**
+ * @brief Read the MBR from a block device and parse it into a partition list.
+ *
+ * Reads the first sector of the device and hands it to `esp_mbr_parse`.
+ *
+ * The first sector of a partitioned medium is always an MBR, so this is a valid first
+ * step even on a device whose format is unknown. On a GPT disk it succeeds and yields
+ * a single partition of type `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` covering the
+ * device - that is the protective MBR, not the real GPT table, which this component
+ * cannot read. Use `esp_ext_part_probe` first if you need to know the format up front.
+ *
+ * @note This function is not thread-safe.
+ *
+ * @param[in]  handle     Block device handle to read from.
+ * @param[out] part_list  Partition list to populate. Must be empty (zero-initialized, or emptied with `esp_ext_part_list_deinit`).
+ * @param[in]  extra_args Optional extra arguments for parsing (can be NULL for defaults).
+ *
+ * @return
+ *     - ESP_OK: Partition list was successfully loaded.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
+ *     - ESP_ERR_INVALID_STATE: `part_list` already holds partitions.
+ *     - ESP_ERR_NOT_FOUND: MBR signature not found.
+ *     - ESP_ERR_NO_MEM: Memory allocation failed.
+ *     - propagated errors from BDL operations.
+ */
+esp_err_t esp_mbr_bdl_read(esp_blockdev_handle_t handle,
+                           esp_ext_part_list_t *part_list,
+                           const esp_mbr_parse_extra_args_t *extra_args);
+
+/**
+ * @brief Generate an MBR from a partition list and write it to a block device.
+ *
+ * Generates the MBR with `esp_mbr_generate` and writes it to the first sector.
+ *
+ * @note The caller's `extra_args` is never modified. When its `total_size` is 0, a
+ *       copy is made with `total_size` filled in from the block device geometry, so
+ *       the "fits within disk" check is performed by default.
+ *
+ * @warning The MBR is generated into a zeroed buffer, so the bootstrap code of any MBR
+ *          already on the device is not preserved by this function. Use `esp_mbr_parse`
+ *          plus `esp_mbr_generate` on a buffer you read yourself if you need to keep it.
+ *
+ * @note This function is not thread-safe.
+ *
+ * @param[in] handle     Block device handle to write to.
+ * @param[in] part_list  Partition list to generate the MBR from.
+ * @param[in] extra_args Optional extra arguments for generation (can be NULL for defaults).
+ *
+ * @return
+ *     - ESP_OK: Partition table was successfully written.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
+ *     - ESP_ERR_NO_MEM: Memory allocation failed.
+ *     - propagated errors from BDL operations or from `esp_mbr_generate`.
+ */
+esp_err_t esp_mbr_bdl_write(esp_blockdev_handle_t handle,
+                            const esp_ext_part_list_t *part_list,
+                            const esp_mbr_generate_extra_args_t *extra_args);
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 #ifdef __cplusplus
 }

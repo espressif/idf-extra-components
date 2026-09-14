@@ -79,6 +79,7 @@ typedef enum {
 
 typedef enum {
     ESP_EXT_PART_LIST_SIGNATURE_MBR, /*!< MBR signature type */
+    ESP_EXT_PART_LIST_SIGNATURE_GPT, /*!< GPT. Reported by `esp_ext_part_probe` only; this component cannot parse or generate GPT, and the signature accessors reject this type. */
 } esp_ext_part_signature_type_t;
 
 typedef struct {
@@ -300,69 +301,34 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 /**
- * @brief Read a partition table from a block device handle and parse it.
+ * @brief Detect which partition table format a block device carries.
  *
- * This function reads the partition table from the specified block device and populates the provided partition list structure.
- * The type of partition table to read is specified by the 'type' parameter.
- * Additional arguments for parsing can be provided through the 'extra_args' parameter.
+ * Reads the first sector and reports the partition table format found there, so a
+ * caller that does not know the medium in advance can pick the matching parser
+ * instead of guessing.
  *
- * @warning `extra_args` is type-erased: its concrete type is selected by `type` and
- *          is NOT checked by the compiler. Passing a struct that does not match
- *          `type` is undefined behavior. The mapping is:
- *          - `ESP_EXT_PART_LIST_SIGNATURE_MBR` -> `const esp_mbr_parse_extra_args_t *`
- *            (see `esp_mbr.h`), forwarded unchanged to `esp_mbr_parse`.
- *          Pass NULL to use the defaults of the underlying parse function.
+ * Detection relies on the first sector always being an MBR: a GPT disk carries a
+ * protective MBR there, whose single partition entry has type `0xEE`. A disk with a
+ * boot signature but no protective entry is reported as MBR.
  *
- * @note This function is not thread-safe.
- *
- * @param[in] handle       Block device handle to read from.
- * @param[out] part_list   Pointer to the partition list structure to populate from the partition table. Must be empty (zero-initialized, or emptied with `esp_ext_part_list_deinit`).
- * @param[in] type         Type of partition table to read (e.g., MBR).
- * @param[in] extra_args   Pointer to additional arguments for parsing, of the type selected by `type` (optional, can be NULL).
- *
- * @return
- *     - ESP_OK: Partition list was successfully loaded.
- *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
- *     - ESP_ERR_INVALID_STATE: `part_list` already holds partitions.
- *     - ESP_ERR_NOT_SUPPORTED: Unsupported partition table type.
- *     - ESP_ERR_NO_MEM: Memory allocation failed.
- *     - propagated errors from BDL operations or partition table parsing functions.
- */
-esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, const void *extra_args);
-
-/**
- * @brief Generate a partition table and write it to a block device handle.
- *
- * This function writes the provided partition list to the specified block device.
- * The type of partition table to write is specified by the 'type' parameter.
- * Additional arguments for generation can be provided through the 'extra_args' parameter.
- *
- * @warning `extra_args` is type-erased: its concrete type is selected by `type` and
- *          is NOT checked by the compiler. Passing a struct that does not match
- *          `type` is undefined behavior. The mapping is:
- *          - `ESP_EXT_PART_LIST_SIGNATURE_MBR` -> `const esp_mbr_generate_extra_args_t *`
- *            (see `esp_mbr.h`), copied and forwarded to `esp_mbr_generate`.
- *          Pass NULL to use the defaults of the underlying generate function.
- *
- * @note The caller's `extra_args` is never modified. When its `total_size` is 0, a
- *       copy is made with `total_size` filled in from the block device geometry, so
- *       the "fits within disk" check is performed by default.
+ * @note Only formats this component can parse are reported; see
+ *       `esp_ext_part_signature_type_t`. A GPT disk is detected but cannot be parsed
+ *       by this component, so `esp_mbr_bdl_read` on such a device returns only the
+ *       protective entry (`ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR`).
  *
  * @note This function is not thread-safe.
  *
- * @param[in] handle       Block device handle to write to.
- * @param[in] part_list    Pointer to the partition list structure generate the partition table from.
- * @param[in] type         Type of partition table to write (e.g., MBR).
- * @param[in] extra_args   Pointer to additional arguments for generation, of the type selected by `type` (optional, can be NULL).
+ * @param[in]  handle   Block device handle to probe.
+ * @param[out] out_type Detected partition table format.
  *
  * @return
- *     - ESP_OK: Partition list was successfully written.
- *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
- *     - ESP_ERR_NOT_SUPPORTED: Unsupported partition table type.
+ *     - ESP_OK: A known partition table format was detected.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `out_type` is NULL.
+ *     - ESP_ERR_NOT_FOUND: No partition table was recognized (no MBR boot signature).
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
- *     - propagated errors from BDL operations or partition table generation functions.
+ *     - propagated errors from BDL operations.
  */
-esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, const esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, const void *extra_args);
+esp_err_t esp_ext_part_probe(esp_blockdev_handle_t handle, esp_ext_part_signature_type_t *out_type);
 #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 #ifdef __cplusplus

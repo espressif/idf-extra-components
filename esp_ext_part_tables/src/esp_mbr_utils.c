@@ -8,6 +8,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_ext_part_tables.h"
+#include "esp_mbr.h"
 #include "esp_mbr_utils.h"
 
 static const char *TAG = "esp_mbr_utils";
@@ -122,7 +123,7 @@ static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_t
         parsed_type = ESP_EXT_PART_TYPE_LINUX_ANY;
         supported = false; // Not mountable
         break;
-    case 0xEE: // GPT protective MBR
+    case ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE: // GPT protective MBR
         parsed_type = ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR;
         supported = false; // Not mountable
         break;

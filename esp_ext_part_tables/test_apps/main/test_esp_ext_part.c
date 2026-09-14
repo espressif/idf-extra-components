@@ -1620,6 +1620,55 @@ static esp_err_t bdl_simulated_get_blockdev(uint8_t *buffer, size_t buffer_size,
     return ESP_OK;
 }
 
+TEST_CASE("Test esp_ext_part_probe detects the partition table format", "[esp_ext_part_table]")
+{
+    size_t buffer_size = 512;
+    uint8_t *buffer = (uint8_t *) malloc(buffer_size);
+    TEST_ASSERT_NOT_NULL(buffer);
+    esp_blockdev_handle_t handle = NULL;
+    TEST_ESP_OK(bdl_simulated_get_blockdev(buffer, buffer_size, &handle));
+    TEST_ASSERT_NOT_NULL(handle);
+
+    esp_ext_part_signature_type_t type = (esp_ext_part_signature_type_t) 0xFF;
+
+    // A blank device has no boot signature at all
+    memset(buffer, 0, buffer_size);
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_FOUND, esp_ext_part_probe(handle, &type));
+
+    // A plain MBR
+    TEST_ESP_OK(handle->ops->write(handle, mbr_bin, 0, mbr_bin_len));
+    TEST_ESP_OK(esp_ext_part_probe(handle, &type));
+    TEST_ASSERT_EQUAL(ESP_EXT_PART_LIST_SIGNATURE_MBR, type);
+
+    // The same sector with a protective entry is a GPT disk. This is the case a caller
+    // cannot distinguish without probing: parsing it as MBR still succeeds.
+    esp_mbr_t protective = *(const esp_mbr_t *) mbr_bin;
+    memset(protective.partition_table, 0, sizeof(protective.partition_table));
+    protective.partition_table[0].type = ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE;
+    protective.partition_table[0].lba_start = 1;
+    protective.partition_table[0].sector_count = 0xFFFFFFFF;
+    TEST_ESP_OK(handle->ops->write(handle, (const uint8_t *) &protective, 0, ESP_MBR_SIZE));
+    TEST_ESP_OK(esp_ext_part_probe(handle, &type));
+    TEST_ASSERT_EQUAL(ESP_EXT_PART_LIST_SIGNATURE_GPT, type);
+
+    // Parsing a GPT disk as MBR yields only the protective entry, which is why probing
+    // first is worthwhile.
+    esp_ext_part_list_t part_list = {0};
+    TEST_ESP_OK(esp_mbr_bdl_read(handle, &part_list, NULL));
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
+    TEST_ASSERT_NOT_NULL(it);
+    TEST_ASSERT_EQUAL(ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR, it->info.type);
+    TEST_ASSERT_NULL(esp_ext_part_list_item_next(it));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+
+    // NULL arguments
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_probe(NULL, &type));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_probe(handle, NULL));
+
+    handle->ops->release(handle);
+    free(buffer);
+}
+
 TEST_CASE("Test with BDL (simulated in RAM) - basic operations", "[esp_ext_part_table]")
 {
     size_t buffer_size = 3 * 1024;
@@ -1702,7 +1751,7 @@ TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table
 
     esp_ext_part_list_t part_list = {0};
     esp_ext_part_list_item_t *it = NULL;
-    err = esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args);
+    err = esp_mbr_bdl_read(handle, &part_list, &mbr_parse_args);
     TEST_ESP_OK(err);
 
     it = esp_ext_part_list_item_head(&part_list);
@@ -1727,12 +1776,12 @@ TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &partition_for_insertion));
 
-    err = esp_ext_part_list_bdl_write(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_gen_args);
+    err = esp_mbr_bdl_write(handle, &part_list, &mbr_gen_args);
     TEST_ESP_OK(err);
 
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
 
-    err = esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args);
+    err = esp_mbr_bdl_read(handle, &part_list, &mbr_parse_args);
     TEST_ESP_OK(err);
 
     it = esp_ext_part_list_item_head(&part_list);
@@ -1754,7 +1803,7 @@ TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table
         }
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &off_disk_partition));
-    err = esp_ext_part_list_bdl_write(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_gen_args);
+    err = esp_mbr_bdl_write(handle, &part_list, &mbr_gen_args);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, err);
 
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
@@ -1790,14 +1839,14 @@ TEST_CASE("Test auto-placement: FILL via BDL uses device geometry", "[esp_ext_pa
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
         .alignment = ESP_EXT_PART_ALIGN_1MiB,
     };
-    TEST_ESP_OK(esp_ext_part_list_bdl_write(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_gen_args));
+    TEST_ESP_OK(esp_mbr_bdl_write(handle, &part_list, &mbr_gen_args));
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
 
     // Read the MBR back and confirm the FILL partition reaches the disk end.
     esp_mbr_parse_extra_args_t mbr_parse_args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B
     };
-    TEST_ESP_OK(esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args));
+    TEST_ESP_OK(esp_mbr_bdl_read(handle, &part_list, &mbr_parse_args));
     esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
     TEST_ASSERT_NOT_NULL(it);
 

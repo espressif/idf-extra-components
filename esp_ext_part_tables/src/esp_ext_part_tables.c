@@ -189,83 +189,42 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
 }
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
-esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, const void *extra_args)
+esp_err_t esp_ext_part_probe(esp_blockdev_handle_t handle, esp_ext_part_signature_type_t *out_type)
 {
-    if (handle == NULL || part_list == NULL) {
+    if (handle == NULL || out_type == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_err_t err = ESP_OK;
-    uint8_t *buf = NULL;
+    uint8_t *buf = malloc(ESP_MBR_SIZE);
+    if (buf == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
 
-    switch (type) {
-    case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        buf = malloc(ESP_MBR_SIZE);
-        if (buf == NULL) {
-            return ESP_ERR_NO_MEM;
-        }
-
-        err = handle->ops->read(handle, buf, ESP_MBR_SIZE, 0, ESP_MBR_SIZE);
-        if (err != ESP_OK) {
-            free(buf);
-            return err;
-        }
-
-        err = esp_mbr_parse(buf, part_list, (const esp_mbr_parse_extra_args_t *) extra_args);
+    esp_err_t err = handle->ops->read(handle, buf, ESP_MBR_SIZE, 0, ESP_MBR_SIZE);
+    if (err != ESP_OK) {
         free(buf);
-        break;
-
-    default:
-        err = ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
-        break;
+        return err;
     }
 
-    return err;
-}
-
-esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, const esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, const void *extra_args)
-{
-    if (handle == NULL || part_list == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    esp_err_t err = ESP_OK;
-    uint8_t *buf = NULL;
-
-    switch (type) {
-    case ESP_EXT_PART_LIST_SIGNATURE_MBR: {
-        buf = calloc(1, ESP_MBR_SIZE);
-        if (buf == NULL) {
-            return ESP_ERR_NO_MEM;
-        }
-
-        // Auto-fill the "fits within disk" bound from the device geometry when the
-        // caller did not provide one. This is a pure arithmetic check inside
-        // esp_mbr_generate - it does not allocate a buffer of `total_size`.
-        esp_mbr_generate_extra_args_t local_args = {0};
-        if (extra_args != NULL) {
-            local_args = *(const esp_mbr_generate_extra_args_t *) extra_args; // Caller's choices take precedence
-        }
-        if (local_args.total_size == 0 && handle->geometry.disk_size > 0) {
-            local_args.total_size = handle->geometry.disk_size;
-        }
-
-        err = esp_mbr_generate((esp_mbr_t *) buf, part_list, &local_args);
-        if (err != ESP_OK) {
-            free(buf);
-            return err;
-        }
-
-        err = handle->ops->write(handle, buf, 0, ESP_MBR_SIZE);
+    // The first sector of a partitioned medium is always an MBR. On a GPT disk it is a
+    // protective MBR whose single entry has type 0xEE, which is what distinguishes the
+    // two formats here.
+    const esp_mbr_t *mbr = (const esp_mbr_t *) buf;
+    if (mbr->boot_signature != ESP_MBR_SIGNATURE) {
+        ESP_LOGD(TAG, "No MBR boot signature, no known partition table");
         free(buf);
-        break;
+        return ESP_ERR_NOT_FOUND;
     }
 
-    default:
-        err = ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
-        break;
+    *out_type = ESP_EXT_PART_LIST_SIGNATURE_MBR;
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
+        if (mbr->partition_table[i].type == ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE) {
+            *out_type = ESP_EXT_PART_LIST_SIGNATURE_GPT;
+            break;
+        }
     }
 
-    return err;
+    free(buf);
+    return ESP_OK;
 }
 #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))

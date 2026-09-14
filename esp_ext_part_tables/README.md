@@ -13,6 +13,34 @@ Currently only [MBR (Master boot record)](https://en.wikipedia.org/wiki/Master_b
 - Filter partitions with a caller predicate (e.g. only mountable filesystems)
 - Example projects included
 
+## Detecting the format of an unknown medium
+
+The first sector of a partitioned medium is always an MBR, so `esp_mbr_bdl_read` (or
+`esp_mbr_parse` on a sector you read yourself) is a valid first step even when you do
+not know what the device holds. What it returns tells you the format:
+
+| Device | Result |
+|---|---|
+| MBR | `ESP_OK`, the real partitions |
+| GPT | `ESP_OK`, a single partition of type `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` |
+| Neither | `ESP_ERR_NOT_FOUND` (no MBR boot signature) |
+
+A GPT disk carries a *protective MBR* in the first sector: one entry of type `0xEE`
+spanning the whole device, which exists so that MBR-only tools do not treat the disk as
+unpartitioned. Parsing it therefore succeeds, but the partitions it describes are not
+the real ones - this component cannot read a GPT table. **If you may encounter GPT
+media, check for `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` before using the result.**
+
+To decide up front rather than from the parsed result, probe the device:
+
+```c
+esp_ext_part_signature_type_t type;
+esp_err_t err = esp_ext_part_probe(handle, &type);
+if (err == ESP_OK && type == ESP_EXT_PART_LIST_SIGNATURE_MBR) {
+    err = esp_mbr_bdl_read(handle, &part_list, NULL);
+} // type == ESP_EXT_PART_LIST_SIGNATURE_GPT -> GPT, not readable by this component
+```
+
 ## Partition selection and filtering (MBR parsing)
 
 `esp_mbr_parse` inserts **every recognized partition** into the list by default,
@@ -88,7 +116,7 @@ parsing into a list you have already used.
 
 ## Alignment and layout validation (MBR generation)
 
-When generating an MBR (`esp_mbr_generate` / `esp_ext_part_list_bdl_write`), the
+When generating an MBR (`esp_mbr_generate` / `esp_mbr_bdl_write`), the
 behavior is controlled through `esp_mbr_generate_extra_args_t` (a zero-initialized
 struct selects all defaults):
 
@@ -134,7 +162,7 @@ automatically by setting flags on `esp_ext_part_t.flags`:
 - `ESP_EXT_PART_FLAG_FILL` (with `AUTO_ADDRESS` and `info.size == 0`): the
   partition is sized to fill from its computed start to the end of the disk. This
   needs a known disk size - either `extra_args->total_size`, or (via
-  `esp_ext_part_list_bdl_write`) the block device geometry.
+  `esp_mbr_bdl_write`) the block device geometry.
 
 The caller's partition list is never modified; addresses/sizes are resolved into
 internal copies during generation.
@@ -156,7 +184,7 @@ esp_ext_part_list_item_t p1 = {
         .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS | ESP_EXT_PART_FLAG_FILL | ESP_EXT_PART_FLAG_EXTRA,
     }
 };
-// esp_ext_part_list_insert(&part_list, &p0/&p1); then esp_ext_part_list_bdl_write(...)
+// esp_ext_part_list_insert(&part_list, &p0/&p1); then esp_mbr_bdl_write(...)
 ```
 
 ## Example code
