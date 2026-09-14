@@ -24,6 +24,18 @@ not know what the device holds. What it returns tells you the format:
 | MBR | `ESP_OK`, the real partitions |
 | GPT | `ESP_OK`, a single partition of type `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` |
 | Neither | `ESP_ERR_NOT_FOUND` (no MBR boot signature) |
+| Filesystem without a partition table ("superfloppy") | `ESP_ERR_NOT_FOUND` |
+
+A medium formatted without a partition table has a filesystem boot sector in its
+first sector, which also ends in the `0x55AA` signature. It is told apart from an MBR
+by the partition entries' status bytes, which must be `0x00` or `0x80` in an MBR.
+
+The block-device helpers read and write the first I/O unit of the device: 512 B, or
+the device's read/write/erase granularity if larger. `esp_mbr_bdl_write` reads that
+unit, updates only the MBR fields in it (the bootstrap code and any other data in the
+unit are kept) and erases it before writing if the device requires it. The MBR sector
+size is not taken from the device; pass `sector_size` in the extra arguments for media
+whose sectors are not 512 B.
 
 A GPT disk carries a *protective MBR* in the first sector: one entry of type `0xEE`
 spanning the whole device, which exists so that MBR-only tools do not treat the disk as
@@ -60,7 +72,7 @@ The library ships a ready-made matcher, `esp_ext_part_match_mountable()`, so you
 usually do not need to write your own. It treats FAT12/16/32 as always mountable
 (FatFs is part of ESP-IDF) and LittleFS as mountable when the LittleFS component is
 visible at compile time (detected via `__has_include("esp_littlefs.h")`, or forced by
-defining `ESP_EXT_PART_HAS_LITTLEFS`):
+defining `ESP_EXT_PART_HAS_LITTLEFS`) and the partition has a block size (see below):
 
 ```c
 esp_ext_part_match_t matcher = esp_ext_part_match_mountable();
@@ -133,16 +145,37 @@ to 512 B.
   zero-initialized struct selects) resolves to a 1 MiB default;
   `ESP_EXT_PART_ALIGN_NONE` leaves start LBAs untouched; `ESP_EXT_PART_ALIGN_4KiB`
   and `ESP_EXT_PART_ALIGN_1MiB` request a specific alignment.
-- `align_policy`: what happens to a partition's size when alignment moves its
-  start. `ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE` (default) keeps the requested size
-  as the length from the aligned start (matching `fdisk`/`parted`);
-  `ESP_EXT_PART_ALIGN_POLICY_REJECT` returns an error if a start was not already
-  aligned; `ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END` shrinks the size so the end
-  stays at the originally requested `address + size`.
+- `align_policy`: how partitions with an explicit address are treated. Partitions
+  placed by the library (`ESP_EXT_PART_FLAG_AUTO_ADDRESS`) always start on an
+  aligned LBA.
+  - `ESP_EXT_PART_ALIGN_POLICY_KEEP_ADDRESS` (default): written exactly where given,
+    aligned or not. Regenerating a parsed table therefore never moves existing
+    partitions (which would orphan their filesystems). This matches `fdisk`/`parted`,
+    which align only start values they choose themselves.
+  - `ESP_EXT_PART_ALIGN_POLICY_REJECT`: return an error if an explicit start is not
+    aligned.
+  - `ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END`: align the start up and shrink the size
+    so the end stays at the requested `address + size`.
+  - `ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE`: align the start up and keep the requested
+    size. Only for new layouts; it moves the partition.
 
-Overlapping partitions are always rejected, and a list item with type
-`ESP_EXT_PART_TYPE_NONE` (which would create a gap that truncates the parsed
-table) is rejected with `ESP_ERR_INVALID_ARG`.
+Overlapping partitions are always rejected. A list item with type
+`ESP_EXT_PART_TYPE_NONE` is rejected with `ESP_ERR_INVALID_ARG`, one whose type has
+no MBR type code with `ESP_ERR_NOT_SUPPORTED`, and one with size 0 (other than
+AUTO_ADDRESS + FILL) with `ESP_ERR_INVALID_SIZE`.
+
+## Table slots and partition numbering (MBR)
+
+The four MBR slots do not have to be used consecutively: deleting a partition with
+`fdisk` or Windows leaves its slot empty, and the remaining partitions keep their
+numbers (e.g. Linux `sdX2`, `sdX4`). `esp_mbr_parse` reads all four slots and records
+each partition's 1-based slot number in `esp_ext_part_t.slot`.
+
+By default `esp_mbr_generate` writes the list to consecutive slots from the first one
+and ignores `slot`, so a table with empty slots is compacted and its partitions are
+renumbered. Set `esp_mbr_generate_extra_args_t.preserve_slots = true` to keep the
+numbering: items with `slot` 1..4 are written to that slot, and items with `slot == 0`
+(e.g. newly added ones) fill the lowest free slots in list order.
 
 The partition list is the single source of truth for the generated table: all four
 MBR entries are either built from a list item or zeroed, so nothing from a
@@ -186,6 +219,21 @@ esp_ext_part_list_item_t p1 = {
 };
 // esp_ext_part_list_insert(&part_list, &p0/&p1); then esp_mbr_bdl_write(...)
 ```
+
+### LittleFS block size
+
+MBR has no field for a LittleFS block size, so this library stores it in the CHS-start
+bytes of the type `0xC3` entry (`esp_ext_part_t.extra`, 24 bits). Only a power of two
+from 128 B to 1 MiB is accepted:
+
+- When parsing, a stored value outside that set is ignored: `extra` stays 0 and
+  `ESP_EXT_PART_FLAG_EXTRA` is not set. Type `0xC3` is also used by other software
+  (historically "hidden Linux swap"), whose entries contain real CHS bytes there.
+- When generating, `extra == 0` writes no block size (zeros, with a warning), so a
+  parsed table containing such an entry can still be regenerated. Any other value
+  outside the set is rejected with `ESP_ERR_INVALID_SIZE` instead of being truncated.
+- `esp_ext_part_match_mountable()` reports a LittleFS partition as mountable only if
+  it has a block size.
 
 ## Example code
 
@@ -232,3 +280,18 @@ Runnable example projects can be found in [`examples/`](/esp_ext_part_tables/exa
 See [`esp_ext_part_tables.h`](/esp_ext_part_tables/include/esp_ext_part_tables.h) for the full API documentation.
 
 More advanced API documentation can be found here: [`esp_mbr.h`](/esp_ext_part_tables/include/esp_mbr.h), [`esp_mbr_utils.h`](/esp_ext_part_tables/include/esp_mbr_utils.h).
+
+## Tests
+
+The component is pure partition-table logic, so its tests in
+[`test_apps/`](/esp_ext_part_tables/test_apps/) need no storage hardware: they parse and
+generate MBRs in memory, and the block-device tests run against a RAM-backed
+`esp_blockdev` device. They run in two configurations:
+
+- on the **linux host target** (`pytest -m host_test`), which is what most of CI uses;
+- on **target under QEMU** (`pytest -m qemu`, esp32s3 and esp32c3), which additionally
+  covers 32-bit pointer width and real heap accounting for the leak checks.
+
+Neither configuration exercises a physical SD card, eMMC or USB medium, so the
+interaction with a real storage driver is intentionally out of scope for these tests.
+
