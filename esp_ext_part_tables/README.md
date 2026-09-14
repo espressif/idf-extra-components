@@ -232,3 +232,18 @@ Runnable example projects can be found in [`examples/`](/esp_ext_part_tables/exa
 See [`esp_ext_part_tables.h`](/esp_ext_part_tables/include/esp_ext_part_tables.h) for the full API documentation.
 
 More advanced API documentation can be found here: [`esp_mbr.h`](/esp_ext_part_tables/include/esp_mbr.h), [`esp_mbr_utils.h`](/esp_ext_part_tables/include/esp_mbr_utils.h).
+
+## Tests
+
+The component is pure partition-table logic, so its tests in
+[`test_apps/`](/esp_ext_part_tables/test_apps/) need no storage hardware: they parse and
+generate MBRs in memory, and the block-device tests run against a RAM-backed
+`esp_blockdev` device. They run in two configurations:
+
+- on the **linux host target** (`pytest -m host_test`), which is what most of CI uses;
+- on **target under QEMU** (`pytest -m qemu`, esp32s3 and esp32c3), which additionally
+  covers 32-bit pointer width and real heap accounting for the leak checks.
+
+Neither configuration exercises a physical SD card, eMMC or USB medium, so the
+interaction with a real storage driver is intentionally out of scope for these tests.
+

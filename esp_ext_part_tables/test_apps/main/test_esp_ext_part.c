@@ -91,7 +91,7 @@ TEST_CASE("Test esp_mbr_parse", "[esp_ext_part_table]")
         TEST_ASSERT_NOT_EQUAL(0, it->info.type);
     } while ((it = esp_ext_part_list_item_next(it)) != NULL);
     esp_ext_part_list_deinit(&part_list);
-    TEST_ASSERT_EQUAL(0, part_list.head.slh_first);
+    TEST_ASSERT_NULL(part_list.head.slh_first);
 }
 
 TEST_CASE("Test esp_mbr_parse rejects a non-empty partition list", "[esp_ext_part_table]")
@@ -278,7 +278,7 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
     // Deinitialize the part list
     esp_ext_part_list_deinit(&part_list);
     it = NULL;
-    TEST_ASSERT_EQUAL(0, part_list.head.slh_first);
+    TEST_ASSERT_NULL(part_list.head.slh_first);
 
     // Another MBR
 
@@ -901,6 +901,75 @@ TEST_CASE("Test partition whose end exceeds the 32-bit MBR range is rejected", "
 // not a power of two. The defined enum values all happen to yield a power-of-two
 // number of sectors, but a caller may cast a custom alignment value, so the
 // rounding must not rely on the power-of-two bitmask idiom.
+TEST_CASE("Test esp_mbr_chs_arr_val_set/get round-trip", "[esp_ext_part_table]")
+{
+    uint8_t chs[3] = {0};
+
+    // The 3 CHS bytes are stored little endian, which is how the LittleFS block size
+    // hack reads and writes them.
+    esp_mbr_chs_arr_val_set(chs, 0x00AABBCC);
+    TEST_ASSERT_EQUAL_HEX8(0xCC, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0xBB, chs[1]);
+    TEST_ASSERT_EQUAL_HEX8(0xAA, chs[2]);
+    TEST_ASSERT_EQUAL_HEX32(0x00AABBCC, esp_mbr_chs_arr_val_get(chs));
+
+    // Only the low 24 bits fit; the top byte is dropped
+    esp_mbr_chs_arr_val_set(chs, 0xFF123456);
+    TEST_ASSERT_EQUAL_HEX32(0x00123456, esp_mbr_chs_arr_val_get(chs));
+
+    esp_mbr_chs_arr_val_set(chs, 0);
+    TEST_ASSERT_EQUAL_HEX32(0, esp_mbr_chs_arr_val_get(chs));
+}
+
+TEST_CASE("Test esp_mbr_lba_to_chs_arr", "[esp_ext_part_table]")
+{
+    // Geometry is fixed at 255 heads x 63 sectors/track = 16065 sectors per cylinder.
+    // Packing is: byte0 = head, byte1 = high 2 bits of cylinder | 6-bit sector,
+    // byte2 = low 8 bits of cylinder. Sector numbering is 1 based.
+    uint8_t chs[3];
+
+    // LBA 0 -> C0 H0 S1
+    esp_mbr_lba_to_chs_arr(chs, 0);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x01, chs[1]);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[2]);
+
+    // Last sector of the first track, then the first sector of the next head
+    esp_mbr_lba_to_chs_arr(chs, 62);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x3F, chs[1]); // sector 63, no cylinder bits
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[2]);
+
+    esp_mbr_lba_to_chs_arr(chs, 63);
+    TEST_ASSERT_EQUAL_HEX8(0x01, chs[0]); // head 1
+    TEST_ASSERT_EQUAL_HEX8(0x01, chs[1]); // sector 1
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[2]);
+
+    // Cross-check against the real MBR in mbr_bin: its first partition starts at LBA
+    // 2048 and ends at LBA 10000, and carries the CHS values a real formatter wrote.
+    const esp_mbr_t *ref = (const esp_mbr_t *) mbr_bin;
+    esp_mbr_lba_to_chs_arr(chs, 2048);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(ref->partition_table[0].chs_start, chs, 3);
+    esp_mbr_lba_to_chs_arr(chs, 2048 + 7953 - 1);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(ref->partition_table[0].chs_end, chs, 3);
+
+    // A cylinder above 255 must put its top 2 bits into byte 1
+    esp_mbr_lba_to_chs_arr(chs, 300 * 16065);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[0]);          // head 0
+    TEST_ASSERT_EQUAL_HEX8(0x41, chs[1]);          // cylinder bits 0b01 << 6 | sector 1
+    TEST_ASSERT_EQUAL_HEX8(0x2C, chs[2]);          // 300 & 0xFF
+
+    // Beyond the BIOS limit everything saturates at cylinder 1023
+    esp_mbr_lba_to_chs_arr(chs, UINT32_MAX);
+    TEST_ASSERT_EQUAL_HEX8(0xFF, chs[2]);          // low 8 bits of 1023
+    TEST_ASSERT_EQUAL_HEX8(0xC0, chs[1] & 0xC0);   // high 2 bits of 1023
+    TEST_ASSERT_LESS_OR_EQUAL_UINT8(ESP_MBR_CHS_MAX_SECTOR, chs[1] & 0x3F);
+    TEST_ASSERT_LESS_OR_EQUAL_UINT8(ESP_MBR_CHS_MAX_HEAD, chs[0]);
+
+    // A NULL destination is ignored rather than dereferenced
+    esp_mbr_lba_to_chs_arr(NULL, 2048);
+}
+
 TEST_CASE("Test esp_mbr_lba_align rounds up for non-power-of-two alignment", "[esp_ext_part_table]")
 {
     // alignment = 1536 bytes, sector_size = 512 => alignment_sectors = 3 (not a power of two).
@@ -1807,6 +1876,8 @@ TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, err);
 
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+    handle->ops->release(handle);
+    free(buffer);
 }
 
 // Test 10: AUTO_ADDRESS + FILL through the BDL write path, with total_size
