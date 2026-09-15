@@ -30,6 +30,7 @@ jobs:
             cbor
             ccomp_timer
             cjson
+            clarke_park
             coap
             coremark
             dhara
