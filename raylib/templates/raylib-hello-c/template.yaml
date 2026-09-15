@@ -1,0 +1,48 @@
+#INCLUDEFILE false
+options:
+  - !Category
+    name: board
+    display_name: Board Selection
+    help: Select target development board
+    options:
+      - !Option
+        name: esp32_s3_box_3
+        display_name: ESP32-S3-BOX-3 (320x240 ILI9341)
+        chips: [esp32s3]
+      - !Option
+        name: esp32_s3_lcd_ev_board
+        display_name: ESP32-S3-LCD-EV-Board (480x480 GC9503)
+        chips: [esp32s3]
+      - !Option
+        name: esp32s3_korvo_2
+        display_name: ESP32-S3-Korvo-2 (320x240 ILI9341)
+        chips: [esp32s3]
+      - !Option
+        name: esp32_s3_box
+        display_name: ESP32-S3-BOX (320x240 ST7789) - No BSP component
+        chips: [esp32s3]
+      # New boards from esp-bsp (ESP32-S3 only)
+      - !Option
+        name: esp_vocat
+        display_name: ESP-VoCat (360x360 ST77916 QSPI)
+        chips: [esp32s3]
+      - !Option
+        name: esp32_s3_eye
+        display_name: ESP32-S3-EYE (240x240 ST7789)
+        chips: [esp32s3]
+      - !Option
+        name: m5stack_core_s3
+        display_name: M5Stack-CoreS3 (320x240 ILI9341) - IO expander
+        chips: [esp32s3]
+      - !Option
+        name: m5stack_atom_s3
+        display_name: M5Stack-AtomS3 (128x128 GC9A01)
+        chips: [esp32s3]
+      - !Option
+        name: m5stack_atom_s3r
+        display_name: M5Stack-AtomS3R (128x128 GC9107) - No BSP
+        chips: [esp32s3]
+      - !Option
+        name: m5stack_core_2
+        display_name: M5Stack-Core2 (320x240 ILI9342)
+        chips: [esp32]

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-m5stack-core-s3", "id": "esp", "top": 0, "left": 0, "attrs": { "psramSize": "16", "flashSize": "16" } },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "aw9523-workaround",
+      "top": 217.6,
+      "left": 408.8,
+      "attrs": { "pins": "i2c", "i2cAddress": "0x58" }
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "axp2101-workaround",
+      "top": 64,
+      "left": 399.2,
+      "attrs": { "pins": "i2c", "i2cAddress": "0x34" }
+    }
+  ],
+  "connections": [
+    ["esp:G43", "$serialMonitor:RX", ""],
+    ["esp:G44", "$serialMonitor:TX", ""],
+    ["aw9523-workaround:SCL", "esp:G11", "green", ["h0"]],
+    ["aw9523-workaround:SDA", "esp:G12", "green", ["h0"]],
+    ["axp2101-workaround:SCL", "esp:G11", "green", ["h0"]],
+    ["axp2101-workaround:SDA", "esp:G12", "green", ["h0"]]
+  ]
+}

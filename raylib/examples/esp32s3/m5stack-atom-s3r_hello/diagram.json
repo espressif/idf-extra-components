@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-m5stack-atom-s3r",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", ""],
+    ["esp:RX", "$serialMonitor:TX", ""]
+  ]
+}
