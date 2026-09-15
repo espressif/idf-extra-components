@@ -25,6 +25,24 @@ You can contribute by fixing bugs, adding features, adding documentation or repo
 
 Before reporting an issue, make sure you've searched for a similar one that was already created.
 
+### Build Documentation Locally
+
+Components that ship a programming guide live in `<component>/docs/` with an mdBook `book.toml`. Install the prerequisites first:
+
+- Python 3.11+
+- `mdbook`
+- `mdbook-mermaid` (`cargo install mdbook-mermaid --locked`)
+- `doxygen`
+- `esp-doxybook` (`python3 -m pip install -r .github/tools/requirements-docs.txt`)
+
+Build all component docs:
+
+```bash
+python3 .github/tools/build_docs.py --output-dir docs_build_output
+```
+
+The builder discovers every `docs/book.toml`, validates all required tools before starting (mdBook preprocessors such as `mdbook-mermaid` are detected from the book configuration), builds every component, and reports all failed components at the end. Output is generated under `docs_build_output/`. The same script is used by the [Build and Deploy Programming Guides](.github/workflows/deploy_gh_pages.yml) workflow.
+
 ### Adding New Components
 
 Please note that this repository is intended for components maintained by Espressif developers. If you don't work at Espressif and you'd like to publish a component to the ESP Component Registry, please set up a separate repository for your component. You can find more information about this in the [IDF Component Manager documentation](https://docs.espressif.com/projects/idf-component-manager/en/latest/). You can also check out the [talk about developing and publishing components](https://youtu.be/D86gQ4knUnc) from Espressif DevCon 2023. Feel free to [open an issue](https://github.com/espressif/idf-component-manager/issues) if you encounter any problem.

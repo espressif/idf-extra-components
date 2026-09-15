@@ -1,8 +1,14 @@
 [book]
-title = "1-Wire Bus Documentation"
+title = "1-Wire Bus Programming Guide"
 language = "en"
 
 [output.html]
 default-theme = "light"
 git-repository-url = "https://github.com/espressif/idf-extra-components/tree/master/onewire_bus"
 edit-url-template = "https://github.com/espressif/idf-extra-components/edit/master/onewire_bus/docs/{path}"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+[preprocessor]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
