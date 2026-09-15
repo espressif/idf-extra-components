@@ -1,3 +1,10 @@
+## 1.1.2
+
+- Fix 1-Wire ROM search using AN187 1-based bit numbering so `LastDiscrepancy == 0` is a sentinel, not ROM bit 0. (https://github.com/espressif/idf-extra-components/issues/298)
+- Extend the RMT reset high window (`tRSTH`) to 480us to match the 1-Wire specification.
+- Document `ESP_ERR_TIMEOUT`, `ESP_ERR_INVALID_STATE`, and `ESP_ERR_INVALID_CRC` in the public API return values.
+- Reject invalid RMT GPIO numbers and out-of-range `max_rx_bytes` at bus creation.
+
 ## 1.1.1
 
 - When reading more bytes than fit in one RMT memory block on ESP32 and ESP32-S2, data will be read in chunks.

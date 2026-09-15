@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -54,6 +54,8 @@ esp_err_t onewire_del_device_iter(onewire_device_iter_handle_t iter);
  *      - ESP_OK: Get next device successfully
  *      - ESP_ERR_INVALID_ARG: Invalid argument
  *      - ESP_ERR_NOT_FOUND: No more device to get
+ *      - ESP_ERR_INVALID_CRC: A device responded but its ROM CRC is invalid
+ *      - ESP_ERR_TIMEOUT: Bus reset or search I/O timed out
  *      - ESP_FAIL: Other errors
  */
 esp_err_t onewire_device_iter_get_next(onewire_device_iter_handle_t iter, onewire_device_t *dev);
