@@ -9,6 +9,13 @@
 #include "esp_err.h"
 #include "sdkconfig.h"
 
+#ifndef GLOBAL_IQ
+#define GLOBAL_IQ CONFIG_PID_CTRL_IQ_FORMAT
+#elif GLOBAL_IQ != CONFIG_PID_CTRL_IQ_FORMAT
+#error "GLOBAL_IQ must match CONFIG_PID_CTRL_IQ_FORMAT"
+#endif
+#include "IQmathLib.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -54,12 +61,6 @@ esp_err_t pid_update_parameters_f(pid_ctrl_block_handle_f_t pid, const pid_ctrl_
 esp_err_t pid_compute_f(pid_ctrl_block_handle_f_t pid, float input_error, float *ret_result);
 esp_err_t pid_reset_ctrl_block_f(pid_ctrl_block_handle_f_t pid);
 
-#ifndef GLOBAL_IQ
-#define GLOBAL_IQ CONFIG_PID_CTRL_IQ_FORMAT
-#elif GLOBAL_IQ != CONFIG_PID_CTRL_IQ_FORMAT
-#error "GLOBAL_IQ must match CONFIG_PID_CTRL_IQ_FORMAT"
-#endif
-#include "IQmathLib.h"
 /**
  * @brief Type of IQmath PID control block handle
  */
