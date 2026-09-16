@@ -9,6 +9,7 @@ Three phase currents that all wiggle? The Clarke and Park transforms turn them i
 - **Clarke / inverse Clarke** - three phases (U/V/W) to two stator axes (alpha/beta) and back.
 - **Park / inverse Park** - stator axes to rotor axes (d/q) and back, so that a constant-speed machine gives you nearly constant values.
 - **Two numeric backends in the same firmware** - `float` for convenience, IQmath fixed-point for speed. Pick the backend with the coordinate type you pass in; the calls do not change.
+- **Every IQmath Q-format from `_iq1` to `_iq29` at the same time** - the format is picked from the types you pass in, so nothing has to be configured. Unused formats are dropped by the linker. `_iq30` is not supported: IQmath has no radian `_IQ30sin` / `_IQ30cos`.
 - **Nothing to allocate, nothing to initialize** - the transforms are pure math.
 
 ## Add it to your project
@@ -41,4 +42,22 @@ void example(float theta_rad)
 }
 ```
 
-`theta` is the electrical angle in radians: a `float` for the float backend, an `_iq` value for the fixed-point backend.
+`theta` is the electrical angle in radians: a `float` for the float backend, an `_iq` value for the unsuffixed fixed-point backend.
+
+## IQmath Q-formats
+
+The Q-format is selected by the **coordinate type**. Different formats can be used in one firmware, including in the same translation unit:
+
+```c
+clarke_park_uvw_iq15_t uvw15 = { .u = _IQ15(1.0f), .v = _IQ15(-0.5f), .w = _IQ15(-0.5f) };
+clarke_park_ab_iq15_t ab15;
+clarke_park_clarke(&uvw15, &ab15);          /* Q15 arithmetic */
+
+clarke_park_uvw_iq8_t uvw8 = { .u = _IQ8(1.0f), .v = _IQ8(-0.5f), .w = _IQ8(-0.5f) };
+clarke_park_ab_iq8_t ab8;
+clarke_park_clarke(&uvw8, &ab8);            /* Q8 arithmetic */
+```
+
+The unsuffixed `_iq` API follows `GLOBAL_IQ` of the translation unit that includes `clarke_park.h`. The wrappers do not freeze the format at whatever `GLOBAL_IQ` happened to be when this component was compiled. `_iq30` / `GLOBAL_IQ=30` is not supported: IQmath has no radian `_IQ30sin` / `_IQ30cos`.
+
+Coordinate structs are a distinct type per format. C++ overloads reject a mix. The C `_Generic` API selects the backend from the input coordinate; a mismatched output is an incompatible-pointer warning, which ESP-IDF treats as an error (`-Werror`). IQmath `_iqN` scalars are all `int32_t`, so Park's angle must be converted with the matching `_IQN()` helper.
