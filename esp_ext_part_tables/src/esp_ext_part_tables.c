@@ -5,8 +5,8 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_idf_version.h"
@@ -23,6 +23,8 @@
 #else
 #include "sys/queue.h"
 #endif
+
+static const char *TAG = "esp_ext_part";
 
 uint64_t esp_ext_part_bytes_to_sector_count(uint64_t total_bytes, esp_ext_part_sector_size_t sector_size)
 {
@@ -55,7 +57,7 @@ esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t *part_list)
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_list_item_t *item)
+esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, const esp_ext_part_list_item_t *item)
 {
     if (part_list == NULL || item == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -88,10 +90,17 @@ esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, esp_ext_part_list_t *src)
+esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, const esp_ext_part_list_t *src)
 {
     if (dst == NULL || src == NULL) {
         return ESP_ERR_INVALID_ARG;
+    }
+
+    // Overwriting a destination that still holds items would drop the only pointers to
+    // them (and to their labels), so require an empty list, like esp_mbr_parse does.
+    if (!SLIST_EMPTY(&dst->head)) {
+        ESP_LOGE(TAG, "Destination partition list is not empty, call esp_ext_part_list_deinit() before copying into it");
+        return ESP_ERR_INVALID_STATE;
     }
 
     memcpy(dst, src, sizeof(esp_ext_part_list_t)); // Copy the structure
@@ -147,17 +156,15 @@ esp_ext_part_list_item_t *esp_ext_part_list_next_matching(esp_ext_part_list_item
     return NULL;
 }
 
-esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *signature)
+esp_err_t esp_ext_part_list_signature_get(const esp_ext_part_list_t *part_list, esp_ext_part_list_signature_t *signature)
 {
     if (part_list == NULL || signature == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    uint32_t out = 0;
     switch (part_list->signature.type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        out = (uint32_t) part_list->signature.data[0];
-        memcpy(signature, &out, sizeof(uint32_t));
+        *signature = part_list->signature;
         break;
     default:
         return ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
@@ -165,16 +172,15 @@ esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *
     return ESP_OK;
 }
 
-esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const void *signature, esp_ext_part_signature_type_t type)
+esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const esp_ext_part_list_signature_t *signature)
 {
     if (part_list == NULL || signature == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    part_list->signature.type = type;
-    switch (type) {
+    switch (signature->type) {
     case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        part_list->signature.data[0] = *((const uint32_t *) signature);
+        part_list->signature = *signature;
         break;
     default:
         return ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
@@ -183,83 +189,42 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
 }
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
-esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args)
+esp_err_t esp_ext_part_probe(esp_blockdev_handle_t handle, esp_ext_part_signature_type_t *out_type)
 {
-    if (handle == NULL || part_list == NULL) {
+    if (handle == NULL || out_type == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    esp_err_t err = ESP_OK;
-    uint8_t *buf = NULL;
+    uint8_t *buf = malloc(ESP_MBR_SIZE);
+    if (buf == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
 
-    switch (type) {
-    case ESP_EXT_PART_LIST_SIGNATURE_MBR:
-        buf = malloc(MBR_SIZE);
-        if (buf == NULL) {
-            return ESP_ERR_NO_MEM;
-        }
-
-        err = handle->ops->read(handle, buf, MBR_SIZE, 0, MBR_SIZE);
-        if (err != ESP_OK) {
-            free(buf);
-            return err;
-        }
-
-        err = esp_mbr_parse(buf, part_list, (esp_mbr_parse_extra_args_t *) extra_args);
+    esp_err_t err = handle->ops->read(handle, buf, ESP_MBR_SIZE, 0, ESP_MBR_SIZE);
+    if (err != ESP_OK) {
         free(buf);
-        break;
-
-    default:
-        err = ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
-        break;
+        return err;
     }
 
-    return err;
-}
-
-esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args)
-{
-    if (handle == NULL || part_list == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    esp_err_t err = ESP_OK;
-    uint8_t *buf = NULL;
-
-    switch (type) {
-    case ESP_EXT_PART_LIST_SIGNATURE_MBR: {
-        buf = calloc(1, MBR_SIZE);
-        if (buf == NULL) {
-            return ESP_ERR_NO_MEM;
-        }
-
-        // Auto-fill the "fits within disk" bound from the device geometry when the
-        // caller did not provide one. This is a pure arithmetic check inside
-        // esp_mbr_generate - it does not allocate a buffer of `total_size`.
-        esp_mbr_generate_extra_args_t local_args = {0};
-        if (extra_args != NULL) {
-            local_args = *(esp_mbr_generate_extra_args_t *) extra_args; // Caller's choices take precedence
-        }
-        if (local_args.total_size == 0 && handle->geometry.disk_size > 0) {
-            local_args.total_size = handle->geometry.disk_size;
-        }
-
-        err = esp_mbr_generate((mbr_t *) buf, part_list, &local_args);
-        if (err != ESP_OK) {
-            free(buf);
-            return err;
-        }
-
-        err = handle->ops->write(handle, buf, 0, MBR_SIZE);
+    // The first sector of a partitioned medium is always an MBR. On a GPT disk it is a
+    // protective MBR whose single entry has type 0xEE, which is what distinguishes the
+    // two formats here.
+    const esp_mbr_t *mbr = (const esp_mbr_t *) buf;
+    if (mbr->boot_signature != ESP_MBR_SIGNATURE) {
+        ESP_LOGD(TAG, "No MBR boot signature, no known partition table");
         free(buf);
-        break;
+        return ESP_ERR_NOT_FOUND;
     }
 
-    default:
-        err = ESP_ERR_NOT_SUPPORTED; // Unsupported signature type
-        break;
+    *out_type = ESP_EXT_PART_LIST_SIGNATURE_MBR;
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
+        if (mbr->partition_table[i].type == ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE) {
+            *out_type = ESP_EXT_PART_LIST_SIGNATURE_GPT;
+            break;
+        }
     }
 
-    return err;
+    free(buf);
+    return ESP_OK;
 }
 #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))

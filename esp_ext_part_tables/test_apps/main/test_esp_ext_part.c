@@ -68,9 +68,9 @@ static void print_esp_ext_part_list_items(esp_ext_part_list_item_t *head)
 
 TEST_CASE("Test mbr_bin struct", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) mbr_bin;
+    esp_mbr_t *mbr = (esp_mbr_t *) mbr_bin;
     TEST_ASSERT_NOT_NULL(mbr);
-    TEST_ASSERT_EQUAL(MBR_SIGNATURE, mbr->boot_signature);
+    TEST_ASSERT_EQUAL(ESP_MBR_SIGNATURE, mbr->boot_signature);
     printf("MBR boot signature: 0x%" PRIX16 "\n", mbr->boot_signature);
     printf("MBR disk signature: 0x%" PRIX32 "\n", mbr->disk_signature);
 }
@@ -91,10 +91,37 @@ TEST_CASE("Test esp_mbr_parse", "[esp_ext_part_table]")
         TEST_ASSERT_NOT_EQUAL(0, it->info.type);
     } while ((it = esp_ext_part_list_item_next(it)) != NULL);
     esp_ext_part_list_deinit(&part_list);
-    TEST_ASSERT_EQUAL(0, part_list.head.slh_first);
+    TEST_ASSERT_NULL(part_list.head.slh_first);
 }
 
-void generate_original_mbr(mbr_t *mbr)
+TEST_CASE("Test esp_mbr_parse rejects a non-empty partition list", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t part_list = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
+
+    int count_before = 0;
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list); it != NULL; it = esp_ext_part_list_item_next(it)) {
+        count_before++;
+    }
+    TEST_ASSERT_GREATER_THAN(0, count_before);
+
+    // Parsing into the same list again would merge two tables and leak the first one's
+    // items, so it must be refused and leave the list untouched.
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
+
+    int count_after = 0;
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list); it != NULL; it = esp_ext_part_list_item_next(it)) {
+        count_after++;
+    }
+    TEST_ASSERT_EQUAL(count_before, count_after);
+
+    // After deinit the same list can be reused
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+}
+
+void generate_original_mbr(esp_mbr_t *mbr)
 {
     esp_mbr_generate_extra_args_t mbr_args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
@@ -134,7 +161,7 @@ void generate_original_mbr(mbr_t *mbr)
 
 TEST_CASE("Test esp_mbr_generate generates the (almost) same MBR as the original", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_original_mbr(mbr);
 
@@ -152,9 +179,9 @@ TEST_CASE("Test esp_mbr_generate generates the (almost) same MBR as the original
     print_esp_ext_part_list_items(it2);
     fflush(stdout);
 
-    uint8_t *mbr_bin_from_part_table = (uint8_t *) mbr_bin + MBR_PARTITION_TABLE_OFFSET;
-    uint8_t *mbr_from_part_table = (uint8_t *) mbr + MBR_PARTITION_TABLE_OFFSET;
-    uint8_t compare_size = mbr_bin_len - MBR_PARTITION_TABLE_OFFSET;
+    uint8_t *mbr_bin_from_part_table = (uint8_t *) mbr_bin + ESP_MBR_PARTITION_TABLE_OFFSET;
+    uint8_t *mbr_from_part_table = (uint8_t *) mbr + ESP_MBR_PARTITION_TABLE_OFFSET;
+    uint8_t compare_size = mbr_bin_len - ESP_MBR_PARTITION_TABLE_OFFSET;
     // Test if the generated MBR is the same as the original MBR - only from partition table part
     // Disk signature is randomly generated, so we don't compare it
     TEST_ASSERT_EQUAL_MEMORY(mbr_bin_from_part_table, mbr_from_part_table, compare_size);
@@ -163,10 +190,71 @@ TEST_CASE("Test esp_mbr_generate generates the (almost) same MBR as the original
     esp_ext_part_list_deinit(&part_list2);
 }
 
+TEST_CASE("Test esp_mbr_generate overwrites stale content in a non-blank buffer", "[esp_ext_part_table]")
+{
+    // The partition list is the single source of truth for the generated table:
+    // regenerating into a buffer that still holds an older MBR must not leave any
+    // trace of it behind, while the bootstrap code must be preserved.
+    esp_ext_part_list_t part_list = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL)); // 2 FAT12 partitions
+    TEST_ASSERT_EQUAL(0, part_list.flags & ESP_EXT_PART_LIST_FLAG_READ_ONLY);
+
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    memcpy(mbr, mbr_bin, ESP_MBR_SIZE);
+
+    // Dirty the buffer the way a previously loaded MBR would
+    mbr->partition_table[2].type = 0x0b;
+    mbr->partition_table[2].lba_start = 0x11223344;
+    mbr->partition_table[2].sector_count = 0x55667788;
+    esp_mbr_chs_arr_val_set(mbr->partition_table[2].chs_start, 0xAABBCC);
+    mbr->partition_table[3] = mbr->partition_table[2];
+    mbr->partition_table[0].status = ESP_MBR_PARTITION_STATUS_ACTIVE; // Stale "bootable" flag
+    mbr->copy_protected = ESP_MBR_COPY_PROTECTED;                     // Stale read-only marker
+    memset(mbr->bootstrap_code_modern_part1, 0xEE, sizeof(mbr->bootstrap_code_modern_part1));
+
+    TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, NULL));
+
+    // Entries the list does not cover must be zeroed, not left over
+    const esp_mbr_partition_t empty_entry = {0};
+    TEST_ASSERT_EQUAL_MEMORY(&empty_entry, &mbr->partition_table[2], sizeof(empty_entry));
+    TEST_ASSERT_EQUAL_MEMORY(&empty_entry, &mbr->partition_table[3], sizeof(empty_entry));
+
+    // Per-entry fields must not keep stale values either
+    TEST_ASSERT_EQUAL(0, mbr->partition_table[0].status);
+
+    // Copy protection follows the list, which is not read-only
+    TEST_ASSERT_EQUAL(0, mbr->copy_protected);
+
+    // Bootstrap code is preserved (that is the point of read-modify-write)
+    for (size_t i = 0; i < sizeof(mbr->bootstrap_code_modern_part1); i++) {
+        TEST_ASSERT_EQUAL_HEX8(0xEE, mbr->bootstrap_code_modern_part1[i]);
+    }
+
+    // The two real partitions still match the source table
+    TEST_ASSERT_EQUAL_MEMORY((uint8_t *) mbr_bin + ESP_MBR_PARTITION_TABLE_OFFSET,
+                             (uint8_t *) mbr + ESP_MBR_PARTITION_TABLE_OFFSET,
+                             2 * sizeof(esp_mbr_partition_t));
+
+    // Re-parsing must yield exactly the two original partitions, not four
+    esp_ext_part_list_t reparsed = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr, &reparsed, NULL));
+    int count = 0;
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&reparsed); it != NULL; it = esp_ext_part_list_item_next(it)) {
+        count++;
+    }
+    TEST_ASSERT_EQUAL(2, count);
+    TEST_ASSERT_EQUAL(0, reparsed.flags & ESP_EXT_PART_LIST_FLAG_READ_ONLY);
+
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&reparsed));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+}
+
 TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
 {
-    mbr_t *mbr;
-    mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr;
+    mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_original_mbr(mbr);
 
@@ -190,11 +278,11 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
     // Deinitialize the part list
     esp_ext_part_list_deinit(&part_list);
     it = NULL;
-    TEST_ASSERT_EQUAL(0, part_list.head.slh_first);
+    TEST_ASSERT_NULL(part_list.head.slh_first);
 
     // Another MBR
 
-    mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     esp_mbr_generate_extra_args_t mbr_args = {
@@ -249,26 +337,119 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
     it = NULL;
 }
 
+TEST_CASE("Test esp_ext_part_list_deep_copy", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t src = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &src, NULL));
+    src.sector_size = ESP_EXT_PART_SECTOR_SIZE_4KiB; // Also check the non-item fields travel
+
+    // Labels are owned by the list (MBR itself has none), so add one to prove the copy
+    // duplicates the string instead of sharing the pointer.
+    char label[] = "data";
+    esp_ext_part_list_item_t labelled = {
+        .info = {
+            .address = 64 * 1024 * 1024,
+            .size = 8 * 1024 * 1024,
+            .type = ESP_EXT_PART_TYPE_RAW_DATA,
+            .label = label,
+        }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&src, &labelled));
+
+    esp_ext_part_list_t dst = {0};
+    TEST_ESP_OK(esp_ext_part_list_deep_copy(&dst, &src));
+
+    // Same contents, including the fields outside the item list
+    TEST_ASSERT_EQUAL(src.sector_size, dst.sector_size);
+    TEST_ASSERT_EQUAL(src.flags, dst.flags);
+    TEST_ASSERT_EQUAL(src.signature.data[0], dst.signature.data[0]);
+
+    esp_ext_part_list_item_t *s = esp_ext_part_list_item_head(&src);
+    esp_ext_part_list_item_t *d = esp_ext_part_list_item_head(&dst);
+    int count = 0;
+    while (s != NULL && d != NULL) {
+        TEST_ASSERT_NOT_EQUAL(s, d); // Distinct items, not shared pointers
+        TEST_ASSERT_EQUAL_UINT64(s->info.address, d->info.address);
+        TEST_ASSERT_EQUAL_UINT64(s->info.size, d->info.size);
+        TEST_ASSERT_EQUAL(s->info.type, d->info.type);
+        TEST_ASSERT_EQUAL(s->info.flags, d->info.flags);
+        if (s->info.label != NULL) {
+            TEST_ASSERT_NOT_NULL(d->info.label);
+            TEST_ASSERT_NOT_EQUAL(s->info.label, d->info.label); // Duplicated, not shared
+            TEST_ASSERT_EQUAL_STRING(s->info.label, d->info.label);
+        } else {
+            TEST_ASSERT_NULL(d->info.label);
+        }
+        s = esp_ext_part_list_item_next(s);
+        d = esp_ext_part_list_item_next(d);
+        count++;
+    }
+    TEST_ASSERT_NULL(s);
+    TEST_ASSERT_NULL(d);
+    TEST_ASSERT_EQUAL(3, count); // 2 from the MBR + the labelled one
+
+    // The copy is independent: editing it must not touch the source
+    esp_ext_part_list_item_head(&dst)->info.size = 1;
+    TEST_ASSERT_NOT_EQUAL(1, esp_ext_part_list_item_head(&src)->info.size);
+
+    // Copying into a list that still holds items would drop them, so it is refused
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, esp_ext_part_list_deep_copy(&dst, &src));
+
+    // NULL arguments
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_list_deep_copy(NULL, &src));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_list_deep_copy(&dst, NULL));
+
+    // Freeing both must not double free the duplicated label
+    TEST_ESP_OK(esp_ext_part_list_deinit(&dst));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&src));
+
+    // An emptied destination can be copied into again
+    esp_ext_part_list_t src2 = {0};
+    TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &src2, NULL));
+    TEST_ESP_OK(esp_ext_part_list_deep_copy(&dst, &src2));
+    TEST_ASSERT_NOT_NULL(esp_ext_part_list_item_head(&dst));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&dst));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&src2));
+}
+
 TEST_CASE("Test esp_ext_part_list_signature_t get and set", "[esp_ext_part_table]")
 {
     esp_ext_part_list_t part_list = {0};
     TEST_ESP_OK(esp_mbr_parse((void *) mbr_bin, &part_list, NULL));
     TEST_ASSERT_EQUAL(part_list.signature.type, ESP_EXT_PART_LIST_SIGNATURE_MBR);
 
-    uint32_t disk_signature = 0;
-    uint32_t new_signature = 0x12345678;
+    esp_ext_part_list_signature_t disk_signature = {0};
+    const esp_ext_part_list_signature_t new_signature = {
+        .data = { 0x12345678 },
+        .type = ESP_EXT_PART_LIST_SIGNATURE_MBR,
+    };
     TEST_ESP_OK(esp_ext_part_list_signature_get(&part_list, &disk_signature));
-    TEST_ASSERT_NOT_EQUAL(disk_signature, new_signature);
+    TEST_ASSERT_EQUAL(disk_signature.type, ESP_EXT_PART_LIST_SIGNATURE_MBR);
+    TEST_ASSERT_NOT_EQUAL(disk_signature.data[0], new_signature.data[0]);
 
-    TEST_ESP_OK(esp_ext_part_list_signature_set(&part_list, &new_signature, ESP_EXT_PART_LIST_SIGNATURE_MBR));
+    TEST_ESP_OK(esp_ext_part_list_signature_set(&part_list, &new_signature));
     TEST_ESP_OK(esp_ext_part_list_signature_get(&part_list, &disk_signature));
-    TEST_ASSERT_EQUAL(disk_signature, new_signature);
+    TEST_ASSERT_EQUAL(disk_signature.data[0], new_signature.data[0]);
+    TEST_ASSERT_EQUAL(disk_signature.type, ESP_EXT_PART_LIST_SIGNATURE_MBR);
+
+    // A signature with an unsupported type must be rejected and must not modify the list
+    const esp_ext_part_list_signature_t bad_signature = {
+        .data = { 0xDEADBEEF },
+        .type = (esp_ext_part_signature_type_t) 0xFF,
+    };
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_SUPPORTED, esp_ext_part_list_signature_set(&part_list, &bad_signature));
+    TEST_ESP_OK(esp_ext_part_list_signature_get(&part_list, &disk_signature));
+    TEST_ASSERT_EQUAL(disk_signature.data[0], new_signature.data[0]);
+
+    // NULL arguments
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_list_signature_get(&part_list, NULL));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_list_signature_set(&part_list, NULL));
 
     // Deinitialize the part list
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
 }
 
-TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_entries", "[esp_ext_part_table]")
+TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partition_entries", "[esp_ext_part_table]")
 {
     esp_ext_part_list_t part_list = {0};
 
@@ -297,7 +478,7 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_e
     fflush(stdout);
 
     // Generate the MBR
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, &mbr_args));
@@ -338,7 +519,7 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_e
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list_from_mbr));
 
     // Now remove the gaps between partition entries
-    esp_mbr_remove_gaps_between_partiton_entries(mbr);
+    esp_mbr_remove_gaps_between_partition_entries(mbr);
     // Parse the MBR to get the partition list with gaps removed
     esp_ext_part_list_t part_list_from_mbr_correct = {0};
     TEST_ESP_OK(esp_mbr_parse((void *) mbr, &part_list_from_mbr_correct, NULL));
@@ -364,12 +545,50 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partiton_e
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list_from_mbr_correct));
 }
 
+TEST_CASE("Test esp_mbr_partition_set requires a concrete sector size", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+
+    esp_ext_part_list_item_t item = {
+        .info = {
+            .address = 1024 * 1024,
+            .size = 10 * 1024 * 1024,
+            .type = ESP_EXT_PART_TYPE_FAT12,
+        }
+    };
+
+    // A zero-initialized args struct means "all defaults" for esp_mbr_generate, but this
+    // low-level function resolves nothing: without a sector size the byte<->sector math
+    // would collapse to a zero-length entry at LBA 0, so it must be rejected instead.
+    esp_mbr_generate_extra_args_t no_sector_size = {0};
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_partition_set(mbr, 0, &item, &no_sector_size));
+    // The rejected call must not have touched the entry
+    const esp_mbr_partition_t empty_entry = {0};
+    TEST_ASSERT_EQUAL_MEMORY(&empty_entry, &mbr->partition_table[0], sizeof(empty_entry));
+
+    // Clearing an entry needs no sector size and stays allowed
+    const esp_ext_part_list_item_t none_item = { .info = { .type = ESP_EXT_PART_TYPE_NONE } };
+    TEST_ESP_OK(esp_mbr_partition_set(mbr, 0, &none_item, &no_sector_size));
+
+    // With a concrete sector size the same item is accepted
+    esp_mbr_generate_extra_args_t args = {
+        .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
+        .alignment = ESP_EXT_PART_ALIGN_NONE,
+    };
+    TEST_ESP_OK(esp_mbr_partition_set(mbr, 0, &item, &args));
+    TEST_ASSERT_EQUAL(2048, mbr->partition_table[0].lba_start);
+    TEST_ASSERT_EQUAL(20480, mbr->partition_table[0].sector_count);
+
+    free(mbr);
+}
+
 // ---------------------------------------------------------------------------
 // Alignment policy, alignment sentinels, and layout validation tests
 // ---------------------------------------------------------------------------
 
 // Helper: generate a single-partition MBR and return the raw partition entry 0.
-static esp_err_t gen_single_partition(mbr_t *mbr,
+static esp_err_t gen_single_partition(esp_mbr_t *mbr,
                                       uint64_t address_bytes,
                                       uint64_t size_bytes,
                                       esp_ext_part_type_known_t type,
@@ -403,7 +622,7 @@ TEST_CASE("Test align policy KEEP_SIZE keeps size when start is aligned up", "[e
         .align_policy = ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE,
     };
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // Start at sector 8 (=> aligned up to 2048), size 7953 sectors.
@@ -426,7 +645,7 @@ TEST_CASE("Test align policy PRESERVE_END shrinks size to keep the end", "[esp_e
         .align_policy = ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END,
     };
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // Start at sector 8 => aligned to 2048. Original end (exclusive) = 8 + 7953 = 7961.
@@ -452,7 +671,7 @@ TEST_CASE("Test align policy PRESERVE_END errors when alignment eats the partiti
         .align_policy = ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END,
     };
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // Start at sector 8 => aligned up to 2048, but size is only 10 sectors (end = 18 < 2048).
@@ -473,7 +692,7 @@ TEST_CASE("Test align policy REJECT errors on unaligned start, ok when aligned",
         .align_policy = ESP_EXT_PART_ALIGN_POLICY_REJECT,
     };
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // Unaligned start (sector 8) -> error.
@@ -484,7 +703,7 @@ TEST_CASE("Test align policy REJECT errors on unaligned start, ok when aligned",
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
 
     // Pre-aligned start (sector 2048) -> ok, unchanged.
-    memset(mbr, 0, sizeof(mbr_t));
+    memset(mbr, 0, sizeof(esp_mbr_t));
     TEST_ESP_OK(gen_single_partition(mbr,
                                      esp_ext_part_sector_count_to_bytes(2048, ESP_EXT_PART_SECTOR_SIZE_512B),
                                      esp_ext_part_sector_count_to_bytes(7953, ESP_EXT_PART_SECTOR_SIZE_512B),
@@ -502,7 +721,7 @@ TEST_CASE("Test ALIGN_NONE leaves the start untouched", "[esp_ext_part_table]")
         .alignment = ESP_EXT_PART_ALIGN_NONE,
     };
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // Start at sector 8, no alignment -> lba_start stays 8.
@@ -523,7 +742,7 @@ TEST_CASE("Test ALIGN_AUTO applies the 1MiB default alignment", "[esp_ext_part_t
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
         .alignment = ESP_EXT_PART_ALIGN_AUTO,
     };
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ESP_OK(gen_single_partition(mbr,
                                      esp_ext_part_sector_count_to_bytes(8, ESP_EXT_PART_SECTOR_SIZE_512B),
@@ -536,7 +755,7 @@ TEST_CASE("Test ALIGN_AUTO applies the 1MiB default alignment", "[esp_ext_part_t
     esp_mbr_generate_extra_args_t args0 = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
     };
-    mbr_t *mbr2 = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr2 = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr2);
     TEST_ESP_OK(gen_single_partition(mbr2,
                                      esp_ext_part_sector_count_to_bytes(8, ESP_EXT_PART_SECTOR_SIZE_512B),
@@ -568,7 +787,7 @@ TEST_CASE("Test overlapping partitions are rejected", "[esp_ext_part_table]")
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item1));
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item2));
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // With NONE alignment the two partitions overlap -> overlap error.
@@ -585,7 +804,7 @@ TEST_CASE("Test overlapping partitions are rejected", "[esp_ext_part_table]")
 // Test 10 & 11: disk-bounds (total_size) check.
 TEST_CASE("Test total_size bounds check rejects off-disk partitions", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // Partition ends at sector 2048+100 = 2148 (= 1099776 bytes). Set total_size just below that.
@@ -601,7 +820,7 @@ TEST_CASE("Test total_size bounds check rejects off-disk partitions", "[esp_ext_
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, err);
 
     // total_size large enough -> ok.
-    memset(mbr, 0, sizeof(mbr_t));
+    memset(mbr, 0, sizeof(esp_mbr_t));
     args.total_size = esp_ext_part_sector_count_to_bytes(4096, ESP_EXT_PART_SECTOR_SIZE_512B);
     TEST_ESP_OK(gen_single_partition(mbr,
                                      esp_ext_part_sector_count_to_bytes(8, ESP_EXT_PART_SECTOR_SIZE_512B),
@@ -609,7 +828,7 @@ TEST_CASE("Test total_size bounds check rejects off-disk partitions", "[esp_ext_
                                      ESP_EXT_PART_TYPE_FAT12, &args));
 
     // total_size == 0 -> check skipped even for a huge partition.
-    memset(mbr, 0, sizeof(mbr_t));
+    memset(mbr, 0, sizeof(esp_mbr_t));
     args.total_size = 0;
     TEST_ESP_OK(gen_single_partition(mbr,
                                      esp_ext_part_sector_count_to_bytes(8, ESP_EXT_PART_SECTOR_SIZE_512B),
@@ -635,7 +854,7 @@ TEST_CASE("Test total_size is floored to whole sectors", "[esp_ext_part_table]")
         .total_size = total,
     };
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // Ends exactly at sector 100 (start 50 + 50): within the floored capacity -> OK.
@@ -647,7 +866,7 @@ TEST_CASE("Test total_size is floored to whole sectors", "[esp_ext_part_table]")
 
     // Ends at sector 101 (start 50 + 51): past the floored capacity of 100 -> rejected.
     // (Ceiling would have made total_sectors 101 and wrongly accepted this.)
-    memset(mbr, 0, sizeof(mbr_t));
+    memset(mbr, 0, sizeof(esp_mbr_t));
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE,
                       gen_single_partition(mbr,
                                            esp_ext_part_sector_count_to_bytes(50, ESP_EXT_PART_SECTOR_SIZE_512B),
@@ -665,7 +884,7 @@ TEST_CASE("Test partition whose end exceeds the 32-bit MBR range is rejected", "
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
         .alignment = ESP_EXT_PART_ALIGN_NONE,
     };
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
 
     // start = UINT32_MAX - 10 sectors, count = 20 sectors -> end = UINT32_MAX + 10 (overflow).
@@ -682,6 +901,75 @@ TEST_CASE("Test partition whose end exceeds the 32-bit MBR range is rejected", "
 // not a power of two. The defined enum values all happen to yield a power-of-two
 // number of sectors, but a caller may cast a custom alignment value, so the
 // rounding must not rely on the power-of-two bitmask idiom.
+TEST_CASE("Test esp_mbr_chs_arr_val_set/get round-trip", "[esp_ext_part_table]")
+{
+    uint8_t chs[3] = {0};
+
+    // The 3 CHS bytes are stored little endian, which is how the LittleFS block size
+    // hack reads and writes them.
+    esp_mbr_chs_arr_val_set(chs, 0x00AABBCC);
+    TEST_ASSERT_EQUAL_HEX8(0xCC, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0xBB, chs[1]);
+    TEST_ASSERT_EQUAL_HEX8(0xAA, chs[2]);
+    TEST_ASSERT_EQUAL_HEX32(0x00AABBCC, esp_mbr_chs_arr_val_get(chs));
+
+    // Only the low 24 bits fit; the top byte is dropped
+    esp_mbr_chs_arr_val_set(chs, 0xFF123456);
+    TEST_ASSERT_EQUAL_HEX32(0x00123456, esp_mbr_chs_arr_val_get(chs));
+
+    esp_mbr_chs_arr_val_set(chs, 0);
+    TEST_ASSERT_EQUAL_HEX32(0, esp_mbr_chs_arr_val_get(chs));
+}
+
+TEST_CASE("Test esp_mbr_lba_to_chs_arr", "[esp_ext_part_table]")
+{
+    // Geometry is fixed at 255 heads x 63 sectors/track = 16065 sectors per cylinder.
+    // Packing is: byte0 = head, byte1 = high 2 bits of cylinder | 6-bit sector,
+    // byte2 = low 8 bits of cylinder. Sector numbering is 1 based.
+    uint8_t chs[3];
+
+    // LBA 0 -> C0 H0 S1
+    esp_mbr_lba_to_chs_arr(chs, 0);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x01, chs[1]);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[2]);
+
+    // Last sector of the first track, then the first sector of the next head
+    esp_mbr_lba_to_chs_arr(chs, 62);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x3F, chs[1]); // sector 63, no cylinder bits
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[2]);
+
+    esp_mbr_lba_to_chs_arr(chs, 63);
+    TEST_ASSERT_EQUAL_HEX8(0x01, chs[0]); // head 1
+    TEST_ASSERT_EQUAL_HEX8(0x01, chs[1]); // sector 1
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[2]);
+
+    // Cross-check against the real MBR in mbr_bin: its first partition starts at LBA
+    // 2048 and ends at LBA 10000, and carries the CHS values a real formatter wrote.
+    const esp_mbr_t *ref = (const esp_mbr_t *) mbr_bin;
+    esp_mbr_lba_to_chs_arr(chs, 2048);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(ref->partition_table[0].chs_start, chs, 3);
+    esp_mbr_lba_to_chs_arr(chs, 2048 + 7953 - 1);
+    TEST_ASSERT_EQUAL_HEX8_ARRAY(ref->partition_table[0].chs_end, chs, 3);
+
+    // A cylinder above 255 must put its top 2 bits into byte 1
+    esp_mbr_lba_to_chs_arr(chs, 300 * 16065);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[0]);          // head 0
+    TEST_ASSERT_EQUAL_HEX8(0x41, chs[1]);          // cylinder bits 0b01 << 6 | sector 1
+    TEST_ASSERT_EQUAL_HEX8(0x2C, chs[2]);          // 300 & 0xFF
+
+    // Beyond the BIOS limit everything saturates at cylinder 1023
+    esp_mbr_lba_to_chs_arr(chs, UINT32_MAX);
+    TEST_ASSERT_EQUAL_HEX8(0xFF, chs[2]);          // low 8 bits of 1023
+    TEST_ASSERT_EQUAL_HEX8(0xC0, chs[1] & 0xC0);   // high 2 bits of 1023
+    TEST_ASSERT_LESS_OR_EQUAL_UINT8(ESP_MBR_CHS_MAX_SECTOR, chs[1] & 0x3F);
+    TEST_ASSERT_LESS_OR_EQUAL_UINT8(ESP_MBR_CHS_MAX_HEAD, chs[0]);
+
+    // A NULL destination is ignored rather than dereferenced
+    esp_mbr_lba_to_chs_arr(NULL, 2048);
+}
+
 TEST_CASE("Test esp_mbr_lba_align rounds up for non-power-of-two alignment", "[esp_ext_part_table]")
 {
     // alignment = 1536 bytes, sector_size = 512 => alignment_sectors = 3 (not a power of two).
@@ -736,7 +1024,7 @@ TEST_CASE("Test auto-placement: first partition placed at first aligned LBA", "[
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item));
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, &args));
 
@@ -783,7 +1071,7 @@ TEST_CASE("Test auto-placement: partitions chain after the previous one", "[esp_
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &p1));
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &p2));
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, &args));
 
@@ -813,7 +1101,7 @@ TEST_CASE("Test auto-placement: size 0 without FILL is rejected", "[esp_ext_part
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item));
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &part_list, &args));
     free(mbr);
@@ -849,7 +1137,7 @@ TEST_CASE("Test auto-placement: FILL sizes to the end of the disk", "[esp_ext_pa
         .total_size = esp_ext_part_sector_count_to_bytes(20000, ESP_EXT_PART_SECTOR_SIZE_512B),
     };
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, &args));
 
@@ -866,7 +1154,7 @@ TEST_CASE("Test auto-placement: FILL sizes to the end of the disk", "[esp_ext_pa
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
         .alignment = ESP_EXT_PART_ALIGN_1MiB,
     };
-    mbr_t *mbr2 = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr2 = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr2);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, esp_mbr_generate(mbr2, &pl2, &args_no_total));
     free(mbr2);
@@ -891,7 +1179,7 @@ TEST_CASE("Test auto-placement: caller items are not mutated", "[esp_ext_part_ta
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item));
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ESP_OK(esp_mbr_generate(mbr, &part_list, &args));
 
@@ -923,7 +1211,7 @@ TEST_CASE("Test FILL without AUTO_ADDRESS: size 0 is rejected", "[esp_ext_part_t
         }
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item));
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &part_list, &args));
     free(mbr);
@@ -969,7 +1257,7 @@ TEST_CASE("Test empty partition in list is rejected", "[esp_ext_part_table]")
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &empty));
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &p2));
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &part_list, &args));
     free(mbr);
@@ -982,7 +1270,7 @@ TEST_CASE("Test empty partition in list is rejected", "[esp_ext_part_table]")
 
 // Build an MBR with one FAT32, one exFAT/NTFS and one raw-data (0xDA) partition, so
 // parse-time filtering behavior can be exercised.
-static void generate_mixed_usage_mbr(mbr_t *mbr)
+static void generate_mixed_usage_mbr(esp_mbr_t *mbr)
 {
     esp_mbr_generate_extra_args_t args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
@@ -1044,7 +1332,7 @@ static bool keep_fat32_or_raw(const esp_ext_part_t *info, void *ctx)
 // exFAT one; nothing is dropped, so LOSSY must NOT be set.
 TEST_CASE("Test parse inserts all recognized types by default (not lossy)", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr);
 
@@ -1062,7 +1350,7 @@ TEST_CASE("Test parse inserts all recognized types by default (not lossy)", "[es
 // dropped at parse time, so LOSSY must be set.
 TEST_CASE("Test parse match predicate inserts only matching partitions and marks lossy", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr);
 
@@ -1085,7 +1373,7 @@ TEST_CASE("Test parse match predicate inserts only matching partitions and marks
 // A match predicate keeping FAT32 + raw drops only the exFAT partition (still lossy).
 TEST_CASE("Test parse match predicate keeps multiple types", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr);
 
@@ -1106,9 +1394,9 @@ TEST_CASE("Test parse match predicate keeps multiple types", "[esp_ext_part_tabl
 // mapping; it is skipped during parse and the list is marked LOSSY.
 TEST_CASE("Test parse skips unknown type and marks lossy", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
-    mbr->boot_signature = MBR_SIGNATURE;
+    mbr->boot_signature = ESP_MBR_SIGNATURE;
     // Slot 0: a valid FAT32 (0x0C) partition.
     mbr->partition_table[0].type = 0x0C;
     mbr->partition_table[0].lba_start = 2048;
@@ -1164,7 +1452,7 @@ static bool match_size_at_least(const esp_ext_part_t *info, void *ctx)
 
 TEST_CASE("Test esp_ext_part_list_next_matching with a type predicate", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr); // FAT32 + exFAT + 0xDA
 
@@ -1184,7 +1472,7 @@ TEST_CASE("Test esp_ext_part_list_next_matching with a type predicate", "[esp_ex
 
 TEST_CASE("Test esp_ext_part_list_next_matching with a ctx set predicate", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr); // FAT32 + exFAT + 0xDA
 
@@ -1210,7 +1498,7 @@ TEST_CASE("Test esp_ext_part_list_next_matching with a ctx set predicate", "[esp
 
 TEST_CASE("Test esp_ext_part_list_next_matching branches on a runtime field", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr); // all three partitions are 2048 sectors == 1 MiB
 
@@ -1239,7 +1527,7 @@ TEST_CASE("Test esp_ext_part_list_next_matching branches on a runtime field", "[
 
 TEST_CASE("Test esp_ext_part_list_next_matching handles NULL predicate and list", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr);
 
@@ -1296,7 +1584,7 @@ TEST_CASE("Test esp_ext_part_match_mountable classifies types", "[esp_ext_part_t
 // only the FAT32 partition is mountable.
 TEST_CASE("Test esp_ext_part_match_mountable via next_matching", "[esp_ext_part_table]")
 {
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
     generate_mixed_usage_mbr(mbr); // FAT32 (mountable) + exFAT + 0xDA (not)
 
@@ -1401,6 +1689,55 @@ static esp_err_t bdl_simulated_get_blockdev(uint8_t *buffer, size_t buffer_size,
     return ESP_OK;
 }
 
+TEST_CASE("Test esp_ext_part_probe detects the partition table format", "[esp_ext_part_table]")
+{
+    size_t buffer_size = 512;
+    uint8_t *buffer = (uint8_t *) malloc(buffer_size);
+    TEST_ASSERT_NOT_NULL(buffer);
+    esp_blockdev_handle_t handle = NULL;
+    TEST_ESP_OK(bdl_simulated_get_blockdev(buffer, buffer_size, &handle));
+    TEST_ASSERT_NOT_NULL(handle);
+
+    esp_ext_part_signature_type_t type = (esp_ext_part_signature_type_t) 0xFF;
+
+    // A blank device has no boot signature at all
+    memset(buffer, 0, buffer_size);
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_FOUND, esp_ext_part_probe(handle, &type));
+
+    // A plain MBR
+    TEST_ESP_OK(handle->ops->write(handle, mbr_bin, 0, mbr_bin_len));
+    TEST_ESP_OK(esp_ext_part_probe(handle, &type));
+    TEST_ASSERT_EQUAL(ESP_EXT_PART_LIST_SIGNATURE_MBR, type);
+
+    // The same sector with a protective entry is a GPT disk. This is the case a caller
+    // cannot distinguish without probing: parsing it as MBR still succeeds.
+    esp_mbr_t protective = *(const esp_mbr_t *) mbr_bin;
+    memset(protective.partition_table, 0, sizeof(protective.partition_table));
+    protective.partition_table[0].type = ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE;
+    protective.partition_table[0].lba_start = 1;
+    protective.partition_table[0].sector_count = 0xFFFFFFFF;
+    TEST_ESP_OK(handle->ops->write(handle, (const uint8_t *) &protective, 0, ESP_MBR_SIZE));
+    TEST_ESP_OK(esp_ext_part_probe(handle, &type));
+    TEST_ASSERT_EQUAL(ESP_EXT_PART_LIST_SIGNATURE_GPT, type);
+
+    // Parsing a GPT disk as MBR yields only the protective entry, which is why probing
+    // first is worthwhile.
+    esp_ext_part_list_t part_list = {0};
+    TEST_ESP_OK(esp_mbr_bdl_read(handle, &part_list, NULL));
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
+    TEST_ASSERT_NOT_NULL(it);
+    TEST_ASSERT_EQUAL(ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR, it->info.type);
+    TEST_ASSERT_NULL(esp_ext_part_list_item_next(it));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+
+    // NULL arguments
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_probe(NULL, &type));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ext_part_probe(handle, NULL));
+
+    handle->ops->release(handle);
+    free(buffer);
+}
+
 TEST_CASE("Test with BDL (simulated in RAM) - basic operations", "[esp_ext_part_table]")
 {
     size_t buffer_size = 3 * 1024;
@@ -1483,7 +1820,7 @@ TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table
 
     esp_ext_part_list_t part_list = {0};
     esp_ext_part_list_item_t *it = NULL;
-    err = esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args);
+    err = esp_mbr_bdl_read(handle, &part_list, &mbr_parse_args);
     TEST_ESP_OK(err);
 
     it = esp_ext_part_list_item_head(&part_list);
@@ -1508,12 +1845,12 @@ TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &partition_for_insertion));
 
-    err = esp_ext_part_list_bdl_write(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_gen_args);
+    err = esp_mbr_bdl_write(handle, &part_list, &mbr_gen_args);
     TEST_ESP_OK(err);
 
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
 
-    err = esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args);
+    err = esp_mbr_bdl_read(handle, &part_list, &mbr_parse_args);
     TEST_ESP_OK(err);
 
     it = esp_ext_part_list_item_head(&part_list);
@@ -1535,10 +1872,12 @@ TEST_CASE("Test with BDL (simulated in RAM) - MBR related", "[esp_ext_part_table
         }
     };
     TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &off_disk_partition));
-    err = esp_ext_part_list_bdl_write(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_gen_args);
+    err = esp_mbr_bdl_write(handle, &part_list, &mbr_gen_args);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, err);
 
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+    handle->ops->release(handle);
+    free(buffer);
 }
 
 // Test 10: AUTO_ADDRESS + FILL through the BDL write path, with total_size
@@ -1571,14 +1910,14 @@ TEST_CASE("Test auto-placement: FILL via BDL uses device geometry", "[esp_ext_pa
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
         .alignment = ESP_EXT_PART_ALIGN_1MiB,
     };
-    TEST_ESP_OK(esp_ext_part_list_bdl_write(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_gen_args));
+    TEST_ESP_OK(esp_mbr_bdl_write(handle, &part_list, &mbr_gen_args));
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
 
     // Read the MBR back and confirm the FILL partition reaches the disk end.
     esp_mbr_parse_extra_args_t mbr_parse_args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B
     };
-    TEST_ESP_OK(esp_ext_part_list_bdl_read(handle, &part_list, ESP_EXT_PART_LIST_SIGNATURE_MBR, (void *) &mbr_parse_args));
+    TEST_ESP_OK(esp_mbr_bdl_read(handle, &part_list, &mbr_parse_args));
     esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&part_list);
     TEST_ASSERT_NOT_NULL(it);
 

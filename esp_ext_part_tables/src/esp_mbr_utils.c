@@ -8,6 +8,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_ext_part_tables.h"
+#include "esp_mbr.h"
 #include "esp_mbr_utils.h"
 
 static const char *TAG = "esp_mbr_utils";
@@ -30,23 +31,23 @@ void esp_mbr_lba_to_chs_arr(uint8_t chs[3], uint32_t lba)
     uint8_t head;
     uint8_t sector;
 
-    uint32_t sectors_per_cylinder = MBR_CHS_HEADS * MBR_CHS_SECTORS_PER_TRACK;
+    uint32_t sectors_per_cylinder = ESP_MBR_CHS_HEADS * ESP_MBR_CHS_SECTORS_PER_TRACK;
     uint32_t temp;
 
     cylinder = lba / sectors_per_cylinder;
     temp = lba % sectors_per_cylinder;
-    head = temp / MBR_CHS_SECTORS_PER_TRACK;
-    sector = (temp % MBR_CHS_SECTORS_PER_TRACK) + 1;
+    head = temp / ESP_MBR_CHS_SECTORS_PER_TRACK;
+    sector = (temp % ESP_MBR_CHS_SECTORS_PER_TRACK) + 1;
 
     // Clamp to BIOS CHS limits
-    if (cylinder > MBR_CHS_MAX_CYLINDER) {
-        cylinder = MBR_CHS_MAX_CYLINDER;
+    if (cylinder > ESP_MBR_CHS_MAX_CYLINDER) {
+        cylinder = ESP_MBR_CHS_MAX_CYLINDER;
     }
-    if (head > MBR_CHS_MAX_HEAD) {
-        head = MBR_CHS_MAX_HEAD;
+    if (head > ESP_MBR_CHS_MAX_HEAD) {
+        head = ESP_MBR_CHS_MAX_HEAD;
     }
-    if (sector > MBR_CHS_MAX_SECTOR) {
-        sector = MBR_CHS_MAX_SECTOR;
+    if (sector > ESP_MBR_CHS_MAX_SECTOR) {
+        sector = ESP_MBR_CHS_MAX_SECTOR;
     }
 
     uint8_t chs_bytes[3];
@@ -122,7 +123,7 @@ static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_t
         parsed_type = ESP_EXT_PART_TYPE_LINUX_ANY;
         supported = false; // Not mountable
         break;
-    case 0xEE: // GPT protective MBR
+    case ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE: // GPT protective MBR
         parsed_type = ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR;
         supported = false; // Not mountable
         break;

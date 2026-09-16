@@ -1,3 +1,8 @@
 
 # ignore task watchdog triggered by unity_run_menu
 CONFIG_ESP_TASK_WDT_INIT=n
+
+# The tests compare 64-bit byte addresses and sector counts. Without this, Unity's
+# TEST_ASSERT_*_UINT64 macros expand to an unconditional failure on chip targets
+# (they are only real assertions when UNITY_SUPPORT_64 is defined).
+CONFIG_UNITY_ENABLE_64BIT=y
