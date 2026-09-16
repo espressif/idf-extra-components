@@ -18,6 +18,15 @@
 #include "bytes.h"
 #include "map.h"
 
+/* Portable compile-time assertion (no dependency on C11's
+ * _Static_assert, to match the rest of this codebase's C99 baseline).
+ * Declares a typedef of an array whose size is 1 if cond is true, and
+ * a compile error (negative array size) otherwise.
+ */
+#define DHARA_STATIC_ASSERT(cond, msg) \
+    typedef char dhara_static_assert_##msg[(cond) ? 1 : -1] \
+    __attribute__((unused))
+
 #define DHARA_RADIX_DEPTH   (sizeof(dhara_sector_t) << 3)
 
 static inline dhara_sector_t d_bit(int depth)
@@ -31,6 +40,19 @@ static inline dhara_sector_t d_bit(int depth)
 
 static inline void ck_set_count(uint8_t *cookie, dhara_sector_t count)
 {
+    /* dhara_w32() serializes exactly 32 bits. dhara_sector_t is
+     * typedef'd as uint32_t today (map.h), so this is exact -- no
+     * truncation occurs in the current codebase. This assertion is a
+     * compile-time trip-wire: if dhara_sector_t is ever widened (e.g.
+     * to uint64_t, to support larger logical address spaces), this
+     * line -- and every other dhara_w32()/dhara_r32() call operating
+     * on a dhara_sector_t or dhara_page_t (the on-flash cookie,
+     * checkpoint header, and metadata formats are all built around
+     * 32-bit fields) -- would need a coordinated on-flash format
+     * change, not a fix to this one function alone.
+     */
+    DHARA_STATIC_ASSERT(sizeof(dhara_sector_t) == sizeof(uint32_t),
+                        dhara_sector_t_must_stay_32_bit_for_ck_set_count);
     dhara_w32(cookie, count);
 }
 
@@ -179,6 +201,18 @@ static int trace_path(struct dhara_map *m, dhara_sector_t target,
     return 0;
 
 not_found:
+    /* Returning -1/DHARA_E_NOT_FOUND here -- even though new_meta (if
+     * requested) has just been fully populated with a valid insertion
+     * path -- is the documented contract, not an inconsistency: see
+     * this function's own comment above ("If the page can't be found,
+     * a suitable path will be constructed ... and DHARA_E_NOT_FOUND
+     * will be returned."). Both call sites that pass a non-NULL
+     * new_meta (raw_gc(), prepare_write()) explicitly branch on
+     * DHARA_E_NOT_FOUND as a meaningful, expected outcome ("target
+     * doesn't currently exist, but the insertion-path metadata was
+     * still built for me") -- not a raw failure to special-case
+     * around. Changing this return to 0 would break both of them.
+     */
     if (new_meta) {
         while (depth < DHARA_RADIX_DEPTH) {
             meta_set_alt(new_meta, depth++, DHARA_SECTOR_NONE);
@@ -475,6 +509,24 @@ static int try_delete(struct dhara_map *m, dhara_sector_t s,
 
     /* Rewrite the cousin with an up-to-date path which doesn't
      * point to the original node.
+     *
+     * Note: only Alt[level+1 .. DHARA_RADIX_DEPTH-1] are copied from
+     * alt_meta below; Alt[0 .. level-1] are left as-is from `meta`
+     * (s's own trace), not copied from alt_meta. This looks like it
+     * could mix "s's path" into the promoted cousin's metadata, but
+     * it's provably a no-op either way: trace_path()'s "copy current
+     * node's Alt[d] through unchanged whenever the target's bit at d
+     * matches" rule means every page whose id shares a bit-prefix
+     * through depth d has an IDENTICAL Alt[d] recorded (that's the
+     * whole point of the shared radix path). Since `alt_page` was
+     * found via `meta.Alt[level]` -- i.e. it shares s's bit-prefix for
+     * depths 0..level-1 exactly (it only differs from s at bit
+     * `level`, by this trie's own alt-pointer invariant, verified
+     * against upstream's tests/map.c::check_recurse oracle) -- its
+     * own stored Alt[0..level-1] (in alt_meta, discarded here) must
+     * already be identical to meta's Alt[0..level-1] (s's, kept).
+     * Copying one or the other into the rewritten page yields the
+     * same bytes.
      */
     if (dhara_journal_read_meta(&m->journal, alt_page, alt_meta, err) < 0) {
         return -1;
@@ -545,27 +597,35 @@ int dhara_map_sync(struct dhara_map *m, dhara_error_t *err)
 
 int dhara_map_gc(struct dhara_map *m, dhara_error_t *err)
 {
+    dhara_page_t tail;
+    dhara_error_t my_err;
+
     if (!m->count) {
         return 0;
     }
 
-    for (;;) {
-        dhara_page_t tail = dhara_journal_peek(&m->journal);
-        dhara_error_t my_err;
-
-        if (tail == DHARA_PAGE_NONE) {
-            break;
-        }
-
-        if (!raw_gc(m, tail, &my_err)) {
-            dhara_journal_dequeue(&m->journal);
-            break;
-        }
-
-        if (try_recover(m, my_err, err) < 0) {
-            return -1;
-        }
+    tail = dhara_journal_peek(&m->journal);
+    if (tail == DHARA_PAGE_NONE) {
+        return 0;
     }
 
-    return 0;
+    if (!raw_gc(m, tail, &my_err)) {
+        dhara_journal_dequeue(&m->journal);
+        return 0;
+    }
+
+    /* raw_gc() failed. If it's recoverable, try_recover() completes
+     * the (necessary, non-optional) recovery protocol -- but per this
+     * function's documented contract ("Perform one garbage collection
+     * step"), we deliberately do NOT loop back to opportunistically
+     * GC another page afterwards in the same call, even though the
+     * previous implementation's unbounded for(;;) loop could do so
+     * (e.g. if recovery completed successfully and the new tail
+     * happened to raw_gc() trivially). This is strictly less work per
+     * call, never less than required (recovery still always runs to
+     * completion here), so callers that already loop (auto_gc() calls
+     * dhara_map_gc() gc_ratio+1 times) are unaffected other than
+     * possibly needing one more call to finish equivalent work.
+     */
+    return try_recover(m, my_err, err);
 }
