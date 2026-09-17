@@ -19,6 +19,16 @@
 
 #include "journal.h"
 
+/* Sequential-locality path cache for trace_path() (+140 bytes in dhara_map).
+ * Controlled by CONFIG_DHARA_MAP_PATH_CACHE (dhara/Kconfig). CONFIG_ bools
+ * are only defined when 'y', so absence here means Kconfig said 'n'.
+ */
+#include "sdkconfig.h"
+
+#ifndef CONFIG_DHARA_MAP_PATH_CACHE
+#define CONFIG_DHARA_MAP_PATH_CACHE  0
+#endif
+
 /* The map is a journal indexing format. It maps virtual sectors to
  * pages of data in flash memory.
  */
@@ -27,11 +37,21 @@ typedef uint32_t dhara_sector_t;
 /* This sector value is reserved */
 #define DHARA_SECTOR_NONE   0xffffffff
 
+/* Depth of the radix tree (one level per bit of dhara_sector_t). */
+#define DHARA_RADIX_DEPTH   (sizeof(dhara_sector_t) << 3)
+
 struct dhara_map {
     struct dhara_journal    journal;
 
     uint8_t         gc_ratio;
     dhara_sector_t      count;
+
+#if CONFIG_DHARA_MAP_PATH_CACHE
+    dhara_sector_t  prev_target;                  /* DHARA_SECTOR_NONE = invalid */
+    dhara_page_t    prev_path[DHARA_RADIX_DEPTH]; /* physical page at each depth */
+    dhara_page_t    prev_root;                    /* journal root when path was traced */
+    uint8_t         prev_epoch;                   /* journal epoch when path was traced */
+#endif /* CONFIG_DHARA_MAP_PATH_CACHE */
 };
 
 /* Initialize a map. You need to supply a buffer for page metadata, and
