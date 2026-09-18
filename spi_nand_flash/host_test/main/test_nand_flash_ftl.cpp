@@ -788,3 +788,247 @@ TEST_CASE("FTL write/read alternating 0xAA/0x55 pattern", "[ftl][rw][patterns]")
     free(rbuf);
     destroy_ftl_dev(dev);
 }
+
+/* -------------------------------------------------------------------------
+ * Group 13: Path cache observable behaviour (dhara sequential-locality
+ * cache, DHARA_MAP_PATH_CACHE). Black-box, via spi_nand_flash_* only.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Write a bit-spread set of sectors so the radix trie actually has depth:
+ * each write's sector number differs from the others at a distinct high
+ * bit, forcing later lookups to walk several genuine alt-pointer levels
+ * instead of resolving in 0-1 hops.
+ */
+static void seed_trie_depth(spi_nand_flash_device_t *dev, uint8_t *wbuf,
+                            size_t words, uint32_t capacity)
+{
+    for (int bit = 24; bit >= 0; bit -= 2) {
+        uint32_t sector = ((uint32_t)1u << bit) % capacity;
+        spi_nand_flash_fill_buffer_seeded(wbuf, words, sector);
+        REQUIRE(spi_nand_flash_write_sector(dev, wbuf, sector) == ESP_OK);
+    }
+}
+
+TEST_CASE("FTL re-reading the same sector hits the path cache; without it, cost never drops",
+          "[ftl][path_cache]")
+{
+#ifdef CONFIG_NAND_ENABLE_STATS
+    spi_nand_flash_device_t *dev = make_ftl_dev();
+    uint32_t sz = 0, capacity = 0;
+    REQUIRE(spi_nand_flash_get_sector_size(dev, &sz) == ESP_OK);
+    REQUIRE(spi_nand_flash_get_capacity(dev, &capacity) == ESP_OK);
+
+    uint8_t *wbuf = (uint8_t *)malloc(sz);
+    uint8_t *rbuf = (uint8_t *)malloc(sz);
+    REQUIRE(wbuf != nullptr);
+    REQUIRE(rbuf != nullptr);
+
+    const uint32_t TARGET = 5;
+    seed_trie_depth(dev, wbuf, sz / sizeof(uint32_t), capacity);
+    spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), TARGET);
+    REQUIRE(spi_nand_flash_write_sector(dev, wbuf, TARGET) == ESP_OK);
+    /* Sync so reads below hit the real path, not dhara's own
+     * recently-written-page fast path (unconditional, not the cache). */
+    REQUIRE(spi_nand_flash_sync(dev) == ESP_OK);
+
+    /* Cold: no path-cache entry yet, must walk from the journal root. */
+    nand_emul_clear_stats(dev);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf, TARGET) == ESP_OK);
+    size_t cold_reads = 0, w = 0, e = 0, rb = 0, wb = 0;
+    nand_emul_get_stats(dev, &cold_reads, &w, &e, &rb, &wb);
+    REQUIRE(cold_reads > 0);
+
+    /* Same sector again, nothing written in between. Re-reading the same
+     * target (not a neighbouring one) means the radix trie itself can't
+     * account for any drop in reads -- trace_path() always restarts from
+     * the journal root on every call, so only a persistent path cache can
+     * make the second call cheaper. */
+    nand_emul_clear_stats(dev);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf, TARGET) == ESP_OK);
+    size_t warm_reads = 0;
+    nand_emul_get_stats(dev, &warm_reads, &w, &e, &rb, &wb);
+
+#if CONFIG_DHARA_MAP_PATH_CACHE
+    printf("[path_cache] DHARA_MAP_PATH_CACHE=1 (on):  cold_reads=%zu warm_reads=%zu\n",
+           cold_reads, warm_reads);
+    REQUIRE(warm_reads < cold_reads);
+#else
+    printf("[path_cache] DHARA_MAP_PATH_CACHE=0 (off): cold_reads=%zu warm_reads=%zu\n",
+           cold_reads, warm_reads);
+    /* No persistent cache -- trace_path() re-derives the identical walk,
+     * so the repeat costs exactly the same as the cold read. */
+    REQUIRE(warm_reads == cold_reads);
+#endif // CONFIG_DHARA_MAP_PATH_CACHE
+
+    free(wbuf);
+    free(rbuf);
+    destroy_ftl_dev(dev);
+#else
+    SUCCEED("CONFIG_NAND_ENABLE_STATS disabled; skipping read-count assertion.");
+#endif // CONFIG_NAND_ENABLE_STATS
+}
+
+TEST_CASE("FTL path-cache hit becomes a miss again after an intervening write",
+          "[ftl][path_cache]")
+{
+#ifdef CONFIG_NAND_ENABLE_STATS
+    spi_nand_flash_device_t *dev = make_ftl_dev();
+    uint32_t sz = 0, capacity = 0;
+    REQUIRE(spi_nand_flash_get_sector_size(dev, &sz) == ESP_OK);
+    REQUIRE(spi_nand_flash_get_capacity(dev, &capacity) == ESP_OK);
+
+    uint8_t *wbuf = (uint8_t *)malloc(sz);
+    uint8_t *rbuf = (uint8_t *)malloc(sz);
+    REQUIRE(wbuf != nullptr);
+    REQUIRE(rbuf != nullptr);
+
+    const uint32_t TARGET = 5;
+    const uint32_t OTHER  = 6;
+    seed_trie_depth(dev, wbuf, sz / sizeof(uint32_t), capacity);
+    spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), TARGET);
+    REQUIRE(spi_nand_flash_write_sector(dev, wbuf, TARGET) == ESP_OK);
+    REQUIRE(spi_nand_flash_sync(dev) == ESP_OK);
+
+    /* Prime the path cache on TARGET. */
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf, TARGET) == ESP_OK);
+
+    /* A write elsewhere bumps the journal root/epoch, which must
+     * invalidate the cached path -- confirm the *next* read of TARGET
+     * costs as much as a fresh walk again, not a cached shortcut. */
+    spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), OTHER);
+    REQUIRE(spi_nand_flash_write_sector(dev, wbuf, OTHER) == ESP_OK);
+    REQUIRE(spi_nand_flash_sync(dev) == ESP_OK);
+
+    nand_emul_clear_stats(dev);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf, TARGET) == ESP_OK);
+    size_t reads_after_invalidation = 0, w = 0, e = 0, rb = 0, wb = 0;
+    nand_emul_get_stats(dev, &reads_after_invalidation, &w, &e, &rb, &wb);
+
+    /* Immediately re-reading TARGET now must be a cache hit again (small),
+     * proving the miss above was the root-change invalidation, not some
+     * unrelated regression that broke the cache permanently. */
+    nand_emul_clear_stats(dev);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf, TARGET) == ESP_OK);
+    size_t reads_recached = 0;
+    nand_emul_get_stats(dev, &reads_recached, &w, &e, &rb, &wb);
+
+#if CONFIG_DHARA_MAP_PATH_CACHE
+    printf("[path_cache] DHARA_MAP_PATH_CACHE=1 (on):  reads_after_invalidation=%zu reads_recached=%zu\n",
+           reads_after_invalidation, reads_recached);
+    REQUIRE(reads_recached < reads_after_invalidation);
+#else
+    printf("[path_cache] DHARA_MAP_PATH_CACHE=0 (off): reads_after_invalidation=%zu reads_recached=%zu\n",
+           reads_after_invalidation, reads_recached);
+    REQUIRE(reads_recached == reads_after_invalidation);
+#endif // CONFIG_DHARA_MAP_PATH_CACHE
+
+    free(wbuf);
+    free(rbuf);
+    destroy_ftl_dev(dev);
+#else
+    SUCCEED("CONFIG_NAND_ENABLE_STATS disabled; skipping read-count assertion.");
+#endif // CONFIG_NAND_ENABLE_STATS
+}
+
+TEST_CASE("FTL read after overwrite never returns the pre-write page (cache invalidation)",
+          "[ftl][path_cache]")
+{
+    spi_nand_flash_device_t *dev = make_ftl_dev();
+    uint32_t sz = 0;
+    REQUIRE(spi_nand_flash_get_sector_size(dev, &sz) == ESP_OK);
+
+    uint8_t *wbuf = (uint8_t *)malloc(sz);
+    uint8_t *rbuf1 = (uint8_t *)malloc(sz);
+    uint8_t *rbuf2 = (uint8_t *)malloc(sz);
+    REQUIRE(wbuf != nullptr);
+    REQUIRE(rbuf1 != nullptr);
+    REQUIRE(rbuf2 != nullptr);
+
+    const uint32_t TARGET_SECTOR = 5;
+
+    spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), 0xAA);
+    REQUIRE(spi_nand_flash_write_sector(dev, wbuf, TARGET_SECTOR) == ESP_OK);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf1, TARGET_SECTOR) == ESP_OK);
+    REQUIRE(spi_nand_flash_check_buffer_seeded(rbuf1, sz / sizeof(uint32_t), 0xAA) == 0);
+
+    spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), 0xBB);
+    REQUIRE(spi_nand_flash_write_sector(dev, wbuf, TARGET_SECTOR) == ESP_OK);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf2, TARGET_SECTOR) == ESP_OK);
+
+    REQUIRE(spi_nand_flash_check_buffer_seeded(rbuf2, sz / sizeof(uint32_t), 0xBB) == 0);
+    REQUIRE(memcmp(rbuf1, rbuf2, sz) != 0);
+
+    free(wbuf);
+    free(rbuf1);
+    free(rbuf2);
+    destroy_ftl_dev(dev);
+}
+
+TEST_CASE("FTL read after GC pressure returns correct, live data",
+          "[ftl][path_cache]")
+{
+    /* 16 blocks is the minimum with non-zero capacity at this chip's
+     * ppb=64 geometry (dhara's fixed retry-margin reserve eats smaller
+     * chips entirely regardless of gc_ratio). */
+    const size_t SMALL_FLASH = (size_t)2u * 1024u * 1024u; /* 16 blocks */
+    spi_nand_flash_device_t *dev = make_ftl_dev(SMALL_FLASH);
+    uint32_t sz = 0;
+    REQUIRE(spi_nand_flash_get_sector_size(dev, &sz) == ESP_OK);
+
+    uint8_t *wbuf = (uint8_t *)malloc(sz);
+    uint8_t *rbuf = (uint8_t *)malloc(sz);
+    REQUIRE(wbuf != nullptr);
+    REQUIRE(rbuf != nullptr);
+
+    const uint32_t TARGET_SECTOR = 2;
+    const int ROUNDS = 500;
+
+    for (int i = 0; i < ROUNDS; i++) {
+        uint32_t sector = (i % 2 == 0) ? TARGET_SECTOR : (TARGET_SECTOR + 1);
+        spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), (uint32_t)i);
+        REQUIRE(spi_nand_flash_write_sector(dev, wbuf, sector) == ESP_OK);
+    }
+
+    const uint32_t last_seed = (uint32_t)(ROUNDS - 2);
+    spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), last_seed);
+    REQUIRE(spi_nand_flash_write_sector(dev, wbuf, TARGET_SECTOR) == ESP_OK);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf, TARGET_SECTOR) == ESP_OK);
+    REQUIRE(spi_nand_flash_check_buffer_seeded(rbuf, sz / sizeof(uint32_t), last_seed) == 0);
+
+    free(wbuf);
+    free(rbuf);
+    destroy_ftl_dev(dev);
+}
+
+TEST_CASE("FTL read after enough writes to force a journal wrap returns correct data",
+          "[ftl][path_cache]")
+{
+    /* No public API to observe the wrap directly; correctness of the
+     * post-wrap read is the contract that matters. */
+    const size_t SMALL_FLASH = (size_t)2u * 1024u * 1024u; /* 16 blocks */
+    spi_nand_flash_device_t *dev = make_ftl_dev(SMALL_FLASH);
+    uint32_t sz = 0;
+    REQUIRE(spi_nand_flash_get_sector_size(dev, &sz) == ESP_OK);
+
+    uint8_t *wbuf = (uint8_t *)malloc(sz);
+    uint8_t *rbuf = (uint8_t *)malloc(sz);
+    REQUIRE(wbuf != nullptr);
+    REQUIRE(rbuf != nullptr);
+
+    const uint32_t sectors[2] = {0, 1};
+    const int ROUNDS = 5000;
+
+    for (int i = 0; i < ROUNDS; i++) {
+        spi_nand_flash_fill_buffer_seeded(wbuf, sz / sizeof(uint32_t), (uint32_t)i);
+        REQUIRE(spi_nand_flash_write_sector(dev, wbuf, sectors[i % 2]) == ESP_OK);
+    }
+
+    const uint32_t last_seed_0 = (uint32_t)(ROUNDS - 2);
+    REQUIRE(spi_nand_flash_read_sector(dev, rbuf, 0) == ESP_OK);
+    REQUIRE(spi_nand_flash_check_buffer_seeded(rbuf, sz / sizeof(uint32_t), last_seed_0) == 0);
+
+    free(wbuf);
+    free(rbuf);
+    destroy_ftl_dev(dev);
+}
