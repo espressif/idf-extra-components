@@ -1,0 +1,44 @@
+menu "X/YModem"
+    config XYMODEM_CANCEL_CAN_COUNT
+        int "Number of <CAN> characters sent when canceling transmission"
+        range 2 8
+        default 2
+        help
+            X/YMODEM commonly uses two consecutive <CAN> characters to indicate
+            transmission cancellation. Requiring multiple <CAN> characters reduces
+            the risk of accidental cancellation caused by line errors.
+
+            Sending additional <CAN> characters can make cancellation more reliable
+            on noisy links, and some X/YMODEM specifications recommend sending eight
+            <CAN> characters when aborting a transmission. This option specifies how
+            many consecutive <CAN> characters are sent when canceling a transmission.
+
+    config XYMODEM_CAN_INTERVAL_MS
+        int "Maximum interval between consecutive <CAN> characters"
+        range 1 1000
+        default 100
+        help
+            Maximum interval, in milliseconds, allowed between two consecutive
+            <CAN> characters when recognizing a cancellation request from the peer.
+
+            X/YMODEM commonly uses two consecutive <CAN> characters to indicate
+            transmission cancellation, but the protocol does not specify a maximum
+            interval between them. A shorter interval reduces the chance of
+            unrelated <CAN> characters being mistaken for a cancellation, while a
+            longer interval improves compatibility with peers that transmit the
+            characters with larger delays.
+
+    config XYMODEM_PURGE_IDLE_TIMEOUT_MS
+        int "RX idle time required when purging received data (ms)"
+        range 0 1000
+        default 10
+        help
+            Specifies how long the receive path must remain idle before the
+            RX purge operation is considered complete.
+
+            While purging, all received data is discarded. The idle timer is
+            effectively restarted whenever more data is received. Please Set
+            this value based on the actual transmission rate of the underlying
+            physical link.
+
+endmenu
