@@ -1,0 +1,12 @@
+xymodem/test_apps:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32s3"]
+      reason: "Need two extra HP UART ports besides the console for GPIO-matrix loopback"
+  disable:
+    - if: IDF_VERSION_MAJOR < 5 or (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 3)
+      reason: "xymodem requires ESP-IDF v5.3 or later"
+
+xymodem/examples/xmodem:
+  disable:
+    - if: IDF_VERSION_MAJOR < 5 or (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 3)
+      reason: "xymodem requires ESP-IDF v5.3 or later"
