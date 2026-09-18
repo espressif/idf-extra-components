@@ -8,6 +8,10 @@
  * These cases mirror pid_ctrl_test.c one-to-one. The C tests exercise the
  * float backend through the C _Generic API; these tests exercise the IQ
  * backend through the C++ overloads.
+ *
+ * The cases below use the unsuffixed _iq API, which keeps following GLOBAL_IQ.
+ * Concrete Q-formats (_iq1 .. _iq30) are covered by the multi-format cases
+ * at the end of this file.
  */
 
 #include "unity.h"
@@ -243,4 +247,159 @@ TEST_CASE("C++ generic API: float smoke test", "[pid_ctrl][cpp][generic][float]"
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
     TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.1f, out);
     TEST_ESP_OK(pid_del_control_block(h));
+}
+
+/*
+ * The point of the typed configs: several Q-formats coexist in one firmware,
+ * each dispatching to its own backend, without any GLOBAL_IQ agreement.
+ *
+ * The unsuffixed _iq backend is a separate instance as well, so it can be used
+ * next to the concrete formats in the same translation unit.
+ */
+namespace {
+
+static pid_ctrl_config_iq24_t make_pos_iq24_cfg(_iq24 kp, _iq24 ki, _iq24 kd)
+{
+    pid_ctrl_config_iq24_t cfg = {};
+    cfg.init_param.kp = kp;
+    cfg.init_param.ki = ki;
+    cfg.init_param.kd = kd;
+    cfg.init_param.max_output = _IQ24(100.0f);
+    cfg.init_param.min_output = _IQ24(-100.0f);
+    cfg.init_param.max_integral = _IQ24(100.0f);
+    cfg.init_param.min_integral = _IQ24(-100.0f);
+    cfg.init_param.cal_type = PID_CAL_TYPE_POSITIONAL;
+    return cfg;
+}
+
+static pid_ctrl_config_iq8_t make_pos_iq8_cfg(_iq8 kp, _iq8 ki, _iq8 kd)
+{
+    pid_ctrl_config_iq8_t cfg = {};
+    cfg.init_param.kp = kp;
+    cfg.init_param.ki = ki;
+    cfg.init_param.kd = kd;
+    cfg.init_param.max_output = _IQ8(100.0f);
+    cfg.init_param.min_output = _IQ8(-100.0f);
+    cfg.init_param.max_integral = _IQ8(100.0f);
+    cfg.init_param.min_integral = _IQ8(-100.0f);
+    cfg.init_param.cal_type = PID_CAL_TYPE_POSITIONAL;
+    return cfg;
+}
+
+}  // namespace
+
+TEST_CASE("IQ: Q8, Q16 and Q24 backends coexist", "[pid_ctrl][iq][multiformat]")
+{
+    pid_ctrl_config_iq8_t cfg8 = make_pos_iq8_cfg(_IQ8(1.0f), _IQ8(0.0f), _IQ8(0.0f));
+    pid_ctrl_block_handle_iq8 h8 = nullptr;
+    TEST_ESP_OK(pid_new_control_block(&cfg8, &h8));
+
+    pid_ctrl_config_iq16_t cfg16 = {};
+    cfg16.init_param.kp = _IQ16(1.0f);
+    cfg16.init_param.ki = _IQ16(0.0f);
+    cfg16.init_param.kd = _IQ16(0.0f);
+    cfg16.init_param.max_output = _IQ16(100.0f);
+    cfg16.init_param.min_output = _IQ16(-100.0f);
+    cfg16.init_param.max_integral = _IQ16(100.0f);
+    cfg16.init_param.min_integral = _IQ16(-100.0f);
+    cfg16.init_param.cal_type = PID_CAL_TYPE_POSITIONAL;
+    pid_ctrl_block_handle_iq16 h16 = nullptr;
+    TEST_ESP_OK(pid_new_control_block(&cfg16, &h16));
+
+    pid_ctrl_config_iq24_t cfg24 = make_pos_iq24_cfg(_IQ24(1.0f), _IQ24(0.0f), _IQ24(0.0f));
+    pid_ctrl_block_handle_iq24 h24 = nullptr;
+    TEST_ESP_OK(pid_new_control_block(&cfg24, &h24));
+
+    /* The same physical quantity, expressed in three different Q-formats.
+     * Each backend must produce the value in its own format. */
+    _iq8 out8 = 0;
+    _iq16 out16 = 0;
+    _iq24 out24 = 0;
+    TEST_ESP_OK(pid_compute(h8, _IQ8(0.5f), &out8));
+    TEST_ESP_OK(pid_compute(h16, _IQ16(0.5f), &out16));
+    TEST_ESP_OK(pid_compute(h24, _IQ24(0.5f), &out24));
+
+    TEST_ASSERT_FLOAT_WITHIN(1e-2f, 0.5f, _IQ8toF(out8));
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 0.5f, _IQ16toF(out16));
+    TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.5f, _IQ24toF(out24));
+
+    TEST_ESP_OK(pid_del_control_block(h8));
+    TEST_ESP_OK(pid_del_control_block(h16));
+    TEST_ESP_OK(pid_del_control_block(h24));
+}
+
+TEST_CASE("IQ: unsuffixed _iq backend coexists with the concrete formats",
+          "[pid_ctrl][iq][multiformat]")
+{
+    /* _iq is an alias of whatever GLOBAL_IQ names, but it has its own types,
+     * so it must be usable next to an explicit Q24 control block. */
+    const pid_ctrl_config_iq_t cfg_iq = make_pos_iq_cfg(_IQ(1.0f), _IQ(0.0f), _IQ(0.0f));
+    pid_ctrl_block_handle_iq_t h_iq = nullptr;
+    TEST_ESP_OK(pid_new_control_block(&cfg_iq, &h_iq));
+
+    const pid_ctrl_config_iq24_t cfg24 = make_pos_iq24_cfg(_IQ24(1.0f), _IQ24(0.0f), _IQ24(0.0f));
+    pid_ctrl_block_handle_iq24 h24 = nullptr;
+    TEST_ESP_OK(pid_new_control_block(&cfg24, &h24));
+
+    _iq out_iq = 0;
+    _iq24 out24 = 0;
+    TEST_ESP_OK(pid_compute(h_iq, _IQ(0.5f), &out_iq));
+    TEST_ESP_OK(pid_compute(h24, _IQ24(0.5f), &out24));
+
+    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 0.5f, _IQtoF(out_iq));
+    TEST_ASSERT_FLOAT_WITHIN(1e-4f, 0.5f, _IQ24toF(out24));
+
+    TEST_ESP_OK(pid_del_control_block(h_iq));
+    TEST_ESP_OK(pid_del_control_block(h24));
+}
+
+TEST_CASE("IQ: precision scales with the Q-format", "[pid_ctrl][iq][multiformat]")
+{
+    /* A small error is representable in Q24 but not in Q8, which pins down
+     * that the two control blocks really use different arithmetic. */
+    pid_ctrl_config_iq8_t cfg8 = make_pos_iq8_cfg(_IQ8(1.0f), _IQ8(0.0f), _IQ8(0.0f));
+    pid_ctrl_block_handle_iq8 h8 = nullptr;
+    TEST_ESP_OK(pid_new_control_block(&cfg8, &h8));
+
+    pid_ctrl_config_iq24_t cfg24 = make_pos_iq24_cfg(_IQ24(1.0f), _IQ24(0.0f), _IQ24(0.0f));
+    pid_ctrl_block_handle_iq24 h24 = nullptr;
+    TEST_ESP_OK(pid_new_control_block(&cfg24, &h24));
+
+    /* 0.001 is below the Q8 resolution of 1/256, so it collapses to 0. */
+    _iq8 out8 = 0;
+    _iq24 out24 = 0;
+    TEST_ESP_OK(pid_compute(h8, _IQ8(0.001f), &out8));
+    TEST_ESP_OK(pid_compute(h24, _IQ24(0.001f), &out24));
+
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, _IQ8toF(out8));
+    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.001f, _IQ24toF(out24));
+
+    TEST_ESP_OK(pid_del_control_block(h8));
+    TEST_ESP_OK(pid_del_control_block(h24));
+}
+
+TEST_CASE("IQ: every Q-format backend", "[pid_ctrl][iq][allformats]")
+{
+    /* Limits of ±1 and an error of 0.5 fit every Q1..Q30 range and are
+     * exactly representable in all of them. */
+#define PID_IQ_SMOKE(_q)                                                         \
+    do {                                                                         \
+        pid_ctrl_config_iq##_q##_t cfg = {};                                     \
+        cfg.init_param.kp = _IQ##_q(1.0f);                                       \
+        cfg.init_param.ki = _IQ##_q(0.0f);                                       \
+        cfg.init_param.kd = _IQ##_q(0.0f);                                       \
+        cfg.init_param.max_output = _IQ##_q(1.0f);                               \
+        cfg.init_param.min_output = _IQ##_q(-1.0f);                              \
+        cfg.init_param.max_integral = _IQ##_q(1.0f);                             \
+        cfg.init_param.min_integral = _IQ##_q(-1.0f);                            \
+        cfg.init_param.cal_type = PID_CAL_TYPE_POSITIONAL;                       \
+        pid_ctrl_block_handle_iq##_q h = nullptr;                                \
+        TEST_ESP_OK(pid_new_control_block(&cfg, &h));                            \
+        _iq##_q out = 0;                                                         \
+        TEST_ESP_OK(pid_compute(h, _IQ##_q(0.5f), &out));                        \
+        TEST_ASSERT_FLOAT_WITHIN(1e-3f, 0.5f, _IQ##_q##toF(out));                \
+        TEST_ESP_OK(pid_del_control_block(h));                                   \
+    } while (0);
+    PID_IQ_FORMATS(PID_IQ_SMOKE)
+#undef PID_IQ_SMOKE
 }

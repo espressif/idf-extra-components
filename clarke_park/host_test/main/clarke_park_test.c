@@ -111,3 +111,74 @@ TEST_CASE("float Clarke roundtrip", "[clarke_park][float]")
     TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, uvw_in.v, uvw_out.v);
     TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, uvw_in.w, uvw_out.w);
 }
+
+/*
+ * The IQ backends are exercised in clarke_park_test.cpp. The case below only
+ * checks that the C _Generic dispatch reaches the right backend when two
+ * different Q-formats are used in the same translation unit, which is the
+ * property that replaced CONFIG_CLARKE_PARK_IQ_FORMAT.
+ */
+TEST_CASE("C _Generic API: IQ dispatch picks the backend from the Q-format",
+          "[clarke_park][generic][iq]")
+{
+    /* Q8 and Q15 coordinates in one translation unit, no GLOBAL_IQ involved */
+    clarke_park_uvw_iq8_t uvw8 = { .u = _IQ8(1.0f), .v = _IQ8(-0.5f), .w = _IQ8(-0.5f) };
+    clarke_park_uvw_iq15_t uvw15 = { .u = _IQ15(1.0f), .v = _IQ15(-0.5f), .w = _IQ15(-0.5f) };
+
+    clarke_park_ab_iq8_t ab8 = { 0 };
+    clarke_park_ab_iq15_t ab15 = { 0 };
+
+    clarke_park_clarke(&uvw8, &ab8);
+    clarke_park_clarke(&uvw15, &ab15);
+
+    TEST_ASSERT_FLOAT_WITHIN(1e-2f, 1.0f, _IQ8toF(ab8.alpha));
+    TEST_ASSERT_FLOAT_WITHIN(2e-3f, 1.0f, _IQ15toF(ab15.alpha));
+}
+
+TEST_CASE("C _Generic API: every Q-format backend", "[clarke_park][generic][iq][allformats]")
+{
+    /* Suffixed APIs, not the generic clarke_park_clarke() macro: iterating
+     * CLARKE_PARK_IQ_FORMATS and then expanding that macro would re-enter
+     * the same function-like list (preprocessor paint).
+     *
+     * Scale the raw IQ word rather than calling _IQNtoF: IQmath's converter
+     * turns values just below 1.0 into 2.0 in Q25..Q29 on the host, so Park
+     * at theta=0 (cos(0) = (1<<q)-1 from the IQ31 table) would fail a
+     * working backend. Clarke of (1,-0.5,-0.5) is exact in high Q and only
+     * loosely checked below Q8. Park at theta=0 needs cos(0)=1, which
+     * IQmath cannot represent in Q1..Q7 after the IQ31 table shift, so it
+     * is checked from Q8 up. */
+#define CLARKE_PARK_TEST_IQ_TO_F(_q, _v) ((float)(_v) / (float)((int32_t)1 << (_q)))
+#define CLARKE_PARK_IQ_SMOKE(_q)                                                         \
+    do {                                                                                 \
+        clarke_park_uvw_iq##_q##_t uvw = {                                               \
+            .u = _IQ##_q(1.0f), .v = _IQ##_q(-0.5f), .w = _IQ##_q(-0.5f)                 \
+        };                                                                               \
+        clarke_park_ab_iq##_q##_t ab = { 0 };                                            \
+        clarke_park_clarke_iq##_q(&uvw, &ab);                                            \
+        TEST_ASSERT_FLOAT_WITHIN((_q) < 8 ? 0.6f : 2e-2f, 1.0f,                          \
+                                 CLARKE_PARK_TEST_IQ_TO_F(_q, ab.alpha));                \
+        clarke_park_dq_iq##_q##_t dq = { 0 };                                            \
+        clarke_park_park_iq##_q(_IQ##_q(0.0f), &ab, &dq);                                \
+        if ((_q) >= 8) {                                                                 \
+            TEST_ASSERT_FLOAT_WITHIN(2e-2f, CLARKE_PARK_TEST_IQ_TO_F(_q, ab.alpha),       \
+                                     CLARKE_PARK_TEST_IQ_TO_F(_q, dq.d));                \
+            TEST_ASSERT_FLOAT_WITHIN(2e-2f, CLARKE_PARK_TEST_IQ_TO_F(_q, ab.beta),        \
+                                     CLARKE_PARK_TEST_IQ_TO_F(_q, dq.q));                \
+        }                                                                                \
+        clarke_park_ab_iq##_q##_t ab_out = { 0 };                                        \
+        clarke_park_ipark_iq##_q(_IQ##_q(0.0f), &dq, &ab_out);                           \
+        if ((_q) >= 8) {                                                                 \
+            TEST_ASSERT_FLOAT_WITHIN(2e-2f, CLARKE_PARK_TEST_IQ_TO_F(_q, ab.alpha),       \
+                                     CLARKE_PARK_TEST_IQ_TO_F(_q, ab_out.alpha));        \
+        }                                                                                \
+        clarke_park_uvw_iq##_q##_t uvw_out = { 0 };                                      \
+        clarke_park_iclarke_iq##_q(&ab, &uvw_out);                                       \
+        TEST_ASSERT_FLOAT_WITHIN((_q) < 8 ? 0.6f : 2e-2f,                                \
+                                 CLARKE_PARK_TEST_IQ_TO_F(_q, uvw.u),                     \
+                                 CLARKE_PARK_TEST_IQ_TO_F(_q, uvw_out.u));                \
+    } while (0);
+    CLARKE_PARK_IQ_FORMATS(CLARKE_PARK_IQ_SMOKE)
+#undef CLARKE_PARK_IQ_SMOKE
+#undef CLARKE_PARK_TEST_IQ_TO_F
+}
