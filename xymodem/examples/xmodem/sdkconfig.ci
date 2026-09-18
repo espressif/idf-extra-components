@@ -1,0 +1,3 @@
+# UART backend only. Used for compile coverage on UART-capable targets.
+CONFIG_EXAMPLE_XYMODEM_BACKEND_UART=y
+CONFIG_EXAMPLE_XYMODEM_BACKEND_UHCI=n

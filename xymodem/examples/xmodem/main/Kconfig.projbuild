@@ -1,0 +1,54 @@
+menu "Example Configuration"
+
+    choice EXAMPLE_XYMODEM_ROLE
+        prompt "XMODEM role"
+        default EXAMPLE_XYMODEM_ROLE_SEND
+        help
+            Select whether this board sends a built-in payload or waits to receive one.
+
+        config EXAMPLE_XYMODEM_ROLE_SEND
+            bool "Send"
+        config EXAMPLE_XYMODEM_ROLE_RECV
+            bool "Receive"
+    endchoice
+
+    config EXAMPLE_XYMODEM_UART_PORT
+        int "UART port number"
+        default 1
+        range 0 5
+        help
+            UART port used for the XMODEM link. Do not use the console UART (usually UART0)
+            unless the console has been moved to another interface.
+
+    config EXAMPLE_XYMODEM_UART_TX_GPIO
+        int "UART TX GPIO"
+        default 4
+        range 0 63
+
+    config EXAMPLE_XYMODEM_UART_RX_GPIO
+        int "UART RX GPIO"
+        default 5
+        range 0 63
+
+    config EXAMPLE_XYMODEM_UART_BAUD
+        int "UART baud rate"
+        default 115200
+        range 9600 5000000
+
+    choice EXAMPLE_XYMODEM_BACKEND
+        prompt "Transport backend"
+        default EXAMPLE_XYMODEM_BACKEND_UART
+        help
+            The UART driver uses the byte-stream FIFO. UHCI uses UART DMA.
+            The UHCI option is shown when the target has a UHCI controller.
+            The example calls uhci_start_receive_continuous(), which exists
+            on recent ESP-IDF.
+
+        config EXAMPLE_XYMODEM_BACKEND_UART
+            bool "UART driver"
+        config EXAMPLE_XYMODEM_BACKEND_UHCI
+            bool "UHCI (UART DMA)"
+            depends on SOC_UHCI_SUPPORTED
+    endchoice
+
+endmenu

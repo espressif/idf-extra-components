@@ -1,0 +1,4 @@
+dependencies:
+  espressif/xymodem:
+    version: "*"
+    override_path: "../../../"

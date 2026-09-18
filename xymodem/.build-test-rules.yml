@@ -1,0 +1,16 @@
+xymodem/test_apps:
+  enable:
+    - if: IDF_TARGET in ["esp32s3", "esp32p4"]
+      reason: "This loopback test needs at least 3 UARTs; S3 and P4 are enough to cover Xtensa and RISC-V"
+  disable:
+    - if: IDF_VERSION_MAJOR < 5 or (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 3)
+      reason: "xymodem requires ESP-IDF v5.3 or later"
+
+xymodem/examples/xmodem:
+  disable:
+    - if: SOC_UART_SUPPORTED != 1
+      reason: "Example requires hardware UART"
+    - if: IDF_VERSION_MAJOR < 5 or (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 3)
+      reason: "xymodem requires ESP-IDF v5.3 or later"
+    - if: CONFIG_NAME in ["send", "recv"] and IDF_TARGET not in ["esp32s3", "esp32p4"]
+      reason: "Host-tool pytest uses USB Serial/JTAG console; covered on S3 and P4"
