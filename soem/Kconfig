@@ -1,0 +1,115 @@
+menu "SOEM Configuration"
+
+    menu "Resource limits"
+
+        config EC_MAXBUF
+            int "Frame buffers per channel"
+            default 16
+
+        config EC_MAXEEPBITMAP
+            int "EEPROM bitmap cache size"
+            default 128
+
+        config EC_LOGGROUPOFFSET
+            int "Default group size exponent"
+            default 16
+
+        config EC_MAXELIST
+            int "Maximum error list entries"
+            default 64
+
+        config EC_MAXNAME
+            int "Maximum readable name length"
+            default 40
+
+        config EC_MAXSLAVE
+            int "Maximum number of slaves"
+            default 200
+
+        config EC_MAXGROUP
+            int "Maximum number of groups"
+            default 2
+
+        config EC_MAXIOSEGMENTS
+            int "Maximum IO segments per group"
+            default 64
+
+        config EC_MAXMBX
+            int "Maximum mailbox size"
+            default 1486
+
+        config EC_MBXPOOLSIZE
+            int "Number of mailboxes in pool"
+            default 32
+
+        config EC_MAXEEPDO
+            hex "Maximum EEPROM PDO entries"
+            default 0x200
+
+        config EC_MAXSM
+            int "Maximum Sync Managers per slave"
+            default 8
+
+        config EC_MAXFMMU
+            int "Maximum FMMUs per slave"
+            default 4
+
+        config EC_MAXLEN_ADAPTERNAME
+            int "Maximum adapter name length"
+            default 128
+
+        config EC_MAX_MAPT
+            int "Maximum concurrent mapping tasks"
+            default 1
+
+        config EC_MAXODLIST
+            int "Maximum Object Dictionary entries"
+            default 1024
+
+        config EC_MAXOELIST
+            int "Maximum Object Entry entries"
+            default 256
+
+        config EC_SOE_MAXNAME
+            int "Maximum SoE name length"
+            default 60
+
+        config EC_SOE_MAXMAPPING
+            int "Maximum SoE mappings"
+            default 64
+
+    endmenu
+
+    menu "Timeouts and retries"
+
+        config EC_TIMEOUTRET
+            int "Frame return timeout (us)"
+            default 2000
+
+        config EC_TIMEOUTSAFE
+            int "Safe return timeout (us)"
+            default 20000
+
+        config EC_TIMEOUTEEP
+            int "EEPROM access timeout (us)"
+            default 20000
+
+        config EC_TIMEOUTTXM
+            int "Mailbox transmit timeout (us)"
+            default 20000
+
+        config EC_TIMEOUTRXM
+            int "Mailbox receive timeout (us)"
+            default 700000
+
+        config EC_TIMEOUTSTATE
+            int "State transition timeout (us)"
+            default 2000000
+
+        config EC_DEFAULTRETRIES
+            int "Default number of retries"
+            default 3
+
+    endmenu
+
+endmenu
