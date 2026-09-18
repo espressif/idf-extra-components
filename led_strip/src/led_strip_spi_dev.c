@@ -190,12 +190,18 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         .quadhd_io_num = -1,
         .max_transfer_sz = led_config->max_leds * bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE,
     };
+#ifdef SPICOMMON_BUSFLAG_DATA_OUT_INV
+    if (led_config->flags.invert_out == true) {
+        spi_bus_cfg.flags |= SPICOMMON_BUSFLAG_DATA_OUT_INV;
+    }
+#endif
     ESP_GOTO_ON_ERROR(spi_bus_initialize(spi_strip->spi_host, &spi_bus_cfg, spi_config->flags.with_dma ? SPI_DMA_CH_AUTO : SPI_DMA_DISABLED), err, TAG, "create SPI bus failed");
 
+#ifndef SPICOMMON_BUSFLAG_DATA_OUT_INV
     if (led_config->flags.invert_out == true) {
         esp_rom_gpio_connect_out_signal(led_config->strip_gpio_num, spi_periph_signal[spi_strip->spi_host].spid_out, true, false);
     }
-
+#endif
     spi_device_interface_config_t spi_dev_cfg = {
         .clock_source = clk_src,
         .command_bits = 0,

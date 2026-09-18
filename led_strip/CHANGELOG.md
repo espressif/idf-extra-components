@@ -1,3 +1,7 @@
+## Unreleased
+
+- SPI backend uses official `SPICOMMON_BUSFLAG_DATA_OUT_INV`, older IDF keeps the GPIO-matrix fallback.
+
 ## 3.0.3
 
 - Support WS2816 with 16-bit color
