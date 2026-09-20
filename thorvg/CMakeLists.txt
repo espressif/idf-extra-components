@@ -59,6 +59,7 @@ idf_component_register(
 
 target_compile_options(${COMPONENT_LIB} INTERFACE
     $<$<COMPILE_LANGUAGE:C>:-Wno-ignored-qualifiers>
+    $<$<COMPILE_LANGUAGE:C>:-Wno-strict-prototypes>
 )
 
 
