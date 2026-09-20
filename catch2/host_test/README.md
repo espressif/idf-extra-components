@@ -1,17 +1,10 @@
-# Catch2 example
+# Catch2 Host Test
 
 This example should help you get started with Catch2 test framework.
 
 ## Using the example
 
-To run the example on an ESP32, build and flash the project as usual:
-
-```bash
-idf.py set-target esp32
-idf.py build flash monitor
-```
-
-The example can also be used on Linux host:
+The example can be used on Linux host:
 ```bash
 idf.py --preview set-target linux
 idf.py build monitor

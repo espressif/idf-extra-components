@@ -1,0 +1,10 @@
+catch2/host_test:
+  enable:
+    - if: IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 4
+
+catch2/examples/catch2-console:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32c3"]
+      reason: "Sufficient to test on representative Xtensa and RISC-V targets"

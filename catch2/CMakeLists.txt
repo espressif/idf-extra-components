@@ -14,8 +14,10 @@ target_compile_options(${catch_target} PRIVATE -Wno-unused-function)
 idf_build_get_property(target IDF_TARGET)
 if(NOT target STREQUAL "linux")
     target_link_libraries(${catch_target} PUBLIC idf::pthread)
-    # Work around a linking dependency issue in ESP-IDF
-    target_link_libraries(${COMPONENT_LIB} PUBLIC "-Wl,-u getentropy")
+    # Work around ESP-IDF linker order between libstdc++, newlib and esp_hw_support:
+    # std::random_device -> getentropy -> getrandom -> esp_fill_random.
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-u getentropy")
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-u esp_fill_random")
 endif()
 
 # If console component is present in the build, include the console
