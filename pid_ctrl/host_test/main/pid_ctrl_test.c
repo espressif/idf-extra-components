@@ -2,11 +2,19 @@
  * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ *
+ * pid_ctrl C host tests: float algorithm via the C _Generic API.
+ * IQmath is a single Q8/Q24 dispatch smoke; the fixed-point algorithm
+ * and every-Q backends live in pid_ctrl_test.cpp.
  */
 
 #include "unity.h"
 #include "pid_ctrl.h"
 #include "IQmathLib.h"
+
+#define TEST_EPS (1e-5f)
+#define TEST_IQ_EPS (2e-3f)
+#define TEST_IQ8_EPS (1e-2f)
 
 static void make_pos_f_cfg(pid_ctrl_config_f_t *cfg,
                            float kp, float ki, float kd,
@@ -48,7 +56,7 @@ TEST_CASE("float positional PID: P-only", "[pid_ctrl][float][positional]")
 
     float out = 0.0f;
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.1f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.1f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -64,7 +72,7 @@ TEST_CASE("float positional PID: integral accumulation", "[pid_ctrl][float][posi
     /* Constant error => integral grows linearly, output grows by error each step */
     for (int i = 1; i <= 5; i++) {
         TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-        TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.1f * i, out);
+        TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.1f * i, out);
     }
 
     TEST_ESP_OK(pid_del_control_block(h));
@@ -80,11 +88,30 @@ TEST_CASE("float positional PID: integral anti-windup (clamp)", "[pid_ctrl][floa
     float out = 0.0f;
     for (int i = 1; i <= 5; i++) {
         TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-        TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.1f * i, out);
+        TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.1f * i, out);
     }
     /* Integral has reached +0.5 (clamped), further error does not wind it up */
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.5f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.5f, out);
+
+    TEST_ESP_OK(pid_del_control_block(h));
+}
+
+TEST_CASE("float positional PID: derivative on error change", "[pid_ctrl][float][positional][derivative]")
+{
+    /* u = Kd * (e - e_prev); first step e_prev = 0 */
+    pid_ctrl_config_f_t cfg;
+    make_pos_f_cfg(&cfg, 0.0f, 0.0f, 1.0f, 100.0f, -100.0f, 100.0f, -100.0f);
+    pid_ctrl_block_handle_f_t h = NULL;
+    TEST_ESP_OK(pid_new_control_block(&cfg, &h));
+
+    float out = 0.0f;
+    TEST_ESP_OK(pid_compute(h, 0.2f, &out));
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.2f, out);
+    TEST_ESP_OK(pid_compute(h, 0.5f, &out));
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.3f, out);
+    TEST_ESP_OK(pid_compute(h, 0.5f, &out));
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.0f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -99,10 +126,10 @@ TEST_CASE("float positional PID: output clamping", "[pid_ctrl][float][positional
     float out = 0.0f;
     /* Positive error drives output to max_output */
     TEST_ESP_OK(pid_compute(h, 1.0f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.05f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.05f, out);
     /* Negative error drives output to min_output */
     TEST_ESP_OK(pid_compute(h, -1.0f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-6f, -0.05f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, -0.05f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -121,7 +148,7 @@ TEST_CASE("float incremental PID: first step", "[pid_ctrl][float][incremental]")
 
     float out = 0.0f;
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.35f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.35f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -139,11 +166,11 @@ TEST_CASE("float incremental PID: accumulates previous output over steps", "[pid
 
     float out = 0.0f;
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.1f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.1f, out);
     TEST_ESP_OK(pid_compute(h, 0.2f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.2f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.2f, out);
     TEST_ESP_OK(pid_compute(h, 0.3f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.3f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.3f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -158,7 +185,7 @@ TEST_CASE("float incremental PID: output clamping", "[pid_ctrl][float][increment
     float out = 0.0f;
     /* Large positive error gives a delta far above max_output */
     TEST_ESP_OK(pid_compute(h, 10.0f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.05f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.05f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -185,7 +212,7 @@ TEST_CASE("float PID update_parameters: switch type and gains", "[pid_ctrl][floa
 
     float out = 0.0f;
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.3f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.3f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -201,12 +228,12 @@ TEST_CASE("float PID reset clears accumulated state", "[pid_ctrl][float][reset]"
     /* Accumulate some integral */
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.2f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.2f, out);
 
     /* Reset: integral and error history must be cleared */
     TEST_ESP_OK(pid_reset_ctrl_block(h));
     TEST_ESP_OK(pid_compute(h, 0.1f, &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-5f, 0.1f, out);
+    TEST_ASSERT_FLOAT_WITHIN(TEST_EPS, 0.1f, out);
 
     TEST_ESP_OK(pid_del_control_block(h));
 }
@@ -242,30 +269,47 @@ TEST_CASE("float PID invalid inputs", "[pid_ctrl][float][error]")
     TEST_ESP_OK(pid_del_control_block(ok));
 }
 
-/* Keep one IQ case here to verify the C _Generic dispatch independently from
- * the IQ algorithm coverage in the C++ test file. */
-TEST_CASE("C _Generic API: IQ smoke test", "[pid_ctrl][generic][iq]")
+TEST_CASE("C _Generic API: IQ dispatch picks the backend from the Q-format",
+          "[pid_ctrl][generic][iq]")
 {
-    pid_ctrl_config_iq_t cfg = {
+    /* IQmath algorithm coverage lives in pid_ctrl_test.cpp. This case
+     * only pins down that _Generic picks Q8 vs Q24 from the config. */
+    pid_ctrl_config_iq8_t cfg8 = {
         .init_param = {
-            .kp = _IQ(1.0f),
-            .ki = _IQ(0.0f),
-            .kd = _IQ(0.0f),
-            .max_output = _IQ(100.0f),
-            .min_output = _IQ(-100.0f),
-            .max_integral = _IQ(100.0f),
-            .min_integral = _IQ(-100.0f),
+            .kp = _IQ8(1.0f),
+            .ki = _IQ8(0.0f),
+            .kd = _IQ8(0.0f),
+            .max_output = _IQ8(100.0f),
+            .min_output = _IQ8(-100.0f),
+            .max_integral = _IQ8(100.0f),
+            .min_integral = _IQ8(-100.0f),
             .cal_type = PID_CAL_TYPE_POSITIONAL,
         },
     };
-    pid_ctrl_block_handle_iq_t h = NULL;
+    pid_ctrl_config_iq24_t cfg24 = {
+        .init_param = {
+            .kp = _IQ24(1.0f),
+            .ki = _IQ24(0.0f),
+            .kd = _IQ24(0.0f),
+            .max_output = _IQ24(100.0f),
+            .min_output = _IQ24(-100.0f),
+            .max_integral = _IQ24(100.0f),
+            .min_integral = _IQ24(-100.0f),
+            .cal_type = PID_CAL_TYPE_POSITIONAL,
+        },
+    };
+    pid_ctrl_block_handle_iq8_t h8 = NULL;
+    pid_ctrl_block_handle_iq24_t h24 = NULL;
+    TEST_ESP_OK(pid_new_control_block(&cfg8, &h8));
+    TEST_ESP_OK(pid_new_control_block(&cfg24, &h24));
 
-    TEST_ESP_OK(pid_new_control_block(&cfg, &h));
-    TEST_ASSERT_NOT_NULL(h);
+    _iq8 out8 = 0;
+    _iq24 out24 = 0;
+    TEST_ESP_OK(pid_compute(h8, _IQ8(0.25f), &out8));
+    TEST_ESP_OK(pid_compute(h24, _IQ24(0.25f), &out24));
+    TEST_ASSERT_FLOAT_WITHIN(TEST_IQ8_EPS, 0.25f, _IQ8toF(out8));
+    TEST_ASSERT_FLOAT_WITHIN(TEST_IQ_EPS, 0.25f, _IQ24toF(out24));
 
-    _iq out = 0;
-    TEST_ESP_OK(pid_compute(h, _IQ(0.1f), &out));
-    TEST_ASSERT_FLOAT_WITHIN(1e-3f, 0.1f, _IQtoF(out));
-
-    TEST_ESP_OK(pid_del_control_block(h));
+    TEST_ESP_OK(pid_del_control_block(h8));
+    TEST_ESP_OK(pid_del_control_block(h24));
 }

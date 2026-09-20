@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0"
 description: Clarke and Park transforms for motor control and power electronics
 url: https://github.com/espressif/idf-extra-components/tree/master/clarke_park
 repository: https://github.com/espressif/idf-extra-components.git
