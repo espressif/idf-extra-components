@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "esp_console.h"
+#include "esp_idf_version.h"
 #include "cmd_catch2.h"
 
 #if SOC_USB_SERIAL_JTAG_SUPPORTED
@@ -25,6 +26,10 @@ extern "C" void app_main(void)
     esp_console_register_help_command();
     register_catch2("test");
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 1, 0)
+    /* Create the REPL over the active stdio driver (UART, USB CDC, USB Serial JTAG, ...) */
+    ESP_ERROR_CHECK(esp_console_new_repl_stdio(&repl_config, &repl));
+#else
 #if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) || defined(CONFIG_ESP_CONSOLE_UART_CUSTOM)
     esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_console_new_repl_uart(&hw_config, &repl_config, &repl));
@@ -40,6 +45,7 @@ extern "C" void app_main(void)
 #else
 #error Unsupported console type
 #endif
+#endif /* ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 1, 0) */
 
     ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }
