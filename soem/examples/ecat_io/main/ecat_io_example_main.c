@@ -88,68 +88,25 @@ static esp_err_t example_eth_init(esp_eth_handle_t *eth_handle_out)
     phy_config.reset_gpio_num = 51;
 
     esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&emac_config, &mac_config);
-    if (mac == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
+    ESP_ERROR_CHECK(mac ? ESP_OK : ESP_ERR_NO_MEM);
 
     /* IP101 is supported by the generic IEEE 802.3 PHY driver. */
     esp_eth_phy_t *phy = esp_eth_phy_new_generic(&phy_config);
-    if (phy == NULL) {
-        mac->del(mac);
-        return ESP_ERR_NO_MEM;
-    }
+    ESP_ERROR_CHECK(phy ? ESP_OK : ESP_ERR_NO_MEM);
 
     esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(mac, phy);
     esp_eth_handle_t eth_handle = NULL;
-    esp_err_t ret = esp_eth_driver_install(&eth_config, &eth_handle);
-    if (ret != ESP_OK) {
-        mac->del(mac);
-        phy->del(phy);
-        return ret;
-    }
+
+    ESP_ERROR_CHECK(esp_eth_driver_install(&eth_config, &eth_handle));
 
     *eth_handle_out = eth_handle;
     return ESP_OK;
 }
 
-/* Uninstall Ethernet and release the MAC and PHY instances. */
-static esp_err_t example_eth_deinit(esp_eth_handle_t eth_handle)
-{
-    if (eth_handle == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    esp_eth_mac_t *mac = NULL;
-    esp_eth_phy_t *phy = NULL;
-
-    esp_err_t ret = esp_eth_get_mac_instance(eth_handle, &mac);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-
-    ret = esp_eth_get_phy_instance(eth_handle, &phy);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-
-    ret = esp_eth_driver_uninstall(eth_handle);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-
-    ret = mac->del(mac);
-    if (ret != ESP_OK) {
-        phy->del(phy);
-        return ret;
-    }
-
-    return phy->del(phy);
-}
-
 /* Configure the fixed process-data mapping used by this example.
    Slave in example does not support CoE.
    Names follow the slave's perspective: IN/OUT focus on field-side, Rx/Tx focus on network-side. */
-static int example_configure_process_data_mapping(uint16_t slave_number)
+static void example_configure_process_data_mapping(uint16_t slave_number)
 {
     ec_slavet *slave = &s_ecat_context->slavelist[slave_number];
     uint16_t config_address = slave->configadr; /* Fetch slave's configured address. Use FPWR cmd. */
@@ -189,30 +146,20 @@ static int example_configure_process_data_mapping(uint16_t slave_number)
     /* Use SM0 for process-data output, SM1 for process-data input. */
     int wkc = ecx_FPWR(&s_ecat_context->port, config_address, ECT_REG_SM0,
                        sizeof(sm_output), &sm_output, EC_TIMEOUTRET3);
-    if (wkc <= 0) {
-        ESP_LOGE(TAG, "Failed to configure SM0: WKC=%d", wkc);
-        return 0;
-    }
+    ESP_ERROR_CHECK((wkc > 0) ? ESP_OK : ESP_FAIL);
+
     wkc = ecx_FPWR(&s_ecat_context->port, config_address, ECT_REG_SM1,
                    sizeof(sm_input), &sm_input, EC_TIMEOUTRET3);
-    if (wkc <= 0) {
-        ESP_LOGE(TAG, "Failed to configure SM1: WKC=%d", wkc);
-        return 0;
-    }
+    ESP_ERROR_CHECK((wkc > 0) ? ESP_OK : ESP_FAIL);
 
     /* Use FMMU0 for process-data output, FMMU1 for process-data input. */
     wkc = ecx_FPWR(&s_ecat_context->port, config_address, ECT_REG_FMMU0,
                    sizeof(fmmu_output), &fmmu_output, EC_TIMEOUTRET3);
-    if (wkc <= 0) {
-        ESP_LOGE(TAG, "Failed to configure FMMU0: WKC=%d", wkc);
-        return 0;
-    }
+    ESP_ERROR_CHECK((wkc > 0) ? ESP_OK : ESP_FAIL);
+
     wkc = ecx_FPWR(&s_ecat_context->port, config_address, ECT_REG_FMMU1,
                    sizeof(fmmu_input), &fmmu_input, EC_TIMEOUTRET3);
-    if (wkc <= 0) {
-        ESP_LOGE(TAG, "Failed to configure FMMU1: WKC=%d", wkc);
-        return 0;
-    }
+    ESP_ERROR_CHECK((wkc > 0) ? ESP_OK : ESP_FAIL);
 
     /* Keep the SOEM slave descriptor consistent with the ESC configuration. */
     slave->SM[0] = sm_output;
@@ -226,22 +173,17 @@ static int example_configure_process_data_mapping(uint16_t slave_number)
     slave->FMMU[0] = fmmu_output;
     slave->FMMU[1] = fmmu_input;
     slave->FMMUunused = 2; /* Next free FMMU index. */
-
-    return 1;
 }
 
-/* Request a PRE-OP or SAFE-OP state transition. Repeatedly check state reached or not until timeout.
-   @return 1 if slave reach the exact requested state without AL ERROR, otherwise 0. */
-static int example_request_state(uint16_t slave_number, uint16_t requested_state)
+/* Request a PRE-OP or SAFE-OP state transition. Repeatedly check until timeout whether state reached or not.
+   Return when slave reach the exact requested state without AL ERROR. */
+static void example_request_state(uint16_t slave_number, uint16_t requested_state)
 {
     ec_slavet *slave = &s_ecat_context->slavelist[slave_number];
 
-    slave->state = requested_state; /* Set target state wanted. */
+    slave->state = requested_state; /* Set target state. */
     int wkc = ecx_writestate(s_ecat_context, slave_number);
-    if (wkc <= 0) {
-        ESP_LOGE(TAG, "Failed to request state 0x%02x (unexpected WKC): WKC=%d", requested_state, wkc);
-        return 0;
-    }
+    ESP_ERROR_CHECK((wkc > 0) ? ESP_OK : ESP_FAIL);
 
     int64_t deadline = esp_timer_get_time() + EC_TIMEOUTSTATE; /* Set deadline timepoint in us. */
     do {
@@ -249,17 +191,15 @@ static int example_request_state(uint16_t slave_number, uint16_t requested_state
            but stores the complete AL Status and AL Status Code in slave descriptor. */
         (void)ecx_statecheck(s_ecat_context, slave_number, requested_state, EC_TIMEOUTRET);
         if (slave->state == requested_state) {
-            return 1;
+            return;
         }
         vTaskDelay(pdMS_TO_TICKS(IO_CYCLE_PERIOD_MS)); /* No real-time requirement. */
     } while (esp_timer_get_time() < deadline);
-    ESP_LOGE(TAG, "Failed to request state 0x%02x (timeout): state=0x%04x, AL status=0x%04x",
-             requested_state, slave->state, slave->ALstatuscode);
-    return 0;
+    ESP_ERROR_CHECK(ESP_ERR_TIMEOUT);
 }
 
 /* Request an OP transition while keeping process-data exchange active. */
-static int example_request_state_op(uint16_t slave_number)
+static void example_request_state_op(uint16_t slave_number)
 {
     ec_slavet *slave = &s_ecat_context->slavelist[slave_number];
     uint8_t process_image[2] = {0}; /* Output fixed at zero, input not processed. */
@@ -267,38 +207,27 @@ static int example_request_state_op(uint16_t slave_number)
     /* One LRW communication before state change request. */
     int wkc = ecx_LRW(&s_ecat_context->port, OUTPUT_LOG_ADDR,
                       sizeof(process_image), process_image, EC_TIMEOUTRET3);
-    if (wkc != IO_EXPECTED_WKC) {
-        ESP_LOGE(TAG, "Failed to request state OP (first LRW failed): WKC=%d", wkc);
-        return 0;
-    }
+    ESP_ERROR_CHECK((wkc == IO_EXPECTED_WKC) ? ESP_OK : ESP_FAIL);
 
     /* Formally request OP state. */
     slave->state = EC_STATE_OPERATIONAL;
     wkc = ecx_writestate(s_ecat_context, slave_number);
-    if (wkc <= 0) {
-        ESP_LOGE(TAG, "Failed to request state OP (unexpected WKC): WKC=%d", wkc);
-        return 0;
-    }
+    ESP_ERROR_CHECK((wkc > 0) ? ESP_OK : ESP_FAIL);
 
     /* Try to check OP state reached while maintaining process-data communication. */
     int64_t deadline = esp_timer_get_time() + EC_TIMEOUTSTATE;
     do {
         wkc = ecx_LRW(&s_ecat_context->port, OUTPUT_LOG_ADDR,
                       sizeof(process_image), process_image, EC_TIMEOUTRET3);
-        if (wkc != IO_EXPECTED_WKC) {
-            ESP_LOGE(TAG, "Failed to request state OP (later LRW failed): WKC=%d", wkc);
-            return 0;
-        }
+        ESP_ERROR_CHECK((wkc == IO_EXPECTED_WKC) ? ESP_OK : ESP_FAIL);
 
         (void)ecx_statecheck(s_ecat_context, slave_number, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
         if (slave->state == EC_STATE_OPERATIONAL) {
-            return 1;
+            return;
         }
         vTaskDelay(pdMS_TO_TICKS(IO_CYCLE_PERIOD_MS));
     } while (esp_timer_get_time() < deadline);
-    ESP_LOGE(TAG, "Failed to request state OP (timeout): state=0x%04x, AL status=0x%04x",
-             slave->state, slave->ALstatuscode);
-    return 0;
+    ESP_ERROR_CHECK(ESP_ERR_TIMEOUT);
 }
 
 /* Callback function for esp_timer. */
@@ -341,23 +270,19 @@ static void example_run_cyclic_io(ecx_contextt *context, EventGroupHandle_t eth_
         /* Blocked wait until periodic timer notifies this task. */
         (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        if ((xEventGroupGetBits(eth_events) & ETH_LINK_UP_BIT) == 0) {
-            break;
-        }
+        ESP_ERROR_CHECK((xEventGroupGetBits(eth_events) & ETH_LINK_UP_BIT)
+                        ? ESP_OK : ESP_ERR_INVALID_STATE);
 
         process_image[0] = next_output;
 
         int wkc = ecx_LRW(&context->port, OUTPUT_LOG_ADDR,
                           sizeof(process_image), process_image, EC_TIMEOUTRET3);
-        if (wkc != IO_EXPECTED_WKC) {
-            ESP_LOGE(TAG, "Cycle %" PRIu32 ": unexpected WKC=%d", cycle, wkc);
-            break;
-        }
+        ESP_ERROR_CHECK((wkc == IO_EXPECTED_WKC) ? ESP_OK : ESP_FAIL);
 
         uint8_t current_input = process_image[1];
-        bool sw1_pressed = (current_input & SW1_INPUT_MASK) == 0;
+        bool sw1_pressed = (current_input & SW1_INPUT_MASK) == 0; /* SW1 is active low. */
 
-        next_output = sw1_pressed ? LED3_OUTPUT_MASK : 0;
+        next_output = sw1_pressed ? LED3_OUTPUT_MASK : 0; /* LED3 is active high. */
 
         if (first_input || current_input != previous_input) {
             ESP_LOGI(TAG,
@@ -376,10 +301,6 @@ static void example_run_cyclic_io(ecx_contextt *context, EventGroupHandle_t eth_
 
         cycle++;
     }
-
-    ESP_ERROR_CHECK(esp_timer_stop(cycle_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(cycle_timer));
-    ESP_LOGW(TAG, "EtherCAT cyclic IO stopped");
 }
 
 void app_main(void)
@@ -413,7 +334,7 @@ void app_main(void)
     ESP_LOGI(TAG, "%d EtherCAT slave(s) found", slave_count);
 
     /* Example uses a fixed process-data mapping for one LAN9252 slave. */
-    const uint16_t slave_index = 1;
+    const uint16_t slave_index = 1; /* Index-Zero is for broadcast use. */
     ec_slavet *slave = &s_ecat_context->slavelist[slave_index];
 
     /* Check slave's identity.*/
@@ -427,37 +348,22 @@ void app_main(void)
         slave->eep_man, slave->eep_id, slave->eep_rev);
 
     /* stage4: Ensure the slave is in PRE-OP before configuring the ESC. */
-    ESP_ERROR_CHECK(example_request_state(
-                        slave_index, EC_STATE_PRE_OP) ? ESP_OK : ESP_ERR_INVALID_STATE);
+    example_request_state(slave_index, EC_STATE_PRE_OP);
     ESP_LOGI(TAG, "Slave reached PRE-OP");
 
     /* stage5: Configure process-data mapping. */
-    ESP_ERROR_CHECK(example_configure_process_data_mapping(slave_index) ? ESP_OK : ESP_FAIL);
+    example_configure_process_data_mapping(slave_index);
     ESP_LOGI(TAG, "Process-data mapping configured");
 
     /* stage6: Ask for entering SAFE-OP and confirm it. */
-    ESP_ERROR_CHECK(example_request_state(
-                        slave_index, EC_STATE_SAFE_OP) ? ESP_OK : ESP_ERR_INVALID_STATE);
+    example_request_state(slave_index, EC_STATE_SAFE_OP);
     ESP_LOGI(TAG, "Slave reached SAFE-OP");
 
     /* stage7: Ask for entering OP state and confirm it.
        Process-data communication must remain active during such transition. */
-    ESP_ERROR_CHECK(example_request_state_op(
-                        slave_index) ? ESP_OK : ESP_ERR_INVALID_STATE);
+    example_request_state_op(slave_index);
     ESP_LOGI(TAG, "Slave reached OP");
 
     /* stage8: Run cyclic IO closed-loop. */
     example_run_cyclic_io(s_ecat_context, s_eth_events);
-
-    /* stage9: Resource release when cyclic IO error occurs. */
-    ESP_ERROR_CHECK(esp_event_handler_unregister(ETH_EVENT, ESP_EVENT_ANY_ID, eth_event_handler));
-    ESP_ERROR_CHECK(esp_eth_stop(eth_handle));
-    esp_soem_deinit(s_ecat_context);
-    s_ecat_context = NULL;
-    ESP_ERROR_CHECK(example_eth_deinit(eth_handle));
-    eth_handle = NULL;
-    ESP_ERROR_CHECK(esp_event_loop_delete_default());
-    vEventGroupDelete(s_eth_events);
-    s_eth_events = NULL;
-    ESP_LOGI(TAG, "EtherCAT example stopped");
 }

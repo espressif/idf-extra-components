@@ -4,6 +4,7 @@ menu "SOEM Configuration"
 
         config EC_MAXBUF
             int "Frame buffers per channel"
+            range 1 255
             default 16
 
         config EC_MAXEEPBITMAP
@@ -24,7 +25,8 @@ menu "SOEM Configuration"
 
         config EC_MAXSLAVE
             int "Maximum number of slaves"
-            default 200
+            range 2 200
+            default 32
 
         config EC_MAXGROUP
             int "Maximum number of groups"
@@ -57,10 +59,6 @@ menu "SOEM Configuration"
         config EC_MAXLEN_ADAPTERNAME
             int "Maximum adapter name length"
             default 128
-
-        config EC_MAX_MAPT
-            int "Maximum concurrent mapping tasks"
-            default 1
 
         config EC_MAXODLIST
             int "Maximum Object Dictionary entries"

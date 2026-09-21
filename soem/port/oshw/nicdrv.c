@@ -238,58 +238,74 @@ int ecx_outframe_red(ecx_portt *port, uint8 idx)
 /* Callback function registered with esp_eth driver, called by eth rx task.
    @param buffer, Ethernet driver's temporary Rx buffer, ownership transferred to callback, free it before return.
    @param priv, Private argument passed to the callback, must be the ecx_portt pointer.
-   Store a received EtherCAT frame in its indexed SOEM RX buffer.
-   */
+   Store, if valid, a received EtherCAT frame in its indexed SOEM RX buffer. */
 static esp_err_t ecx_esp_eth_rx(esp_eth_handle_t hdl, uint8_t *buffer, uint32_t length, void *priv)
 {
     ecx_portt *port = (ecx_portt *)priv;
     ec_etherheadert *ehp;
     ec_comt *ecp;
     uint8 idxf;
-    uint16 copy_len;
+    uint32_t len_tx;
+    uint16 rx_elength;
+    uint16 tx_elength;
+    uint16 len_copy;
     (void)hdl;
 
-    /* Drop frames too short to contain Ethernet and EtherCAT headers. */
-    if ((buffer == NULL) || (port == NULL) || (length < (ETH_HEADERSIZE + EC_HEADERSIZE))) {
-        free(buffer);
-        return ESP_OK;
+    /* Ignore Ethernet frames contain less than the minimal-required length. CRC solved by emac hardware. */
+    if ((buffer == NULL) || (port == NULL) || (length < (ETH_MIN_PACKET_SIZE - ETH_CRC_LEN))) {
+        goto cleanup;
     }
 
-    /* Ignore non-EtherCAT Ethernet frames. */
+    /* Ignore Ethernet frames not in EtherType-EtherCAT. */
     ehp = (ec_etherheadert *)buffer;
     if (ehp->etype != oshw_htons(ETH_P_ECAT)) {
-        free(buffer);
-        return ESP_OK;
+        goto cleanup;
     }
-
-    /* Skip eth header. Use the first ECAT datagram index to select the matching SOEM RX slot. */
-    ecp = (ec_comt *)(buffer + ETH_HEADERSIZE);
-    idxf = ecp->index;
 
     osal_mutex_lock(port->rx_mutex);
 
-    if ((idxf < EC_MAXBUF) && (port->rxbufstat[idxf] == EC_BUF_TX)) {
-        /* Limit the copy to the actual received frame length. */
-        copy_len = (uint16)(port->txbuflength[idxf] - ETH_HEADERSIZE);
-        if (copy_len > (length - ETH_HEADERSIZE)) {
-            copy_len = (uint16)(length - ETH_HEADERSIZE);
-        }
-
-        /* Only copy the payload field (ECAT header and datagrams). */
-        memcpy(port->rxbuf[idxf], buffer + ETH_HEADERSIZE, copy_len);
-
-        port->rxsa[idxf] = oshw_ntohs(ehp->sa1);
-
-        /* Change the RX buffer slot status to RCVD, waiting for SOEM core to read. */
-        port->rxbufstat[idxf] = EC_BUF_RCVD;
-
-        /* Wake one waiter so it can recheck its requested RX slot. */
-        if (port->rx_sem != NULL) {
-            (void)xSemaphoreGive((SemaphoreHandle_t)port->rx_sem);
-        }
+    /* Ignore Ethernet frames with ECAT datagram index error or Rx slot not available now. */
+    ecp = (ec_comt *)(buffer + ETH_HEADERSIZE); /* Skip the Ethernet header. */
+    idxf = ecp->index; /* Use the first ECAT datagram's index to select the matching SOEM RX slot. */
+    if ((idxf >= EC_MAXBUF) || (port->rxbufstat[idxf] != EC_BUF_TX)) {
+        goto unlock;
     }
-    osal_mutex_unlock(port->rx_mutex);
 
+    /* Ignore Ethernet frame whose total length(besides CRC field) is shorter or longer than it was transmitted before.
+       `length` is provided by emac_esp_dma_receive_frame()'s return, exclude CRC, include padding if exists.
+       However, `.txbuflength[]` is the total length(exclude CRC) asked by SOEM for Tx, exclude padding if need. */
+    len_tx = (uint32_t)port->txbuflength[idxf];
+    if (len_tx < (ETH_MIN_PACKET_SIZE - ETH_CRC_LEN)) {
+        len_tx = ETH_MIN_PACKET_SIZE - ETH_CRC_LEN;
+    }
+    if (length != len_tx) {
+        goto unlock;
+    }
+
+    /* Ignore Ethernet frame whose elength bit-field in ECAT header is not same as it was transmitted before.*/
+    rx_elength = (uint16)(buffer[ETH_HEADERSIZE] + ((uint16)(buffer[ETH_HEADERSIZE + 1] & 0x0f) << 8));
+    tx_elength = (uint16)(port->txbuf[idxf][ETH_HEADERSIZE] + ((uint16)(port->txbuf[idxf][ETH_HEADERSIZE + 1] & 0x0f) << 8));
+    if (rx_elength != tx_elength) {
+        goto unlock;
+    }
+
+    /* Only copy ECAT header and datagrams, ignore Ethernet padding if exists. */
+    len_copy = (uint16)(port->txbuflength[idxf] - ETH_HEADERSIZE);
+    memcpy(port->rxbuf[idxf], buffer + ETH_HEADERSIZE, len_copy);
+
+    port->rxsa[idxf] = oshw_ntohs(ehp->sa1);
+
+    /* Change the RX buffer slot status to RCVD, waiting for SOEM core to read. */
+    port->rxbufstat[idxf] = EC_BUF_RCVD;
+
+    /* Wake the task to consume the received frame. */
+    if (port->rx_sem != NULL) {
+        (void)xSemaphoreGive((SemaphoreHandle_t)port->rx_sem);
+    }
+
+unlock:
+    osal_mutex_unlock(port->rx_mutex);
+cleanup:
     free(buffer);
     return ESP_OK;
 }

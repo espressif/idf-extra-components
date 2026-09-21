@@ -19,7 +19,8 @@ ecx_contextt *esp_soem_init(esp_eth_handle_t eth_handle)
         return NULL;
     }
     context->port.eth_handle = eth_handle;
-    if (!ecx_init(context, "esp_eth")) {
+    if (!ecx_init(context, "esp_eth") ||
+            (context->mbxpool.mbxmutex == NULL)) {
         ecx_close(context);
         free(context);
         return NULL;
