@@ -592,6 +592,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
 #endif //CONFIG_NAND_FLASH_VERIFY_WRITE
 
     uint8_t status;
+    uint8_t *copy_buf = NULL;
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, src, &status), fail, TAG, "");
 
     if (is_ecc_error(handle, status)) {
@@ -610,7 +611,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
 
     if (need_ram_copy) {
         // Copy through RAM when HW Internal Data Move is not valid for this src/dst pair.
-        uint8_t *copy_buf = heap_caps_malloc(handle->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+        copy_buf = heap_caps_malloc(handle->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
         ESP_GOTO_ON_FALSE(copy_buf, ESP_ERR_NO_MEM, fail, TAG, "Failed to allocate copy buffer");
 
         ESP_GOTO_ON_ERROR(spi_nand_read(handle, copy_buf, src_column_addr, handle->chip.page_size), fail, TAG, "");
@@ -635,12 +636,13 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
             return ESP_ERR_NOT_FINISHED;
         }
         free(copy_buf);
-    }
-
-    ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, dst, &status), fail, TAG, "");
-    if ((status & STAT_PROGRAM_FAILED) != 0) {
-        ESP_LOGD(TAG, "copy, prog failed");
-        return ESP_ERR_NOT_FINISHED;
+        copy_buf = NULL;
+    } else {
+        ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, dst, &status), fail, TAG, "");
+        if ((status & STAT_PROGRAM_FAILED) != 0) {
+            ESP_LOGD(TAG, "copy, prog failed");
+            return ESP_ERR_NOT_FINISHED;
+        }
     }
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
@@ -677,6 +679,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
     return ret;
 
 fail:
+    free(copy_buf);
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
     free(temp_buf);
 #endif //CONFIG_NAND_FLASH_VERIFY_WRITE

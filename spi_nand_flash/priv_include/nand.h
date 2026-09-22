@@ -17,6 +17,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "nand_device_types.h"
+#include "nand_diag_api.h"
 
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 #include "esp_blockdev.h"
@@ -123,6 +124,10 @@ esp_err_t nand_wl_attach_ops(spi_nand_flash_device_t *handle);
  *         - ESP_OK: Success
  */
 esp_err_t nand_wl_detach_ops(spi_nand_flash_device_t *handle);
+
+esp_err_t nand_wl_get_perf_stats(spi_nand_flash_device_t *handle, spi_nand_flash_perf_stats_t *stats);
+esp_err_t nand_wl_reset_perf_stats(spi_nand_flash_device_t *handle);
+esp_err_t nand_wl_invalidate_metadata_cache(spi_nand_flash_device_t *handle);
 
 #ifdef __cplusplus
 }
