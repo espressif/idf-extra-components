@@ -31,3 +31,27 @@ if(NOT MESON_EXECUTABLE)
 else()
     message(STATUS "Meson build system found: ${MESON_EXECUTABLE}")
 endif()
+
+# Meson < 1.3 silently ignores changed -D options when `meson setup` is
+# re-run on an already-configured directory. ThorVG relies on re-running
+# setup to pick up changed IDF flags (optimization level, cpp_args, ...),
+# which would then be dropped without any error.
+execute_process(
+    COMMAND ${MESON_EXECUTABLE} --version
+    OUTPUT_VARIABLE meson_version
+    ERROR_VARIABLE meson_version_error
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_STRIP_TRAILING_WHITESPACE
+)
+if(NOT meson_version)
+    message(FATAL_ERROR
+        "Failed to query the Meson version from ${MESON_EXECUTABLE}: ${meson_version_error}")
+endif()
+if(meson_version VERSION_LESS "1.3.0")
+    message(FATAL_ERROR
+        "Meson >= 1.3.0 is required by the ThorVG component, but ${MESON_EXECUTABLE} "
+        "is version ${meson_version}. Older Meson versions silently ignore changed "
+        "-D options when re-running meson setup, so IDF flag changes would not reach "
+        "ThorVG. Upgrade with: pip install -U 'meson>=1.3'")
+endif()
+message(STATUS "Meson version ${meson_version} (>= 1.3.0 required)")

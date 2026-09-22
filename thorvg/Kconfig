@@ -6,12 +6,6 @@ menu "ThorVG Support Options"
         help
             Enable ThorVG log.
 
-    config THORVG_THREAD_ENABLED
-        bool "Enable ThorVG threading support"
-        default y
-        help
-            Enable ThorVG threading support. This option can be disabled if ThorVG is only used from one FreeRTOS task.
-
     menu "Loaders Support"
 
         config THORVG_LOTTIE_LOADER_SUPPORT
