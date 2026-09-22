@@ -1,94 +1,73 @@
-idf_component_register(
-                       # We need the dummy source file so that the component
-                       # library is not an interface library. This allows to
-                       # get the list of include directories from other components
-                       # via INCLUDE_DIRECTORIES property later on.
-                       SRCS dummy.c)
-
-# Determine compilation flags used for building Jpeg-turbo
-# Flags inherited from IDF build system and other IDF components:
-set(idf_include_directories $<TARGET_PROPERTY:idf::libjpeg-turbo,INCLUDE_DIRECTORIES>)
-set(includes "-I$<JOIN:${idf_include_directories}, -I>")
-
-set(c_flags "${includes} ${extra_defines} ")
-set(cxx_flags "${includes} ${extra_defines} ")
-set(common_flags "-ggdb -ffunction-sections -fdata-sections -lm")
-
-if(CONFIG_IDF_TARGET_ARCH_XTENSA)
-    set(assert_flags "${assert_flags} -mlongcalls")
-endif()
-
-# We redefine the flags to apply common flags,
-# like -ffunction-sections -fdata-sections.
-if(CONFIG_COMPILER_OPTIMIZATION_DEFAULT)
-    set(opt_flags "-Og ${common_flags} ${assert_flags}")
-    set(opt_args -DCMAKE_BUILD_TYPE=Release
-                 -DCMAKE_C_FLAGS_RELEASE=${opt_flags})
-elseif(CONFIG_COMPILER_OPTIMIZATION_SIZE)
-    set(opt_flags "-Os ${common_flags} ${assert_flags}")
-    set(opt_args -DCMAKE_BUILD_TYPE=MinSizeRel
-                 -DCMAKE_C_FLAGS_MINSIZEREL=${opt_flags})
-elseif(CONFIG_COMPILER_OPTIMIZATION_PERF)
-    set(opt_flags "-O3 ${common_flags} ${assert_flags}")
-    set(opt_args -DCMAKE_BUILD_TYPE=Release
-                 -DCMAKE_C_FLAGS_RELEASE=${opt_flags})
-elseif(COMPILER_OPTIMIZATION_NONE)
-    set(opt_flags "-O0 ${common_flags} ${assert_flags}")
-    set(opt_args -DCMAKE_BUILD_TYPE=Debug
-                 -DCMAKE_C_FLAGS_DEBUG=${opt_flags})
-else()
-    message(FATAL_ERROR "Unsupported optimization level")
-endif()
+# Upstream libjpeg-turbo aborts unless it is the top-level project and
+# recommends ExternalProject_Add().
+idf_component_register()
 
 include(ExternalProject)
 
-# Build jpeg-turbo in this directory:
-set(BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/libjpeg-build)
+set(jpegturbo_binary_dir ${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo-build)
+set(jpegturbo_install_dir ${jpegturbo_binary_dir}/install)
+set(jpegturbo_library ${jpegturbo_install_dir}/lib/libjpeg.a)
 
-set(lib_path ${BINARY_DIR}/install/lib/libjpeg.a)
-add_prebuilt_library(libjpeg-turbo ${lib_path})
+# Headers land in the install tree only after the sub-build. Create the
+# directory now so INTERFACE_INCLUDE_DIRECTORIES is valid at configure time.
+file(MAKE_DIRECTORY ${jpegturbo_install_dir}/include)
 
-# Add jpeg-turbo as a subproject.
+# The toolchain file already provides the cross compiler and architecture
+# flags (on IDF 6, via the @cflags response file). Forward the options IDF
+# computed from sdkconfig so the sub-build matches the rest of the project
+# (optimization, -ffunction-sections, debug info, ...).
+#
+
+idf_build_get_property(jpegturbo_compile_options COMPILE_OPTIONS)
+idf_build_get_property(jpegturbo_c_compile_options C_COMPILE_OPTIONS)
+idf_build_get_property(jpegturbo_compile_definitions COMPILE_DEFINITIONS)
+set(jpegturbo_c_flags ${jpegturbo_compile_options} ${jpegturbo_c_compile_options})
+foreach(def IN LISTS jpegturbo_compile_definitions)
+    if(NOT def MATCHES "^-D")
+        set(def "-D${def}")
+    endif()
+    list(APPEND jpegturbo_c_flags "${def}")
+endforeach()
+# Put the flags in a gcc response file, one flag per line
+set(jpegturbo_cflags_file ${CMAKE_CURRENT_BINARY_DIR}/jpegturbo-cflags)
+list(JOIN jpegturbo_c_flags "\n" jpegturbo_c_flags)
+file(WRITE ${jpegturbo_cflags_file} "${jpegturbo_c_flags}\n")
+
 ExternalProject_Add(jpegturbo_proj
     SOURCE_DIR ${COMPONENT_DIR}/libjpeg-turbo
-    BINARY_DIR ${BINARY_DIR}
-    BUILD_BYPRODUCTS ${lib_path}
-    # These two options are set so that Ninja immediately outputs
-    # the subproject build to the terminal. Otherwise it looks like the
-    # build process "hangs" for too long until jpeg-turbo build is complete.
+    BINARY_DIR ${jpegturbo_binary_dir}
+    INSTALL_DIR ${jpegturbo_install_dir}
+    BUILD_BYPRODUCTS ${jpegturbo_library}
+    # Ninja otherwise looks idle until the whole sub-build finishes.
     USES_TERMINAL_CONFIGURE TRUE
     USES_TERMINAL_BUILD TRUE
-    CMAKE_POSITION_INDEPENDENT_CODE ON
-    # Arguments to pass to jpeg-turbo CMake invocation:
     CMAKE_ARGS
-        -DCMAKE_C_FLAGS=${c_flags}
-        -DCMAKE_CXX_FLAGS=${cxx_flags}
-        ${opt_args}
-        -DCMAKE_INSTALL_PREFIX=${BINARY_DIR}/install
         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-        -DWITH_TURBOJPEG=FALSE
-        -DWITH_SIMD=FALSE
-        -DCMAKE_SYSTEM_PROCESSOR=esp32 # Without this parameter the lib make an error
-        -DWITH_ARITH_DEC=TRUE
-        -DWITH_ARITH_ENC=TRUE
-        -DWITH_JPEG8=TRUE
-        -DWITH_JPEG7=TRUE
-        -DENABLE_SHARED=FALSE
-        -DENABLE_STATIC=TRUE
-        -DWITH_TOOLS=FALSE
-        -DWITH_TESTS=FALSE
+        -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+        -DCMAKE_BUILD_TYPE=Release
+        "-DCMAKE_C_FLAGS_RELEASE=@\"${jpegturbo_cflags_file}\""
+        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+        -DCMAKE_INSTALL_LIBDIR=lib
+        -DCMAKE_POSITION_INDEPENDENT_CODE=OFF
+        -DCMAKE_SYSTEM_PROCESSOR=${IDF_TARGET}
+        -DENABLE_SHARED=OFF
+        -DENABLE_STATIC=ON
+        -DWITH_TURBOJPEG=OFF
+        -DWITH_SIMD=OFF
+        -DWITH_ARITH_DEC=ON
+        -DWITH_ARITH_ENC=ON
+        -DWITH_JPEG8=ON
+        -DWITH_JPEG7=ON
+        -DWITH_TOOLS=OFF
+        -DWITH_TESTS=OFF
 )
 
-# Attach header files to the component library:
-set_target_properties(${COMPONENT_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${BINARY_DIR}/install/include)
+# IMPORTED location of a library that does not exist yet. BUILD_BYPRODUCTS
+# plus this dependency tell Ninja to run the sub-build first.
+add_prebuilt_library(jpegturbo ${jpegturbo_library})
+add_dependencies(jpegturbo jpegturbo_proj)
+target_include_directories(jpegturbo INTERFACE ${jpegturbo_install_dir}/include)
 
-# Make sure the subproject is built before the component library:
-add_dependencies(${COMPONENT_LIB} jpegturbo_proj)
-
-# Finally, link the interface library to the component library:
-# Attach IDF component dependencies to jpeg libraries
-foreach(dep ${deps})
-    target_link_libraries(libjpeg-turbo INTERFACE idf::${dep})
-endforeach()
-# Attach jpeg-turbo libraries to the component library
-target_link_libraries(${COMPONENT_LIB} INTERFACE libjpeg-turbo)
+# Empty idf_component_register() creates an INTERFACE library, which is
+# enough to export the prebuilt archive and its headers.
+target_link_libraries(${COMPONENT_LIB} INTERFACE jpegturbo)
