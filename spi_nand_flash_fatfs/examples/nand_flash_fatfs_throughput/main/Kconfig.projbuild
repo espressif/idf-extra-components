@@ -1,0 +1,30 @@
+menu "SPI NAND FatFs throughput example configuration"
+
+    config EXAMPLE_TEST_TRIES
+        int "Repeat count per (phase, chunk size) test cell"
+        default 3
+        range 1 5
+        help
+            Number of write+read passes per (phase, chunk size) cell,
+            reported as mean/min/max throughput.
+
+    config EXAMPLE_PRECONDITION_ENABLE
+        bool "Precondition (age) the filesystem before measuring throughput"
+        default y
+        help
+            Before the timed phases, write a fill file covering
+            EXAMPLE_PRECONDITION_FILL_PERCENT of the volume's free space and
+            keep it. The FTL then holds that much live data, so the timed
+            phases run on a partly full device where garbage collection has
+            to relocate live pages, instead of on a fresh chip.
+
+    config EXAMPLE_PRECONDITION_FILL_PERCENT
+        int "Percent of free space to precondition"
+        depends on EXAMPLE_PRECONDITION_ENABLE
+        default 20
+        range 10 80
+        help
+            Size of the fill file as a percentage of the free space right
+            after mount. The timed phases use the remaining space.
+
+endmenu
