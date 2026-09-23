@@ -1,0 +1,37 @@
+name: Build and Run USB Test Application
+
+on:
+  schedule:
+    - cron: '0 0 * * SAT' # Saturday midnight
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'usb/**'
+      - '.github/workflows/build_and_run_test_app_usb.yml'
+
+jobs:
+  ci-matrix:
+    uses: ./.github/workflows/reusable-ci-matrix.yml
+
+  # One instance per (target, idf_ver) pair. The app is built for every
+  # usb_idf_targets target, but only run on the hardware listed in
+  # usb_idf_target_test (and only for idf_versions_usb_target_test versions).
+  # Each test run only waits for its own build. See reusable-build-test-app.yml.
+  usb-test-app:
+    name: USB test app (${{ matrix.idf_target }}, ${{ matrix.idf_ver }})
+    needs: ci-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions) }}
+        idf_target: ${{ fromJSON(needs.ci-matrix.outputs.usb_idf_targets) }}
+    uses: ./.github/workflows/reusable-build-test-app.yml
+    with:
+      idf_ver: ${{ matrix.idf_ver }}
+      idf_target: ${{ matrix.idf_target }}
+      test_dir: usb/test_app
+      binary_name: usb_test_app
+      run_test: ${{ contains(fromJSON(needs.ci-matrix.outputs.usb_idf_target_test), matrix.idf_target) && contains(fromJSON(needs.ci-matrix.outputs.idf_versions_usb_target_test), matrix.idf_ver) }}
+      runner_labels: '["self-hosted", "linux", "docker", "${{ matrix.idf_target }}", "usb_host"]'
+      pytest_args: --target=${{ matrix.idf_target }} -m usb_host
+      extra_pip_packages: pyserial
