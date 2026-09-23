@@ -1,7 +1,8 @@
 {
-    "idf_versions": ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"],
-    "idf_versions_target_test": ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"],
-    "idf_versions_ethernet_test": ["release-v5.0", "release-v5.1", "release-v5.2", "latest"],
+    "idf_versions": ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"],
+    "idf_versions_target_test": ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"],
+    "idf_versions_ethernet_test": ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"],
+    "idf_versions_linux_test": ["release-v5.3", "release-v5.4", "release-v5.5", "latest"],
     "idf_targets": ["esp32", "esp32c3", "esp32s3"],
     "parallel_count": 5
 }

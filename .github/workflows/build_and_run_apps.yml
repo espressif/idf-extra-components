@@ -70,47 +70,34 @@ jobs:
           echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)" >> $GITHUB_OUTPUT
           echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)"
 
+  ci-matrix:
+    uses: ./.github/workflows/reusable-ci-matrix.yml
+
   build:
     name: Build Apps
-    needs: prepare
+    needs: [prepare, ci-matrix]
     strategy:
       fail-fast: false
       matrix:
-        idf_ver:
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "release-v6.0"
-          - "latest"
-        parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
+        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions) }}
+        parallel_index: ${{ fromJSON(needs.ci-matrix.outputs.parallel_indices) }}
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ matrix.idf_ver }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - name: Install dependencies
+      - name: Install ESP-IDF Python environment
         shell: bash
         run: |
           export IDF_PYTHON_CHECK_CONSTRAINTS=yes
           ${IDF_PATH}/install.sh --enable-ci
-          . ${IDF_PATH}/export.sh
-          pip install --upgrade 'idf-build-apps~=2.12'
+      - uses: ./.github/actions/setup-idf-build-env
       - name: Build apps
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
-          # to match the IDF build system default. Older GCC rejects the "=1" form.
-          UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
-          if echo 'int main(void){return 0;}' | xtensa-esp32-elf-gcc -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
-            UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
-          fi
-          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable ${UNUSED_BUT_SET_FLAG} -Werror=unused-function"
-          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
-          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
-          idf-build-apps build --parallel-index ${{ matrix.parallel_index }} --parallel-count 5 --collect-app-info build_info_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
+          idf-build-apps build --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ needs.ci-matrix.outputs.parallel_count }} --collect-app-info build_info_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
       - uses: actions/upload-artifact@v4
         if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
         with:
@@ -130,18 +117,11 @@ jobs:
 
   build-linux:
     name: Build Apps for Linux
-    needs: prepare
+    needs: [prepare, ci-matrix]
     strategy:
       fail-fast: false
       matrix:
-        idf_ver:
-          # Not building for 5.1 with linux target due to limited support
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "release-v6.0"
-          - "latest"
+        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions) }}
     runs-on: ubuntu-22.04
     container:
       image: espressif/idf:${{ matrix.idf_ver }}
@@ -149,27 +129,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - name: Install dependencies
+      - name: Install ESP-IDF Python environment
         shell: bash
         run: |
           export IDF_PYTHON_CHECK_CONSTRAINTS=yes
           ${IDF_PATH}/install.sh --enable-ci
-          . ${IDF_PATH}/export.sh
-          pip install --upgrade 'idf-build-apps~=2.12'
+      - uses: ./.github/actions/setup-idf-build-env
       - name: Build apps for Linux
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
-          # to match the IDF build system default. Older GCC rejects the "=1" form.
-          UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
-          if echo 'int main(void){return 0;}' | gcc -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
-            UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
-          fi
-          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable ${UNUSED_BUT_SET_FLAG} -Werror=unused-function"
-          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
-          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
-          idf-build-apps build --target linux --collect-app-info build_info_linux_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
+          idf-build-apps build --target linux --collect-app-info build_info_linux_${{ matrix.idf_ver }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
       - uses: actions/upload-artifact@v4
         if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
         with:
@@ -186,17 +156,11 @@ jobs:
   run-target:
     name: Run apps on target
     if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
-    needs: [build]
+    needs: [prepare, build, ci-matrix]
     strategy:
       fail-fast: false
       matrix:
-        idf_ver:
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "release-v6.0"
-          - "latest"
+        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions) }}
         runner:
           - runs-on: "esp32"
             marker: "generic"
@@ -266,28 +230,14 @@ jobs:
   run-target-linux:
     name: Run apps on Linux target
     if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
-    needs: [build-linux]
+    needs: [prepare, build-linux, ci-matrix]
     strategy:
       fail-fast: false
       matrix:
-        idf_ver:
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "latest"
-        runner:
-          - runs-on: "linux"
-            marker: "host_test"
-            target: "linux"
-            pytest_args: "--embedded-services idf"
-        exclude:
-          - idf_ver: "release-v5.2" # Bug with Unity IDF test apps
-            runner:
-              target: "linux"
+        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions_linux_test) }}
     env:
-      TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
-      TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
+      TEST_RESULT_NAME: test_results_linux_host_test_${{ matrix.idf_ver }}
+      TEST_RESULT_FILE: test_results_linux_host_test_${{ matrix.idf_ver }}.xml
     runs-on: ubuntu-latest
     container:
       image: python:3.14-slim-trixie # Newer Debian base to support newer glibc for Linux apps
@@ -303,7 +253,6 @@ jobs:
         run: |
           pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
       - name: Make .elf files executable
-        if: matrix.runner.target == 'linux'
         continue-on-error: true
         shell: bash
         run: |
@@ -314,9 +263,9 @@ jobs:
       - name: Run apps
         shell: bash
         run: |
-          python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
+          python3 .github/get_pytest_args.py --target=linux -v 'build_info*.json' pytest-args.txt
           cat pytest-args.txt
-          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }} ${{ matrix.runner.pytest_args }}
+          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=linux -m host_test --build-dir=build_linux --embedded-services idf
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
@@ -327,6 +276,7 @@ jobs:
   publish-results:
     name: Publish Test results
     needs:
+      - prepare
       - run-target
       - run-target-linux
     if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0'
