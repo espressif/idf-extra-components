@@ -1,0 +1,131 @@
+name: Reusable - Build apps for one target/version and run them
+
+# Builds all apps for ONE (idf_target, idf_ver) pair with idf-build-apps
+# (sharded via parallel_indices) and, as soon as that build is done, runs
+# the test configurations from test_matrix on matching runners.
+# Callers drive one matrix instance per (idf_target, idf_ver) pair, so each
+# target's tests only wait for their own build instead of every shard.
+
+on:
+  workflow_call:
+    inputs:
+      idf_ver:
+        description: ESP-IDF version (docker tag of espressif/idf)
+        required: true
+        type: string
+      idf_target:
+        description: ESP-IDF target to build for and run tests on
+        required: true
+        type: string
+      idf_build_apps_args:
+        description: Extra arguments for idf-build-apps (e.g. only changed components)
+        required: false
+        type: string
+        default: ''
+      parallel_indices:
+        description: JSON array of build shard indices
+        required: false
+        type: string
+        default: '[1]'
+      parallel_count:
+        description: Total number of build shards
+        required: false
+        type: string
+        default: '1'
+      run_test:
+        description: Run the apps after building them
+        required: false
+        type: boolean
+        default: true
+      test_matrix:
+        description: >-
+          JSON array of test configurations, one object per test run:
+          {"marker": "...", "runner_labels": [...], "pytest_args": "..."}.
+          Must not be empty when run_test is true.
+        required: false
+        type: string
+        default: '[]'
+
+jobs:
+  build:
+    name: Build apps (${{ inputs.idf_target }}, ${{ inputs.idf_ver }})
+    strategy:
+      fail-fast: false
+      matrix:
+        parallel_index: ${{ fromJSON(inputs.parallel_indices) }}
+    runs-on: ubuntu-22.04
+    container: espressif/idf:${{ inputs.idf_ver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Install ESP-IDF Python environment
+        shell: bash
+        run: |
+          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
+          ${IDF_PATH}/install.sh --enable-ci
+      - uses: ./.github/actions/setup-idf-build-env
+      - name: Build apps
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          idf-build-apps build --target ${{ inputs.idf_target }} --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ inputs.parallel_count }} --collect-app-info build_info_${{ inputs.idf_ver }}_${{ inputs.idf_target }}_${{ matrix.parallel_index }}.json ${{ inputs.idf_build_apps_args }}
+      - uses: actions/upload-artifact@v4
+        if: inputs.run_test
+        with:
+          name: app_binaries_${{ inputs.idf_ver }}_${{ inputs.idf_target }}_${{ matrix.parallel_index }}
+          path: |
+            */examples/*/build_esp*/bootloader/bootloader.bin
+            */examples/*/build_esp*/partition_table/partition-table.bin
+            */examples/*/build_esp*/*.bin
+            */examples/*/build_esp*/flasher_args.json
+            */examples/*/build_esp*/config/sdkconfig.json
+            */test_app*/**/build_esp*/bootloader/bootloader.bin
+            */test_app*/**/build_esp*/partition_table/partition-table.bin
+            */test_app*/**/build_esp*/*.bin
+            */test_app*/**/build_esp*/flasher_args.json
+            */test_app*/**/build_esp*/config/sdkconfig.json
+            build_info*.json
+
+  run-target:
+    name: Run apps (${{ inputs.idf_target }}, ${{ matrix.config.marker }}, ${{ inputs.idf_ver }})
+    if: inputs.run_test
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(inputs.test_matrix) }}
+    env:
+      TEST_RESULT_NAME: test_results_${{ inputs.idf_target }}_${{ matrix.config.marker }}_${{ inputs.idf_ver }}
+      TEST_RESULT_FILE: test_results_${{ inputs.idf_target }}_${{ matrix.config.marker }}_${{ inputs.idf_ver }}.xml
+    runs-on: ${{ matrix.config.runner_labels }}
+    container:
+      image: python:3.11-bookworm
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: app_binaries_${{ inputs.idf_ver }}_${{ inputs.idf_target }}_*
+          merge-multiple: true
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: |
+          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-qemu pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
+      - name: Setup QEMU
+        if: matrix.config.marker == 'qemu'
+        run: |
+          . .github/setup_qemu.sh
+          echo "PATH=$PATH" >> $GITHUB_ENV
+      - name: Run apps
+        run: |
+          python3 .github/get_pytest_args.py --target=${{ inputs.idf_target }} -v 'build_info*.json' pytest-args.txt
+          cat pytest-args.txt
+          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ inputs.idf_target }} -m ${{ matrix.config.marker }} --build-dir=build_${{ inputs.idf_target }} ${{ matrix.config.pytest_args }}
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.TEST_RESULT_NAME }}
+          path: ${{ env.TEST_RESULT_FILE }}

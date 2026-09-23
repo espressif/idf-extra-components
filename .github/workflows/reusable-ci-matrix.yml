@@ -29,7 +29,7 @@ on:
         description: JSON array of ESP-IDF versions to run Linux-target apps with
         value: ${{ jobs.read-matrix.outputs.idf_versions_linux_test }}
       idf_targets:
-        description: JSON array of targets for the test app
+        description: JSON array of targets with per-target build-and-test pipelines
         value: ${{ jobs.read-matrix.outputs.idf_targets }}
       parallel_indices:
         description: JSON array of build shard indices (1..parallel_count from .idf_build_apps.toml)
