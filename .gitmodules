@@ -93,3 +93,7 @@
 [submodule "lz4/lz4"]
 	path = lz4/lz4
 	url = https://github.com/lz4/lz4.git
+
+[submodule "raylib/raylib"]
+	path = raylib/raylib
+	url = https://github.com/raysan5/raylib.git
