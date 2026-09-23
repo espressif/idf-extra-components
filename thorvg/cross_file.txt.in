@@ -1,3 +1,9 @@
+# Machine identity only. Volatile flags and options (cpp_args, cpp_link_args,
+# threads, log, loaders) are passed as -D arguments to `meson setup` and
+# `meson configure` instead: Meson honors machine-file [built-in options] only
+# during the first setup, while -D arguments are re-applied on every
+# reconfigure (see CMakeLists.txt).
+
 [binaries]
 cpp = '${CMAKE_CXX_COMPILER}'
 ar = '${CMAKE_CXX_COMPILER_AR}'
@@ -6,12 +12,8 @@ ranlib = '${CMAKE_CXX_COMPILER_RANLIB}'
 ld = '${CMAKE_LINKER}'
 strip = '${CMAKE_STRIP}'
 
-[built-in options]
-cpp_args = ['-D_GNU_SOURCE','-Wno-format',${MESON_CXX_FLAGS}]
-cpp_link_args = [${MESON_LINKER_FLAGS}]
-
 [properties]
-skip_sanity_check = ${TVG_SKIP_MESON_SANITY_CHECK}
+skip_sanity_check = ${THORVG_SKIP_MESON_SANITY_CHECK}
 
 [host_machine]
 system = 'esp-idf'
