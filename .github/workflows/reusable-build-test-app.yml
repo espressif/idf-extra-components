@@ -1,6 +1,6 @@
 name: Reusable - Build and run a Unity test app for one target/version
 
-# Builds a central Unity test app (test_app/, usb/test_app/) with plain
+# Builds a central Unity test app (test_app/) with plain
 # `idf.py build` for ONE (idf_target, idf_ver) pair and, as soon as that
 # build is done, runs it on matching hardware. Callers drive one matrix
 # instance per pair, so each test run only waits for its own build.
@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       test_dir:
-        description: Directory of the test app (e.g. test_app, usb/test_app)
+        description: Directory of the test app (e.g. test_app)
         required: true
         type: string
       binary_name:

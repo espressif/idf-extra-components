@@ -2,9 +2,6 @@
     "idf_versions": ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"],
     "idf_versions_target_test": ["release-v4.4", "release-v5.0", "release-v5.1", "release-v5.2", "latest"],
     "idf_versions_ethernet_test": ["release-v5.0", "release-v5.1", "release-v5.2", "latest"],
-    "idf_versions_usb_target_test": ["release-v5.0", "release-v5.1", "release-v5.2", "latest"],
     "idf_targets": ["esp32", "esp32c3", "esp32s3"],
-    "usb_idf_targets": ["esp32s2", "esp32s3"],
-    "usb_idf_target_test": ["esp32s2"],
     "parallel_count": 5
 }
