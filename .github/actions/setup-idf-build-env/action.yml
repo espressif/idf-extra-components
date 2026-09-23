@@ -17,11 +17,19 @@ runs:
       shell: bash
       run: |
         . ${IDF_PATH}/export.sh
-        pip install idf-component-manager idf-build-apps --upgrade
+        pip install --upgrade idf-component-manager 'idf-build-apps~=2.12'
 
     - name: Export pedantic build flags
       shell: bash
       run: |
-        FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+        . ${IDF_PATH}/export.sh
+        # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
+        # to match the IDF build system default. Older GCC rejects the "=1" form.
+        UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
+        CC="$(command -v xtensa-esp32-elf-gcc || command -v gcc || true)"
+        if [ -n "$CC" ] && echo 'int main(void){return 0;}' | "$CC" -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
+          UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
+        fi
+        FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable ${UNUSED_BUT_SET_FLAG} -Werror=unused-function"
         echo "EXTRA_CFLAGS=${FLAGS} -Wstrict-prototypes" >> "$GITHUB_ENV"
         echo "EXTRA_CXXFLAGS=${FLAGS}" >> "$GITHUB_ENV"
