@@ -29,6 +29,7 @@ def is_test_server_available():  # type: () -> bool
 
 
 @pytest.mark.ethernet
+@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3', 'esp32c3'], indirect=['target'])
 def test_examples_protocol_http2_request(dut: Dut) -> None:
     """
     steps: |
