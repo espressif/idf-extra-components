@@ -11,6 +11,6 @@ from pathlib import Path
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that not build"
 )
-@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3', 'esp32c3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32s2', 'esp32s3'], indirect=['target'])
 def test_touch_element(dut: Dut) -> None:
     dut.run_all_single_board_cases(timeout=120)

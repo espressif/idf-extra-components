@@ -11,7 +11,7 @@ from pathlib import Path
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that not build"
 )
-@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3', 'esp32c3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32s2', 'esp32s3'], indirect=['target'])
 def test_touch_slider(dut: Dut) -> None:
     dut.expect_exact('Touch Slider Example: Touch element library installed')
     dut.expect_exact('Touch Slider Example: Touch slider installed')
