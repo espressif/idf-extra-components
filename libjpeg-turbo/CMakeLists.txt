@@ -1,6 +1,11 @@
 # Upstream libjpeg-turbo aborts unless it is the top-level project and
 # recommends ExternalProject_Add().
-idf_component_register()
+if(CONFIG_LIBJPEG_TURBO_ALLOC_PREFER_SPIRAM)
+    idf_component_register(SRCS "jpeg_mem_esp.c"
+                           PRIV_REQUIRES heap)
+else()
+    idf_component_register()
+endif()
 
 include(ExternalProject)
 
@@ -68,6 +73,18 @@ add_prebuilt_library(jpegturbo ${jpegturbo_library})
 add_dependencies(jpegturbo jpegturbo_proj)
 target_include_directories(jpegturbo INTERFACE ${jpegturbo_install_dir}/include)
 
-# Empty idf_component_register() creates an INTERFACE library, which is
-# enough to export the prebuilt archive and its headers.
-target_link_libraries(${COMPONENT_LIB} INTERFACE jpegturbo)
+# Without SRCS, idf_component_register() creates an INTERFACE library, which
+# is enough to export the prebuilt archive and its headers.
+if(CONFIG_LIBJPEG_TURBO_ALLOC_PREFER_SPIRAM)
+    target_link_libraries(${COMPONENT_LIB} PUBLIC jpegturbo)
+
+    # Redirect jmemmgr.c's calls into jmemnobs.c to jpeg_mem_esp.c. -u pulls
+    # the wrappers in even though nothing else references them before
+    # libjpeg.a on the link line.
+    foreach(wrap jpeg_get_small jpeg_get_large)
+        target_link_libraries(${COMPONENT_LIB} INTERFACE
+            "-Wl,--wrap=${wrap}" "-Wl,-u,__wrap_${wrap}")
+    endforeach()
+else()
+    target_link_libraries(${COMPONENT_LIB} INTERFACE jpegturbo)
+endif()
