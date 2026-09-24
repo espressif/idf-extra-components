@@ -1,11 +1,14 @@
 name: Setup ESP-IDF build environment
 description: >-
-  Installs the CI Python tools (idf-component-manager, idf-build-apps)
-  and exports the pedantic compiler warning flags used by all CI builds.
+  Installs the CI Python tools (idf-build-apps) and exports the pedantic
+  compiler warning flags used by all CI builds.
+  idf-component-manager is deliberately NOT upgraded: each ESP-IDF version
+  pins a compatible major version (IDF <= 5.x needs 1.x, which speaks
+  --interface_version 3), and upgrading it breaks the build.
 
 inputs:
   install_python_tools:
-    description: Install idf-component-manager and idf-build-apps
+    description: Install idf-build-apps
     required: false
     default: 'true'
 
@@ -17,7 +20,7 @@ runs:
       shell: bash
       run: |
         . ${IDF_PATH}/export.sh
-        pip install --upgrade idf-component-manager 'idf-build-apps~=2.12'
+        pip install --upgrade 'idf-build-apps~=2.12'
 
     - name: Export pedantic build flags
       shell: bash
