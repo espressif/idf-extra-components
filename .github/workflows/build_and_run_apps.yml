@@ -126,7 +126,7 @@ jobs:
   # Compile coverage for all remaining targets (the ones idf_targets does
   # not list). No binaries are uploaded: nothing runs tests for them.
   build-extra:
-    name: Build Apps (other targets, ${{ matrix.idf_ver }})
+    name: Build Apps (other targets, ${{ matrix.idf_ver }}) #${{ matrix.parallel_index }}/${{ needs.ci-matrix.outputs.parallel_count }}
     needs: [prepare, ci-matrix]
     strategy:
       fail-fast: false
@@ -149,7 +149,7 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          TESTED_TARGETS=$(jq -r 'join(" ")' <<< '${{ needs.ci-matrix.outputs.idf_targets }}')
+          TESTED_TARGETS=$(python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))' <<< '${{ needs.ci-matrix.outputs.idf_targets }}')
           idf-build-apps build --disable-targets $TESTED_TARGETS --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ needs.ci-matrix.outputs.parallel_count }} ${{ needs.prepare.outputs.idf_build_apps_args }}
 
   build-linux:
