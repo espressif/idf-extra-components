@@ -7,6 +7,7 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
+@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3', 'esp32c3'], indirect=['target'])
 def test_esp_daylight(dut: Dut) -> None:
     """
     Test esp_daylight component functionality
