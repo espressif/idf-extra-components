@@ -13,6 +13,34 @@ Currently only [MBR (Master boot record)](https://en.wikipedia.org/wiki/Master_b
 - Filter partitions with a caller predicate (e.g. only mountable filesystems)
 - Example projects included
 
+## Detecting the format of an unknown medium
+
+The first sector of a partitioned medium is always an MBR, so `esp_mbr_bdl_read` (or
+`esp_mbr_parse` on a sector you read yourself) is a valid first step even when you do
+not know what the device holds. What it returns tells you the format:
+
+| Device | Result |
+|---|---|
+| MBR | `ESP_OK`, the real partitions |
+| GPT | `ESP_OK`, a single partition of type `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` |
+| Neither | `ESP_ERR_NOT_FOUND` (no MBR boot signature) |
+
+A GPT disk carries a *protective MBR* in the first sector: one entry of type `0xEE`
+spanning the whole device, which exists so that MBR-only tools do not treat the disk as
+unpartitioned. Parsing it therefore succeeds, but the partitions it describes are not
+the real ones - this component cannot read a GPT table. **If you may encounter GPT
+media, check for `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` before using the result.**
+
+To decide up front rather than from the parsed result, probe the device:
+
+```c
+esp_ext_part_signature_type_t type;
+esp_err_t err = esp_ext_part_probe(handle, &type);
+if (err == ESP_OK && type == ESP_EXT_PART_LIST_SIGNATURE_MBR) {
+    err = esp_mbr_bdl_read(handle, &part_list, NULL);
+} // type == ESP_EXT_PART_LIST_SIGNATURE_GPT -> GPT, not readable by this component
+```
+
 ## Partition selection and filtering (MBR parsing)
 
 `esp_mbr_parse` inserts **every recognized partition** into the list by default,
@@ -82,9 +110,13 @@ Whenever the parser skips a partition (an unknown/extended type, or one rejected
 from the list is functionally equivalent to the source (ignoring cosmetic differences
 such as CHS values or the disk signature).
 
+The parsed table fully defines the list, so `esp_mbr_parse` requires an empty list and
+returns `ESP_ERR_INVALID_STATE` otherwise. Call `esp_ext_part_list_deinit()` before
+parsing into a list you have already used.
+
 ## Alignment and layout validation (MBR generation)
 
-When generating an MBR (`esp_mbr_generate` / `esp_ext_part_list_bdl_write`), the
+When generating an MBR (`esp_mbr_generate` / `esp_mbr_bdl_write`), the
 behavior is controlled through `esp_mbr_generate_extra_args_t` (a zero-initialized
 struct selects all defaults):
 
@@ -112,6 +144,12 @@ Overlapping partitions are always rejected, and a list item with type
 `ESP_EXT_PART_TYPE_NONE` (which would create a gap that truncates the parsed
 table) is rejected with `ESP_ERR_INVALID_ARG`.
 
+The partition list is the single source of truth for the generated table: all four
+MBR entries are either built from a list item or zeroed, so nothing from a
+previously loaded MBR survives in the buffer. The bootstrap code area is left
+untouched, which makes the read-modify-write cycle (parse an existing MBR, edit the
+list, regenerate with `keep_signature`) safe.
+
 ## Automatic partition placement (MBR generation)
 
 Instead of computing every start address by hand, a partition can be placed
@@ -124,7 +162,7 @@ automatically by setting flags on `esp_ext_part_t.flags`:
 - `ESP_EXT_PART_FLAG_FILL` (with `AUTO_ADDRESS` and `info.size == 0`): the
   partition is sized to fill from its computed start to the end of the disk. This
   needs a known disk size - either `extra_args->total_size`, or (via
-  `esp_ext_part_list_bdl_write`) the block device geometry.
+  `esp_mbr_bdl_write`) the block device geometry.
 
 The caller's partition list is never modified; addresses/sizes are resolved into
 internal copies during generation.
@@ -146,7 +184,7 @@ esp_ext_part_list_item_t p1 = {
         .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS | ESP_EXT_PART_FLAG_FILL | ESP_EXT_PART_FLAG_EXTRA,
     }
 };
-// esp_ext_part_list_insert(&part_list, &p0/&p1); then esp_ext_part_list_bdl_write(...)
+// esp_ext_part_list_insert(&part_list, &p0/&p1); then esp_mbr_bdl_write(...)
 ```
 
 ## Example code
@@ -194,3 +232,18 @@ Runnable example projects can be found in [`examples/`](/esp_ext_part_tables/exa
 See [`esp_ext_part_tables.h`](/esp_ext_part_tables/include/esp_ext_part_tables.h) for the full API documentation.
 
 More advanced API documentation can be found here: [`esp_mbr.h`](/esp_ext_part_tables/include/esp_mbr.h), [`esp_mbr_utils.h`](/esp_ext_part_tables/include/esp_mbr_utils.h).
+
+## Tests
+
+The component is pure partition-table logic, so its tests in
+[`test_apps/`](/esp_ext_part_tables/test_apps/) need no storage hardware: they parse and
+generate MBRs in memory, and the block-device tests run against a RAM-backed
+`esp_blockdev` device. They run in two configurations:
+
+- on the **linux host target** (`pytest -m host_test`), which is what most of CI uses;
+- on **target under QEMU** (`pytest -m qemu`, esp32s3 and esp32c3), which additionally
+  covers 32-bit pointer width and real heap accounting for the leak checks.
+
+Neither configuration exercises a physical SD card, eMMC or USB medium, so the
+interaction with a real storage driver is intentionally out of scope for these tests.
+
