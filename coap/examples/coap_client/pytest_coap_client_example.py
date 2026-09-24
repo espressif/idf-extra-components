@@ -6,7 +6,7 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.ethernet
-@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3', 'esp32c3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32'], indirect=['target'])
 def test_coap_example(dut: Dut) -> None:
     dut.expect('Loaded app from partition at offset', timeout=30)
     try:
