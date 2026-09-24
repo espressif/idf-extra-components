@@ -24,6 +24,7 @@ jobs:
     outputs:
       test_all_apps: ${{ steps.get_labels.outputs.test_all_apps }}
       build_only: ${{ steps.get_labels.outputs.build_only }}
+      has_changes: ${{ steps.find_changes.outputs.has_changes }}
       idf_build_apps_args: ${{ steps.find_changes.outputs.idf_build_apps_args }}
     steps:
       - uses: actions/checkout@v4
@@ -69,14 +70,22 @@ jobs:
           python3 .github/get_idf_build_apps_args.py -v changed_files.txt idf_build_apps_args.txt
           echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)" >> $GITHUB_OUTPUT
           echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)"
+          # dummy_component is emitted when no component changed (e.g. CI-only PRs)
+          if grep -q dummy_component idf_build_apps_args.txt; then
+            echo "has_changes=0" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=1" >> $GITHUB_OUTPUT
+          fi
 
   ci-matrix:
     uses: ./.github/workflows/reusable-ci-matrix.yml
 
   # One pipeline per (idf_target, idf_ver) pair: each target's tests start
   # as soon as its own build finishes, without waiting for other targets.
+  # Skipped entirely when a PR changes no components (e.g. CI-only PRs).
   apps:
     name: Apps (${{ matrix.idf_target }}, ${{ matrix.idf_ver }})
+    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
     needs: [prepare, ci-matrix]
     strategy:
       fail-fast: false
@@ -127,6 +136,7 @@ jobs:
   # not list). No binaries are uploaded: nothing runs tests for them.
   build-extra:
     name: Build Apps (other targets, ${{ matrix.idf_ver }}) #${{ matrix.parallel_index }}/${{ needs.ci-matrix.outputs.parallel_count }}
+    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
     needs: [prepare, ci-matrix]
     strategy:
       fail-fast: false
@@ -154,6 +164,7 @@ jobs:
 
   build-linux:
     name: Build Apps for Linux
+    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
     needs: [prepare, ci-matrix]
     strategy:
       fail-fast: false
@@ -242,7 +253,7 @@ jobs:
       - prepare
       - apps
       - run-target-linux
-    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0'
+    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0' && (needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1')
     runs-on: ubuntu-22.04
     permissions:
       checks: write
