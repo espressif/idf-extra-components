@@ -48,7 +48,7 @@ on:
 
 jobs:
   build:
-    name: Build apps (${{ inputs.idf_target }}, ${{ inputs.idf_ver }})
+    name: Build apps (${{ inputs.idf_target }}, ${{ inputs.idf_ver }}) #${{ matrix.parallel_index }}/${{ inputs.parallel_count }}
     strategy:
       fail-fast: false
       matrix:
