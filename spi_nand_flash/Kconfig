@@ -25,6 +25,50 @@ menu "SPI NAND Flash configuration"
             Note: This option requires ESP-IDF >= 6.0 (esp_blockdev component).
             Enabling this on ESP-IDF < 6.0 will result in a build error.
 
+    config NAND_FLASH_PAGE_REGISTER_CACHE
+        bool "Enable NAND page-register cache"
+        default y
+        help
+            When enabled, the SPI NAND driver tracks whether the chip's
+            internal page register already holds the requested page and
+            skips the READ PAGE ADDRESS command (25-100 us) on repeated
+            reads of the same page. The cache is invalidated on any
+            program, erase, or mark-bad operation, since those overwrite
+            the chip's internal register.
+            Set to false to disable (no caching, original behaviour).
+
+    config NAND_FLASH_DHARA_META_CACHE
+        bool "Cache Dhara metadata reads"
+        default n
+        help
+            Cache exact 132-byte Dhara metadata reads per device, keyed by
+            page/offset/length. The number of cache slots is set by
+            NAND_FLASH_DHARA_META_CACHE_SLOTS. This experimental option is
+            intended for throughput testing.
+
+    config NAND_FLASH_DHARA_META_CACHE_SLOTS
+        int "Number of Dhara metadata cache slots"
+        depends on NAND_FLASH_DHARA_META_CACHE
+        default 2
+        range 2 8
+        help
+            Number of exact 132-byte Dhara metadata entries cached per
+            device. Each slot uses DHARA_META_SIZE bytes (~132 bytes), so
+            the default of 2 slots uses approximately 280 bytes of device
+            memory. Increase for workloads with a larger sequential
+            metadata working set; decrease to save RAM.
+
+    config NAND_FLASH_PERF_STATS
+        bool "Enable NAND physical operation counters"
+        default n
+        help
+            Count physical page reads, programs, copies, block erases and
+            Dhara metadata cache hits/misses per device. Read the counters
+            with nand_get_perf_stats() and clear them with
+            nand_reset_perf_stats(). Uses 48 bytes per device and adds a
+            counter increment to every physical operation. When disabled,
+            both functions return ESP_ERR_NOT_SUPPORTED.
+
     config NAND_ENABLE_STATS
         bool "Host test statistics enabled"
         depends on IDF_TARGET_LINUX

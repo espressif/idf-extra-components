@@ -1,0 +1,4 @@
+# Long FatFs format / sequential I/O can exceed the default task WDT.
+CONFIG_ESP_TASK_WDT_EN=n
+CONFIG_NAND_FLASH_DHARA_META_CACHE=y
+CONFIG_NAND_FLASH_PERF_STATS=y
