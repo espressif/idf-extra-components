@@ -1,0 +1,33 @@
+menu "Example Configuration"
+
+    config EXAMPLE_PROV_TRANSPORT_BLE
+        bool
+        default y
+        select BT_ENABLED
+        depends on !IDF_TARGET_ESP32S2
+        help
+            This example uses BLE transport exclusively.
+
+    config EXAMPLE_PROV_USING_BLUEDROID
+        bool
+        depends on (BT_BLUEDROID_ENABLED && (IDF_TARGET_ESP32C3 || IDF_TARGET_ESP32S3))
+        select BT_BLE_42_FEATURES_SUPPORTED
+        default y
+        help
+            This enables BLE 4.2 features for Bluedroid.
+
+    config EXAMPLE_PROV_SHOW_QR
+        bool "Show provisioning QR code on terminal"
+        default y
+        help
+            Display the provisioning QR code as ASCII art on the serial terminal
+            in addition to printing the URL.
+
+    config EXAMPLE_RESET_PROVISIONED
+        bool
+        default n
+        prompt "Reset provisioned status on each boot"
+        help
+            Erases NVS so provisioning runs on every boot. Useful for testing.
+
+endmenu
