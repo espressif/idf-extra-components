@@ -20,6 +20,6 @@ from pytest_embedded_idf.utils import idf_parametrize
 )
 # esp32 is one of the `generic` runners in the run-target matrix; the tests are
 # pure date/time logic, so one target is enough coverage.
-@idf_parametrize('target', ['esp32'], indirect=['target'])
+@idf_parametrize('target', ['esp32', 'esp32c2', 'esp32c3', 'esp32c5', 'esp32c6', 'esp32c61', 'esp32h2', 'esp32p4', 'esp32s2', 'esp32s3'], indirect=['target'])
 def test_esp_schedule(dut: Dut) -> None:
     dut.run_all_single_board_cases()
