@@ -35,29 +35,55 @@ test, downstream jobs run from dynamic matrices.
 
 ## Steps
 
-### 1. PoC: validate idf-ci on this repo
+### 1. PoC: validate idf-ci on this repo — DONE (2026-09-24)
 
-- Run inside `espressif/idf:latest` container:
-  `idf-ci init` (creates `.idf_ci.toml`), review `settings.exclude_dirs`,
-  `preserve_*` options.
-- `idf-ci build collect -p . --format json -o collect.json` — check the app
-  list matches `idf-build-apps find` output (same app/target/config set).
-- `idf-ci test collect --format github` — verify pytest collection succeeds
-  for all `pytest_*.py` (needs pytest, pytest-embedded, pytest-embedded-idf,
-  pytest-embedded-qemu installed in the container).
-- Pin the idf-ci version used in CI (check which idf-build-apps version it
-  pulls; align with the current `idf-build-apps~=2.12` pin).
+Run locally against a master-ish IDF (6.2) with `idf-ci 1.3.0` +
+`idf-build-apps 2.16.1`:
 
-### 2. Rework the `generate` job onto idf-ci
+- `idf-ci build collect -p . --format json` works: exit 0, ~3 min including
+  full pytest collection. Result: 84 projects, 443 apps "should be built",
+  671 disabled by manifest rules, 183 test cases collected (this also
+  confirms the `target` parametrize fixes landed — the cases are visible).
+- The extra targets `esp32s31`/`esp32h21` in the output come from the local
+  IDF fork's preview targets, not from this repo.
+- Version pin: idf-ci 1.3.0 requires `idf-build-apps>=2.16.1,<4`; our
+  `~=2.12` pin resolves to 2.16.1, so they are compatible. Consider
+  tightening the pin to `~=2.16`.
 
-- Inputs: `changed_files.txt` artifact from `prepare` (PRs), ci-matrix.json.
-- Use `idf_ci.scripts.get_all_apps(modified_files=..., marker_expr='not
-  host_test')` → (test_related, non_test_related); shard counts via the same
-  `ceil(apps / runs_per_job)` rule.
-- Emit `apps_matrix` / `extra_matrix` as today, but sized by *affected* apps;
-  empty result → empty include matrix (job skipped) — this replaces the
-  `has_changes` gate.
-- Delete `.github/generate_build_matrix.py` when done.
+**BLOCKER found:** test-case↔app join is broken for apps without an
+`sdkconfig.ci*` file. idf-ci builds its app key with the raw
+`config_name` (`''` for default builds, see `build_collect/scripts.py:73`),
+while pytest cases default to `config='default'`
+(`idf_pytest/models.py:58`). Result: 149 of 183 test cases land in
+`missing_apps`. 100% correlation confirmed: every "used" case belongs to an
+app with an `sdkconfig.ci*` file, every app without one is "missing".
+Options:
+  a. Fix upstream in idf-ci (normalize `app.config_name or 'default'` when
+     building the AppKey) — the right fix, esp-idf CI is unaffected because
+     its test apps all carry `sdkconfig.ci*` files;
+  b. Workaround: add empty `sdkconfig.ci` to every test app (dozens of
+     files, ugly);
+  c. Workaround: parametrize `config` in every pytest file (ugly).
+
+### 2. Rework the `generate` job onto idf-ci — DONE (2026-09-24)
+
+- `.github/generate_build_matrix.py` now shells out to idf-ci:
+  `build collect` for per-target buildable-app counts (build_status ==
+  "should be built" — the previous find_apps version also counted
+  manifest-disabled apps, oversizing shards ~2.4x) and `test collect
+  --format github` (twice: `-m 'not host_test'` and `-m qemu`, since idf-ci
+  treats emulator-marked cases as host tests) for the per-target test
+  markers actually present.
+- `pytest.ini` gained an `env_markers` section — the idf-ci pytest plugin
+  reads it to group cases per runner environment.
+- ci-matrix.json `test_configs` remains the runner-availability policy;
+  the generator intersects it with collected markers (e.g. the quad_psram
+  case is collected but not scheduled — no such runner).
+- Ethernet tests (`coap_client`, `sh2lib`) were parametrized to esp32 only —
+  the ethernet runner is an ESP32-ETHERNET-KIT.
+- Measured locally (IDF 6.2): esp32 56 apps -> 2 shards, esp32s2 32 -> 1,
+  esp32s3 44 -> 2, esp32c3 47 -> 2 (was: fixed 5 everywhere), other targets
+  203 -> 5 shards (cap). esp32c3 correctly keeps only its qemu config.
 
 ### 3. Switch build steps to `idf-ci build run`
 

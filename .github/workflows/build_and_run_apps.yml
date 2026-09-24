@@ -99,7 +99,7 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --upgrade 'idf-build-apps~=2.12'
+          pip install --upgrade idf-ci
       - name: Generate build matrix
         id: gen
         shell: bash
@@ -124,7 +124,7 @@ jobs:
       idf_build_apps_args: ${{ needs.prepare.outputs.idf_build_apps_args }}
       parallel_indices: ${{ toJSON(matrix.parallel_indices) }}
       parallel_count: ${{ matrix.parallel_count }}
-      run_test: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' }}
+      run_test: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' && matrix.run_tests }}
       test_matrix: ${{ toJSON(matrix.tests) }}
 
   # Compile coverage for all remaining targets (the ones idf_targets does

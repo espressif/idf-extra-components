@@ -1,30 +1,46 @@
 #!/usr/bin/env python3
-"""Generate dynamic build matrices for build_and_run_apps.yml.
+"""Generate dynamic build/test matrices for build_and_run_apps.yml via idf-ci.
 
 GitHub Actions equivalent of the GitLab `generate_build_child_pipeline` job
-(common/templates/idf/build.yml): instead of a fixed parallelism, count the
-apps per target and size each target's shard count by the real app count
-(ceil(apps / runs_per_job), capped at parallel_count from ci-matrix.json).
+(common/templates/idf/build.yml): instead of a fixed parallelism, ask idf-ci
+what actually exists and size everything from that:
+
+- `idf-ci build collect`  -> buildable apps per target (build_status ==
+  "should be built") -> shard count = ceil(apps / runs_per_job), capped at
+  parallel_count
+- `idf-ci test collect --format github` -> which env markers (generic,
+  ethernet, qemu, ...) have real test cases per target; the per-target test
+  configs in ci-matrix.json act as the runner-availability policy and are
+  intersected with the collected markers
 
 Outputs (written to $GITHUB_OUTPUT):
   apps_matrix   - {"include": [...]} entries for the per-target build+test
                   pipelines (one entry per idf_ver x idf_target)
   extra_matrix  - {"include": [...]} entries for the build-extra job
-                  (all targets not listed in idf_targets)
+                  (all non-linux targets not listed in idf_targets)
 
-Note: the app counting runs on one ESP-IDF version (the generator container),
-so shard counts are approximate for other versions - this only affects load
-balancing, not correctness.
+Note: collection runs on one ESP-IDF version (the generator container), so
+counts are approximate for other versions - this only affects load balancing,
+not correctness.
 """
 
 import json
 import math
 import os
-
-from idf_build_apps import find_apps
-from idf_build_apps.args import FindArguments
+import subprocess
+import sys
+from collections import Counter, defaultdict
 
 CI_MATRIX_PATH = '.github/ci-matrix.json'
+
+
+def run_idf_ci(*args: str) -> dict:
+    proc = subprocess.run(['idf-ci', *args], capture_output=True, text=True)
+    if proc.returncode != 0:
+        print(proc.stdout)
+        print(proc.stderr, file=sys.stderr)
+        raise SystemExit(f'idf-ci {" ".join(args)} failed with exit code {proc.returncode}')
+    return json.loads(proc.stdout)
 
 
 def shard_count(app_count: int, runs_per_job: int, max_shards: int) -> int:
@@ -43,36 +59,50 @@ def main() -> None:
     max_shards = int(cfg['parallel_count'])
     runs_per_job = int(cfg['runs_per_job'])
 
-    apps = find_apps(
-        find_arguments=FindArguments(
-            paths=['.'],
-            recursive=True,
-            enable_preview_targets=True,
-            include_all_apps=True,
-        )
-    )
-    app_counts = {}
-    for app in apps:
-        app_counts[app.target] = app_counts.get(app.target, 0) + 1
-    print(f'App counts per target: {app_counts}')
+    # Buildable apps per target
+    build_collect = run_idf_ci('build', 'collect', '-p', '.', '--format', 'json')
+    app_counts: Counter = Counter()
+    for project in build_collect['projects'].values():
+        for app in project['apps']:
+            if app['build_status'] == 'should be built':
+                app_counts[app['target']] += 1
+    print(f'Buildable apps per target: {dict(app_counts)}')
+
+    # Env markers with real test cases per target. qemu cases are treated as
+    # host tests by idf-ci (emulator marker), so they need a separate collect.
+    markers_by_target: dict = defaultdict(set)
+    for marker_expr in ('not host_test', 'qemu'):
+        test_collect = run_idf_ci('test', 'collect', '--format', 'github', '-m', marker_expr)
+        for entry in test_collect['include']:
+            if not entry['nodes'].strip():
+                continue
+            markers = [m for m in entry['env_markers'].split(' and ') if m]
+            for target in entry['targets'].split(','):
+                markers_by_target[target].update(markers)
+    print(f'Collected test markers per target: {dict(markers_by_target)}')
 
     apps_matrix = []
     for target in tested_targets:
         shards = shard_count(app_counts.get(target, 0), runs_per_job, max_shards)
         if not shards:
             continue
+        # runner policy from ci-matrix.json, filtered to markers with cases
+        tests = [c for c in test_configs.get(target, []) if c['marker'] in markers_by_target.get(target, set())]
         for idf_ver in idf_versions:
             apps_matrix.append(
                 {
                     'idf_ver': idf_ver,
                     'idf_target': target,
-                    'tests': test_configs[target],
+                    'tests': tests,
+                    'run_tests': bool(tests),
                     'parallel_indices': list(range(1, shards + 1)),
                     'parallel_count': shards,
                 }
             )
 
-    other_apps_count = sum(count for target, count in app_counts.items() if target not in tested_targets)
+    other_apps_count = sum(
+        count for target, count in app_counts.items() if target not in tested_targets and target != 'linux'
+    )
     extra_shards = shard_count(other_apps_count, runs_per_job, max_shards)
     extra_matrix = [
         {'idf_ver': idf_ver, 'parallel_index': index, 'parallel_count': extra_shards}
