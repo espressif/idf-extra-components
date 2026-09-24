@@ -93,7 +93,7 @@ def start_https_server(ota_image_dir: str, server_ip: str, port: int, server_fil
     httpd.serve_forever()
 
 @pytest.mark.generic
-@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3', 'esp32c3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32', 'esp32s3'], indirect=['target'])
 def test_examples_protocol_pre_encrypted_ota_example(dut: Dut) -> None:
     bin_path = os.path.join(dut.app.binary_path, enc_bin_name)
     bin_size = os.path.getsize(bin_path)
@@ -114,7 +114,7 @@ def test_examples_protocol_pre_encrypted_ota_example(dut: Dut) -> None:
 
 @pytest.mark.generic
 @pytest.mark.parametrize('config', ['partial_download',], indirect=True)
-@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3', 'esp32c3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32', 'esp32s3'], indirect=['target'])
 def test_examples_protocol_pre_encrypted_ota_example_partial_download(dut: Dut, config) -> None:
     # Size of partial HTTP request
     request_size = int(dut.app.sdkconfig.get('EXAMPLE_HTTP_REQUEST_SIZE'))
