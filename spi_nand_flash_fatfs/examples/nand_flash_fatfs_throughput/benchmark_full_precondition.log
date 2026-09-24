@@ -1,0 +1,268 @@
+[1/4] cd /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build && /Users/martinhavlik/.espressif/python_env/idf6.1_py3.14_env/bin/python /Users/martinhavlik/esp/gitlab/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/partition_table/partition-table.bin /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/nand_flash_fatfs_throughput.bin
+nand_flash_fatfs_throughput.bin binary size 0x42aa0 bytes. Smallest app partition is 0x100000 bytes. 0xbd560 bytes (74%) free.
+[2/4] Performing build step for 'bootloader'
+[1/1] cd /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/bootloader && /Users/martinhavlik/.espressif/python_env/idf6.1_py3.14_env/bin/python /Users/martinhavlik/esp/gitlab/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/bootloader/bootloader.bin
+Bootloader binary size 0x50b0 bytes. 0x2f50 bytes (37%) free.
+[3/4] No install step for 'bootloader'
+[4/4] Completed 'bootloader'
+Adding "flash"'s dependency "all" to list of commands with default set of options.
+Executing action: all (aliases: build)
+Running ninja in directory /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build
+Executing "ninja all"...
+Executing action: flash
+Serial port /dev/cu.usbmodem14401:
+Connecting...
+Running ninja in directory /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build
+Executing "ninja flash"...
+[1/5] cd /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build && /Users/martinhavlik/.espressif/python_env/idf6.1_py3.14_env/bin/python /Users/martinhavlik/esp/gitlab/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/partition_table/partition-table.bin /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/nand_flash_fatfs_throughput.bin
+nand_flash_fatfs_throughput.bin binary size 0x42aa0 bytes. Smallest app partition is 0x100000 bytes. 0xbd560 bytes (74%) free.
+[2/5] Performing build step for 'bootloader'
+[1/1] cd /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/bootloader && /Users/martinhavlik/.espressif/python_env/idf6.1_py3.14_env/bin/python /Users/martinhavlik/esp/gitlab/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/bootloader/bootloader.bin
+Bootloader binary size 0x50b0 bytes. 0x2f50 bytes (37%) free.
+[3/5] No install step for 'bootloader'
+[4/5] Completed 'bootloader'
+[4/5] Running utility command for flash
+esptool --chip esp32s3 -p /dev/cu.usbmodem14401 -b 460800 --before=default-reset --after=hard-reset write-flash --flash-mode dio --flash-freq 80m --flash-size 2MB 0x0 bootloader/bootloader.bin 0x8000 partition_table/partition-table.bin 0x10000 nand_flash_fatfs_throughput.bin --diff-with bootloader/bootloader_flashed.bin partition_table/partition-table_flashed.bin nand_flash_fatfs_throughput_flashed.bin
+esptool v5.4.0
+Serial port /dev/cu.usbmodem14401:
+Connecting...
+Connected to ESP32-S3 on /dev/cu.usbmodem14401:
+Chip type:          ESP32-S3 (QFN56) (revision v0.2)
+Features:           Wi-Fi, BT 5 (LE), Dual Core + LP Core, 240MHz, Embedded PSRAM 8MB (AP_3v3)
+Crystal frequency:  40MHz
+USB mode:           USB-Serial/JTAG
+MAC:                a0:f2:62:e4:66:a8
+
+Uploading stub flasher...
+Running stub flasher...
+Stub flasher running.
+Changing baud rate to 460800...
+Changed.
+
+Configuring flash size...
+
+Writing 'bootloader/bootloader.bin' at 0x00000000...
+SHA digest in image updated.
+SHA digest in image updated.
+No changed sectors found, verifying if data is in flash...
+'bootloader/bootloader.bin' at 0x00000000 verified.
+
+Writing 'partition_table/partition-table.bin' at 0x00008000...
+No changed sectors found, verifying if data is in flash...
+'partition_table/partition-table.bin' at 0x00008000 verified.
+
+Writing 'nand_flash_fatfs_throughput.bin' at 0x00010000...
+Changed data sectors found, fast reflashing...
+Reflashing 1 changed sector at 0x00010000...
+Flash will be erased from 0x00010000 to 0x00010fff...
+Compressed 4096 bytes to 1941...
+Writing at 0x00011000 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100.0% 1.90kB/1.90kB [0s] 
+Wrote 4096 bytes (1941 compressed) at 0x00010000 in 0.0 seconds (2444.4 kbit/s).
+Reflashing 62 changed sectors at 0x00015000...
+Flash will be erased from 0x00015000 to 0x00052fff...
+Compressed 253952 bytes to 153455...
+Writing at 0x00020346 ━━━                             10.7% 16.00kB/149.86kB [0s] 
+Writing at 0x00025fc0 ━━━━━━                          21.4% 32.00kB/149.86kB [0s] 
+Writing at 0x0002c448 ━━━━━━━━━╸                      32.0% 48.00kB/149.86kB [0s] 
+Writing at 0x000326f8 ━━━━━━━━━━━━╸                   42.7% 64.00kB/149.86kB [0s] 
+Writing at 0x00037f17 ━━━━━━━━━━━━━━━━                53.4% 80.00kB/149.86kB [1s] 
+Writing at 0x0003d87c ━━━━━━━━━━━━━━━━━━━             64.1% 96.00kB/149.86kB [1s] 
+Writing at 0x000439fe ━━━━━━━━━━━━━━━━━━━━━━          74.7% 112.00kB/149.86kB [1s] 
+Writing at 0x00049c3b ━━━━━━━━━━━━━━━━━━━━━━━━━╸      85.4% 128.00kB/149.86kB [1s] 
+Writing at 0x00050117 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸   96.1% 144.00kB/149.86kB [1s] 
+Writing at 0x00053000 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100.0% 149.86kB/149.86kB [1s] 
+Wrote 253952 bytes (153455 compressed) at 0x00015000 in 1.9 seconds (1057.3 kbit/s).
+Verifying written data...
+Hash of data verified.
+
+Hard resetting via RTS pin...
+Executing action: monitor
+Running idf_monitor in directory /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput
+Executing "/Users/martinhavlik/.espressif/python_env/idf6.1_py3.14_env/bin/python /Users/martinhavlik/esp/gitlab/esp-idf/tools/idf_monitor.py -p /dev/cu.usbmodem14401 -b 115200 --toolchain-prefix xtensa-esp32s3-elf- --target esp32s3 --revision 0 /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/nand_flash_fatfs_throughput.elf /Users/martinhavlik/esp/github/idf-extra-components/spi_nand_flash_fatfs/examples/nand_flash_fatfs_throughput/build/bootloader/bootloader.elf -m '/Users/martinhavlik/.espressif/python_env/idf6.1_py3.14_env/bin/python' '/Users/martinhavlik/esp/gitlab/esp-idf/tools/idf.py'"...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0x2a (SPI_FAST_FLASH_BOOT)
+Saved PC:0x4037b56e
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x13cc
+load:0x403c8700,len:0xd8c
+load:0x403cb700,len:0x2ef8
+entry 0x403c88f8
+[0;32mI (24) boot: ESP-IDF v6.1-815-gf9df6656765 2nd stage bootloader[0m
+[0;32mI (25) boot: compile time Sep 24 2026 09:52:23[0m
+[0;32mI (25) boot: chip revision: v0.2[0m
+[0;32mI (26) boot.esp32s3: Boot SPI Speed : 80MHz[0m
+[0;32mI (30) boot.esp32s3: SPI Mode       : DIO[0m
+[0;32mI (33) boot.esp32s3: SPI Flash Size : 2MB[0m
+[0;32mI (37) boot: Partition Table:[0m
+[0;32mI (40) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (46) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (53) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (59) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (66) esp_image: segment 0: paddr=00010020 vaddr=3c030020 size=0cf90h ( 53136) map[0m
+[0;32mI (83) esp_image: segment 1: paddr=0001cfb8 vaddr=3fc92f00 size=03060h ( 12384) load[0m
+[0;32mI (86) esp_image: segment 2: paddr=00020020 vaddr=42000020 size=23854h (145492) map[0m
+[0;32mI (115) esp_image: segment 3: paddr=0004387c vaddr=3fc95f60 size=00318h (   792) load[0m
+[0;32mI (115) esp_image: segment 4: paddr=00043b9c vaddr=40374000 size=0eea8h ( 61096) load[0m
+[0;32mI (132) esp_image: segment 5: paddr=00052a4c vaddr=50000000 size=00024h (    36) load[0m
+[0;32mI (139) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (146) cpu_start: Multicore app[0m
+[0;32mI (154) cpu_start: GPIO 44 and 43 are used as console UART I/O pins[0m
+[0;32mI (155) cpu_start: Pro cpu start user code[0m
+[0;32mI (155) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (156) app_init: Application information:[0m
+[0;32mI (160) app_init: Project name:     nand_flash_fatfs_throughput[0m
+[0;32mI (166) app_init: App version:      9e5408c[0m
+[0;32mI (170) app_init: Compile time:     Sep 24 2026 12:00:52[0m
+[0;32mI (175) app_init: ELF file SHA256:  61d01741d...[0m
+[0;32mI (179) app_init: ESP-IDF:          v6.1-815-gf9df6656765[0m
+[0;32mI (184) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (188) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (192) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (196) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (202) heap_init: At 3FC96DA0 len 00052970 (330 KiB): RAM[0m
+[0;32mI (207) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (212) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (218) heap_init: At 600FE000 len 00001FE8 (7 KiB): RTCRAM[0m
+[0;32mI (224) spi_flash: detected chip: gd[0m
+[0;32mI (226) spi_flash: flash io: dio[0m
+[0;33mW (229) spi_flash: Detected size(16384k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (242) sleep_gpio: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (248) sleep_gpio: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (255) main_task: Started on CPU0[0m
+[0;32mI (255) main_task: Calling app_main()[0m
+[0;32mI (265) fatfs_tp: DMA CHANNEL: 3[0m
+[0;33mW (265) fatfs_tp: Erasing the entire NAND so this destructive benchmark starts from a known state[0m
+[0;33mW (275) nand_api: Entire chip is being erased[0m
+[0;33mW (41235) vfs_fat_nand: f_mount failed (13)[0m
+[0;32mI (41235) vfs_fat_nand: Formatting FATFS partition, allocation unit size=32768[0m
+[0;32mI (43655) vfs_fat_nand: Mounting again[0m
+[0;32mI (43665) fatfs_tp: FAT FS: 472000 kB total, 472000 kB free[0m
+[0;32mI (43665) fatfs_tp: SPI: 80000 kHz, QIO; cluster=32768; test file=2097152 bytes; tries=3[0m
+[0;32mI (43665) fatfs_tp: Volume was erased before mount; format uses the configured allocation unit[0m
+[0;32mI (43675) fatfs_tp: Cache configuration overview:[0m
+[0;32mI (43685) fatfs_tp:   DHARA_MAP_PATH_CACHE:            ON  (+140 B)[0m
+[0;32mI (43685) fatfs_tp:   NAND_FLASH_PAGE_REGISTER_CACHE:  ON  (+8 B)[0m
+[0;32mI (43695) fatfs_tp:   NAND_FLASH_DHARA_META_CACHE:     ON  (+296 B, 2 slots x 148 B)[0m
+[0;32mI (43705) fatfs_tp: RUN {"path_cache":true,"page_reg_cache":true,"meta_cache":true,"meta_slots":2,"precondition":true,"precond_percent":20,"tries":3,"chip_kb":472000,"file_kb":2048,"cluster_kb":32}[0m
+[0;32mI (43715) fatfs_tp: Preconditioning: writing 94400 kB fill file, kept during the timed phases[0m
+[0;32mI (90945) fatfs_tp: Preconditioning done in 47219 ms[0m
+[0;32mI (90945) fatfs_tp: ======== stdio: default buffering ========[0m
+[0;32mI (98635) fatfs_tp: [stdio/buffered] chunk=512 write: avg 1731.85 kB/s (min 1724.88, max 1739.63, 3 runs)[0m
+[0;32mI (98635) fatfs_tp: [stdio/buffered] chunk=512 read: avg 3834.48 kB/s (min 3832.00, max 3838.65, 3 runs)[0m
+[0;32mI (98645) fatfs_tp: write stats: reads=3222, programs=3434, copies=2086, erases=86, metadata hits=601, misses=3208 (15.8% hit)[0m
+[0;32mI (98655) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (98665) fatfs_tp: read stats: reads=7717, programs=0, copies=0, erases=0, metadata hits=1538, misses=4640 (24.9% hit)[0m
+[0;32mI (98675) fatfs_tp: read amplification: 2.51x (15804416 physical B / 6291456 logical B)[0m
+[0;32mI (98685) fatfs_tp: RESULT {"phase":"stdio/buffered","chunk":512,"skipped":false,"tries":3,"write_avg_kbps":1731.8458527388339,"write_min_kbps":1724.882651504372,"write_max_kbps":1739.6344958536324,"read_avg_kbps":3834.476668585783,"read_min_kbps":3831.9964039950737,"read_max_kbps":3838.652816546927,"write_wa":1.796875,"read_wa":2.5120442708333335,"w_reads":3222,"w_programs":3434,"w_copies":2086,"w_erases":86,"w_meta_hits":601,"w_meta_misses":3208,"r_reads":7717,"r_meta_hits":1538,"r_meta_misses":4640}[0m
+[0;32mI (106765) fatfs_tp: [stdio/buffered] chunk=4096 write: avg 2008.10 kB/s (min 2004.56, max 2013.04, 3 runs)[0m
+[0;32mI (106765) fatfs_tp: [stdio/buffered] chunk=4096 read: avg 4883.06 kB/s (min 4860.28, max 4907.86, 3 runs)[0m
+[0;32mI (106775) fatfs_tp: write stats: reads=3201, programs=3430, copies=2090, erases=87, metadata hits=606, misses=3190 (16.0% hit)[0m
+[0;32mI (106785) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (106795) fatfs_tp: read stats: reads=7717, programs=0, copies=0, erases=0, metadata hits=1538, misses=4640 (24.9% hit)[0m
+[0;32mI (106805) fatfs_tp: read amplification: 2.51x (15804416 physical B / 6291456 logical B)[0m
+[0;32mI (106815) fatfs_tp: RESULT {"phase":"stdio/buffered","chunk":4096,"skipped":false,"tries":3,"write_avg_kbps":2008.0976031209775,"write_min_kbps":2004.5632290150247,"write_max_kbps":2013.0411035695533,"read_avg_kbps":4883.061384032026,"read_min_kbps":4860.27884900623,"read_max_kbps":4907.857385240051,"write_wa":1.796875,"read_wa":2.5120442708333335,"w_reads":3201,"w_programs":3430,"w_copies":2090,"w_erases":87,"w_meta_hits":606,"w_meta_misses":3190,"r_reads":7717,"r_meta_hits":1538,"r_meta_misses":4640}[0m
+[0;32mI (114825) fatfs_tp: [stdio/buffered] chunk=16384 write: avg 2008.11 kB/s (min 2006.12, max 2011.50, 3 runs)[0m
+[0;32mI (114825) fatfs_tp: [stdio/buffered] chunk=16384 read: avg 5169.56 kB/s (min 5163.38, max 5178.55, 3 runs)[0m
+[0;32mI (114825) fatfs_tp: write stats: reads=3199, programs=3430, copies=2090, erases=86, metadata hits=606, misses=3188 (16.0% hit)[0m
+[0;32mI (114845) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (114845) fatfs_tp: read stats: reads=7717, programs=0, copies=0, erases=0, metadata hits=1538, misses=4640 (24.9% hit)[0m
+[0;32mI (114855) fatfs_tp: read amplification: 2.51x (15804416 physical B / 6291456 logical B)[0m
+[0;32mI (114865) fatfs_tp: RESULT {"phase":"stdio/buffered","chunk":16384,"skipped":false,"tries":3,"write_avg_kbps":2008.1132650462193,"write_min_kbps":2006.1183610139105,"write_max_kbps":2011.502234840492,"read_avg_kbps":5169.562357117978,"read_min_kbps":5163.37690411883,"read_max_kbps":5178.54946921863,"write_wa":1.796875,"read_wa":2.5120442708333335,"w_reads":3199,"w_programs":3430,"w_copies":2090,"w_erases":86,"w_meta_hits":606,"w_meta_misses":3188,"r_reads":7717,"r_meta_hits":1538,"r_meta_misses":4640}[0m
+[0;32mI (122865) fatfs_tp: [stdio/buffered] chunk=32768 write: avg 2007.76 kB/s (min 2006.81, max 2008.75, 3 runs)[0m
+[0;32mI (122875) fatfs_tp: [stdio/buffered] chunk=32768 read: avg 5221.06 kB/s (min 5217.50, max 5226.44, 3 runs)[0m
+[0;32mI (122875) fatfs_tp: write stats: reads=3200, programs=3430, copies=2090, erases=87, metadata hits=606, misses=3189 (16.0% hit)[0m
+[0;32mI (122885) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (122895) fatfs_tp: read stats: reads=7717, programs=0, copies=0, erases=0, metadata hits=1538, misses=4640 (24.9% hit)[0m
+[0;32mI (122905) fatfs_tp: read amplification: 2.51x (15804416 physical B / 6291456 logical B)[0m
+[0;32mI (122915) fatfs_tp: RESULT {"phase":"stdio/buffered","chunk":32768,"skipped":false,"tries":3,"write_avg_kbps":2007.75951191514,"write_min_kbps":2006.8075317290882,"write_max_kbps":2008.7489667234668,"read_avg_kbps":5221.063187095861,"read_min_kbps":5217.496877690038,"read_max_kbps":5226.442837276765,"write_wa":1.796875,"read_wa":2.5120442708333335,"w_reads":3200,"w_programs":3430,"w_copies":2090,"w_erases":87,"w_meta_hits":606,"w_meta_misses":3189,"r_reads":7717,"r_meta_hits":1538,"r_meta_misses":4640}[0m
+[0;32mI (124175) fatfs_tp: ======== posix: sequential read/write ========[0m
+[0;32mI (131625) fatfs_tp: [posix sequential] chunk=512 write: avg 1739.75 kB/s (min 1728.12, max 1746.50, 3 runs)[0m
+[0;32mI (131625) fatfs_tp: [posix sequential] chunk=512 read: avg 4427.91 kB/s (min 4427.63, max 4428.22, 3 runs)[0m
+[0;32mI (131635) fatfs_tp: write stats: reads=3196, programs=3430, copies=2090, erases=86, metadata hits=605, misses=3185 (16.0% hit)[0m
+[0;32mI (131645) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (131655) fatfs_tp: read stats: reads=7717, programs=0, copies=0, erases=0, metadata hits=1538, misses=4640 (24.9% hit)[0m
+[0;32mI (131665) fatfs_tp: read amplification: 2.51x (15804416 physical B / 6291456 logical B)[0m
+[0;32mI (131675) fatfs_tp: RESULT {"phase":"posix sequential","chunk":512,"skipped":false,"tries":3,"write_avg_kbps":1739.748387820864,"write_min_kbps":1728.119082424564,"write_max_kbps":1746.49871957694,"read_avg_kbps":4427.9086659539125,"read_min_kbps":4427.631315039977,"read_max_kbps":4428.220309636224,"write_wa":1.796875,"read_wa":2.5120442708333335,"w_reads":3196,"w_programs":3430,"w_copies":2090,"w_erases":86,"w_meta_hits":605,"w_meta_misses":3185,"r_reads":7717,"r_meta_hits":1538,"r_meta_misses":4640}[0m
+[0;32mI (139685) fatfs_tp: [posix sequential] chunk=4096 write: avg 2007.43 kB/s (min 2005.94, max 2010.21, 3 runs)[0m
+[0;32mI (139685) fatfs_tp: [posix sequential] chunk=4096 read: avg 5149.79 kB/s (min 5149.41, max 5150.03, 3 runs)[0m
+[0;32mI (139695) fatfs_tp: write stats: reads=3208, programs=3433, copies=2087, erases=87, metadata hits=602, misses=3194 (15.9% hit)[0m
+[0;32mI (139705) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (139715) fatfs_tp: read stats: reads=7744, programs=0, copies=0, erases=0, metadata hits=1538, misses=4664 (24.8% hit)[0m
+[0;32mI (139725) fatfs_tp: read amplification: 2.52x (15859712 physical B / 6291456 logical B)[0m
+[0;32mI (139735) fatfs_tp: RESULT {"phase":"posix sequential","chunk":4096,"skipped":false,"tries":3,"write_avg_kbps":2007.4260826903073,"write_min_kbps":2005.936069128519,"write_max_kbps":2010.2065464528227,"read_avg_kbps":5149.79321126711,"read_min_kbps":5149.405418147085,"read_max_kbps":5150.02504837775,"write_wa":1.796875,"read_wa":2.5208333333333335,"w_reads":3208,"w_programs":3433,"w_copies":2087,"w_erases":87,"w_meta_hits":602,"w_meta_misses":3194,"r_reads":7744,"r_meta_hits":1538,"r_meta_misses":4664}[0m
+[0;32mI (147725) fatfs_tp: [posix sequential] chunk=16384 write: avg 2011.47 kB/s (min 2007.59, max 2015.27, 3 runs)[0m
+[0;32mI (147735) fatfs_tp: [posix sequential] chunk=16384 read: avg 5249.11 kB/s (min 5248.75, max 5249.38, 3 runs)[0m
+[0;32mI (147735) fatfs_tp: write stats: reads=3196, programs=3430, copies=2090, erases=86, metadata hits=606, misses=3185 (16.0% hit)[0m
+[0;32mI (147755) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (147755) fatfs_tp: read stats: reads=7717, programs=0, copies=0, erases=0, metadata hits=1538, misses=4640 (24.9% hit)[0m
+[0;32mI (147765) fatfs_tp: read amplification: 2.51x (15804416 physical B / 6291456 logical B)[0m
+[0;32mI (147775) fatfs_tp: RESULT {"phase":"posix sequential","chunk":16384,"skipped":false,"tries":3,"write_avg_kbps":2011.4685355277227,"write_min_kbps":2007.58749891108,"write_max_kbps":2015.265708467827,"read_avg_kbps":5249.113335749756,"read_min_kbps":5248.74547306615,"read_max_kbps":5249.376102927372,"write_wa":1.796875,"read_wa":2.5120442708333335,"w_reads":3196,"w_programs":3430,"w_copies":2090,"w_erases":86,"w_meta_hits":606,"w_meta_misses":3185,"r_reads":7717,"r_meta_hits":1538,"r_meta_misses":4640}[0m
+[0;32mI (155775) fatfs_tp: [posix sequential] chunk=32768 write: avg 2009.84 kB/s (min 2006.40, max 2015.49, 3 runs)[0m
+[0;32mI (155775) fatfs_tp: [posix sequential] chunk=32768 read: avg 5263.83 kB/s (min 5263.22, max 5264.81, 3 runs)[0m
+[0;32mI (155785) fatfs_tp: write stats: reads=3192, programs=3430, copies=2090, erases=87, metadata hits=606, misses=3181 (16.0% hit)[0m
+[0;32mI (155795) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (155805) fatfs_tp: read stats: reads=7717, programs=0, copies=0, erases=0, metadata hits=1538, misses=4640 (24.9% hit)[0m
+[0;32mI (155815) fatfs_tp: read amplification: 2.51x (15804416 physical B / 6291456 logical B)[0m
+[0;32mI (155825) fatfs_tp: RESULT {"phase":"posix sequential","chunk":32768,"skipped":false,"tries":3,"write_avg_kbps":2009.8370270623645,"write_min_kbps":2006.39665988349,"write_max_kbps":2015.49425044329,"read_avg_kbps":5263.830136170737,"read_min_kbps":5263.222354399754,"read_max_kbps":5264.807925007656,"write_wa":1.796875,"read_wa":2.5120442708333335,"w_reads":3192,"w_programs":3430,"w_copies":2090,"w_erases":87,"w_meta_hits":606,"w_meta_misses":3181,"r_reads":7717,"r_meta_hits":1538,"r_meta_misses":4640}[0m
+[0;32mI (157065) fatfs_tp: ======== posix: random-order pwrite/pread ========[0m
+[0;32mI (203295) fatfs_tp: [posix random] chunk=512 write: avg 208.51 kB/s (min 207.92, max 208.83, 3 runs)[0m
+[0;32mI (203295) fatfs_tp: [posix random] chunk=512 read: avg 463.71 kB/s (min 463.08, max 464.36, 3 runs)[0m
+[0;32mI (203305) fatfs_tp: write stats: reads=100820, programs=13254, copies=2090, erases=240, metadata hits=4583, misses=91600 (4.8% hit)[0m
+[0;32mI (203315) fatfs_tp: write amplification: 4.99x (31424512 physical B / 6291456 logical B)[0m
+[0;32mI (203325) fatfs_tp: read stats: reads=77910, programs=0, copies=0, erases=0, metadata hits=349, misses=65623 (0.5% hit)[0m
+[0;32mI (203335) fatfs_tp: read amplification: 25.36x (159559680 physical B / 6291456 logical B)[0m
+[0;32mI (203345) fatfs_tp: RESULT {"phase":"posix random","chunk":512,"skipped":false,"tries":3,"write_avg_kbps":208.50638688322792,"write_min_kbps":207.91859620207748,"write_max_kbps":208.82647628223805,"read_avg_kbps":463.709301320261,"read_min_kbps":463.0787181178948,"read_max_kbps":464.36299970483975,"write_wa":4.994791666666667,"read_wa":25.361328125,"w_reads":100820,"w_programs":13254,"w_copies":2090,"w_erases":240,"w_meta_hits":4583,"w_meta_misses":91600,"r_reads":77910,"r_meta_hits":349,"r_meta_misses":65623}[0m
+[0;32mI (213665) fatfs_tp: [posix random] chunk=4096 write: avg 1494.07 kB/s (min 1466.73, max 1512.03, 3 runs)[0m
+[0;32mI (213665) fatfs_tp: [posix random] chunk=4096 read: avg 2611.39 kB/s (min 2607.53, max 2618.82, 3 runs)[0m
+[0;32mI (213675) fatfs_tp: write stats: reads=8870, programs=3430, copies=2090, erases=86, metadata hits=825, misses=8859 (8.5% hit)[0m
+[0;32mI (213685) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (213695) fatfs_tp: read stats: reads=14381, programs=0, copies=0, erases=0, metadata hits=1049, misses=11304 (8.5% hit)[0m
+[0;32mI (213705) fatfs_tp: read amplification: 4.68x (29452288 physical B / 6291456 logical B)[0m
+[0;32mI (213715) fatfs_tp: RESULT {"phase":"posix random","chunk":4096,"skipped":false,"tries":3,"write_avg_kbps":1494.0701457089388,"write_min_kbps":1466.7306376913361,"write_max_kbps":1512.0264805357824,"read_avg_kbps":2611.394555729779,"read_min_kbps":2607.532075790751,"read_max_kbps":2618.82444908148,"write_wa":1.796875,"read_wa":4.681315104166667,"w_reads":8870,"w_programs":3430,"w_copies":2090,"w_erases":86,"w_meta_hits":825,"w_meta_misses":8859,"r_reads":14381,"r_meta_hits":1049,"r_meta_misses":11304}[0m
+[0;32mI (222175) fatfs_tp: [posix random] chunk=16384 write: avg 1857.09 kB/s (min 1836.58, max 1882.81, 3 runs)[0m
+[0;32mI (222175) fatfs_tp: [posix random] chunk=16384 read: avg 4252.94 kB/s (min 4250.41, max 4256.15, 3 runs)[0m
+[0;32mI (222185) fatfs_tp: write stats: reads=4346, programs=3430, copies=2090, erases=87, metadata hits=1076, misses=4335 (19.9% hit)[0m
+[0;32mI (222195) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (222205) fatfs_tp: read stats: reads=8910, programs=0, copies=0, erases=0, metadata hits=1423, misses=5833 (19.6% hit)[0m
+[0;32mI (222215) fatfs_tp: read amplification: 2.90x (18247680 physical B / 6291456 logical B)[0m
+[0;32mI (222225) fatfs_tp: RESULT {"phase":"posix random","chunk":16384,"skipped":false,"tries":3,"write_avg_kbps":1857.090232357673,"write_min_kbps":1836.5798828071975,"write_max_kbps":1882.8143026056728,"read_avg_kbps":4252.94205867904,"read_min_kbps":4250.409404134577,"read_max_kbps":4256.154436267844,"write_wa":1.796875,"read_wa":2.900390625,"w_reads":4346,"w_programs":3430,"w_copies":2090,"w_erases":87,"w_meta_hits":1076,"w_meta_misses":4335,"r_reads":8910,"r_meta_hits":1423,"r_meta_misses":5833}[0m
+[0;32mI (230275) fatfs_tp: [posix random] chunk=32768 write: avg 2032.13 kB/s (min 2028.32, max 2035.78, 3 runs)[0m
+[0;32mI (230275) fatfs_tp: [posix random] chunk=32768 read: avg 4737.22 kB/s (min 4726.01, max 4745.69, 3 runs)[0m
+[0;32mI (230285) fatfs_tp: write stats: reads=3778, programs=3435, copies=2085, erases=86, metadata hits=831, misses=3750 (18.1% hit)[0m
+[0;32mI (230295) fatfs_tp: write amplification: 1.80x (11304960 physical B / 6291456 logical B)[0m
+[0;32mI (230305) fatfs_tp: read stats: reads=8252, programs=0, copies=0, erases=0, metadata hits=1545, misses=5175 (23.0% hit)[0m
+[0;32mI (230315) fatfs_tp: read amplification: 2.69x (16900096 physical B / 6291456 logical B)[0m
+[0;32mI (230325) fatfs_tp: RESULT {"phase":"posix random","chunk":32768,"skipped":false,"tries":3,"write_avg_kbps":2032.1325459363434,"write_min_kbps":2028.318967518299,"write_max_kbps":2035.7833120580112,"read_avg_kbps":4737.217715405004,"read_min_kbps":4726.00828850674,"read_max_kbps":4745.686309562871,"write_wa":1.796875,"read_wa":2.6861979166666665,"w_reads":3778,"w_programs":3435,"w_copies":2085,"w_erases":86,"w_meta_hits":831,"w_meta_misses":3750,"r_reads":8252,"r_meta_hits":1545,"r_meta_misses":5175}[0m
+[0;32mI (231525) fatfs_tp: ======== posix: multi-file (10 files, ~377 kB each) ========[0m
+[0;32mI (234705) fatfs_tp: [posix multi-file] chunk=512 write: avg 1698.96 kB/s (min 1698.96, max 1698.96, 1 run)[0m
+[0;32mI (234705) fatfs_tp: [posix multi-file] chunk=512 read: avg 4290.64 kB/s (min 4290.64, max 4290.64, 1 run)[0m
+[0;32mI (234705) fatfs_tp: write stats: reads=270, programs=2050, copies=30, erases=33, metadata hits=51, misses=250 (16.9% hit)[0m
+[0;32mI (234725) fatfs_tp: write amplification: 1.10x (4259840 physical B / 3865600 logical B)[0m
+[0;32mI (234725) fatfs_tp: read stats: reads=4899, programs=0, copies=0, erases=0, metadata hits=959, misses=2990 (24.3% hit)[0m
+[0;32mI (234735) fatfs_tp: read amplification: 2.60x (10033152 physical B / 3865600 logical B)[0m
+[0;32mI (234745) fatfs_tp: RESULT {"phase":"posix multi-file","chunk":512,"skipped":false,"tries":1,"write_avg_kbps":1698.9646933899655,"write_min_kbps":1698.9646933899655,"write_max_kbps":1698.9646933899655,"read_avg_kbps":4290.64407389196,"read_min_kbps":4290.64407389196,"read_max_kbps":4290.64407389196,"write_wa":1.1019867549668874,"read_wa":2.5954966887417217,"w_reads":270,"w_programs":2050,"w_copies":30,"w_erases":33,"w_meta_hits":51,"w_meta_misses":250,"r_reads":4899,"r_meta_hits":959,"r_meta_misses":2990}[0m
+[0;32mI (239795) fatfs_tp: [posix multi-file] chunk=4096 write: avg 1936.92 kB/s (min 1936.92, max 1936.92, 1 run)[0m
+[0;32mI (239795) fatfs_tp: [posix multi-file] chunk=4096 read: avg 4989.37 kB/s (min 4989.37, max 4989.37, 1 run)[0m
+[0;32mI (239795) fatfs_tp: write stats: reads=291, programs=2040, copies=40, erases=33, metadata hits=61, misses=271 (18.4% hit)[0m
+[0;32mI (239815) fatfs_tp: write amplification: 1.11x (4259840 physical B / 3850240 logical B)[0m
+[0;32mI (239815) fatfs_tp: read stats: reads=4865, programs=0, copies=0, erases=0, metadata hits=949, misses=2966 (24.2% hit)[0m
+[0;32mI (239825) fatfs_tp: read amplification: 2.59x (9963520 physical B / 3850240 logical B)[0m
+[0;32mI (239835) fatfs_tp: RESULT {"phase":"posix multi-file","chunk":4096,"skipped":false,"tries":1,"write_avg_kbps":1936.9226380952334,"write_min_kbps":1936.9226380952334,"write_max_kbps":1936.9226380952334,"read_avg_kbps":4989.37394387369,"read_min_kbps":4989.37394387369,"read_max_kbps":4989.37394387369,"write_wa":1.1063829787234043,"read_wa":2.5877659574468086,"w_reads":291,"w_programs":2040,"w_copies":40,"w_erases":33,"w_meta_hits":61,"w_meta_misses":271,"r_reads":4865,"r_meta_hits":949,"r_meta_misses":2966}[0m
+[0;32mI (244875) fatfs_tp: [posix multi-file] chunk=16384 write: avg 1878.91 kB/s (min 1878.91, max 1878.91, 1 run)[0m
+[0;32mI (244875) fatfs_tp: [posix multi-file] chunk=16384 read: avg 5068.48 kB/s (min 5068.48, max 5068.48, 1 run)[0m
+[0;32mI (244885) fatfs_tp: write stats: reads=348, programs=2000, copies=80, erases=33, metadata hits=121, misses=328 (26.9% hit)[0m
+[0;32mI (244895) fatfs_tp: write amplification: 1.13x (4259840 physical B / 3768320 logical B)[0m
+[0;32mI (244895) fatfs_tp: read stats: reads=4757, programs=0, copies=0, erases=0, metadata hits=929, misses=2898 (24.3% hit)[0m
+[0;32mI (244905) fatfs_tp: read amplification: 2.59x (9742336 physical B / 3768320 logical B)[0m
+[0;32mI (244915) fatfs_tp: RESULT {"phase":"posix multi-file","chunk":16384,"skipped":false,"tries":1,"write_avg_kbps":1878.9121982303427,"write_min_kbps":1878.9121982303427,"write_max_kbps":1878.9121982303427,"read_avg_kbps":5068.48191144091,"read_min_kbps":5068.48191144091,"read_max_kbps":5068.48191144091,"write_wa":1.1304347826086956,"read_wa":2.5853260869565218,"w_reads":348,"w_programs":2000,"w_copies":80,"w_erases":33,"w_meta_hits":121,"w_meta_misses":328,"r_reads":4757,"r_meta_hits":929,"r_meta_misses":2898}[0m
+[0;32mI (249715) fatfs_tp: [posix multi-file] chunk=32768 write: avg 2001.65 kB/s (min 2001.65, max 2001.65, 1 run)[0m
+[0;32mI (249715) fatfs_tp: [posix multi-file] chunk=32768 read: avg 5059.35 kB/s (min 5059.35, max 5059.35, 1 run)[0m
+[0;32mI (249725) fatfs_tp: write stats: reads=223, programs=1910, copies=10, erases=30, metadata hits=26, misses=203 (11.4% hit)[0m
+[0;32mI (249735) fatfs_tp: write amplification: 1.09x (3932160 physical B / 3604480 logical B)[0m
+[0;32mI (249745) fatfs_tp: read stats: reads=4566, programs=0, copies=0, erases=0, metadata hits=889, misses=2787 (24.2% hit)[0m
+[0;32mI (249755) fatfs_tp: read amplification: 2.59x (9351168 physical B / 3604480 logical B)[0m
+[0;32mI (249765) fatfs_tp: RESULT {"phase":"posix multi-file","chunk":32768,"skipped":false,"tries":1,"write_avg_kbps":2001.652642895857,"write_min_kbps":2001.652642895857,"write_max_kbps":2001.652642895857,"read_avg_kbps":5059.352449823774,"read_min_kbps":5059.352449823774,"read_max_kbps":5059.352449823774,"write_wa":1.0909090909090908,"read_wa":2.5943181818181817,"w_reads":223,"w_programs":1910,"w_copies":10,"w_erases":30,"w_meta_hits":26,"w_meta_misses":203,"r_reads":4566,"r_meta_hits":889,"r_meta_misses":2787}[0m
+[0;32mI (251655) main_task: Returned from app_main()[0m
+Done
