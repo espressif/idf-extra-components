@@ -4,5 +4,23 @@
     "idf_versions_ethernet_test": ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"],
     "idf_versions_linux_test": ["release-v5.3", "release-v5.4", "release-v5.5", "latest"],
     "idf_targets": ["esp32", "esp32s2", "esp32s3", "esp32c3"],
-    "parallel_count": 5
+    "parallel_count": 5,
+    "runs_per_job": 40,
+    "test_configs": {
+        "esp32": [
+            {"marker": "generic", "runner_labels": ["self-hosted", "linux", "docker", "esp32"], "pytest_args": ""},
+            {"marker": "ethernet", "runner_labels": ["self-hosted", "linux", "docker", "ESP32-ETHERNET-KIT"], "pytest_args": ""},
+            {"marker": "spi_nand_flash", "runner_labels": ["self-hosted", "linux", "docker", "spi_nand_flash"], "pytest_args": ""}
+        ],
+        "esp32s2": [
+            {"marker": "generic", "runner_labels": ["self-hosted", "linux", "docker", "esp32s2"], "pytest_args": ""}
+        ],
+        "esp32s3": [
+            {"marker": "generic", "runner_labels": ["self-hosted", "linux", "docker", "esp32s3"], "pytest_args": ""},
+            {"marker": "qemu", "runner_labels": ["self-hosted", "linux", "docker"], "pytest_args": "--embedded-services idf,qemu"}
+        ],
+        "esp32c3": [
+            {"marker": "qemu", "runner_labels": ["self-hosted", "linux", "docker"], "pytest_args": "--embedded-services idf,qemu"}
+        ]
+    }
 }
