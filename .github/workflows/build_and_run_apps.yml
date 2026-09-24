@@ -80,69 +80,62 @@ jobs:
   ci-matrix:
     uses: ./.github/workflows/reusable-ci-matrix.yml
 
+  # GitHub equivalent of the GitLab generate_build_child_pipeline job:
+  # counts apps per target and emits matrices whose shard counts match the
+  # real app counts, instead of a fixed parallelism for everything.
+  generate:
+    name: Generate build matrix
+    needs: [prepare]
+    runs-on: ubuntu-22.04
+    container: espressif/idf:latest
+    outputs:
+      apps_matrix: ${{ steps.gen.outputs.apps_matrix }}
+      extra_matrix: ${{ steps.gen.outputs.extra_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Install dependencies
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          pip install --upgrade 'idf-build-apps~=2.12'
+      - name: Generate build matrix
+        id: gen
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          python3 .github/generate_build_matrix.py
+
   # One pipeline per (idf_target, idf_ver) pair: each target's tests start
   # as soon as its own build finishes, without waiting for other targets.
   # Skipped entirely when a PR changes no components (e.g. CI-only PRs).
   apps:
     name: Apps (${{ matrix.idf_target }}, ${{ matrix.idf_ver }})
     if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
-    needs: [prepare, ci-matrix]
+    needs: [prepare, ci-matrix, generate]
     strategy:
       fail-fast: false
-      matrix:
-        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions) }}
-        idf_target: ${{ fromJSON(needs.ci-matrix.outputs.idf_targets) }}
-        include:
-          - idf_target: esp32
-            tests:
-              - marker: generic
-                runner_labels: [self-hosted, linux, docker, esp32]
-                pytest_args: ""
-              - marker: ethernet
-                runner_labels: [self-hosted, linux, docker, ESP32-ETHERNET-KIT]
-                pytest_args: ""
-              - marker: spi_nand_flash
-                runner_labels: [self-hosted, linux, docker, spi_nand_flash]
-                pytest_args: ""
-          - idf_target: esp32s2
-            tests:
-              - marker: generic
-                runner_labels: [self-hosted, linux, docker, esp32s2]
-                pytest_args: ""
-          - idf_target: esp32s3
-            tests:
-              - marker: generic
-                runner_labels: [self-hosted, linux, docker, esp32s3]
-                pytest_args: ""
-              - marker: qemu
-                runner_labels: [self-hosted, linux, docker]
-                pytest_args: "--embedded-services idf,qemu"
-          - idf_target: esp32c3
-            tests:
-              - marker: qemu
-                runner_labels: [self-hosted, linux, docker]
-                pytest_args: "--embedded-services idf,qemu"
+      matrix: ${{ fromJSON(needs.generate.outputs.apps_matrix) }}
     uses: ./.github/workflows/reusable-build-run-apps.yml
     with:
       idf_ver: ${{ matrix.idf_ver }}
       idf_target: ${{ matrix.idf_target }}
       idf_build_apps_args: ${{ needs.prepare.outputs.idf_build_apps_args }}
-      parallel_indices: ${{ needs.ci-matrix.outputs.parallel_indices }}
-      parallel_count: ${{ needs.ci-matrix.outputs.parallel_count }}
+      parallel_indices: ${{ toJSON(matrix.parallel_indices) }}
+      parallel_count: ${{ matrix.parallel_count }}
       run_test: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' }}
       test_matrix: ${{ toJSON(matrix.tests) }}
 
   # Compile coverage for all remaining targets (the ones idf_targets does
   # not list). No binaries are uploaded: nothing runs tests for them.
   build-extra:
-    name: Build Apps (other targets, ${{ matrix.idf_ver }}) #${{ matrix.parallel_index }}/${{ needs.ci-matrix.outputs.parallel_count }}
+    name: Build Apps (other targets, ${{ matrix.idf_ver }}) #${{ matrix.parallel_index }}/${{ matrix.parallel_count }}
     if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
-    needs: [prepare, ci-matrix]
+    needs: [prepare, ci-matrix, generate]
     strategy:
       fail-fast: false
-      matrix:
-        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions) }}
-        parallel_index: ${{ fromJSON(needs.ci-matrix.outputs.parallel_indices) }}
+      matrix: ${{ fromJSON(needs.generate.outputs.extra_matrix) }}
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ matrix.idf_ver }}
     steps:
@@ -160,7 +153,7 @@ jobs:
         run: |
           . ${IDF_PATH}/export.sh
           TESTED_TARGETS=$(python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))' <<< '${{ needs.ci-matrix.outputs.idf_targets }}')
-          idf-build-apps build --disable-targets $TESTED_TARGETS --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ needs.ci-matrix.outputs.parallel_count }} ${{ needs.prepare.outputs.idf_build_apps_args }}
+          idf-build-apps build --disable-targets $TESTED_TARGETS --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ matrix.parallel_count }} ${{ needs.prepare.outputs.idf_build_apps_args }}
 
   build-linux:
     name: Build Apps for Linux
@@ -268,3 +261,30 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: test_results/**/*.xml
+
+  # Single stable status check intended for branch protection: it always
+  # runs, and fails when any job failed or was cancelled. Skipped jobs
+  # (e.g. all of them on CI-only PRs) count as success.
+  # Require ONLY this check in branch protection - matrix job names change
+  # whenever the matrix changes and must not be required directly.
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [prepare, ci-matrix, generate, apps, build-extra, build-linux, run-target-linux, publish-results]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+
+          results = {name: job['result'] for name, job in json.loads(os.environ['NEEDS']).items()}
+          for name, result in sorted(results.items()):
+              print(f'{name}: {result}')
+          failed = {name: result for name, result in results.items() if result in ('failure', 'cancelled')}
+          if failed:
+              raise SystemExit(f'Failed jobs: {failed}')
+          EOF
