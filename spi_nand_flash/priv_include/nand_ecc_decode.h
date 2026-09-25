@@ -51,6 +51,19 @@ esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
  */
 esp_err_t nand_ecc_decode_2bit_8bit_strength(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
 
+/**
+ * @brief Decode the XTX XT26G08D 4-bit ECCS field (C0h bits [7:4]).
+ *
+ * ECCS1:0 (bits [5:4]) follows the 2-bit pattern with 11b = exactly 8 corrected. When ECCS1:0
+ * is 01b, ECCS3:2 (bits [7:6]) gives the count: <=4, 5, 6 or 7.
+ *
+ * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
+ * @param status_c0  Raw C0h status byte.
+ * @param[out] out   Decoded ECC status.
+ * @return ESP_OK always; no extra register reads are needed.
+ */
+esp_err_t nand_ecc_decode_xtx(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+
 #ifdef __cplusplus
 }
 #endif

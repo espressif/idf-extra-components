@@ -46,6 +46,15 @@ static const nand_ecc_status_t s_ecc_2bit_8bit_strength_map[4] = {
     [3] = NAND_ECC_8_BITS_CORRECTED,
 };
 
+/* XTX XT26G08D (8 bits/528B): C0h [7:4] = ECCS3..ECCS0. ECCS1:0 = 01b is "corrected, <= 7";
+ * ECCS3:2 then gives <=4 / 5 / 6 / 7. ECCS3:2 is don't-care for the other ECCS1:0 values. */
+static const nand_ecc_status_t s_ecc_xtx_corrected_map[4] = {
+    [0] = NAND_ECC_1_TO_4_BITS_CORRECTED,
+    [1] = NAND_ECC_5_BITS_CORRECTED,
+    [2] = NAND_ECC_6_BITS_CORRECTED,
+    [3] = NAND_ECC_7_BITS_CORRECTED,
+};
+
 esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
 {
     (void)dev;
@@ -64,5 +73,25 @@ esp_err_t nand_ecc_decode_2bit_8bit_strength(spi_nand_flash_device_t *dev, uint8
 {
     (void)dev;
     *out = s_ecc_2bit_8bit_strength_map[PACK_2BITS_STATUS(status_c0, STAT_ECC1, STAT_ECC0)];
+    return ESP_OK;
+}
+
+esp_err_t nand_ecc_decode_xtx(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+{
+    (void)dev;
+    switch (PACK_2BITS_STATUS(status_c0, STAT_ECC1, STAT_ECC0)) {
+    case 0:
+        *out = NAND_ECC_OK;
+        break;
+    case 1:
+        *out = s_ecc_xtx_corrected_map[(status_c0 >> 6) & 0x3u];
+        break;
+    case 2:
+        *out = NAND_ECC_NOT_CORRECTED;
+        break;
+    default:
+        *out = NAND_ECC_8_BITS_CORRECTED;
+        break;
+    }
     return ESP_OK;
 }

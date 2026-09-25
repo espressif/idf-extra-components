@@ -70,6 +70,31 @@ TEST_CASE("2-bit ECCS, 8-bit strength: 01 is 1-7 corrected, 11 is exactly 8", "[
     REQUIRE(decode_2bit_8bit_strength(k_ecc_101) == NAND_ECC_1_TO_7_BITS_CORRECTED);
 }
 
+static nand_ecc_status_t decode_xtx(uint8_t c0)
+{
+    nand_ecc_status_t st = NAND_ECC_MAX;
+    REQUIRE(nand_ecc_decode_xtx(NULL, c0, &st) == ESP_OK);
+    return st;
+}
+
+TEST_CASE("XTX ECCS3:0 decodes all 16 patterns", "[spi_nand_flash][ecc]")
+{
+    /* ECCS1:0 = 01b: ECCS3:2 gives the count */
+    REQUIRE(decode_xtx(0b0001'0000) == NAND_ECC_1_TO_4_BITS_CORRECTED);
+    REQUIRE(decode_xtx(0b0101'0000) == NAND_ECC_5_BITS_CORRECTED);
+    REQUIRE(decode_xtx(0b1001'0000) == NAND_ECC_6_BITS_CORRECTED);
+    REQUIRE(decode_xtx(0b1101'0000) == NAND_ECC_7_BITS_CORRECTED);
+    /* ECCS1:0 = 00b / 10b / 11b: ECCS3:2 is don't-care */
+    for (uint8_t hi = 0; hi < 4; hi++) {
+        const uint8_t h = (uint8_t)(hi << 6);
+        REQUIRE(decode_xtx(h | k_ecc_00) == NAND_ECC_OK);
+        REQUIRE(decode_xtx(h | k_ecc_10) == NAND_ECC_NOT_CORRECTED);
+        REQUIRE(decode_xtx(h | k_ecc_11) == NAND_ECC_8_BITS_CORRECTED);
+    }
+    /* Bits [3:0] are not ECC status and must be ignored. */
+    REQUIRE(decode_xtx(0b0101'1111) == NAND_ECC_5_BITS_CORRECTED);
+}
+
 TEST_CASE("GD reads F0h only when ECCS is 01b", "[spi_nand_flash][ecc]")
 {
     REQUIRE(nand_gd_ecc_needs_status_ext(k_ecc_01) == true);
