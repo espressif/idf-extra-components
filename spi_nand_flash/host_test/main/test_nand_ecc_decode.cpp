@@ -6,6 +6,7 @@
 
 #include "nand_ecc_decode.h"
 #include "nand_gigadevice_ecc_decode.h"
+#include "nand_macronix_ecc_decode.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -93,6 +94,39 @@ TEST_CASE("XTX ECCS3:0 decodes all 16 patterns", "[spi_nand_flash][ecc]")
     }
     /* Bits [3:0] are not ECC status and must be ignored. */
     REQUIRE(decode_xtx(0b0101'1111) == NAND_ECC_5_BITS_CORRECTED);
+}
+
+TEST_CASE("Macronix reads ECCSR only when ECC_S is 01b or 11b", "[spi_nand_flash][ecc]")
+{
+    REQUIRE(nand_mx_ecc_needs_eccsr(k_ecc_00) == false);
+    REQUIRE(nand_mx_ecc_needs_eccsr(k_ecc_01) == true);
+    REQUIRE(nand_mx_ecc_needs_eccsr(k_ecc_10) == false);
+    REQUIRE(nand_mx_ecc_needs_eccsr(k_ecc_11) == true);
+}
+
+TEST_CASE("Macronix ECC_S 00/10 ignore stale ECCSR", "[spi_nand_flash][ecc]")
+{
+    REQUIRE(nand_mx_ecc_decode(k_ecc_00, 0x05) == NAND_ECC_OK);
+    REQUIRE(nand_mx_ecc_decode(k_ecc_10, 0x05) == NAND_ECC_NOT_CORRECTED);
+}
+
+TEST_CASE("Macronix ECC_S 01/11 use exact ECCSR[3:0] count", "[spi_nand_flash][ecc]")
+{
+    static const nand_ecc_status_t expected[9] = {
+        NAND_ECC_INVALID, NAND_ECC_1_BIT_CORRECTED, NAND_ECC_2_BITS_CORRECTED,
+        NAND_ECC_3_BITS_CORRECTED, NAND_ECC_4_BITS_CORRECTED, NAND_ECC_5_BITS_CORRECTED,
+        NAND_ECC_6_BITS_CORRECTED, NAND_ECC_7_BITS_CORRECTED, NAND_ECC_8_BITS_CORRECTED,
+    };
+    for (uint8_t n = 0; n <= 8; n++) {
+        REQUIRE(nand_mx_ecc_decode(k_ecc_01, n) == expected[n]);
+        REQUIRE(nand_mx_ecc_decode(k_ecc_11, n) == expected[n]);
+    }
+    /* 9-14 undefined, 15 (>8) contradicts "corrected" */
+    for (uint8_t n = 9; n <= 15; n++) {
+        REQUIRE(nand_mx_ecc_decode(k_ecc_01, n) == NAND_ECC_INVALID);
+    }
+    /* Bits [7:4] (accumulated pages) are ignored. */
+    REQUIRE(nand_mx_ecc_decode(k_ecc_01, 0xF3) == NAND_ECC_3_BITS_CORRECTED);
 }
 
 TEST_CASE("GD reads F0h only when ECCS is 01b", "[spi_nand_flash][ecc]")
