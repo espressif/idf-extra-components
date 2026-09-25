@@ -37,6 +37,15 @@ static const nand_ecc_status_t s_ecc_3bit_status_map[8] = {
     [7] = NAND_ECC_INVALID,
 };
 
+/* 2-bit ECCS where 01b is "corrected, below the maximum" (no count) and 11b is "exactly the
+ * maximum corrected". Selected by the chip's internal ECC strength. */
+static const nand_ecc_status_t s_ecc_2bit_8bit_strength_map[4] = {
+    [0] = NAND_ECC_OK,
+    [1] = NAND_ECC_1_TO_7_BITS_CORRECTED,
+    [2] = NAND_ECC_NOT_CORRECTED,
+    [3] = NAND_ECC_8_BITS_CORRECTED,
+};
+
 esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
 {
     (void)dev;
@@ -48,5 +57,12 @@ esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
 {
     (void)dev;
     *out = s_ecc_3bit_status_map[PACK_3BITS_STATUS(status_c0, STAT_ECC2, STAT_ECC1, STAT_ECC0)];
+    return ESP_OK;
+}
+
+esp_err_t nand_ecc_decode_2bit_8bit_strength(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+{
+    (void)dev;
+    *out = s_ecc_2bit_8bit_strength_map[PACK_2BITS_STATUS(status_c0, STAT_ECC1, STAT_ECC0)];
     return ESP_OK;
 }

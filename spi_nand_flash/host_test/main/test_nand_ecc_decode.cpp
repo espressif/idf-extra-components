@@ -53,6 +53,23 @@ TEST_CASE("3-bit ECCS field decodes into nand_ecc_status_t", "[spi_nand_flash][e
     REQUIRE(decode_3bit(k_ecc_111) == NAND_ECC_INVALID);
 }
 
+static nand_ecc_status_t decode_2bit_8bit_strength(uint8_t c0)
+{
+    nand_ecc_status_t st = NAND_ECC_MAX;
+    REQUIRE(nand_ecc_decode_2bit_8bit_strength(NULL, c0, &st) == ESP_OK);
+    return st;
+}
+
+TEST_CASE("2-bit ECCS, 8-bit strength: 01 is 1-7 corrected, 11 is exactly 8", "[spi_nand_flash][ecc]")
+{
+    REQUIRE(decode_2bit_8bit_strength(k_ecc_00) == NAND_ECC_OK);
+    REQUIRE(decode_2bit_8bit_strength(k_ecc_01) == NAND_ECC_1_TO_7_BITS_CORRECTED);
+    REQUIRE(decode_2bit_8bit_strength(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(decode_2bit_8bit_strength(k_ecc_11) == NAND_ECC_8_BITS_CORRECTED);
+    /* Bit 6 is outside the 2-bit field and must be ignored. */
+    REQUIRE(decode_2bit_8bit_strength(k_ecc_101) == NAND_ECC_1_TO_7_BITS_CORRECTED);
+}
+
 TEST_CASE("GD reads F0h only when ECCS is 01b", "[spi_nand_flash][ecc]")
 {
     REQUIRE(nand_gd_ecc_needs_status_ext(k_ecc_01) == true);
@@ -117,6 +134,7 @@ TEST_CASE("refresh threshold uses max bits per range, safe for a tunable thresho
     REQUIRE(nand_ecc_max_bits_corrected(NAND_ECC_2_BITS_CORRECTED) == 2);
     REQUIRE(nand_ecc_max_bits_corrected(NAND_ECC_3_BITS_CORRECTED) == 3);
     REQUIRE(nand_ecc_max_bits_corrected(NAND_ECC_4_BITS_CORRECTED) == 4);
+    REQUIRE(nand_ecc_max_bits_corrected(NAND_ECC_1_TO_7_BITS_CORRECTED) == 7);
     REQUIRE(nand_ecc_max_bits_corrected(NAND_ECC_INVALID) == 0);
     REQUIRE(nand_ecc_max_bits_corrected(NAND_ECC_MAX) == 0);
 }
