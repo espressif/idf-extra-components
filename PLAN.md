@@ -10,16 +10,23 @@ test, downstream jobs run from dynamic matrices.
 
 ## Current state (as-is)
 
-- `prepare` job: label handling + `get_idf_build_apps_args.py` →
-  `--modified-files` / `--modified-components` args (component-level filtering
-  requires a cmake reconfigure per app at build time).
-- `generate` job: `generate_build_matrix.py` counts apps via
-  `idf_build_apps.find_apps` and emits shard matrices (no test awareness, no
-  modified-files filtering).
-- `apps` / `build-extra` / `build-linux`: build with `idf-build-apps build`
-  and upload binaries + `build_info*.json`.
-- Test jobs: select cases via `get_pytest_args.py` (reads `build_info*.json`,
-  `--ignore`s apps not built for the target) + pytest with `-m <marker>`.
+- The project caller owns triggers, labels, changed root-level components,
+  reporting and the outer IDF-version matrix in `.github/ci-matrix.json`.
+- Public `reusable-ci.yml` accepts one `idf_version`, project config, a test
+  profile, a runtime-test switch and structured change-selection data.
+- Every invocation collects in its own IDF container. Its target workers
+  build and test independently, including Linux; remaining targets get
+  compile coverage. Empty matrices are skipped explicitly.
+- Runner/shard policy lives in `.github/ci-config.json`. Generic named test
+  profiles replace the separate per-marker lists of IDF versions.
+- Shared scripts and tool pins are packaged in `.github/actions/ci-tools`.
+  Self-repository action references (`$/`) keep them on the CI revision
+  when another repository invokes the workflow.
+- Builds still use `idf-build-apps`. Metadata drives tar artifact packaging
+  and the existing pytest app selection; paths and Linux executable modes
+  survive upload/download independently of the consumer's directory layout.
+- Discovery counts the full app inventory for the selected IDF. Existing
+  component-dependency filtering is retained at build time.
 
 ## Target state (to-be)
 
@@ -50,7 +57,7 @@ Run locally against a master-ish IDF (6.2) with `idf-ci 1.3.0` +
   `~=2.12` pin resolves to 2.16.1, so they are compatible. Consider
   tightening the pin to `~=2.16`.
 
-**BLOCKER found:** test-case↔app join is broken for apps without an
+**Collection issue found:** test-case↔app join is broken for apps without an
 `sdkconfig.ci*` file. idf-ci builds its app key with the raw
 `config_name` (`''` for default builds, see `build_collect/scripts.py:73`),
 while pytest cases default to `config='default'`
@@ -63,7 +70,18 @@ Options:
      its test apps all carry `sdkconfig.ci*` files;
   b. Workaround: add empty `sdkconfig.ci` to every test app (dozens of
      files, ugly);
-  c. Workaround: parametrize `config` in every pytest file (ugly).
+  c. Workaround: parametrize `config` in every pytest file (ugly);
+  d. Add an `=default` fallback to `config_rules` in `.idf_build_apps.toml`.
+     This names previously unnamed builds `default` and changes their build
+     directory to `build_<target>_default`; named configurations are unchanged.
+     Validate the artifact paths and one real build before adopting it.
+
+**Scope clarified (2026-09-25):** published idf-ci 1.3.0's `build run`
+normalizes `app.config_name or 'default'` in `get_all_apps`, so this report
+issue does not itself block building. However, its native pytest artifact
+filter expects `build_<target>_default` for these cases, while the current
+unnamed builds use `build_<target>`. Do not replace `get_pytest_args.py`
+with native filtering until these paths agree.
 
 ### 2. Rework the `generate` job onto idf-ci — DONE (2026-09-24)
 
@@ -85,7 +103,65 @@ Options:
   esp32s3 44 -> 2, esp32c3 47 -> 2 (was: fixed 5 everywhere), other targets
   203 -> 5 shards (cap). esp32c3 correctly keeps only its qemu config.
 
+### 2a. Stabilize the reusable workflow contract — DONE (2026-09-25, historical)
+
+- Apply `idf_versions_target_test` to generic/QEMU/SPI NAND tests and
+  `idf_versions_ethernet_test` independently to Ethernet tests.
+- Treat latest-only discovery as authoritative only for `latest`. For older
+  IDF versions keep configured runners and at least one build shard, even if
+  latest reports no apps or tests. Older-version manifests still decide what
+  actually builds. This may schedule empty jobs but cannot drop historical
+  coverage based on latest's manifest rules.
+- Expose `has_apps`/`has_extra` and skip empty matrices before expansion;
+  skip expensive generation when the prepare job says there is no component
+  work. The test-script check and matrix unit tests still run.
+- Register the CoAP manifest in `.idf_build_apps.toml`; otherwise the
+  ESP32-only Ethernet rule is ignored and the test-script check fails.
+- Linux artifact upload now follows the same build-only condition as Linux
+  test execution for PR, push and schedule events. The shared setup action
+  probes the host compiler for Linux warning flags.
+- Keep PR test publishing in the job summary for read-only fork/Dependabot
+  tokens; same-repository PRs retain checks and comments.
+- Add stdlib unit tests for matrix policies, historical coverage and shards,
+  and document the current pipeline in `.github/readme_workflows.md`.
+
+### 2b. One reusable invocation per IDF version — DONE (2026-09-25)
+
+- Move the version matrix to the project caller. Add public
+  `.github/workflows/reusable-ci.yml` for exactly one IDF environment.
+- Move discovery inside that workflow and remove all `latest` extrapolation
+  and conservative historical fallback logic introduced in step 2a.
+- Replace version-dependent marker branches with project-owned named test
+  profiles. Preserve the existing Linux test exclusions for 5.2 and 6.0.
+- Use the same internal target worker for ESP and Linux. Pass change lists
+  as JSON data rather than interpolated `idf-build-apps` command fragments.
+- Package shared scripts as an action resolved from the CI workflow's own
+  commit. Remove the old reusable matrix reader and repo-root helper paths.
+- Archive runtime files from build metadata instead of hardcoded
+  `examples/test_apps` globs, preserving layout and executable permissions.
+- Keep reporting and the stable gate in the outer caller; artifact names
+  isolate each version, target and shard.
+- Local validation: unit coverage for independent environments, profiles,
+  empty discovery, sharding, archive layout/modes and structured arguments;
+  real collection with published idf-ci 1.3.0/idf-build-apps 2.16.1 against
+  SDK 5.2.6 and the current local SDK. Actual GitHub and hardware runs remain
+  integration validation, including cross-repository action resolution.
+
 ### 3. Switch build steps to `idf-ci build run`
+
+Prerequisites confirmed against published idf-ci 1.3.0:
+
+- Its CLI has no `--modified-components`, `--collect-app-info` or
+  `--disable-targets`; the current argument string cannot be passed through.
+- Keep the build-info contract using idf-build-apps configuration (for example
+  `collect_app_info_filename = 'build_info_@p.json'`) before replacing the
+  consumer. Audit app/config path matching, including unnamed defaults.
+- The default modified-component mapping assumes `components/` or
+  `common_components/`; this repository stores components at its root.
+  Complete step 6's dependency audit before changing affected-app selection.
+- Include QEMU deliberately when splitting test-related builds: idf-ci's
+  default collection excludes emulator cases, while an explicit nonempty
+  marker expression forces test-related-only builds.
 
 - In `reusable-build-run-apps.yml` and `build-extra`: replace
   `idf-build-apps build ...` with `idf-ci build run -t <target>
@@ -103,14 +179,15 @@ Options:
 - Generate the test matrix from collected cases (grouped by target + env
   marker) instead of static `test_configs` in ci-matrix.json.
 - Test job runs pytest with the collected case list / `-m` marker directly;
-  delete `.github/get_pytest_args.py`.
+  delete the packaged `actions/ci-tools/get_pytest_args.py`.
 - Keep the runner-label mapping (generic/ethernet/spi_nand_flash/qemu)
   somewhere explicit — either in ci-matrix.json or derived from markers.
 
 ### 5. Clean up the prepare job and delete custom scripts
 
 - `prepare` keeps only label handling and produces `changed_files.txt`.
-- Delete `.github/get_idf_build_apps_args.py`.
+- The shell-argument helper was replaced in step 2b by caller-owned
+  `get_ci_changes.py`; migrating selection to manifests remains pending.
 
 ### 6. Resolve modified-files vs modified-components semantics
 
@@ -121,11 +198,11 @@ Options:
 - Decide whether to keep component-level filtering anywhere (idf-build-apps
   supports it, idf-ci's GitLab flow relies on manifests).
 
-### 7. Migrate the Linux pipeline
+### 7. Migrate Linux execution commands
 
-- Verify `idf-ci build run -t linux` and host_test marker handling; migrate
-  `build-linux` / `run-target-linux` the same way, keeping the
-  `idf_versions_linux_test` subset.
+- Linux already shares the target worker after step 2b. Verify
+  `idf-ci build run -t linux` and host_test artifact selection when replacing
+  its execution commands; preserve the caller-selected test profile.
 
 ### 8. Validation
 
@@ -150,7 +227,8 @@ Options:
   pipeline early (arguably a feature).
 - **Manifest-rule coverage** (step 6) is the main correctness risk:
   incomplete `depends_filepatterns` = missed rebuilds.
-- **Version skew**: generator runs on `latest`; per-version manifest/target
-  differences remain approximate (shard sizing only).
+- **Version coverage**: discovery now runs in every selected IDF environment.
+  Run the full GitHub matrix to validate tool installation and hardware tests
+  across all supported images, not only local SDK source checkouts.
 - **Pinned versions**: keep `idf-ci` and `idf-build-apps` pins compatible;
   re-check on every bump.

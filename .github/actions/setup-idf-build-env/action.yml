@@ -7,6 +7,10 @@ description: >-
   --interface_version 3), and upgrading it breaks the build.
 
 inputs:
+  target:
+    description: ESP-IDF target (linux selects the host compiler for warning checks)
+    required: false
+    default: ''
   install_python_tools:
     description: Install idf-build-apps
     required: false
@@ -20,16 +24,22 @@ runs:
       shell: bash
       run: |
         . ${IDF_PATH}/export.sh
-        pip install --upgrade 'idf-build-apps~=2.12'
+        pip install 'idf-build-apps==2.16.1'
 
     - name: Export pedantic build flags
       shell: bash
+      env:
+        BUILD_TARGET: ${{ inputs.target }}
       run: |
         . ${IDF_PATH}/export.sh
         # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
         # to match the IDF build system default. Older GCC rejects the "=1" form.
         UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
-        CC="$(command -v xtensa-esp32-elf-gcc || command -v gcc || true)"
+        if [ "$BUILD_TARGET" = linux ]; then
+          CC="$(command -v gcc || true)"
+        else
+          CC="$(command -v xtensa-esp32-elf-gcc || command -v gcc || true)"
+        fi
         if [ -n "$CC" ] && echo 'int main(void){return 0;}' | "$CC" -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
           UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
         fi
