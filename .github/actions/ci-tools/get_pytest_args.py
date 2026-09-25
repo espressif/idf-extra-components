@@ -3,6 +3,7 @@
 import argparse
 import json
 import glob
+import shlex
 
 
 def main():
@@ -45,9 +46,8 @@ def main():
                 print(f'Not skipping {app_dir}')
 
 
-    args.pytest_args.write(' '.join(pytest_args))
+    args.pytest_args.write(' '.join(shlex.quote(arg) for arg in pytest_args))
 
 
 if __name__ == '__main__':
     main()
-

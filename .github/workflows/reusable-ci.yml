@@ -1,0 +1,119 @@
+name: Reusable - CI for one ESP-IDF version
+
+# Public entry point. The caller owns version selection and event policy.
+# Every invocation discovers, builds and tests in its own ESP-IDF environment.
+on:
+  workflow_call:
+    inputs:
+      idf_version:
+        description: Docker tag of espressif/idf
+        required: true
+        type: string
+      config_file:
+        description: Runner and sharding configuration in the caller repository
+        type: string
+        default: .github/ci-config.json
+      test_profile:
+        description: Test policy profile from config_file
+        type: string
+        default: default
+      run_tests:
+        description: Enable runtime tests on the configured runners
+        type: boolean
+        default: false
+      modified_files:
+        description: JSON array of changed files; empty means no file filter
+        type: string
+        default: '[]'
+      modified_components:
+        description: JSON array of changed components; empty means no component filter
+        type: string
+        default: '[]'
+      pipeline_id:
+        description: Unique artifact namespace if the same IDF version is called more than once
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Discover apps and tests
+    runs-on: ubuntu-22.04
+    container: espressif/idf:${{ inputs.idf_version }}
+    outputs:
+      apps_matrix: ${{ steps.gen.outputs.apps_matrix }}
+      extra_matrix: ${{ steps.gen.outputs.extra_matrix }}
+      has_apps: ${{ steps.gen.outputs.has_apps }}
+      has_extra: ${{ steps.gen.outputs.has_extra }}
+      idf_targets: ${{ steps.gen.outputs.idf_targets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: $/.github/actions/ci-tools
+      - name: Install collection tools
+        shell: bash
+        run: |
+          . "${IDF_PATH}/export.sh"
+          pip install -r "$IDF_CI_TOOLS_PATH/requirements.txt"
+      - name: Generate build matrix
+        id: gen
+        shell: bash
+        env:
+          CONFIG_FILE: ${{ inputs.config_file }}
+          TEST_PROFILE: ${{ inputs.test_profile }}
+        run: |
+          . "${IDF_PATH}/export.sh"
+          python3 "$IDF_CI_TOOLS_PATH/generate_build_matrix.py" --config "$CONFIG_FILE" --profile "$TEST_PROFILE"
+
+  # Each target's tests start after its own shards, including the Linux target.
+  apps:
+    name: Apps (${{ matrix.idf_target }})
+    needs: generate
+    if: needs.generate.outputs.has_apps == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.generate.outputs.apps_matrix) }}
+    uses: ./.github/workflows/reusable-build-run-apps.yml
+    with:
+      idf_ver: ${{ inputs.idf_version }}
+      idf_target: ${{ matrix.idf_target }}
+      pipeline_id: ${{ inputs.pipeline_id || inputs.idf_version }}
+      modified_files: ${{ inputs.modified_files }}
+      modified_components: ${{ inputs.modified_components }}
+      parallel_indices: ${{ toJSON(matrix.parallel_indices) }}
+      parallel_count: ${{ matrix.parallel_count }}
+      run_test: ${{ inputs.run_tests && matrix.run_tests }}
+      test_matrix: ${{ toJSON(matrix.tests) }}
+
+  build-extra:
+    name: Build other targets (${{ matrix.parallel_index }}/${{ matrix.parallel_count }})
+    needs: generate
+    if: needs.generate.outputs.has_extra == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.generate.outputs.extra_matrix) }}
+    runs-on: ubuntu-22.04
+    container: espressif/idf:${{ inputs.idf_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: $/.github/actions/ci-tools
+      - name: Install ESP-IDF Python environment
+        shell: bash
+        run: |
+          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
+          "${IDF_PATH}/install.sh" --enable-ci
+      - uses: $/.github/actions/setup-idf-build-env
+      - name: Build apps
+        shell: bash
+        env:
+          MODIFIED_FILES: ${{ inputs.modified_files }}
+          MODIFIED_COMPONENTS: ${{ inputs.modified_components }}
+          DISABLED_TARGETS: ${{ needs.generate.outputs.idf_targets }}
+        run: |
+          . "${IDF_PATH}/export.sh"
+          python3 "$IDF_CI_TOOLS_PATH/run_build.py" --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ matrix.parallel_count }} --build-info build_info_extra_${{ matrix.parallel_index }}.json

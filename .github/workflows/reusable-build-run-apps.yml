@@ -1,0 +1,137 @@
+name: Reusable - Build and test one target
+
+# Internal worker for one target in one ESP-IDF version. Public callers use
+# reusable-ci.yml, which discovers the target matrix and sizes the shards.
+on:
+  workflow_call:
+    inputs:
+      idf_ver:
+        description: Docker tag of espressif/idf
+        required: true
+        type: string
+      idf_target:
+        description: Target to build and test (including linux)
+        required: true
+        type: string
+      pipeline_id:
+        description: Artifact namespace supplied by the parent workflow
+        required: true
+        type: string
+      modified_files:
+        type: string
+        default: '[]'
+      modified_components:
+        type: string
+        default: '[]'
+      parallel_indices:
+        description: JSON array of build shard indices
+        type: string
+        default: '[1]'
+      parallel_count:
+        description: Total number of build shards
+        type: number
+        default: 1
+      run_test:
+        type: boolean
+        default: false
+      test_matrix:
+        description: JSON array of marker, runner_labels and pytest_args objects
+        type: string
+        default: '[]'
+
+jobs:
+  build:
+    name: Build (${{ matrix.parallel_index }}/${{ inputs.parallel_count }})
+    strategy:
+      fail-fast: false
+      matrix:
+        parallel_index: ${{ fromJSON(inputs.parallel_indices) }}
+    runs-on: ubuntu-22.04
+    container: espressif/idf:${{ inputs.idf_ver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - uses: $/.github/actions/ci-tools
+      - name: Install ESP-IDF Python environment
+        shell: bash
+        run: |
+          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
+          "${IDF_PATH}/install.sh" --enable-ci
+      - uses: $/.github/actions/setup-idf-build-env
+        with:
+          target: ${{ inputs.idf_target }}
+      - name: Build apps
+        shell: bash
+        env:
+          MODIFIED_FILES: ${{ inputs.modified_files }}
+          MODIFIED_COMPONENTS: ${{ inputs.modified_components }}
+          IDF_TARGET_NAME: ${{ inputs.idf_target }}
+        run: |
+          . "${IDF_PATH}/export.sh"
+          python3 "$IDF_CI_TOOLS_PATH/run_build.py" --target "$IDF_TARGET_NAME" --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ inputs.parallel_count }} --build-info build_info_${{ matrix.parallel_index }}.json
+      - name: Package runtime artifacts
+        if: inputs.run_test
+        shell: bash
+        run: |
+          . "${IDF_PATH}/export.sh"
+          python3 "$IDF_CI_TOOLS_PATH/package_binaries.py" build_info_${{ matrix.parallel_index }}.json app_binaries_${{ matrix.parallel_index }}.tar
+      - uses: actions/upload-artifact@v4
+        if: inputs.run_test
+        with:
+          name: app_binaries_${{ inputs.pipeline_id }}_${{ inputs.idf_target }}_${{ matrix.parallel_index }}
+          path: app_binaries_${{ matrix.parallel_index }}.tar
+          if-no-files-found: error
+
+  run-target:
+    name: Test (${{ matrix.config.marker }})
+    if: inputs.run_test
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(inputs.test_matrix) }}
+    env:
+      TEST_RESULT_NAME: test_results_${{ inputs.pipeline_id }}_${{ inputs.idf_target }}_${{ matrix.config.marker }}
+      TEST_RESULT_FILE: test_results.xml
+    runs-on: ${{ matrix.config.runner_labels }}
+    container:
+      image: ${{ inputs.idf_target == 'linux' && 'python:3.14-slim-trixie' || 'python:3.11-bookworm' }}
+      options: ${{ inputs.idf_target != 'linux' && '--privileged' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: $/.github/actions/ci-tools
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: app_binaries_${{ inputs.pipeline_id }}_${{ inputs.idf_target }}_*
+          merge-multiple: true
+      - name: Restore runtime artifacts
+        shell: bash
+        run: |
+          for archive in app_binaries_*.tar; do
+            tar -xf "$archive"
+          done
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: https://dl.espressif.com/pypi/
+        run: pip install --prefer-binary -r "$IDF_CI_TOOLS_PATH/requirements-test.txt"
+      - name: Setup QEMU
+        if: matrix.config.marker == 'qemu'
+        shell: bash
+        run: |
+          . "$IDF_CI_TOOLS_PATH/setup_qemu.sh"
+          echo "PATH=$PATH" >> "$GITHUB_ENV"
+      - name: Run apps
+        shell: bash
+        env:
+          IDF_TARGET_NAME: ${{ inputs.idf_target }}
+          TEST_MARKER: ${{ matrix.config.marker }}
+          PYTEST_ARGS: ${{ matrix.config.pytest_args }}
+        run: |
+          python3 "$IDF_CI_TOOLS_PATH/run_tests.py" --target "$IDF_TARGET_NAME" --marker "$TEST_MARKER" --junit-xml "$TEST_RESULT_FILE"
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.TEST_RESULT_NAME }}
+          path: ${{ env.TEST_RESULT_FILE }}

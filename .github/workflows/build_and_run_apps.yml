@@ -24,11 +24,16 @@ jobs:
     outputs:
       test_all_apps: ${{ steps.get_labels.outputs.test_all_apps }}
       build_only: ${{ steps.get_labels.outputs.build_only }}
-      idf_build_apps_args: ${{ steps.find_changes.outputs.idf_build_apps_args }}
+      has_changes: ${{ steps.find_changes.outputs.has_changes }}
+      modified_files: ${{ steps.find_changes.outputs.modified_files }}
+      modified_components: ${{ steps.find_changes.outputs.modified_components }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - name: Test CI matrix generation
+        run: python3 -m unittest discover -s .github/tests -p 'test_*.py'
       - name: Fix git repo permissions
         # Needed by the next git diff step.
         # See https://github.com/actions/runner/issues/2033
@@ -38,8 +43,9 @@ jobs:
           cd /
           git config --global --add safe.directory $build_dir
           cd -
-      - name: Install dependencies
-        run: pip install 'idf-build-apps~=2.12'
+      - name: Read caller version matrix
+        id: matrix
+        run: echo "matrix=$(jq -c . .github/ci-matrix.json)" >> "$GITHUB_OUTPUT"
       - name: Get labels
         id: get_labels
         if: github.event_name == 'pull_request'
@@ -61,275 +67,59 @@ jobs:
         id: find_changes
         if: github.event_name == 'pull_request' && steps.get_labels.outputs.test_all_apps == '0'
         # - based on the files list, determine which components have changed
-        # - output both lists as a file of idf-build-apps arguments
+        # - pass structured selection data to the reusable workflow
         run: |
           git fetch --recurse-submodules=no origin ${{ github.base_ref }}:base_ref
           git fetch --recurse-submodules=no origin pull/${{ github.event.pull_request.number }}/head:pr_ref
           git diff --name-only -r base_ref pr_ref > changed_files.txt
-          python3 .github/get_idf_build_apps_args.py -v changed_files.txt idf_build_apps_args.txt
-          echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)" >> $GITHUB_OUTPUT
-          echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)"
+          python3 .github/get_ci_changes.py changed_files.txt
 
-  build:
-    name: Build Apps
-    needs: prepare
-    strategy:
-      fail-fast: false
-      matrix:
-        idf_ver:
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "release-v6.0"
-          - "latest"
-        parallel_index: [1,2,3,4,5] # Update --parallel-count below when changing this
+  # Pre-check, like esp-idf's check_test_scripts_build_test_rules: fails when
+  # a test script's target parametrization disagrees with the component's
+  # .build-test-rules.yml manifest.
+  check:
+    name: Check test scripts vs build-test rules
     runs-on: ubuntu-22.04
-    container: espressif/idf:${{ matrix.idf_ver }}
+    container: espressif/idf:latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - uses: $/.github/actions/ci-tools
       - name: Install dependencies
         shell: bash
         run: |
-          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
-          ${IDF_PATH}/install.sh --enable-ci
           . ${IDF_PATH}/export.sh
-          pip install --upgrade 'idf-build-apps~=2.12'
-      - name: Build apps
+          pip install -r "$IDF_CI_TOOLS_PATH/requirements.txt"
+      - name: Check test scripts
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
-          # to match the IDF build system default. Older GCC rejects the "=1" form.
-          UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
-          if echo 'int main(void){return 0;}' | xtensa-esp32-elf-gcc -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
-            UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
-          fi
-          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable ${UNUSED_BUT_SET_FLAG} -Werror=unused-function"
-          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
-          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
-          idf-build-apps build --parallel-index ${{ matrix.parallel_index }} --parallel-count 5 --collect-app-info build_info_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
-      - uses: actions/upload-artifact@v4
-        if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
-        with:
-          name: app_binaries_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}
-          path: |
-            */examples/*/build_esp*/bootloader/bootloader.bin
-            */examples/*/build_esp*/partition_table/partition-table.bin
-            */examples/*/build_esp*/*.bin
-            */examples/*/build_esp*/flasher_args.json
-            */examples/*/build_esp*/config/sdkconfig.json
-            */test_app*/**/build_esp*/bootloader/bootloader.bin
-            */test_app*/**/build_esp*/partition_table/partition-table.bin
-            */test_app*/**/build_esp*/*.bin
-            */test_app*/**/build_esp*/flasher_args.json
-            */test_app*/**/build_esp*/config/sdkconfig.json
-            build_info*.json
+          python3 "$IDF_CI_TOOLS_PATH/check_test_scripts.py"
 
-  build-linux:
-    name: Build Apps for Linux
+  # Each matrix entry invokes the same complete pipeline for one IDF version.
+  ci:
+    name: CI (${{ matrix.idf_version }})
     needs: prepare
+    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true'
     strategy:
       fail-fast: false
-      matrix:
-        idf_ver:
-          # Not building for 5.1 with linux target due to limited support
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "release-v6.0"
-          - "latest"
-    runs-on: ubuntu-22.04
-    container:
-      image: espressif/idf:${{ matrix.idf_ver }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - name: Install dependencies
-        shell: bash
-        run: |
-          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
-          ${IDF_PATH}/install.sh --enable-ci
-          . ${IDF_PATH}/export.sh
-          pip install --upgrade 'idf-build-apps~=2.12'
-      - name: Build apps for Linux
-        shell: bash
-        run: |
-          . ${IDF_PATH}/export.sh
-          # GCC >= 16 defaults -Wunused-but-set-variable to a stricter level; pin level 1
-          # to match the IDF build system default. Older GCC rejects the "=1" form.
-          UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable"
-          if echo 'int main(void){return 0;}' | gcc -Werror=unused-but-set-variable=1 -fsyntax-only -x c - 2>/dev/null; then
-            UNUSED_BUT_SET_FLAG="-Werror=unused-but-set-variable=1"
-          fi
-          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable ${UNUSED_BUT_SET_FLAG} -Werror=unused-function"
-          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
-          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
-          idf-build-apps build --target linux --collect-app-info build_info_linux_${{ matrix.idf_ver }}_${{ matrix.parallel_index }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
-      - uses: actions/upload-artifact@v4
-        if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
-        with:
-          name: app_binaries_${{ matrix.idf_ver }}_linux
-          path: |
-            */examples/*/build_linux*/*.elf
-            */examples/*/build_linux*/config/sdkconfig.json
-            */test_app*/**/build_linux*/*.elf
-            */test_app*/**/build_linux*/config/sdkconfig.json
-            */host_test/**/build_linux*/*.elf
-            */host_test/**/build_linux*/config/sdkconfig.json
-            build_info*.json
-
-  run-target:
-    name: Run apps on target
-    if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
-    needs: [build]
-    strategy:
-      fail-fast: false
-      matrix:
-        idf_ver:
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "release-v6.0"
-          - "latest"
-        runner:
-          - runs-on: "esp32"
-            marker: "generic"
-            target: "esp32"
-            runner-labels: [self-hosted, linux, docker, "esp32"]
-            pytest_args: ""
-          - runs-on: "esp32s2"
-            marker: "generic"
-            target: "esp32s2"
-            runner-labels: [self-hosted, linux, docker, "esp32s2"]
-            pytest_args: ""
-          - runs-on: "esp32s3"
-            marker: "generic"
-            target: "esp32s3"
-            runner-labels: [self-hosted, linux, docker, "esp32s3"]
-            pytest_args: ""
-          - runs-on: "ESP32-ETHERNET-KIT"
-            marker: "ethernet"
-            target: "esp32"
-            runner-labels: [self-hosted, linux, docker, "ESP32-ETHERNET-KIT"]
-            pytest_args: ""
-          - runs-on: "spi_nand_flash"
-            marker: "spi_nand_flash"
-            target: "esp32"
-            runner-labels: [self-hosted, linux, docker, "spi_nand_flash"]
-            pytest_args: ""
-          - runs-on: "qemu"
-            marker: "qemu"
-            target: ["esp32s3", "esp32c3"]
-            runner-labels: [self-hosted, linux, docker]
-            pytest_args: "--embedded-services idf,qemu"
-    env:
-      TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
-      TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
-    runs-on: ${{ matrix.runner.runner-labels }}
-    container:
-      image: python:3.11-bookworm
-      options: --privileged # Privileged mode has access to serial ports
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: app_binaries_${{ matrix.idf_ver }}_*
-          merge-multiple: true
-      - name: Install Python packages
-        env:
-          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: |
-          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-qemu pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
-      - name: Setup QEMU
-        if: matrix.runner.marker == 'qemu'
-        run: |
-          . .github/setup_qemu.sh
-          echo "PATH=$PATH" >> $GITHUB_ENV
-      - name: Run apps
-        run: |
-          python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
-          cat pytest-args.txt
-          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }} ${{ matrix.runner.pytest_args }}
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.TEST_RESULT_NAME }}
-          path: ${{ env.TEST_RESULT_FILE }}
-
-  run-target-linux:
-    name: Run apps on Linux target
-    if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
-    needs: [build-linux]
-    strategy:
-      fail-fast: false
-      matrix:
-        idf_ver:
-          - "release-v5.2"
-          - "release-v5.3"
-          - "release-v5.4"
-          - "release-v5.5"
-          - "latest"
-        runner:
-          - runs-on: "linux"
-            marker: "host_test"
-            target: "linux"
-            pytest_args: "--embedded-services idf"
-        exclude:
-          - idf_ver: "release-v5.2" # Bug with Unity IDF test apps
-            runner:
-              target: "linux"
-    env:
-      TEST_RESULT_NAME: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}
-      TEST_RESULT_FILE: test_results_${{ matrix.runner.target }}_${{ matrix.runner.marker }}_${{ matrix.idf_ver }}.xml
-    runs-on: ubuntu-latest
-    container:
-      image: python:3.14-slim-trixie # Newer Debian base to support newer glibc for Linux apps
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: app_binaries_${{ matrix.idf_ver }}_*
-          merge-multiple: true
-      - name: Install Python packages
-        env:
-          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: |
-          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
-      - name: Make .elf files executable
-        if: matrix.runner.target == 'linux'
-        continue-on-error: true
-        shell: bash
-        run: |
-          chmod +x */examples/*/build_linux*/*.elf || echo "No example .elf files found"
-          shopt -s globstar
-          chmod +x */test_app*/**/build_linux*/*.elf || echo "No test_app .elf files found"
-          chmod +x */host_test/**/build_linux*/*.elf || echo "No host_test .elf files found"
-      - name: Run apps
-        shell: bash
-        run: |
-          python3 .github/get_pytest_args.py --target=${{ matrix.runner.target }} -v 'build_info*.json' pytest-args.txt
-          cat pytest-args.txt
-          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=${{ matrix.runner.target }} -m ${{ matrix.runner.marker }} --build-dir=build_${{ matrix.runner.target }} ${{ matrix.runner.pytest_args }}
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.TEST_RESULT_NAME }}
-          path: ${{ env.TEST_RESULT_FILE }}
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/reusable-ci.yml
+    with:
+      idf_version: ${{ matrix.idf_version }}
+      config_file: .github/ci-config.json
+      test_profile: ${{ matrix.test_profile }}
+      run_tests: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' }}
+      modified_files: ${{ needs.prepare.outputs.modified_files || '[]' }}
+      modified_components: ${{ needs.prepare.outputs.modified_components || '[]' }}
 
   publish-results:
     name: Publish Test results
     needs:
-      - run-target
-      - run-target-linux
-    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0'
+      - prepare
+      - ci
+    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0' && (needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true')
     runs-on: ubuntu-22.04
     permissions:
       checks: write
@@ -344,3 +134,33 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: test_results/**/*.xml
+          # Fork and Dependabot PRs have read-only tokens; keep their job summary.
+          check_run: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
+          comment_mode: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && 'always' || 'off' }}
+
+  # Single stable status check intended for branch protection: it always
+  # runs, and fails when any job failed or was cancelled. Skipped jobs
+  # (e.g. the version pipelines on CI-only PRs) count as success.
+  # Require ONLY this check in branch protection - matrix job names change
+  # whenever the matrix changes and must not be required directly.
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [prepare, check, ci, publish-results]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+
+          results = {name: job['result'] for name, job in json.loads(os.environ['NEEDS']).items()}
+          for name, result in sorted(results.items()):
+              print(f'{name}: {result}')
+          failed = {name: result for name, result in results.items() if result in ('failure', 'cancelled')}
+          if failed:
+              raise SystemExit(f'Failed jobs: {failed}')
+          EOF

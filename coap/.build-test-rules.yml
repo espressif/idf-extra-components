@@ -1,0 +1,4 @@
+coap/examples/coap_client:
+  disable_test:
+    - if: IDF_TARGET not in ["esp32"]
+      reason: Test requires the Ethernet runner (ESP32-ETHERNET-KIT), which is esp32-based

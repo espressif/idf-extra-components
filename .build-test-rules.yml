@@ -33,6 +33,9 @@ sh2lib/examples/http2_request:
   enable:
     - if: IDF_VERSION_MAJOR > 4 and INCLUDE_DEFAULT == 1
       reason: Example uses sh2lib component which was introduced in IDF v5.0
+  disable_test:
+    - if: IDF_TARGET not in ["esp32"]
+      reason: Test requires the Ethernet runner (ESP32-ETHERNET-KIT), which is esp32-based
 
 esp_jpeg/examples/get_started:
   enable:
@@ -76,6 +79,9 @@ spi_nand_flash/test_app:
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
     - if: IDF_VERSION_MAJOR < 6 and CONFIG_NAME == "bdl"
       reason: BDL support requires the esp_blockdev interface, available starting from IDF version v6.0.
+  disable_test:
+    - if: IDF_TARGET not in ["esp32"]
+      reason: Test requires the spi_nand_flash runner, which is available only for esp32
 
 spi_nand_flash/host_test:
   enable:
@@ -90,8 +96,14 @@ spi_nand_flash_fatfs/examples/nand_flash:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
+  disable_test:
+    - if: IDF_TARGET not in ["esp32"]
+      reason: Test requires the spi_nand_flash runner, which is available only for esp32
 
 spi_nand_flash_fatfs/examples/nand_flash_bdl:
   disable:
     - if: IDF_VERSION_MAJOR < 6 or (IDF_VERSION_MAJOR == 6 and IDF_VERSION_MINOR < 1)
       reason: BDL FatFS example uses esp_vfs_fat_bdl_mount / diskio_bdl, available from ESP-IDF v6.1+.
+  disable_test:
+    - if: IDF_TARGET not in ["esp32"]
+      reason: Test requires the spi_nand_flash runner, which is available only for esp32

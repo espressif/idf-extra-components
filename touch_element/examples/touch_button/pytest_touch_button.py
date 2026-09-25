@@ -11,6 +11,7 @@ import glob
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that not build"
 )
+@pytest.mark.parametrize('target', ['esp32s2', 'esp32s3'], indirect=['target'])
 def test_touch_button(dut: Dut) -> None:
     dut.expect_exact('Touch Button Example: Touch element library installed')
     dut.expect_exact('Touch Button Example: Touch button installed')

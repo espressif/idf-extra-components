@@ -11,6 +11,7 @@ import glob
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that not build"
 )
+@pytest.mark.parametrize('target', ['esp32s2', 'esp32s3'], indirect=['target'])
 def test_touch_element_waterproof(dut: Dut) -> None:
     dut.expect_exact('Touch Element Waterproof Example: Touch Element library install')
     dut.expect_exact('Touch Element Waterproof Example: Touch Element waterproof install')
