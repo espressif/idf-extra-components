@@ -40,6 +40,8 @@ static inline uint8_t nand_ecc_max_bits_corrected(nand_ecc_status_t status)
         return 8;
     case NAND_ECC_1_TO_4_BITS_CORRECTED:
         return 4;
+    case NAND_ECC_1_TO_7_BITS_CORRECTED:
+        return 7;
     case NAND_ECC_1_BIT_CORRECTED:
         return 1;
     case NAND_ECC_2_BITS_CORRECTED:
@@ -102,6 +104,45 @@ esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
  * @return ESP_OK always; no extra register reads are needed.
  */
 esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+
+/**
+ * @brief Decode a 2-bit ECCS field (C0h bits [5:4]) where 11b means "maximum corrected",
+ *        for chips with 4-bit internal ECC strength.
+ *
+ * 01b means corrected below the maximum (no count), so it maps to 1-3; 11b maps to exactly 4.
+ *
+ * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
+ * @param status_c0  Raw C0h status byte.
+ * @param[out] out   Decoded ECC status.
+ * @return ESP_OK always; no extra register reads are needed.
+ */
+esp_err_t nand_ecc_decode_2bit_4bit_strength(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+
+/**
+ * @brief Same as nand_ecc_decode_2bit_4bit_strength(), for chips with 8-bit internal ECC strength.
+ *
+ * 01b maps to 1-7; 11b maps to exactly 8.
+ *
+ * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
+ * @param status_c0  Raw C0h status byte.
+ * @param[out] out   Decoded ECC status.
+ * @return ESP_OK always; no extra register reads are needed.
+ */
+esp_err_t nand_ecc_decode_2bit_8bit_strength(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+
+/**
+ * @brief Map a 4-bit error count field, read from a vendor register, to a status.
+ *
+ * Layout shared by Macronix ECCSR and Winbond MBF: 0-8 is the exact error count, 1111b is
+ * ">8 errors", other values are undefined. Once the caller has read this register, it is the
+ * trusted source and the C0h ECC status is not consulted again.
+ *
+ * @param count  Error count field, already extracted from the vendor register (the caller
+ *               does the register read and the masking).
+ * @return NAND_ECC_OK (0), NAND_ECC_1_BIT_CORRECTED .. NAND_ECC_8_BITS_CORRECTED (1-8),
+ *         NAND_ECC_NOT_CORRECTED (1111b), or NAND_ECC_INVALID (undefined values).
+ */
+nand_ecc_status_t nand_ecc_status_from_vendor_bit_count(uint8_t count);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,6 +11,7 @@
 #include "nand.h"
 #include "spi_nand_oper.h"
 #include "nand_flash_devices.h"
+#include "nand_ecc_decode.h"
 
 static const char *TAG = "nand_zetta";
 
@@ -28,8 +29,9 @@ esp_err_t spi_nand_zetta_init(spi_nand_flash_device_t *dev)
     dev->chip.quad_enable_bit_pos = 0;
     dev->chip.erase_block_delay_us = 2000;
     dev->chip.program_page_delay_us = 400;
+    dev->ecc_status_decoder = nand_ecc_decode_2bit_8bit_strength;
     switch (device_id) {
-    case ZETTA_DI_71:
+    case ZETTA_DI_71: // ZD35Q1GC - 8 bits/528B ECC strength
         dev->chip.num_blocks = 1024;
         dev->chip.read_page_delay_us = 250;
         break;
