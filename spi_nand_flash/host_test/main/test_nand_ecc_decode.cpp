@@ -7,6 +7,7 @@
 #include "nand_ecc_decode.h"
 #include "nand_gigadevice_ecc_decode.h"
 #include "nand_macronix_ecc_decode.h"
+#include "nand_winbond_ecc_decode.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -52,6 +53,23 @@ TEST_CASE("3-bit ECCS field decodes into nand_ecc_status_t", "[spi_nand_flash][e
     REQUIRE(decode_3bit(k_ecc_100) == NAND_ECC_INVALID);
     REQUIRE(decode_3bit(k_ecc_110) == NAND_ECC_INVALID);
     REQUIRE(decode_3bit(k_ecc_111) == NAND_ECC_INVALID);
+}
+
+static nand_ecc_status_t decode_2bit_1bit_strength(uint8_t c0)
+{
+    nand_ecc_status_t st = NAND_ECC_MAX;
+    REQUIRE(nand_ecc_decode_2bit_1bit_strength(NULL, c0, &st) == ESP_OK);
+    return st;
+}
+
+TEST_CASE("2-bit ECCS, 1-bit strength: 01 is exactly 1, 10 and 11 are uncorrectable", "[spi_nand_flash][ecc]")
+{
+    REQUIRE(decode_2bit_1bit_strength(k_ecc_00) == NAND_ECC_OK);
+    REQUIRE(decode_2bit_1bit_strength(k_ecc_01) == NAND_ECC_1_BIT_CORRECTED);
+    REQUIRE(decode_2bit_1bit_strength(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(decode_2bit_1bit_strength(k_ecc_11) == NAND_ECC_NOT_CORRECTED);
+    /* Bit 6 is outside the 2-bit field and must be ignored. */
+    REQUIRE(decode_2bit_1bit_strength(k_ecc_101) == NAND_ECC_1_BIT_CORRECTED);
 }
 
 static nand_ecc_status_t decode_2bit_4bit_strength(uint8_t c0)
@@ -144,6 +162,39 @@ TEST_CASE("Macronix ECC_S 01/11 use exact ECCSR[3:0] count", "[spi_nand_flash][e
     }
     /* Bits [7:4] (accumulated pages) are ignored. */
     REQUIRE(nand_mx_ecc_decode(k_ecc_01, 0xF3) == NAND_ECC_3_BITS_CORRECTED);
+}
+
+TEST_CASE("Winbond KV reads 30h only when ECC-1:0 is 01b or 11b", "[spi_nand_flash][ecc]")
+{
+    REQUIRE(nand_wb_kv_ecc_needs_mbf(k_ecc_00) == false);
+    REQUIRE(nand_wb_kv_ecc_needs_mbf(k_ecc_01) == true);
+    REQUIRE(nand_wb_kv_ecc_needs_mbf(k_ecc_10) == false);
+    REQUIRE(nand_wb_kv_ecc_needs_mbf(k_ecc_11) == true);
+}
+
+TEST_CASE("Winbond KV ECC-1:0 00/10 ignore stale 30h", "[spi_nand_flash][ecc]")
+{
+    REQUIRE(nand_wb_kv_ecc_decode(k_ecc_00, 0x50) == NAND_ECC_OK);
+    REQUIRE(nand_wb_kv_ecc_decode(k_ecc_10, 0x50) == NAND_ECC_NOT_CORRECTED);
+}
+
+TEST_CASE("Winbond KV ECC-1:0 01/11 use exact MBF [7:4] count", "[spi_nand_flash][ecc]")
+{
+    static const nand_ecc_status_t expected[9] = {
+        NAND_ECC_INVALID, NAND_ECC_1_BIT_CORRECTED, NAND_ECC_2_BITS_CORRECTED,
+        NAND_ECC_3_BITS_CORRECTED, NAND_ECC_4_BITS_CORRECTED, NAND_ECC_5_BITS_CORRECTED,
+        NAND_ECC_6_BITS_CORRECTED, NAND_ECC_7_BITS_CORRECTED, NAND_ECC_8_BITS_CORRECTED,
+    };
+    for (uint8_t n = 0; n <= 8; n++) {
+        REQUIRE(nand_wb_kv_ecc_decode(k_ecc_01, (uint8_t)(n << 4)) == expected[n]);
+        REQUIRE(nand_wb_kv_ecc_decode(k_ecc_11, (uint8_t)(n << 4)) == expected[n]);
+    }
+    /* 9-14 undefined, 15 (>8) contradicts "corrected" */
+    for (uint8_t n = 9; n <= 15; n++) {
+        REQUIRE(nand_wb_kv_ecc_decode(k_ecc_11, (uint8_t)(n << 4)) == NAND_ECC_INVALID);
+    }
+    /* MFS [2:0] (sector number) and bit 3 are ignored. */
+    REQUIRE(nand_wb_kv_ecc_decode(k_ecc_01, 0x3F) == NAND_ECC_3_BITS_CORRECTED);
 }
 
 TEST_CASE("GD reads F0h only when ECCS is 01b", "[spi_nand_flash][ecc]")

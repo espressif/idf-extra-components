@@ -38,6 +38,19 @@ esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
 esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
 
 /**
+ * @brief Decode a 2-bit ECCS field (C0h bits [5:4]) for chips with 1-bit (Hamming) internal ECC.
+ *
+ * 01b maps to exactly 1 bit corrected. 10b and 11b both map to NAND_ECC_NOT_CORRECTED
+ * (2-bit error in one page / in multiple pages during continuous read). Used by Winbond W25N01GV.
+ *
+ * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
+ * @param status_c0  Raw C0h status byte.
+ * @param[out] out   Decoded ECC status.
+ * @return ESP_OK always; no extra register reads are needed.
+ */
+esp_err_t nand_ecc_decode_2bit_1bit_strength(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+
+/**
  * @brief Decode a 2-bit ECCS field (C0h bits [5:4]) where 11b means "maximum corrected",
  *        for chips with 4-bit internal ECC strength.
  *
