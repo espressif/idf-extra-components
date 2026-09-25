@@ -54,11 +54,28 @@ TEST_CASE("3-bit ECCS field decodes into nand_ecc_status_t", "[spi_nand_flash][e
     REQUIRE(decode_3bit(k_ecc_111) == NAND_ECC_INVALID);
 }
 
+static nand_ecc_status_t decode_2bit_4bit_strength(uint8_t c0)
+{
+    nand_ecc_status_t st = NAND_ECC_MAX;
+    REQUIRE(nand_ecc_decode_2bit_4bit_strength(NULL, c0, &st) == ESP_OK);
+    return st;
+}
+
 static nand_ecc_status_t decode_2bit_8bit_strength(uint8_t c0)
 {
     nand_ecc_status_t st = NAND_ECC_MAX;
     REQUIRE(nand_ecc_decode_2bit_8bit_strength(NULL, c0, &st) == ESP_OK);
     return st;
+}
+
+TEST_CASE("2-bit ECCS, 4-bit strength: 01 is 1-3 corrected, 11 is exactly 4", "[spi_nand_flash][ecc]")
+{
+    REQUIRE(decode_2bit_4bit_strength(k_ecc_00) == NAND_ECC_OK);
+    REQUIRE(decode_2bit_4bit_strength(k_ecc_01) == NAND_ECC_1_TO_3_BITS_CORRECTED);
+    REQUIRE(decode_2bit_4bit_strength(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(decode_2bit_4bit_strength(k_ecc_11) == NAND_ECC_4_BITS_CORRECTED);
+    /* Bit 6 is outside the 2-bit field and must be ignored. */
+    REQUIRE(decode_2bit_4bit_strength(k_ecc_111) == NAND_ECC_4_BITS_CORRECTED);
 }
 
 TEST_CASE("2-bit ECCS, 8-bit strength: 01 is 1-7 corrected, 11 is exactly 8", "[spi_nand_flash][ecc]")
