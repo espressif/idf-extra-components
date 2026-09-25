@@ -70,7 +70,9 @@ esp_err_t nand_get_ecc_stats(spi_nand_flash_device_t *flash)
             }
             if (flash->chip.ecc_data.ecc_corrected_bits_status) {
                 ecc_err_total_count++;
-                if (flash->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
+                /* An undeterminable status is counted with the uncorrectable ones. */
+                if (flash->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED ||
+                        flash->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_INVALID) {
                     ecc_err_not_corrected_count++;
                     ESP_LOGD(TAG, "ecc error not corrected for page=%" PRIu32 "", page);
                 } else if (nand_ecc_exceeds_data_refresh_threshold(flash)) {

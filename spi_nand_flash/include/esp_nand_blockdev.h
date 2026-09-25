@@ -173,7 +173,7 @@ typedef struct {
 typedef struct {
     uint8_t ecc_threshold;                          /*!< Current ECC correction threshold */
     uint32_t ecc_total_err_count;                   /*!< Total number of ECC errors encountered */
-    uint32_t ecc_uncorrected_err_count;             /*!< Number of uncorrectable ECC errors */
+    uint32_t ecc_uncorrected_err_count;             /*!< Pages with an uncorrectable or undeterminable ECC status */
     uint32_t ecc_exceeding_threshold_err_count;     /*!< Number of errors exceeding threshold (data refresh recommended) */
 } esp_blockdev_cmd_arg_ecc_stats_t;
 

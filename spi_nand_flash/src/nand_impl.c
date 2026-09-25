@@ -14,6 +14,7 @@
 #include "nand.h"
 #include "nand_flash_devices.h"
 #include "nand_device_types.h"
+#include "nand_ecc_decode.h"
 
 #define ROM_WAIT_THRESHOLD_US 1000
 /* Vendor tables pass typical tR/tPROG/tBERS; datasheet max is often several
@@ -98,8 +99,9 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
 
     memcpy(&(*handle)->config, config, sizeof(spi_nand_flash_config_t));
 
-    (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
     (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
+    (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
+    (*handle)->ecc_status_decoder = nand_ecc_decode_2bit;
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
     (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
     (*handle)->chip.num_planes = 1;
@@ -442,64 +444,26 @@ fail:
     return ret;
 }
 
-// Collapse each ECC status flag down to 0b0 or 0b1 regardless of its original position,
-// shift it into the correct place (bit n) and pack the result into a nand_ecc_status_t value.
-#define PACK_2BITS_STATUS(status, bit1, bit0)         ((!!((status) & (bit1)) << 1) | \
-                                                        !!((status) & (bit0)))
-#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   ((!!((status) & (bit2)) << 2) | \
-                                                       (!!((status) & (bit1)) << 1) | \
-                                                        !!((status) & (bit0)))
-
-/* Map the ECC status on devices with ECCSE bits in a separate register
- * to the nand_ecc_status_t enum type. The first two bits from the normal
- * status register does not map to the enum values as it does for chips
- * with three ECC bits in the status register.
- */
-static nand_ecc_status_t refine_ecc_status_ext(spi_nand_flash_device_t *dev, nand_ecc_status_t eccs)
+/* Decode the ECC status for the page just read and record it.
+ * Returns ESP_OK if the data is usable, ESP_FAIL on an uncorrectable/invalid ECC status,
+ * or the decoder's error (e.g. a failed status-extension register read) unchanged. */
+static esp_err_t check_ecc_status(spi_nand_flash_device_t *dev, uint8_t status)
 {
-    if (eccs == NAND_ECC_BITS_CORRECTED) {          // 01b: 1-7 bits corrected
-        uint8_t ext;
-        if (spi_nand_read_register(dev, REG_STATUS_EXT, &ext) != ESP_OK) {
-            ESP_LOGW(TAG, "%s: failed to read ECC status extension register", __func__);
-            return NAND_ECC_4_TO_6_BITS_CORRECTED; // We know at least some bits were corrected
-        }
-        switch ((ext >> STAT_ECCSE_SHIFT) & 0x3) {
-        case 0:  return NAND_ECC_1_TO_3_BITS_CORRECTED;  // 1-4 bits corrected
-        case 1:
-        case 2:  return NAND_ECC_4_TO_6_BITS_CORRECTED;  // 5-6 bits corrected
-        default: return NAND_ECC_7_8_BITS_CORRECTED;     // 7 bits corrected
-        }
-    }
-    if (eccs == NAND_ECC_MAX_BITS_CORRECTED) {      // 11b: 8 bits corrected
-        return NAND_ECC_7_8_BITS_CORRECTED;
-    }
-    return eccs;                                    // 00b no errors / 10b not corrected
-}
-
-static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
-{
-    bool is_ecc_err = false;
-    nand_ecc_status_t bits_corrected_status = NAND_ECC_OK;
-    if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 2) {
-        bits_corrected_status = PACK_2BITS_STATUS(status, STAT_ECC1, STAT_ECC0);
-        if (dev->chip.ecc_data.has_ecc_status_extension) {
-            bits_corrected_status = refine_ecc_status_ext(dev, bits_corrected_status);
-        }
-    } else if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 3) {
-        bits_corrected_status = PACK_3BITS_STATUS(status, STAT_ECC2, STAT_ECC1, STAT_ECC0);
-    } else {
-        bits_corrected_status = NAND_ECC_MAX;
+    assert(dev->ecc_status_decoder);
+    nand_ecc_status_t bits_corrected_status = NAND_ECC_INVALID;
+    esp_err_t ret = dev->ecc_status_decoder(dev, status, &bits_corrected_status);
+    if (ret != ESP_OK) {
+        /* Status unknown: not an ECC verdict, so don't report NOT_CORRECTED. */
+        dev->chip.ecc_data.ecc_corrected_bits_status = NAND_ECC_INVALID;
+        return ret;
     }
     dev->chip.ecc_data.ecc_corrected_bits_status = bits_corrected_status;
-    if (bits_corrected_status) {
-        if (bits_corrected_status == NAND_ECC_MAX) {
-            ESP_LOGE(TAG, "%s: Error while initializing value of ecc_status_reg_len_in_bits", __func__);
-            is_ecc_err = true;
-        } else if (bits_corrected_status == NAND_ECC_NOT_CORRECTED) {
-            is_ecc_err = true;
-        }
+    /* NAND_ECC_MAX is not a status; a decoder returning it is a bug, so fail safe. */
+    if (bits_corrected_status == NAND_ECC_NOT_CORRECTED || bits_corrected_status == NAND_ECC_INVALID ||
+            bits_corrected_status >= NAND_ECC_MAX) {
+        return ESP_FAIL;
     }
-    return is_ecc_err;
+    return ESP_OK;
 }
 
 esp_err_t nand_read(spi_nand_flash_device_t *handle, uint32_t page, size_t offset, size_t length, uint8_t *data)
@@ -511,9 +475,10 @@ esp_err_t nand_read(spi_nand_flash_device_t *handle, uint32_t page, size_t offse
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, &status), fail, TAG, "");
 
-    if (is_ecc_error(handle, status)) {
+    ret = check_ecc_status(handle, status);
+    if (ret != ESP_OK) {
         ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", page);
-        return ESP_FAIL;
+        return ret;
     }
 
     uint32_t block = page >> handle->chip.log2_ppb;
@@ -551,9 +516,10 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
     uint8_t status;
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, src, &status), fail, TAG, "");
 
-    if (is_ecc_error(handle, status)) {
+    ret = check_ecc_status(handle, status);
+    if (ret != ESP_OK) {
         ESP_LOGD(TAG, "copy, ecc error");
-        return ESP_FAIL;
+        return ret;
     }
 
     ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle), fail, TAG, "");
@@ -601,24 +567,18 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
     if (need_ram_copy) {
         // Then read src page data from nand memory array and load it in cache
         ESP_GOTO_ON_ERROR(read_page_and_wait(handle, src, &status), fail, TAG, "");
-        if (is_ecc_error(handle, status)) {
-            ESP_LOGE(TAG, "%s: dst_page=%"PRIu32" read, ecc error", __func__, dst);
-            goto fail;
-        }
+        ESP_GOTO_ON_ERROR(check_ecc_status(handle, status), fail, TAG,
+                          "%s: src_page=%"PRIu32" read, ecc error", __func__, src);
     }
 
     temp_buf = heap_caps_malloc(handle->chip.page_size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
     ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    if (spi_nand_read(handle, temp_buf, src_column_addr, handle->chip.page_size)) {
-        ESP_LOGE(TAG, "%s: Failed to read src_page=%"PRIu32"", __func__, src);
-        goto fail;
-    }
+    ESP_GOTO_ON_ERROR(spi_nand_read(handle, temp_buf, src_column_addr, handle->chip.page_size), fail, TAG,
+                      "%s: Failed to read src_page=%"PRIu32"", __func__, src);
     // Then read dst page data from nand memory array and load it in cache
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, dst, &status), fail, TAG, "");
-    if (is_ecc_error(handle, status)) {
-        ESP_LOGE(TAG, "%s: dst_page=%"PRIu32" read, ecc error", __func__, dst);
-        goto fail;
-    }
+    ESP_GOTO_ON_ERROR(check_ecc_status(handle, status), fail, TAG,
+                      "%s: dst_page=%"PRIu32" read, ecc error", __func__, dst);
     // Check if the data in the src page matches the dst page
     ret = s_verify_write(handle, temp_buf, dst_column_addr, handle->chip.page_size);
     if (ret != ESP_OK) {
@@ -643,12 +603,17 @@ esp_err_t nand_get_ecc_status(spi_nand_flash_device_t *handle, uint32_t page)
     uint8_t status;
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, &status), fail, TAG, "");
 
-    if (is_ecc_error(handle, status)) {
+    esp_err_t ecc_ret = check_ecc_status(handle, status);
+    if (ecc_ret == ESP_FAIL) {
+        /* ECC verdict is reported via ecc_corrected_bits_status, not the return code. */
         ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", page);
+    } else if (ecc_ret != ESP_OK) {
+        ret = ecc_ret;
+        goto fail;
     }
     return ret;
 
 fail:
-    ESP_LOGE(TAG, "Error in nand_is_ecc_error %d", ret);
+    ESP_LOGE(TAG, "Error in nand_get_ecc_status %d", ret);
     return ret;
 }

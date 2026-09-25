@@ -5,7 +5,20 @@ All notable changes to this component will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). See [VERSIONING.md](VERSIONING.md) for this component's versioning policy.
 
 ## [Unreleased]
+
+### Added
+
+- Per-chip ECC status decoding: each chip driver selects its own decoder at init, so vendor- and model-specific ECC status encodings can be supported (first used for GigaDevice ECCSE in register F0h)
+- New `nand_ecc_status_t` values for decoders that report finer-grained counts: `NAND_ECC_1_TO_4_BITS_CORRECTED` and exact counts `NAND_ECC_1_BIT_CORRECTED` ... `NAND_ECC_8_BITS_CORRECTED`. Existing values keep their numbers.
+- `NAND_ECC_INVALID` status for when the ECC status cannot be determined (the chip reported a reserved pattern, or decoding it failed); previously reported as `NAND_ECC_MAX`. ECC statistics count it as not corrected.
+
+### Fixed
+
 - feat: map ECC status correctly on GigaDevice chips using the ECCSE bits (status register F0h)
+
+### Deprecated
+
+- `nand_ecc_data_t.ecc_status_reg_len_in_bits`: still populated, but no longer used by the driver; ECC status is decoded by a per-chip decoder
 
 ## [1.4.4] - 2026-09-10
 
