@@ -33,7 +33,7 @@ esp_err_t spi_nand_fm_init(spi_nand_flash_device_t *dev)
     dev->chip.program_page_delay_us = 400;
     dev->chip.read_page_delay_us = 105;
     switch (device_id) {
-    case FM_DI_D5: //FM25S005BI3
+    case FM_DI_D5: // FM25S005BI3 (3.3 V) - 8 bits/528B ECC strength
         dev->chip.num_blocks = 512;
         dev->chip.log2_ppb = 6;        // 64 pages per block
         dev->chip.log2_page_size = 11; // 2048 bytes per page
