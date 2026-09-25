@@ -25,11 +25,15 @@ jobs:
       test_all_apps: ${{ steps.get_labels.outputs.test_all_apps }}
       build_only: ${{ steps.get_labels.outputs.build_only }}
       has_changes: ${{ steps.find_changes.outputs.has_changes }}
-      idf_build_apps_args: ${{ steps.find_changes.outputs.idf_build_apps_args }}
+      modified_files: ${{ steps.find_changes.outputs.modified_files }}
+      modified_components: ${{ steps.find_changes.outputs.modified_components }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - name: Test CI matrix generation
+        run: python3 -m unittest discover -s .github/tests -p 'test_*.py'
       - name: Fix git repo permissions
         # Needed by the next git diff step.
         # See https://github.com/actions/runner/issues/2033
@@ -39,8 +43,9 @@ jobs:
           cd /
           git config --global --add safe.directory $build_dir
           cd -
-      - name: Install dependencies
-        run: pip install 'idf-build-apps~=2.12'
+      - name: Read caller version matrix
+        id: matrix
+        run: echo "matrix=$(jq -c . .github/ci-matrix.json)" >> "$GITHUB_OUTPUT"
       - name: Get labels
         id: get_labels
         if: github.event_name == 'pull_request'
@@ -62,23 +67,12 @@ jobs:
         id: find_changes
         if: github.event_name == 'pull_request' && steps.get_labels.outputs.test_all_apps == '0'
         # - based on the files list, determine which components have changed
-        # - output both lists as a file of idf-build-apps arguments
+        # - pass structured selection data to the reusable workflow
         run: |
           git fetch --recurse-submodules=no origin ${{ github.base_ref }}:base_ref
           git fetch --recurse-submodules=no origin pull/${{ github.event.pull_request.number }}/head:pr_ref
           git diff --name-only -r base_ref pr_ref > changed_files.txt
-          python3 .github/get_idf_build_apps_args.py -v changed_files.txt idf_build_apps_args.txt
-          echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)" >> $GITHUB_OUTPUT
-          echo "idf_build_apps_args=$(cat idf_build_apps_args.txt)"
-          # dummy_component is emitted when no component changed (e.g. CI-only PRs)
-          if grep -q dummy_component idf_build_apps_args.txt; then
-            echo "has_changes=0" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=1" >> $GITHUB_OUTPUT
-          fi
-
-  ci-matrix:
-    uses: ./.github/workflows/reusable-ci-matrix.yml
+          python3 .github/get_ci_changes.py changed_files.txt
 
   # Pre-check, like esp-idf's check_test_scripts_build_test_rules: fails when
   # a test script's target parametrization disagrees with the component's
@@ -91,184 +85,41 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+      - uses: $/.github/actions/ci-tools
       - name: Install dependencies
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --upgrade idf-ci
+          pip install -r "$IDF_CI_TOOLS_PATH/requirements.txt"
       - name: Check test scripts
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          python3 .github/check_test_scripts.py
+          python3 "$IDF_CI_TOOLS_PATH/check_test_scripts.py"
 
-  # GitHub equivalent of the GitLab generate_build_child_pipeline job:
-  # counts apps per target and emits matrices whose shard counts match the
-  # real app counts, instead of a fixed parallelism for everything.
-  generate:
-    name: Generate build matrix
-    needs: [prepare]
-    runs-on: ubuntu-22.04
-    container: espressif/idf:latest
-    outputs:
-      apps_matrix: ${{ steps.gen.outputs.apps_matrix }}
-      extra_matrix: ${{ steps.gen.outputs.extra_matrix }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - name: Install dependencies
-        shell: bash
-        run: |
-          . ${IDF_PATH}/export.sh
-          pip install --upgrade idf-ci
-      - name: Generate build matrix
-        id: gen
-        shell: bash
-        run: |
-          . ${IDF_PATH}/export.sh
-          python3 .github/generate_build_matrix.py
-
-  # One pipeline per (idf_target, idf_ver) pair: each target's tests start
-  # as soon as its own build finishes, without waiting for other targets.
-  # Skipped entirely when a PR changes no components (e.g. CI-only PRs).
-  apps:
-    name: Apps (${{ matrix.idf_target }}, ${{ matrix.idf_ver }})
-    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
-    needs: [prepare, ci-matrix, generate]
+  # Each matrix entry invokes the same complete pipeline for one IDF version.
+  ci:
+    name: CI (${{ matrix.idf_version }})
+    needs: prepare
+    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true'
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.generate.outputs.apps_matrix) }}
-    uses: ./.github/workflows/reusable-build-run-apps.yml
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/reusable-ci.yml
     with:
-      idf_ver: ${{ matrix.idf_ver }}
-      idf_target: ${{ matrix.idf_target }}
-      idf_build_apps_args: ${{ needs.prepare.outputs.idf_build_apps_args }}
-      parallel_indices: ${{ toJSON(matrix.parallel_indices) }}
-      parallel_count: ${{ matrix.parallel_count }}
-      run_test: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' && matrix.run_tests }}
-      test_matrix: ${{ toJSON(matrix.tests) }}
-
-  # Compile coverage for all remaining targets (the ones idf_targets does
-  # not list). No binaries are uploaded: nothing runs tests for them.
-  build-extra:
-    name: Build Apps (other targets, ${{ matrix.idf_ver }}) #${{ matrix.parallel_index }}/${{ matrix.parallel_count }}
-    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
-    needs: [prepare, ci-matrix, generate]
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.generate.outputs.extra_matrix) }}
-    runs-on: ubuntu-22.04
-    container: espressif/idf:${{ matrix.idf_ver }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - name: Install ESP-IDF Python environment
-        shell: bash
-        run: |
-          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
-          ${IDF_PATH}/install.sh --enable-ci
-      - uses: ./.github/actions/setup-idf-build-env
-      - name: Build apps
-        shell: bash
-        run: |
-          . ${IDF_PATH}/export.sh
-          TESTED_TARGETS=$(python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))' <<< '${{ needs.ci-matrix.outputs.idf_targets }}')
-          idf-build-apps build --disable-targets $TESTED_TARGETS --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ matrix.parallel_count }} ${{ needs.prepare.outputs.idf_build_apps_args }}
-
-  build-linux:
-    name: Build Apps for Linux
-    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1'
-    needs: [prepare, ci-matrix]
-    strategy:
-      fail-fast: false
-      matrix:
-        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions) }}
-    runs-on: ubuntu-22.04
-    container:
-      image: espressif/idf:${{ matrix.idf_ver }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'true'
-      - name: Install ESP-IDF Python environment
-        shell: bash
-        run: |
-          export IDF_PYTHON_CHECK_CONSTRAINTS=yes
-          ${IDF_PATH}/install.sh --enable-ci
-      - uses: ./.github/actions/setup-idf-build-env
-      - name: Build apps for Linux
-        shell: bash
-        run: |
-          . ${IDF_PATH}/export.sh
-          idf-build-apps build --target linux --collect-app-info build_info_linux_${{ matrix.idf_ver }}.json ${{ needs.prepare.outputs.idf_build_apps_args }}
-      - uses: actions/upload-artifact@v4
-        if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only == '0'
-        with:
-          name: app_binaries_${{ matrix.idf_ver }}_linux
-          path: |
-            */examples/*/build_linux*/*.elf
-            */examples/*/build_linux*/config/sdkconfig.json
-            */test_app*/**/build_linux*/*.elf
-            */test_app*/**/build_linux*/config/sdkconfig.json
-            */host_test/**/build_linux*/*.elf
-            */host_test/**/build_linux*/config/sdkconfig.json
-            build_info*.json
-
-  run-target-linux:
-    name: Run apps on Linux target
-    if: github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1'
-    needs: [prepare, build-linux, ci-matrix]
-    strategy:
-      fail-fast: false
-      matrix:
-        idf_ver: ${{ fromJSON(needs.ci-matrix.outputs.idf_versions_linux_test) }}
-    env:
-      TEST_RESULT_NAME: test_results_linux_host_test_${{ matrix.idf_ver }}
-      TEST_RESULT_FILE: test_results_linux_host_test_${{ matrix.idf_ver }}.xml
-    runs-on: ubuntu-latest
-    container:
-      image: python:3.14-slim-trixie # Newer Debian base to support newer glibc for Linux apps
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: app_binaries_${{ matrix.idf_ver }}_linux
-          merge-multiple: true
-      - name: Install Python packages
-        env:
-          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: |
-          pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pytest-custom_exit_code idf-ci
-      - name: Make .elf files executable
-        continue-on-error: true
-        shell: bash
-        run: |
-          chmod +x */examples/*/build_linux*/*.elf || echo "No example .elf files found"
-          shopt -s globstar
-          chmod +x */test_app*/**/build_linux*/*.elf || echo "No test_app .elf files found"
-          chmod +x */host_test/**/build_linux*/*.elf || echo "No host_test .elf files found"
-      - name: Run apps
-        shell: bash
-        run: |
-          python3 .github/get_pytest_args.py --target=linux -v 'build_info*.json' pytest-args.txt
-          cat pytest-args.txt
-          pytest --suppress-no-test-exit-code $(cat pytest-args.txt) --ignore-glob '*/managed_components/*' --ignore=.github --junit-xml=${{ env.TEST_RESULT_FILE }} --target=linux -m host_test --build-dir=build_linux --embedded-services idf
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ env.TEST_RESULT_NAME }}
-          path: ${{ env.TEST_RESULT_FILE }}
+      idf_version: ${{ matrix.idf_version }}
+      config_file: .github/ci-config.json
+      test_profile: ${{ matrix.test_profile }}
+      run_tests: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' }}
+      modified_files: ${{ needs.prepare.outputs.modified_files || '[]' }}
+      modified_components: ${{ needs.prepare.outputs.modified_components || '[]' }}
 
   publish-results:
     name: Publish Test results
     needs:
       - prepare
-      - apps
-      - run-target-linux
-    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0' && (needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == '1')
+      - ci
+    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0' && (needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true')
     runs-on: ubuntu-22.04
     permissions:
       checks: write
@@ -283,16 +134,19 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: test_results/**/*.xml
+          # Fork and Dependabot PRs have read-only tokens; keep their job summary.
+          check_run: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
+          comment_mode: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && 'always' || 'off' }}
 
   # Single stable status check intended for branch protection: it always
   # runs, and fails when any job failed or was cancelled. Skipped jobs
-  # (e.g. all of them on CI-only PRs) count as success.
+  # (e.g. the version pipelines on CI-only PRs) count as success.
   # Require ONLY this check in branch protection - matrix job names change
   # whenever the matrix changes and must not be required directly.
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [prepare, ci-matrix, check, generate, apps, build-extra, build-linux, run-target-linux, publish-results]
+    needs: [prepare, check, ci, publish-results]
     runs-on: ubuntu-22.04
     steps:
       - name: Check job results

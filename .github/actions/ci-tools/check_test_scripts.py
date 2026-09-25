@@ -9,7 +9,7 @@ For every app with pytest cases, compares:
 and fails on mismatch. Ported from esp-idf
 tools/ci/check_build_test_rules.py (check-test-scripts action).
 
-Usage: python3 .github/check_test_scripts.py [path ...]
+Usage: python3 "$IDF_CI_TOOLS_PATH/check_test_scripts.py" [path ...]
 """
 
 import argparse
