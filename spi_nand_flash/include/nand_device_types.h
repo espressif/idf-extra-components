@@ -37,6 +37,7 @@ typedef enum {
     NAND_ECC_6_BITS_CORRECTED,             /*!< exactly 6 bits corrected */
     NAND_ECC_7_BITS_CORRECTED,             /*!< exactly 7 bits corrected */
     NAND_ECC_8_BITS_CORRECTED,             /*!< exactly 8 bits corrected */
+    NAND_ECC_1_TO_7_BITS_CORRECTED,        /*!< 1-7 bits corrected */
     NAND_ECC_INVALID,                      /*!< Status could not be determined: the chip reported a reserved
                                                 pattern, or decoding it failed. Treat as not corrected. */
     NAND_ECC_MAX                           /*!< One past the highest value (not a count: 4 is unused); not a status */
@@ -76,6 +77,8 @@ static inline uint8_t nand_ecc_max_bits_corrected(nand_ecc_status_t status)
         return 7;
     case NAND_ECC_8_BITS_CORRECTED:
         return 8;
+    case NAND_ECC_1_TO_7_BITS_CORRECTED:
+        return 7;
     case NAND_ECC_OK:
     case NAND_ECC_NOT_CORRECTED:
     case NAND_ECC_INVALID:
