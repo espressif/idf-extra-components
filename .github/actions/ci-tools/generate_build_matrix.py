@@ -6,12 +6,13 @@ never extrapolates application counts or test availability to other versions.
 """
 
 import argparse
+ import hashlib
 import json
 import math
 import os
 import subprocess
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 
 
 def run_idf_ci(*args: str) -> dict:
@@ -29,8 +30,60 @@ def shard_count(app_count: int, runs_per_job: int, max_shards: int) -> int:
     return min(math.ceil(app_count / runs_per_job), max_shards)
 
 
-def generate_matrices(cfg: dict, app_counts: Counter, markers_by_target: dict, profile: str = 'default') -> dict:
-    """Intersect this IDF's discovery with the project's runner policy."""
+def collect_test_groups() -> list:
+    # Use the same API as `idf-ci test collect`, retaining node IDs as an array.
+    # Its GitHub formatter joins IDs with spaces, losing parameter IDs containing spaces.
+    from idf_ci import get_pytest_cases
+
+    cases = get_pytest_cases(marker_expr='', additional_args=['--suppress-no-test-exit-code'])
+    # idf-ci adds an embedded_services parametrization specifically for --target
+    # linux. Collect those IDs in the same context as the Linux worker.
+    if any(case.targets == ['linux'] for case in cases):
+        cases = [case for case in cases if case.targets != ['linux']] + get_pytest_cases(
+            target='linux', marker_expr='', additional_args=['--suppress-no-test-exit-code'],
+        )
+    groups = {}
+    for case in cases:
+        markers = set(case.env_markers)
+        if case.is_host_test and not case.emulator_marker:
+            markers.add('host_test')
+        key = (tuple(case.targets), tuple(sorted(markers)), tuple(case.runner_tags))
+        group = groups.setdefault(key, {
+            'targets': list(key[0]), 'markers': list(key[1]),
+            'runner_tags': list(key[2]), 'nodes': [],
+        })
+        group['nodes'].append(case.item.nodeid)
+    return [{**group, 'nodes': sorted(set(group['nodes']))} for _, group in sorted(groups.items())]
+
+
+def resolve_runner(policy: dict, group: dict):
+    """Translate discovered requirements into this caller's runner labels."""
+    markers = set(group['markers'])
+    # Emulator selection takes precedence: idf-ci also marks emulator cases host_test.
+    environment = 'qemu' if 'qemu' in markers else 'host_test' if group['targets'] == ['linux'] else 'hardware'
+    env = policy['environments'][environment]
+    if 'targets' in env and not set(group['targets']).issubset(env['targets']):
+        return None
+    tags = set(group['runner_tags']) - {'self-hosted', 'host_test'}
+    if environment != 'hardware':
+        tags -= set(group['targets']) | {environment}
+    for override in policy.get('overrides', []):
+        if (override['targets'] == group['targets']
+                and set(override['markers']).issubset(markers)):
+            tags -= set(override['replace_tags'])
+            tags.update(override['labels'])
+    labels = list(env.get('labels', policy.get('default_labels', [])))
+    for tag in sorted(tags):
+        labels.extend(policy.get('tag_aliases', {}).get(tag, [tag]))
+    return {
+        'runner_labels': list(dict.fromkeys(labels)),
+        'pytest_args': env.get('pytest_args', ''),
+        'setup_qemu': environment == 'qemu',
+    }
+
+
+def generate_matrices(cfg: dict, app_counts: Counter, test_groups: list, profile: str = 'default') -> dict:
+    """Plan complete discovered groups using the project's infrastructure policy."""
     max_shards = int(cfg['parallel_count'])
     runs_per_job = int(cfg['runs_per_job'])
     if max_shards <= 0 or runs_per_job <= 0:
@@ -45,20 +98,38 @@ def generate_matrices(cfg: dict, app_counts: Counter, markers_by_target: dict, p
     if 'linux' not in tested_targets and app_counts.get('linux', 0):
         raise ValueError('Add linux to idf_targets to build host applications separately')
 
+    tests_by_target = {target: {} for target in tested_targets}
+    for group in test_groups:
+        if not group['nodes'] or excluded_markers.intersection(group['markers']):
+            continue
+        # The reusable worker builds and restores one target. Never silently split
+        # a multi-DUT group into jobs that cannot provide its required devices.
+        if len(group['targets']) != 1:
+            raise ValueError(f'Multi-DUT test groups are not supported by the single-target worker: {group["targets"]}')
+        target = group['targets'][0]
+        if target not in tests_by_target or not app_counts.get(target, 0):
+            continue
+        runner = resolve_runner(cfg['runner_policy'], group)
+        if runner is None:
+            print(f'Skipping unavailable execution environment: {target} {group["markers"]}')
+            continue
+        identity = json.dumps([group['targets'], sorted(group['markers']), sorted(group['runner_tags'])])
+        group_id = hashlib.sha256(identity.encode()).hexdigest()[:16]
+        entry = tests_by_target[target].setdefault(group_id, {
+            'id': group_id,
+            'marker': ' and '.join(sorted(group['markers'])) or 'unmarked',
+            'markers': sorted(group['markers']),
+            **runner,
+            'nodes': [],
+        })
+        entry['nodes'] = sorted(set(entry['nodes']) | set(group['nodes']))
+
     apps_matrix = []
     for target in tested_targets:
-        configs = cfg.get('test_configs', {}).get(target, [])
-        markers = [config['marker'] for config in configs]
-        if len(markers) != len(set(markers)):
-            raise ValueError(f'Test markers must be unique for target {target}')
         shards = shard_count(app_counts.get(target, 0), runs_per_job, max_shards)
         if not shards:
             continue
-        tests = [
-            config for config in configs
-            if config['marker'] in markers_by_target.get(target, set())
-            and config['marker'] not in excluded_markers
-        ]
+        tests = [entry for _, entry in sorted(tests_by_target[target].items())]
         apps_matrix.append({
             'idf_target': target,
             'tests': tests,
@@ -84,19 +155,7 @@ def collect_discovery():
         for app in project['apps']
         if app['build_status'] == 'should be built'
     )
-    # idf-ci treats QEMU as a host/emulator case. Collect all three groups.
-    markers_by_target = defaultdict(set)
-    for marker_expr in ('not host_test', 'qemu', 'host_test'):
-        collection = run_idf_ci('test', 'collect', '--format', 'github', '-m', marker_expr)
-        for entry in collection['include']:
-            if not entry['nodes'].strip():
-                continue
-            markers = {m for m in entry['env_markers'].split(' and ') if m}
-            for target in entry['targets'].split(','):
-                markers_by_target[target].update(markers)
-                if target == 'linux' and marker_expr == 'host_test':
-                    markers_by_target[target].add('host_test')
-    return app_counts, markers_by_target
+    return app_counts, collect_test_groups()
 
 
 def main() -> None:
@@ -106,10 +165,10 @@ def main() -> None:
     args = parser.parse_args()
     with open(args.config) as f:
         cfg = json.load(f)
-    app_counts, markers_by_target = collect_discovery()
+    app_counts, test_groups = collect_discovery()
     print(f'Buildable apps per target: {dict(app_counts)}')
-    print(f'Collected test markers per target: {dict(markers_by_target)}')
-    matrices = generate_matrices(cfg, app_counts, markers_by_target, args.profile)
+    print(f'Collected {len(test_groups)} test environment groups')
+    matrices = generate_matrices(cfg, app_counts, test_groups, args.profile)
     outputs = {key: json.dumps(value) for key, value in matrices.items()}
     outputs['has_apps'] = str(bool(matrices['apps_matrix']['include'])).lower()
     outputs['has_extra'] = str(bool(matrices['extra_matrix']['include'])).lower()

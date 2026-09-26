@@ -35,7 +35,7 @@ on:
         type: boolean
         default: false
       test_matrix:
-        description: JSON array of marker, runner_labels and pytest_args objects
+        description: JSON array of discovered groups (id, marker, nodes, runner_labels, pytest_args, setup_qemu)
         type: string
         default: '[]'
 
@@ -92,7 +92,7 @@ jobs:
       matrix:
         config: ${{ fromJSON(inputs.test_matrix) }}
     env:
-      TEST_RESULT_NAME: test_results_${{ inputs.pipeline_id }}_${{ inputs.idf_target }}_${{ matrix.config.marker }}
+      TEST_RESULT_NAME: test_results_${{ inputs.pipeline_id }}_${{ inputs.idf_target }}_${{ matrix.config.id }}
       TEST_RESULT_FILE: test_results.xml
     runs-on: ${{ matrix.config.runner_labels }}
     container:
@@ -116,7 +116,7 @@ jobs:
           PIP_EXTRA_INDEX_URL: https://dl.espressif.com/pypi/
         run: pip install --prefer-binary -r "$IDF_CI_TOOLS_PATH/requirements-test.txt"
       - name: Setup QEMU
-        if: matrix.config.marker == 'qemu'
+        if: matrix.config.setup_qemu
         shell: bash
         run: |
           . "$IDF_CI_TOOLS_PATH/setup_qemu.sh"
@@ -125,10 +125,10 @@ jobs:
         shell: bash
         env:
           IDF_TARGET_NAME: ${{ inputs.idf_target }}
-          TEST_MARKER: ${{ matrix.config.marker }}
+          TEST_NODES: ${{ toJSON(matrix.config.nodes) }}
           PYTEST_ARGS: ${{ matrix.config.pytest_args }}
         run: |
-          python3 "$IDF_CI_TOOLS_PATH/run_tests.py" --target "$IDF_TARGET_NAME" --marker "$TEST_MARKER" --junit-xml "$TEST_RESULT_FILE"
+          python3 "$IDF_CI_TOOLS_PATH/run_tests.py" --target "$IDF_TARGET_NAME" --junit-xml "$TEST_RESULT_FILE"
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()

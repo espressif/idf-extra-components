@@ -5,7 +5,9 @@ import importlib.util
 import unittest
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
+from unittest.mock import Mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'actions/ci-tools/generate_build_matrix.py'
 SPEC = importlib.util.spec_from_file_location('generate_build_matrix', SCRIPT)
@@ -13,32 +15,26 @@ GENERATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GENERATOR)
 
 
-def test_config(marker):
-    return {'marker': marker, 'runner_labels': ['self-hosted', marker], 'pytest_args': ''}
+def group(target, markers, nodes=None, tags=None):
+    return {'targets': [target], 'markers': sorted(markers),
+            'runner_tags': sorted(tags if tags is not None else {target, *markers}),
+            'nodes': nodes or [f'app/pytest_app.py::test[{target}]']}
 
 
 def configuration():
-    return {
-        'idf_targets': ['esp32', 'esp32s3', 'linux'],
-        'parallel_count': 3,
-        'runs_per_job': 10,
-        'test_configs': {
-            'esp32': [test_config('generic'), test_config('ethernet'), test_config('spi_nand_flash')],
-            'esp32s3': [test_config('qemu')],
-            'linux': [test_config('host_test')],
-        },
-        'profiles': {
-            'default': {},
-            'no-linux-tests': {'exclude_markers': ['host_test']},
-            'generic-only': {'exclude_markers': ['ethernet', 'spi_nand_flash', 'qemu', 'host_test']},
-        },
-    }
+    import json
+    cfg = json.loads((SCRIPT.parents[2] / 'ci-config.json').read_text())
+    cfg['idf_targets'] = ['esp32', 'esp32s3', 'linux']
+    cfg['parallel_count'] = 3
+    cfg['runs_per_job'] = 10
+    cfg['profiles']['generic-only'] = {'exclude_markers': ['ethernet', 'spi_nand_flash', 'qemu', 'host_test']}
+    return cfg
 
 
 class GenerateMatricesTests(unittest.TestCase):
     def generate(self, counts=None, markers=None, profile='default', cfg=None):
         return GENERATOR.generate_matrices(
-            configuration() if cfg is None else cfg, Counter(counts or {}), markers or {}, profile,
+            configuration() if cfg is None else cfg, Counter(counts or {}), ([group(target, [marker]) for target, markers_for_target in markers.items() for marker in markers_for_target] if isinstance(markers, dict) else markers or []), profile,
         )
 
     def app(self, matrices, target):
@@ -53,11 +49,62 @@ class GenerateMatricesTests(unittest.TestCase):
         self.assertEqual([a['idf_target'] for a in second['apps_matrix']['include']], ['esp32s3'])
         self.assertEqual(self.app(first, 'esp32')['parallel_count'], 2)
         self.assertEqual(self.app(second, 'esp32s3')['parallel_count'], 1)
-        self.assertEqual(self.app(second, 'esp32s3')['tests'], [test_config('qemu')])
+        self.assertEqual(self.app(second, 'esp32s3')['tests'][0]['marker'], 'qemu')
 
-    def test_intersects_discovery_with_available_runners(self):
-        matrices = self.generate({'esp32': 1}, {'esp32': {'generic', 'unconfigured'}})
-        self.assertEqual(self.app(matrices, 'esp32')['tests'], [test_config('generic')])
+    def test_new_markers_are_discovered_without_configuration(self):
+        tests = self.app(self.generate({'esp32': 1}, {'esp32': {'generic', 'quad_psram'}}), 'esp32')['tests']
+        self.assertEqual({test['marker'] for test in tests}, {'generic', 'quad_psram'})
+        psram = next(test for test in tests if test['marker'] == 'quad_psram')
+        self.assertEqual(psram['runner_labels'], ['self-hosted', 'linux', 'docker', 'esp32', 'quad_psram'])
+
+    def test_combined_markers_stay_one_group_and_nodes_are_lossless(self):
+        nodes = ['app/pytest_app.py::test[with spaces]', 'app/pytest_app.py::test[$(not-a-command)]']
+        tests = self.app(self.generate({'esp32': 1}, [group('esp32', ['generic', 'quad_psram'], nodes)]), 'esp32')['tests']
+        self.assertEqual(len(tests), 1)
+        self.assertEqual(tests[0]['markers'], ['generic', 'quad_psram'])
+        self.assertEqual(tests[0]['nodes'], sorted(nodes))
+        self.assertEqual(tests[0]['runner_labels'], ['self-hosted', 'linux', 'docker', 'esp32', 'quad_psram'])
+
+    def test_infrastructure_overrides_preserve_other_requirements(self):
+        test = self.app(self.generate({'esp32': 1}, [group('esp32', ['ethernet', 'quad_psram'])]), 'esp32')['tests'][0]
+        self.assertEqual(test['runner_labels'], ['self-hosted', 'linux', 'docker', 'ESP32-ETHERNET-KIT', 'quad_psram'])
+        test = self.app(self.generate({'esp32': 1}, [group('esp32', ['spi_nand_flash'])]), 'esp32')['tests'][0]
+        self.assertEqual(test['runner_labels'], ['self-hosted', 'linux', 'docker', 'spi_nand_flash'])
+
+    def test_qemu_and_host_do_not_require_hardware_target_labels(self):
+        matrices = self.generate({'esp32s3': 1, 'linux': 1}, [group('esp32s3', ['qemu']), group('linux', ['host_test'])])
+        qemu = self.app(matrices, 'esp32s3')['tests'][0]
+        host = self.app(matrices, 'linux')['tests'][0]
+        self.assertEqual(qemu['runner_labels'], ['self-hosted', 'linux', 'docker'])
+        self.assertTrue(qemu['setup_qemu'])
+        self.assertEqual(qemu['pytest_args'], '--embedded-services idf,qemu')
+        self.assertEqual(host['runner_labels'], ['ubuntu-latest'])
+        self.assertFalse(host['setup_qemu'])
+
+    def test_qemu_capability_limits_do_not_hide_new_hardware_markers(self):
+        tests = self.app(self.generate({'esp32': 1}, [
+            group('esp32', ['qemu']), group('esp32', ['quad_psram']),
+        ]), 'esp32')['tests']
+        self.assertEqual([test['marker'] for test in tests], ['quad_psram'])
+
+    def test_profile_excludes_whole_combined_group_but_preserves_qemu(self):
+        cfg = configuration()
+        cfg['profiles']['without-psram'] = {'exclude_markers': ['quad_psram']}
+        tests = self.app(self.generate({'esp32': 1}, [
+            group('esp32', ['generic']), group('esp32', ['generic', 'quad_psram']),
+        ], 'without-psram', cfg), 'esp32')['tests']
+        self.assertEqual([test['marker'] for test in tests], ['generic'])
+        matrices = self.generate({'esp32s3': 1, 'linux': 1}, [
+            group('esp32s3', ['qemu']), group('linux', ['host_test']),
+        ], 'no-linux-tests')
+        self.assertTrue(self.app(matrices, 'esp32s3')['run_tests'])
+        self.assertFalse(self.app(matrices, 'linux')['run_tests'])
+
+    def test_multi_dut_is_rejected_instead_of_split_into_invalid_jobs(self):
+        multi = group('esp32', ['generic'])
+        multi['targets'] = ['esp32', 'esp32']
+        with self.assertRaisesRegex(ValueError, 'Multi-DUT'):
+            self.generate({'esp32': 1}, [multi])
 
     def test_profile_disables_linux_tests_but_keeps_linux_build(self):
         counts = {'esp32': 1, 'linux': 11}
@@ -76,7 +123,7 @@ class GenerateMatricesTests(unittest.TestCase):
             {'esp32': {'generic', 'ethernet', 'spi_nand_flash'}, 'esp32s3': {'qemu'}},
             'generic-only',
         )
-        self.assertEqual(self.app(matrices, 'esp32')['tests'], [test_config('generic')])
+        self.assertEqual([t['marker'] for t in self.app(matrices, 'esp32')['tests']], ['generic'])
         self.assertFalse(self.app(matrices, 'esp32s3')['run_tests'])
 
     def test_empty_discovery_has_no_fallback_jobs(self):
@@ -113,14 +160,18 @@ class GenerateMatricesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unknown test profile'):
             self.generate(profile='typo')
 
-    def test_duplicate_markers_cannot_produce_colliding_artifacts(self):
-        cfg = configuration()
-        cfg['test_configs']['esp32'].append(test_config('generic'))
-        with self.assertRaisesRegex(ValueError, 'Test markers must be unique'):
-            self.generate({'esp32': 1}, {'esp32': {'generic'}}, cfg=cfg)
+    def test_group_ids_are_stable_unique_and_duplicate_groups_merge(self):
+        plain = group('esp32', ['generic'], ['a.py::test'])
+        special = group('esp32', ['generic', 'quad_psram'], ['b.py::test'])
+        repeated = group('esp32', ['generic'], ['c.py::test'])
+        first = self.app(self.generate({'esp32': 1}, [plain, special, repeated]), 'esp32')['tests']
+        second = self.app(self.generate({'esp32': 1}, [repeated, special, plain]), 'esp32')['tests']
+        self.assertEqual(first, second)
+        self.assertEqual(len({t['id'] for t in first}), 2)
+        self.assertEqual(next(t['nodes'] for t in first if t['marker'] == 'generic'), ['a.py::test', 'c.py::test'])
 
     def test_generation_does_not_mutate_inputs(self):
-        cfg, counts, markers = configuration(), Counter(esp32=11), {'esp32': {'generic'}}
+        cfg, counts, markers = configuration(), Counter(esp32=11), [group('esp32', ['generic'])]
         before = copy.deepcopy((cfg, counts, markers))
         first = GENERATOR.generate_matrices(cfg, counts, markers)
         second = GENERATOR.generate_matrices(cfg, counts, markers)
@@ -133,13 +184,31 @@ class GenerateMatricesTests(unittest.TestCase):
             {'target': 'esp32', 'build_status': 'disabled'},
             {'target': 'linux', 'build_status': 'should be built'},
         ]}}}
-        generic = {'include': [{'nodes': 'test.py::test', 'targets': 'esp32', 'env_markers': 'generic'}]}
-        qemu = {'include': [{'nodes': 'test.py::qemu', 'targets': 'esp32s3', 'env_markers': 'qemu'}]}
-        host = {'include': [{'nodes': 'test.py::host', 'targets': 'linux', 'env_markers': ''}]}
-        with patch.object(GENERATOR, 'run_idf_ci', side_effect=[build, generic, qemu, host]):
-            counts, markers = GENERATOR.collect_discovery()
+        groups = [group('esp32', ['generic']), group('esp32s3', ['qemu']), group('linux', ['host_test'])]
+        with patch.object(GENERATOR, 'run_idf_ci', return_value=build), patch.object(GENERATOR, 'collect_test_groups', return_value=groups):
+            counts, collected = GENERATOR.collect_discovery()
         self.assertEqual(counts, {'esp32': 1, 'linux': 1})
-        self.assertEqual(markers, {'esp32': {'generic'}, 'esp32s3': {'qemu'}, 'linux': {'host_test'}})
+        self.assertEqual(collected, groups)
+
+    def test_collection_keeps_runtime_linux_ids_and_does_not_exclude_qemu_as_host(self):
+        def case(target, markers, node, host=False, emulator=None):
+            return SimpleNamespace(targets=[target], env_markers=set(markers),
+                                   runner_tags=tuple(sorted({target, *markers})),
+                                   is_host_test=host, emulator_marker=emulator,
+                                   item=SimpleNamespace(nodeid=node))
+
+        linux = case('linux', [], 'test.py::host[linux]', host=True)
+        runtime_linux = case('linux', [], 'test.py::host[linux-idf]', host=True)
+        qemu = case('esp32s3', ['qemu'], 'test.py::emulator[esp32s3-qemu]', host=True, emulator='qemu')
+        psram = case('esp32s3', ['generic', 'quad_psram'], 'test.py::hardware[with spaces]')
+        collect = Mock(side_effect=[[linux, qemu, psram], [runtime_linux]])
+        with patch.dict('sys.modules', {'idf_ci': SimpleNamespace(get_pytest_cases=collect)}):
+            groups = GENERATOR.collect_test_groups()
+        self.assertEqual(collect.call_args_list[1].kwargs['target'], 'linux')
+        self.assertEqual(next(g['nodes'] for g in groups if g['targets'] == ['linux']), [runtime_linux.item.nodeid])
+        self.assertEqual(next(g['markers'] for g in groups if 'qemu' in g['markers']), ['qemu'])
+        self.assertEqual(next(g['markers'] for g in groups if 'quad_psram' in g['markers']), ['generic', 'quad_psram'])
+
 
 
 if __name__ == '__main__':

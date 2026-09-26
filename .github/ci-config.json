@@ -8,93 +8,6 @@
   ],
   "parallel_count": 5,
   "runs_per_job": 40,
-  "test_configs": {
-    "esp32": [
-      {
-        "marker": "generic",
-        "runner_labels": [
-          "self-hosted",
-          "linux",
-          "docker",
-          "esp32"
-        ],
-        "pytest_args": ""
-      },
-      {
-        "marker": "ethernet",
-        "runner_labels": [
-          "self-hosted",
-          "linux",
-          "docker",
-          "ESP32-ETHERNET-KIT"
-        ],
-        "pytest_args": ""
-      },
-      {
-        "marker": "spi_nand_flash",
-        "runner_labels": [
-          "self-hosted",
-          "linux",
-          "docker",
-          "spi_nand_flash"
-        ],
-        "pytest_args": ""
-      }
-    ],
-    "esp32s2": [
-      {
-        "marker": "generic",
-        "runner_labels": [
-          "self-hosted",
-          "linux",
-          "docker",
-          "esp32s2"
-        ],
-        "pytest_args": ""
-      }
-    ],
-    "esp32s3": [
-      {
-        "marker": "generic",
-        "runner_labels": [
-          "self-hosted",
-          "linux",
-          "docker",
-          "esp32s3"
-        ],
-        "pytest_args": ""
-      },
-      {
-        "marker": "qemu",
-        "runner_labels": [
-          "self-hosted",
-          "linux",
-          "docker"
-        ],
-        "pytest_args": "--embedded-services idf,qemu"
-      }
-    ],
-    "esp32c3": [
-      {
-        "marker": "qemu",
-        "runner_labels": [
-          "self-hosted",
-          "linux",
-          "docker"
-        ],
-        "pytest_args": "--embedded-services idf,qemu"
-      }
-    ],
-    "linux": [
-      {
-        "marker": "host_test",
-        "runner_labels": [
-          "ubuntu-latest"
-        ],
-        "pytest_args": "--embedded-services idf"
-      }
-    ]
-  },
   "profiles": {
     "default": {
       "exclude_markers": []
@@ -104,5 +17,63 @@
         "host_test"
       ]
     }
+  },
+  "runner_policy": {
+    "default_labels": [
+      "self-hosted",
+      "linux",
+      "docker"
+    ],
+    "environments": {
+      "hardware": {},
+      "qemu": {
+        "pytest_args": "--embedded-services idf,qemu",
+        "targets": [
+          "esp32s3",
+          "esp32c3"
+        ]
+      },
+      "host_test": {
+        "labels": [
+          "ubuntu-latest"
+        ],
+        "pytest_args": "--embedded-services idf"
+      }
+    },
+    "tag_aliases": {
+      "generic": []
+    },
+    "overrides": [
+      {
+        "targets": [
+          "esp32"
+        ],
+        "markers": [
+          "ethernet"
+        ],
+        "replace_tags": [
+          "esp32",
+          "ethernet"
+        ],
+        "labels": [
+          "ESP32-ETHERNET-KIT"
+        ]
+      },
+      {
+        "targets": [
+          "esp32"
+        ],
+        "markers": [
+          "spi_nand_flash"
+        ],
+        "replace_tags": [
+          "esp32",
+          "spi_nand_flash"
+        ],
+        "labels": [
+          "spi_nand_flash"
+        ]
+      }
+    ]
   }
 }

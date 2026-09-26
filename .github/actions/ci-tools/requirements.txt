@@ -1,2 +1,3 @@
 idf-ci==1.3.0
 idf-build-apps==2.16.1
+pytest-custom_exit_code
