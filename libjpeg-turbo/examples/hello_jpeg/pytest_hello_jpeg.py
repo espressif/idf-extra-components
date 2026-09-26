@@ -6,7 +6,7 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
-@pytest.mark.parametrize('target', ['esp32', 'esp32c3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32c5'], indirect=['target'])
 def test_hello_jpeg_example(dut: Dut) -> None:
     dut.expect_exact('app_main started')
 
