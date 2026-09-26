@@ -15,6 +15,10 @@ Use it to turn a camera framebuffer into a JPEG, or a JPEG file into RGB pixels 
 - **libjpeg v8 ABI** (`WITH_JPEG8`), so existing libjpeg-based code generally compiles unchanged.
 - Built as a **static library**; CLI tools, tests, and the TurboJPEG API are left out to keep flash use down.
 
+## Configuration
+
+- `CONFIG_LIBJPEG_TURBO_ALLOC_PREFER_SPIRAM` (default on when `CONFIG_SPIRAM` is set) — libjpeg-turbo's memory manager allocates from PSRAM first and falls back to internal RAM. This keeps the codec's working buffers out of internal RAM even with `CONFIG_SPIRAM_USE_CAPS_ALLOC`, where `malloc()` never returns PSRAM. Turn it off to keep libjpeg-turbo on plain `malloc()` for speed.
+
 ## Add it to your project
 
 From the project directory:
