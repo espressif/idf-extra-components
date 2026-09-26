@@ -1,0 +1,22 @@
+menu "libpng"
+
+    config LIBPNG_PREFER_PSRAM
+        bool "Prefer PSRAM for libpng allocations"
+        depends on SPIRAM
+        default y
+        help
+            Route libpng's allocations to PSRAM first. Internal 8-bit RAM is
+            used as a fallback when PSRAM is not initialized or cannot satisfy
+            an allocation.
+
+            Without this option libpng calls malloc(). With
+            CONFIG_SPIRAM_USE_CAPS_ALLOC, malloc() never returns PSRAM; with
+            CONFIG_SPIRAM_USE_MALLOC, only requests above
+            CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL do. Enabling this option is
+            therefore the only way to move libpng's working buffers out of
+            internal RAM in either configuration.
+
+            PSRAM is slower than internal RAM, so decoding and encoding run
+            slower with this option enabled.
+
+endmenu
