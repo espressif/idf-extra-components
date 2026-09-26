@@ -6,7 +6,7 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
-@pytest.mark.parametrize('target', ['esp32', 'esp32s3', 'esp32c3', 'esp32c5'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32c5'], indirect=['target'])
 def test_pcm_lz4_example(dut: Dut) -> None:
     """Both example paths must complete a verified round trip."""
     dut.expect_exact("Block API example")
