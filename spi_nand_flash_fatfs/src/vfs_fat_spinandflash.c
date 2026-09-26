@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <esp_check.h>
+#include "esp_idf_version.h"
 #include "esp_log.h"
 #include "esp_vfs.h"
 #include "esp_vfs_fat.h"
@@ -40,12 +41,16 @@ esp_err_t esp_vfs_fat_nand_mount(const char *base_path, spi_nand_flash_device_t 
     ESP_GOTO_ON_ERROR(spi_nand_flash_get_page_size(nand_device, &page_size), fail, TAG, "");
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
-    esp_vfs_fat_conf_t conf = {
+    const esp_vfs_fat_conf_t conf = {
         .base_path = base_path,
         .fat_drive = drv,
         .max_files = mount_config->max_files,
     };
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0)
+    ESP_GOTO_ON_ERROR(esp_vfs_fat_register(&conf, &fs), fail, TAG, "esp_vfs_fat_register failed");
+#else
     ESP_GOTO_ON_ERROR(esp_vfs_fat_register_cfg(&conf, &fs), fail, TAG, "esp_vfs_fat_register failed");
+#endif
 #else
     ESP_GOTO_ON_ERROR(esp_vfs_fat_register(base_path, drv, mount_config->max_files, &fs),
                       fail, TAG, "esp_vfs_fat_register failed");

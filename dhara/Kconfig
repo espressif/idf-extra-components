@@ -1,0 +1,16 @@
+menu "Dhara FTL Configuration"
+
+    config DHARA_MAP_PATH_CACHE
+        bool "Enable sequential-locality path cache in dhara_map"
+        default y
+        help
+            Caches the last successful read-only dhara_map_find() path
+            traversal. Consecutive sector lookups that share a common
+            radix-tree prefix with the previous lookup skip the
+            already-known levels, reducing dhara_journal_read_meta() calls
+            for sequential sector access patterns.
+
+            This grows in-RAM struct dhara_map by 140 bytes. Disable this to
+            recover that RAM at the cost of losing the read-path speedup.
+
+endmenu

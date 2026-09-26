@@ -175,4 +175,52 @@ menu "CoAP Configuration"
             If this option is disabled, redundant CoAP proxy only code is
             removed.
 
+    choice COAP_MEM_ALLOC_MODE
+        prompt "Memory allocation strategy"
+        default COAP_INTERNAL_MEM_ALLOC
+        help
+            Allocation strategy for libcoap, essentially provides ability to
+            allocate all required dynamic allocations from,
+
+            - Internal DRAM memory only
+            - External SPIRAM memory only
+            - Either internal or external memory based on default malloc() behavior in ESP-IDF
+            - Custom allocation mode, by overwriting calloc()/free()
+                using mbedtls_platform_set_calloc_free() function
+            - Internal IRAM memory wherever applicable else internal DRAM
+
+            Recommended mode here is always internal (*), since that is most preferred
+            from security perspective. But if application requirement does not
+            allow sufficient free internal memory then alternate mode can be
+            selected.
+
+            (*) In case of ESP32-S2/ESP32-S3, hardware allows encryption of external
+            SPIRAM contents provided hardware flash encryption feature is enabled.
+            In that case, using external SPIRAM allocation strategy is also safe choice
+            from security perspective.
+
+        config COAP_INTERNAL_MEM_ALLOC
+            bool "Internal memory"
+
+        config COAP_EXTERNAL_MEM_ALLOC
+            bool "External SPIRAM"
+            depends on SPIRAM_USE_CAPS_ALLOC || SPIRAM_USE_MALLOC
+
+        config COAP_DEFAULT_MEM_ALLOC
+            bool "Default alloc mode"
+
+        config COAP_CUSTOM_MEM_ALLOC
+            bool "Custom alloc mode"
+
+        config COAP_IRAM_8BIT_MEM_ALLOC
+            bool "Internal IRAM"
+            depends on ESP32_IRAM_AS_8BIT_ACCESSIBLE_MEMORY
+            help
+                Allows to use IRAM memory region as 8bit accessible region.
+
+                libcoap input and output buffers will be allocated in IRAM section which is 32bit aligned
+                memory. Every unaligned (8bit or 16bit) access will result in an exception
+                and incur penalty of certain clock cycles per unaligned read/write.
+
+    endchoice
 endmenu

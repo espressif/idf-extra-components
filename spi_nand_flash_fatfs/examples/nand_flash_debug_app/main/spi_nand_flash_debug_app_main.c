@@ -156,6 +156,11 @@ void app_main(void)
     uint32_t num_blocks;
     ESP_ERROR_CHECK(spi_nand_flash_get_block_num(flash, &num_blocks));
 
+    // Dhara logical pages and raw physical pages share the chip with no reserved ranges.
+    // Erase so a previous run's journal or raw writes cannot collide with this one.
+    ESP_LOGI(TAG, "Erasing chip before running throughput tests...");
+    ESP_ERROR_CHECK(spi_nand_erase_chip(flash));
+
     // Get bad block statistics
     uint32_t bad_block_count;
     ESP_LOGI(TAG, "Get bad block statistics:");
@@ -171,7 +176,7 @@ void app_main(void)
     ESP_ERROR_CHECK(read_write_pages_tp(flash, start_page, page_count, get_raw_tp));
 
     // Calculate read and write throughput at lower level (bypassing Dhara)
-    start_page = 1001;
+    start_page = 2000;
     page_count = 1000;
     get_raw_tp = true;
     ESP_LOGI(TAG, "Read-Write Throughput at lower level (bypassing Dhara):");

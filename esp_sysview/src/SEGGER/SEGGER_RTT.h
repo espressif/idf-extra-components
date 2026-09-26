@@ -404,9 +404,13 @@ unsigned     SEGGER_RTT_GetBytesInBuffer        (unsigned BufferIndex);
 //
 // Function macro for performance optimization
 //
-// @AGv: This macro is used inside SEGGER SystemView code.
-// For ESP32 we use our own implementation of RTT, so this macro should not check SEGGER's RTT buffer state.
-#define      SEGGER_RTT_HASDATA(n)       (1)
+// @AGv: ESP uses its own RTT; this is not a SEGGER buffer check.
+// While tracing is not active, poll every event so START/STOP commands are
+// picked up promptly. While tracing is active, poll every 32nd event.
+#define      SEGGER_RTT_ESP_DOWN_POLL_MASK  31u
+extern unsigned SEGGER_RTT_ESP_DownPollCnt;
+#define      SEGGER_RTT_HASDATA(n)       (_SYSVIEW_Globals.EnableState != 1 || \
+                                          ((++SEGGER_RTT_ESP_DownPollCnt & SEGGER_RTT_ESP_DOWN_POLL_MASK) == 0))
 
 #if RTT_USE_ASM
 #define SEGGER_RTT_WriteSkipNoLock  SEGGER_RTT_ASM_WriteSkipNoLock

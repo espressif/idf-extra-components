@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stddef.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -45,8 +46,8 @@ Reset Pulse:
           +-------------+     +-----------+
 *: RESET_PRESENCE_WAIT_DURATION
 */
-#define ONEWIRE_RESET_PULSE_DURATION            500 // duration of reset bit
-#define ONEWIRE_RESET_WAIT_DURATION             200 // how long should master wait for device to show its presence
+#define ONEWIRE_RESET_PULSE_DURATION            500 // tRSTL, duration of reset low pulse (min 480us)
+#define ONEWIRE_RESET_WAIT_DURATION             480 // tRSTH, master recovery/presence window after releasing the bus (min 480us)
 #define ONEWIRE_RESET_PRESENCE_WAIT_DURATION_MIN 15 // minimum duration for master to wait device to show its presence
 #define ONEWIRE_RESET_PRESENCE_DURATION_MIN      60 // minimum duration for master to recognize device as present
 
@@ -247,6 +248,10 @@ esp_err_t onewire_new_bus_rmt(const onewire_bus_config_t *bus_config, const onew
     esp_err_t ret = ESP_OK;
     onewire_bus_rmt_obj_t *bus_rmt = NULL;
     ESP_RETURN_ON_FALSE(bus_config && rmt_config && ret_bus, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    ESP_RETURN_ON_FALSE(GPIO_IS_VALID_OUTPUT_GPIO(bus_config->bus_gpio_num), ESP_ERR_INVALID_ARG, TAG, "invalid GPIO number");
+    ESP_RETURN_ON_FALSE(rmt_config->max_rx_bytes > 0 &&
+                        rmt_config->max_rx_bytes <= SIZE_MAX / (sizeof(rmt_symbol_word_t) * 8),
+                        ESP_ERR_INVALID_ARG, TAG, "invalid max_rx_bytes");
 
     bus_rmt = calloc(1, sizeof(onewire_bus_rmt_obj_t));
     ESP_RETURN_ON_FALSE(bus_rmt, ESP_ERR_NO_MEM, TAG, "no mem for onewire_bus_rmt_obj_t");

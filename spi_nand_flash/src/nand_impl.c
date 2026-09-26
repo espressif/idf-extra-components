@@ -3,10 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #include <string.h>
+#include <inttypes.h>
 #include "esp_check.h"
 #include "esp_err.h"
 #include "spi_nand_oper.h"
@@ -15,6 +16,10 @@
 #include "nand_device_types.h"
 
 #define ROM_WAIT_THRESHOLD_US 1000
+/* Vendor tables pass typical tR/tPROG/tBERS; datasheet max is often several
+ * times that. Bound hangs at 10× typical plus one tick so max/tick rounding
+ * cannot false-timeout. Wrong if actual BUSY exceeds 10× the delay passed in. */
+#define NAND_WAIT_READY_TIMEOUT_MULT 10U
 
 static const char *TAG = "nand_hal";
 
@@ -169,6 +174,16 @@ static esp_err_t wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_
         esp_rom_delay_us(expected_operation_time_us);
     }
 
+    /* Hang bound only. Success path still polls until BUSY clears. */
+    uint64_t timeout_us = (uint64_t)expected_operation_time_us * NAND_WAIT_READY_TIMEOUT_MULT;
+    uint32_t timeout_ms = (uint32_t)((timeout_us + 999U) / 1000U);
+    if (timeout_ms == 0) {
+        timeout_ms = 1;
+    }
+    TickType_t timeout_ticks = (timeout_ms + portTICK_PERIOD_MS - 1U) / portTICK_PERIOD_MS;
+    timeout_ticks += 1;
+    TickType_t start_tick = xTaskGetTickCount();
+
     while (true) {
         uint8_t status;
         ESP_RETURN_ON_ERROR(spi_nand_read_register(dev, REG_STATUS, &status), TAG, "");
@@ -178,6 +193,13 @@ static esp_err_t wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_
                 *status_out = status;
             }
             break;
+        }
+
+        if ((xTaskGetTickCount() - start_tick) >= timeout_ticks) {
+            ESP_LOGE(TAG, "STAT_BUSY timeout: status=0x%02x, expected_op=%" PRIu32 " us, waited=%" PRIu32 " ms",
+                     status, expected_operation_time_us,
+                     (uint32_t)timeout_ticks * portTICK_PERIOD_MS);
+            return ESP_ERR_TIMEOUT;
         }
 
         if (expected_operation_time_us >= ROM_WAIT_THRESHOLD_US) {
@@ -235,7 +257,7 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
                       fail, TAG, "");
 
     memcpy(&markers, handle->read_buffer, sizeof(markers));
-    ESP_LOGD(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
+    ESP_LOGV(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
     *is_bad_status = (markers[0] != 0xFF || markers[1] != 0xFF);
     return ret;
 
@@ -275,6 +297,10 @@ esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t block)
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
+    // Reload the just-programmed page into cache before reading it back: spi_nand_read()
+    // only reads from cache, and the cache is not guaranteed to still hold the programmed
+    // data straight after program_execute on all chips.
+    ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
     ret = s_verify_write(handle, (uint8_t *)&markers, column_addr, 4);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: mark_bad write verification failed for block=%"PRIu32" and page=%"PRIu32"", __func__, block, first_block_page);
@@ -288,7 +314,7 @@ fail:
 
 esp_err_t nand_erase_block(spi_nand_flash_device_t *handle, uint32_t block)
 {
-    ESP_LOGD(TAG, "erase_block, block=%"PRIu32",", block);
+    ESP_LOGV(TAG, "erase_block, block=%"PRIu32",", block);
     esp_err_t ret = ESP_OK;
     uint8_t status;
 
@@ -313,7 +339,7 @@ fail:
 
 static esp_err_t nand_erase_good_block(spi_nand_flash_device_t *handle, uint32_t block)
 {
-    ESP_LOGD(TAG, "erase_block, block=%"PRIu32",", block);
+    ESP_LOGV(TAG, "erase_block, block=%"PRIu32",", block);
     esp_err_t ret = ESP_OK;
     bool is_bad = false;
     ret = nand_is_bad(handle, block, &is_bad);
@@ -372,6 +398,10 @@ esp_err_t nand_prog(spi_nand_flash_device_t *handle, uint32_t page, const uint8_
     }
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
+    // Reload the just-programmed page into cache before reading it back: spi_nand_read()
+    // only reads from cache, and the cache is not guaranteed to still hold the programmed
+    // data straight after program_execute on all chips.
+    ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, NULL), fail, TAG, "");
     ret = s_verify_write(handle, data, column_addr, handle->chip.page_size);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: prog page=%"PRIu32" write verification failed", __func__, page);
@@ -404,7 +434,7 @@ esp_err_t nand_is_free(spi_nand_flash_device_t *handle, uint32_t page, bool *is_
                                     column_addr, 4), fail, TAG, "");
 
     memcpy(&markers, handle->read_buffer, sizeof(markers));
-    ESP_LOGD(TAG, "is free, page=%"PRIu32", used_marker=%02x,%02x,", page, markers[2], markers[3]);
+    ESP_LOGV(TAG, "is free, page=%"PRIu32", used_marker=%02x,%02x,", page, markers[2], markers[3]);
     *is_free_status = (markers[2] == 0xFF && markers[3] == 0xFF);
     return ret;
 fail:
@@ -412,8 +442,39 @@ fail:
     return ret;
 }
 
-#define PACK_2BITS_STATUS(status, bit1, bit0)         ((((status) & (bit1)) << 1) | ((status) & (bit0)))
-#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   ((((status) & (bit2)) << 2) | (((status) & (bit1)) << 1) | ((status) & (bit0)))
+// Collapse each ECC status flag down to 0b0 or 0b1 regardless of its original position,
+// shift it into the correct place (bit n) and pack the result into a nand_ecc_status_t value.
+#define PACK_2BITS_STATUS(status, bit1, bit0)         ((!!((status) & (bit1)) << 1) | \
+                                                        !!((status) & (bit0)))
+#define PACK_3BITS_STATUS(status, bit2, bit1, bit0)   ((!!((status) & (bit2)) << 2) | \
+                                                       (!!((status) & (bit1)) << 1) | \
+                                                        !!((status) & (bit0)))
+
+/* Map the ECC status on devices with ECCSE bits in a separate register
+ * to the nand_ecc_status_t enum type. The first two bits from the normal
+ * status register does not map to the enum values as it does for chips
+ * with three ECC bits in the status register.
+ */
+static nand_ecc_status_t refine_ecc_status_ext(spi_nand_flash_device_t *dev, nand_ecc_status_t eccs)
+{
+    if (eccs == NAND_ECC_BITS_CORRECTED) {          // 01b: 1-7 bits corrected
+        uint8_t ext;
+        if (spi_nand_read_register(dev, REG_STATUS_EXT, &ext) != ESP_OK) {
+            ESP_LOGW(TAG, "%s: failed to read ECC status extension register", __func__);
+            return NAND_ECC_4_TO_6_BITS_CORRECTED; // We know at least some bits were corrected
+        }
+        switch ((ext >> STAT_ECCSE_SHIFT) & 0x3) {
+        case 0:  return NAND_ECC_1_TO_3_BITS_CORRECTED;  // 1-4 bits corrected
+        case 1:
+        case 2:  return NAND_ECC_4_TO_6_BITS_CORRECTED;  // 5-6 bits corrected
+        default: return NAND_ECC_7_8_BITS_CORRECTED;     // 7 bits corrected
+        }
+    }
+    if (eccs == NAND_ECC_MAX_BITS_CORRECTED) {      // 11b: 8 bits corrected
+        return NAND_ECC_7_8_BITS_CORRECTED;
+    }
+    return eccs;                                    // 00b no errors / 10b not corrected
+}
 
 static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
 {
@@ -421,6 +482,9 @@ static bool is_ecc_error(spi_nand_flash_device_t *dev, uint8_t status)
     nand_ecc_status_t bits_corrected_status = NAND_ECC_OK;
     if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 2) {
         bits_corrected_status = PACK_2BITS_STATUS(status, STAT_ECC1, STAT_ECC0);
+        if (dev->chip.ecc_data.has_ecc_status_extension) {
+            bits_corrected_status = refine_ecc_status_ext(dev, bits_corrected_status);
+        }
     } else if (dev->chip.ecc_data.ecc_status_reg_len_in_bits == 3) {
         bits_corrected_status = PACK_3BITS_STATUS(status, STAT_ECC2, STAT_ECC1, STAT_ECC0);
     } else {

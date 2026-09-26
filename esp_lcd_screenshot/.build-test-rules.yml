@@ -1,0 +1,7 @@
+esp_lcd_screenshot/examples/lvgl_screenshot:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32p4"]
+      reason: "Sufficient to test on representative Xtensa and RISC-V targets"
+  disable:
+    - if: IDF_VERSION_MAJOR < 6
+      reason: IDF version below v6.0 is not supported by the esp_lcd_screenshot component

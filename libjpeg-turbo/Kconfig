@@ -1,0 +1,26 @@
+menu "libjpeg-turbo"
+
+    config LIBJPEG_TURBO_ALLOC_PREFER_SPIRAM
+        bool "Prefer PSRAM for libjpeg-turbo allocations"
+        depends on SPIRAM
+        default y
+        help
+            Route libjpeg-turbo's memory manager (jpeg_get_large() and
+            jpeg_get_small()) to PSRAM first. Internal 8-bit RAM is used as a
+            fallback when PSRAM is not initialized or cannot satisfy an
+            allocation.
+
+            Large objects (sample rows, coefficient buffers, virtual arrays)
+            take most of the memory an encoder or decoder needs, so moving them
+            frees the most internal RAM. Small pools hold the per-image control
+            structures and Huffman/quantization tables.
+
+            Without this option libjpeg-turbo calls malloc(). With
+            CONFIG_SPIRAM_USE_CAPS_ALLOC, malloc() never returns PSRAM; with
+            CONFIG_SPIRAM_USE_MALLOC, only requests above
+            CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL do.
+
+            PSRAM is slower than internal RAM, so encode and decode run slower
+            with this option enabled.
+
+endmenu

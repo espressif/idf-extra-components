@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+dependencies:
+  lvgl/lvgl: "^9.5.0"
+  joltwallet/littlefs: "^1.22.3"
+  espressif/esp_lcd_screenshot:
+    version: "*"
+    override_path: "../../../"

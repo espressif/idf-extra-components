@@ -9,6 +9,7 @@
 #include "SEGGER_RTT.h"
 #include "SEGGER_RTT_esp.h"
 #include "SEGGER_SYSVIEW.h"
+#include "SEGGER_SYSVIEW_esp.h"
 #include "SEGGER_SYSVIEW_Conf.h"
 
 #include "esp_cpu.h"
@@ -29,6 +30,8 @@
 #else
 #define SEGGER_HOST_WAIT_TMO    CONFIG_SEGGER_SYSVIEW_BUF_WAIT_TMO
 #endif
+
+unsigned SEGGER_RTT_ESP_DownPollCnt;
 
 static uint8_t s_events_buf[SYSVIEW_EVENTS_BUF_SZ];
 static uint16_t s_events_buf_filled;
@@ -54,12 +57,11 @@ static uint8_t s_down_buf[SYSVIEW_DOWN_BUF_SIZE];
 esp_err_t SEGGER_RTT_ESP_FlushNoLock(void)
 {
     esp_trace_encoder_t *encoder = SEGGER_SYSVIEW_ESP_GetEncoder();
-
     if (!encoder) {
         return ESP_ERR_INVALID_STATE;
     }
-
     esp_trace_transport_t *tp = encoder->tp;
+
     esp_err_t write_res = ESP_OK;
 
     if (s_events_buf_filled > 0) {
@@ -119,8 +121,9 @@ unsigned SEGGER_RTT_ReadNoLock(unsigned BufferIndex, void *pData, unsigned Buffe
     if (!encoder) {
         return 0;
     }
+    esp_trace_transport_t *tp = encoder->tp;
     size_t size = BufferSize;
-    esp_err_t res = encoder->tp->vt->read(encoder->tp, pData, &size, 0);
+    esp_err_t res = tp->vt->read(tp, pData, &size, 0);
     return res != ESP_OK ? 0 : size;
 }
 
@@ -154,14 +157,14 @@ unsigned SEGGER_RTT_WriteSkipNoLock(unsigned BufferIndex, const void *pBuffer, u
     if (!encoder) {
         return 0;  // Encoder is not initialized
     }
-
     esp_trace_transport_t *tp = encoder->tp;
+    sysview_encoder_ctx_t *ctx = encoder->ctx;
+
     uint8_t *pbuf = (uint8_t *)pBuffer;
     uint8_t event_id = *pbuf;
 
-    esp_trace_link_types_t link_type = tp->vt->get_link_type(tp);
-    sysview_encoder_ctx_t *ctx = encoder->ctx;
-    if (ctx && ctx->filter_by_cpu) {
+    esp_trace_link_types_t link_type = SEGGER_SYSVIEW_ESP_GetLinkType();
+    if (ctx->filter_by_cpu) {
         if (
             (ctx->dest_cpu != esp_cpu_get_core_id()) &&
             (
@@ -215,7 +218,9 @@ unsigned SEGGER_RTT_WriteSkipNoLock(unsigned BufferIndex, const void *pBuffer, u
         }
         s_events_buf_filled = 0;
     }
-    memcpy(&s_events_buf[s_events_buf_filled], pBuffer, NumBytes);
+    for (unsigned k = 0; k < NumBytes; k++) {
+        s_events_buf[s_events_buf_filled + k] = pbuf[k];
+    }
     s_events_buf_filled += NumBytes;
 
     if (link_type != ESP_TRACE_LINK_DEBUG_PROBE) {
@@ -294,5 +299,6 @@ int SEGGER_RTT_ConfigDownBuffer(unsigned BufferIndex, const char *sName, void *p
     if (!encoder) {
         return -1;
     }
-    return encoder->tp->vt->down_buffer_config(encoder->tp, s_down_buf, sizeof(s_down_buf));
+    esp_trace_transport_t *tp = encoder->tp;
+    return tp->vt->down_buffer_config(tp, s_down_buf, sizeof(s_down_buf));
 }

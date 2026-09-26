@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -65,10 +65,12 @@ esp_err_t onewire_device_iter_get_next(onewire_device_iter_handle_t iter, onewir
         ONEWIRE_CMD_SEARCH_NORMAL
     }, 1), TAG, "send ONEWIRE_CMD_SEARCH_NORMAL failed");
 
-    uint8_t last_zero = 0;
+    // AN187 numbers ROM bits 1..64 so LastDiscrepancy can be initialized to 0 as a sentinel
+    uint16_t last_zero = 0;
     for (uint16_t rom_bit_index = 0; rom_bit_index < sizeof(onewire_device_address_t) * 8; rom_bit_index ++) {
         uint8_t rom_byte_index = rom_bit_index / 8;
         uint8_t rom_bit_mask = 1 << (rom_bit_index % 8); // calculate byte index and bit mask in advance for convenience
+        const uint16_t id_bit_number = rom_bit_index + 1;
 
         uint8_t rom_bit = 0;
         uint8_t rom_bit_complement = 0;
@@ -85,14 +87,14 @@ esp_err_t onewire_device_iter_get_next(onewire_device_iter_handle_t iter, onewir
         if (rom_bit != rom_bit_complement) { // There are only 0s or 1s in the bit of the participating ROM numbers.
             search_direction = rom_bit;  // just go ahead
         } else { // There are both 0s and 1s in the current bit position of the participating ROM numbers. This is a discrepancy.
-            if (rom_bit_index < iter->last_discrepancy) { // current id bit is before the last discrepancy bit
+            if (id_bit_number < iter->last_discrepancy) { // current id bit is before the last discrepancy bit
                 search_direction = (iter->rom_number[rom_byte_index] & rom_bit_mask) ? 0x01 : 0x00; // follow previous way
             } else {
-                search_direction = (rom_bit_index == iter->last_discrepancy) ? 0x01 : 0x00; // search for 0 bit first
+                search_direction = (id_bit_number == iter->last_discrepancy) ? 0x01 : 0x00; // search for 0 bit first
             }
 
             if (search_direction == 0) { // record zero's position in last zero
-                last_zero = rom_bit_index;
+                last_zero = id_bit_number;
             }
         }
 
@@ -108,7 +110,7 @@ esp_err_t onewire_device_iter_get_next(onewire_device_iter_handle_t iter, onewir
 
     // if the search was successful
     iter->last_discrepancy = last_zero;
-    if (iter->last_discrepancy == 0) { // last zero loops back to the first bit
+    if (iter->last_discrepancy == 0) { // no remaining 0-path; this was the last device
         iter->is_last_device = true;
     }
 

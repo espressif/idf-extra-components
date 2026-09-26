@@ -1,0 +1,4 @@
+pid_ctrl/host_test:
+  enable:
+    - if: IDF_TARGET == "linux"
+      reason: "PID control is pure math, host test is sufficient"

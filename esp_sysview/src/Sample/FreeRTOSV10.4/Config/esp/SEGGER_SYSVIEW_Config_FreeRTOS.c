@@ -62,6 +62,7 @@ Revision: $Rev: 7745 $
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "SEGGER_SYSVIEW.h"
+#include "SEGGER_SYSVIEW_esp.h"
 #include "esp_app_desc.h"
 #include "esp_intr_alloc.h"
 #include "soc/soc.h"

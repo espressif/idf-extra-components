@@ -27,6 +27,7 @@ body:
         - cbor
         - ccomp_timer
         - cjson
+        - clarke_park
         - coap
         - coremark
         - dhara
@@ -41,6 +42,7 @@ body:
         - esp_isotp
         - esp_jpeg
         - esp_lcd_qemu_rgb
+        - esp_lcd_screenshot
         - esp_schedule
         - esp_cli
         - esp_serial_slave_link

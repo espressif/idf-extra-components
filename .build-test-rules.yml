@@ -49,20 +49,6 @@ esp_schedule/test_app:
     - if: IDF_VERSION_MAJOR < 5
       reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
 
-catch2/examples/catch2-test:
-  enable:
-    - if: INCLUDE_DEFAULT == 1 or IDF_TARGET == "linux"
-  disable:
-    - if: IDF_VERSION_MAJOR < 5
-      reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
-    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR < 1) and IDF_TARGET == "linux")
-      reason: Docker container for release/v5.0 doesn't contain a C++ compiler
-
-catch2/examples/catch2-console:
-  disable:
-    - if: IDF_VERSION_MAJOR < 5
-      reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
-
 network_provisioning/examples/thread_prov:
   enable:
     - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5))

@@ -1,34 +1,17 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
-/* CBOR Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "esp_log.h"
+#include "esp_check.h"
 #include "cbor.h"
 #include "cborjson.h"
 
 static const char *TAG = "example";
-
-#define CBOR_CHECK(a, str, goto_tag, ret_value, ...)                              \
-    do                                                                            \
-    {                                                                             \
-        if ((a) != CborNoError)                                                   \
-        {                                                                         \
-            ESP_LOGE(TAG, "%s(%d): " str, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-            ret = ret_value;                                                      \
-            goto goto_tag;                                                        \
-        }                                                                         \
-    } while (0)
 
 static void indent(int nestingLevel)
 {
@@ -49,9 +32,9 @@ static void dumpbytes(const uint8_t *buf, size_t len)
  */
 static CborError example_dump_cbor_buffer(CborValue *it, int nestingLevel)
 {
-    CborError ret = CborNoError;
     while (!cbor_value_at_end(it)) {
         CborType type = cbor_value_get_type(it);
+        CborError err;
 
         indent(nestingLevel);
         switch (type) {
@@ -59,12 +42,12 @@ static CborError example_dump_cbor_buffer(CborValue *it, int nestingLevel)
             CborValue recursed;
             assert(cbor_value_is_container(it));
             puts("Array[");
-            ret = cbor_value_enter_container(it, &recursed);
-            CBOR_CHECK(ret, "enter container failed", err, ret);
-            ret = example_dump_cbor_buffer(&recursed, nestingLevel + 1);
-            CBOR_CHECK(ret, "recursive dump failed", err, ret);
-            ret = cbor_value_leave_container(it, &recursed);
-            CBOR_CHECK(ret, "leave container failed", err, ret);
+            err = cbor_value_enter_container(it, &recursed);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "enter container failed");
+            err = example_dump_cbor_buffer(&recursed, nestingLevel + 1);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "recursive dump failed");
+            err = cbor_value_leave_container(it, &recursed);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "leave container failed");
             indent(nestingLevel);
             puts("]");
             continue;
@@ -73,28 +56,28 @@ static CborError example_dump_cbor_buffer(CborValue *it, int nestingLevel)
             CborValue recursed;
             assert(cbor_value_is_container(it));
             puts("Map{");
-            ret = cbor_value_enter_container(it, &recursed);
-            CBOR_CHECK(ret, "enter container failed", err, ret);
-            ret = example_dump_cbor_buffer(&recursed, nestingLevel + 1);
-            CBOR_CHECK(ret, "recursive dump failed", err, ret);
-            ret = cbor_value_leave_container(it, &recursed);
-            CBOR_CHECK(ret, "leave container failed", err, ret);
+            err = cbor_value_enter_container(it, &recursed);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "enter container failed");
+            err = example_dump_cbor_buffer(&recursed, nestingLevel + 1);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "recursive dump failed");
+            err = cbor_value_leave_container(it, &recursed);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "leave container failed");
             indent(nestingLevel);
             puts("}");
             continue;
         }
         case CborIntegerType: {
             int64_t val;
-            ret = cbor_value_get_int64(it, &val);
-            CBOR_CHECK(ret, "parse int64 failed", err, ret);
+            err = cbor_value_get_int64(it, &val);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse int64 failed");
             printf("%lld\n", (long long)val);
             break;
         }
         case CborByteStringType: {
             uint8_t *buf;
             size_t n;
-            ret = cbor_value_dup_byte_string(it, &buf, &n, it);
-            CBOR_CHECK(ret, "parse byte string failed", err, ret);
+            err = cbor_value_dup_byte_string(it, &buf, &n, it);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse byte string failed");
             dumpbytes(buf, n);
             puts("");
             free(buf);
@@ -103,24 +86,24 @@ static CborError example_dump_cbor_buffer(CborValue *it, int nestingLevel)
         case CborTextStringType: {
             char *buf;
             size_t n;
-            ret = cbor_value_dup_text_string(it, &buf, &n, it);
-            CBOR_CHECK(ret, "parse text string failed", err, ret);
+            err = cbor_value_dup_text_string(it, &buf, &n, it);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse text string failed");
             puts(buf);
             free(buf);
             continue;
         }
         case CborTagType: {
             CborTag tag;
-            ret = cbor_value_get_tag(it, &tag);
-            CBOR_CHECK(ret, "parse tag failed", err, ret);
+            err = cbor_value_get_tag(it, &tag);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse tag failed");
             printf("Tag(%lld)\n", (long long)tag);
             break;
         }
         case CborSimpleType: {
-            uint8_t type;
-            ret = cbor_value_get_simple_type(it, &type);
-            CBOR_CHECK(ret, "parse simple type failed", err, ret);
-            printf("simple(%u)\n", type);
+            uint8_t simple;
+            err = cbor_value_get_simple_type(it, &simple);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse simple type failed");
+            printf("simple(%u)\n", simple);
             break;
         }
         case CborNullType:
@@ -131,45 +114,40 @@ static CborError example_dump_cbor_buffer(CborValue *it, int nestingLevel)
             break;
         case CborBooleanType: {
             bool val;
-            ret = cbor_value_get_boolean(it, &val);
-            CBOR_CHECK(ret, "parse boolean type failed", err, ret);
+            err = cbor_value_get_boolean(it, &val);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse boolean type failed");
             puts(val ? "true" : "false");
             break;
         }
         case CborHalfFloatType: {
             uint16_t val;
-            ret = cbor_value_get_half_float(it, &val);
-            CBOR_CHECK(ret, "parse half float type failed", err, ret);
+            err = cbor_value_get_half_float(it, &val);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse half float failed");
             printf("__f16(%04x)\n", val);
             break;
         }
         case CborFloatType: {
             float val;
-            ret = cbor_value_get_float(it, &val);
-            CBOR_CHECK(ret, "parse float type failed", err, ret);
+            err = cbor_value_get_float(it, &val);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse float failed");
             printf("%g\n", val);
             break;
         }
         case CborDoubleType: {
             double val;
-            ret = cbor_value_get_double(it, &val);
-            CBOR_CHECK(ret, "parse double float type failed", err, ret);
+            err = cbor_value_get_double(it, &val);
+            ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "parse double failed");
             printf("%g\n", val);
             break;
         }
-        case CborInvalidType: {
-            ret = CborErrorUnknownType;
-            CBOR_CHECK(ret, "unknown cbor type", err, ret);
-            break;
-        }
+        case CborInvalidType:
+            ESP_RETURN_ON_FALSE(false, CborErrorUnknownType, TAG, "unknown cbor type");
         }
 
-        ret = cbor_value_advance_fixed(it);
-        CBOR_CHECK(ret, "fix value failed", err, ret);
+        err = cbor_value_advance_fixed(it);
+        ESP_RETURN_ON_FALSE(err == CborNoError, err, TAG, "advance value failed");
     }
     return CborNoError;
-err:
-    return ret;
 }
 
 void app_main(void)

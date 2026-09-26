@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,7 +10,7 @@
 
 #if FAST_CRC
 
-static const uint8_t dalas_crc8_table[] = {
+static const uint8_t dallas_crc8_table[] = {
     0, 94, 188, 226, 97, 63, 221, 131, 194, 156, 126, 32, 163, 253, 31, 65,
     157, 195, 33, 127, 252, 162, 64, 30, 95,  1, 227, 189, 62, 96, 130, 220,
     35, 125, 159, 193, 66, 28, 254, 160, 225, 191, 93,  3, 128, 222, 60, 98,
@@ -33,7 +33,7 @@ uint8_t onewire_crc8(uint8_t init_crc, uint8_t *input, size_t input_size)
 {
     uint8_t crc = init_crc;
     for (size_t i = 0; i < input_size; i ++) {
-        crc = dalas_crc8_table[crc ^ input[i]];
+        crc = dallas_crc8_table[crc ^ input[i]];
     }
     return crc;
 }

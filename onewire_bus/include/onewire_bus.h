@@ -29,6 +29,8 @@ extern "C" {
  * @return
  *      - ESP_OK: Write bytes to 1-Wire bus successfully
  *      - ESP_ERR_INVALID_ARG: Write bytes to 1-Wire bus failed because of invalid argument
+ *      - ESP_ERR_TIMEOUT: Write bytes to 1-Wire bus failed because of timeout
+ *      - ESP_ERR_INVALID_STATE: Write bytes to 1-Wire bus failed because the bus state is invalid
  *      - ESP_FAIL: Write bytes to 1-Wire bus failed because of other errors
  */
 esp_err_t onewire_bus_write_bytes(onewire_bus_handle_t bus, const uint8_t *tx_data, uint8_t tx_data_size);
@@ -42,6 +44,7 @@ esp_err_t onewire_bus_write_bytes(onewire_bus_handle_t bus, const uint8_t *tx_da
  * @return
  *      - ESP_OK: Read bytes from 1-Wire bus successfully
  *      - ESP_ERR_INVALID_ARG: Read bytes from 1-Wire bus failed because of invalid argument
+ *      - ESP_ERR_TIMEOUT: Read bytes from 1-Wire bus failed because of timeout
  *      - ESP_FAIL: Read bytes from 1-Wire bus failed because of other errors
  */
 esp_err_t onewire_bus_read_bytes(onewire_bus_handle_t bus, uint8_t *rx_buf, size_t rx_buf_size);
@@ -52,8 +55,11 @@ esp_err_t onewire_bus_read_bytes(onewire_bus_handle_t bus, uint8_t *rx_buf, size
  * @param[in] bus 1-wire bus handle
  * @param[in] tx_bit bit to transmit, 0 for zero bit, other for one bit
  * @return
- *         - ESP_OK                Write bit to 1-wire bus successfully.
- *         - ESP_ERR_INVALID_ARG   Invalid argument.
+ *         - ESP_OK: Write bit to 1-wire bus successfully
+ *         - ESP_ERR_INVALID_ARG: Invalid argument
+ *         - ESP_ERR_TIMEOUT: Write bit to 1-wire bus failed because of timeout
+ *         - ESP_ERR_INVALID_STATE: Write bit to 1-wire bus failed because the bus state is invalid
+ *         - ESP_FAIL: Write bit to 1-wire bus failed because of other errors
  */
 esp_err_t onewire_bus_write_bit(onewire_bus_handle_t bus, uint8_t tx_bit);
 
@@ -63,8 +69,10 @@ esp_err_t onewire_bus_write_bit(onewire_bus_handle_t bus, uint8_t tx_bit);
  * @param[in] bus 1-wire bus handle
  * @param[out] rx_bit received bit, 0 for zero bit, 1 for one bit
  * @return
- *         - ESP_OK                Read bit from 1-wire bus successfully.
- *         - ESP_ERR_INVALID_ARG   Invalid argument.
+ *         - ESP_OK: Read bit from 1-wire bus successfully
+ *         - ESP_ERR_INVALID_ARG: Invalid argument
+ *         - ESP_ERR_TIMEOUT: Read bit from 1-wire bus failed because of timeout
+ *         - ESP_FAIL: Read bit from 1-wire bus failed because of other errors
  */
 esp_err_t onewire_bus_read_bit(onewire_bus_handle_t bus, uint8_t *rx_bit);
 
@@ -76,6 +84,7 @@ esp_err_t onewire_bus_read_bit(onewire_bus_handle_t bus, uint8_t *rx_bit);
  * @return
  *      - ESP_OK: Reset 1-Wire bus successfully and find device on the bus
  *      - ESP_ERR_NOT_FOUND: Reset 1-Wire bus successfully but no device found on the bus
+ *      - ESP_ERR_TIMEOUT: Reset 1-Wire bus failed because of timeout
  *      - ESP_FAIL: Reset 1-Wire bus failed because of other errors
  */
 esp_err_t onewire_bus_reset(onewire_bus_handle_t bus);

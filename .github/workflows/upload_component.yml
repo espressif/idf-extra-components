@@ -30,6 +30,7 @@ jobs:
             cbor
             ccomp_timer
             cjson
+            clarke_park
             coap
             coremark
             dhara
@@ -43,6 +44,7 @@ jobs:
             esp_gcov
             esp_isotp
             esp_lcd_qemu_rgb
+            esp_lcd_screenshot
             esp_linenoise
             esp_jpeg
             esp_schedule

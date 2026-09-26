@@ -1,0 +1,7 @@
+name: tinycbor
+version: "7.0.0"
+cpe: cpe:2.3:a:intel:tinycbor:{}:*:*:*:*:*:*:*
+supplier: 'Organization: Intel Corporation <https://www.intel.com>'
+description: Concise Binary Object Representation encoder and decoder, packaged for ESP-IDF
+url: https://github.com/intel/tinycbor
+hash: 6442e749ca811e24afad1551338a45c75e09808f

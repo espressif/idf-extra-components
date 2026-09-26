@@ -710,6 +710,7 @@ TEST_CASE("Flash BDL release then create again (no use-after-free)", "[spi_nand_
     TEST_ASSERT_NOT_NULL(bdl);
 
     uint32_t page_size = bdl->geometry.write_size;
+    TEST_ASSERT_TRUE(flash_bdl_erase_block_if_good(bdl, 0));
     uint8_t *buf = (uint8_t *)heap_caps_malloc(page_size, MALLOC_CAP_DEFAULT);
     TEST_ASSERT_NOT_NULL(buf);
     memset(buf, 0xAA, page_size);

@@ -1,6 +1,24 @@
 # Changelog
 
-Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward this component follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+All notable changes to this component will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). See [VERSIONING.md](VERSIONING.md) for this component's versioning policy.
+
+## [Unreleased]
+- feat: map ECC status correctly on GigaDevice chips using the ECCSE bits (status register F0h)
+
+## [1.4.4] - 2026-09-10
+
+### Fixed
+
+- Extraction of ECC status bits
+
+### Changed
+
+- Demote per-page/per-block traces (`is_bad`, `erase_block`, `is_free`) from debug to verbose log level, since they flooded the log during any full-chip scan or erase
+
+## [1.4.3]
+- fix: add STAT_BUSY hang timeout in wait_for_ready
 
 ## [1.4.2]
 - fix: use Internal Data Move same-parity handling for GigaDevice chips that require it (GD5F2GQ5, GD5F2GM7, GD5F4GQ6, GD5F4GM8, GD5F4GM7, GD5F8GM8), without treating them as hardware dual-plane
@@ -137,4 +155,3 @@ Versioning policy: see [VERSIONING.md](VERSIONING.md). From **v1.0.0** onward th
 - Initial release with basic NAND flash support based on dhara nand library
 - Support for Winbond, Alliance and Gigadevice devices
 - Added test application for the same
-
