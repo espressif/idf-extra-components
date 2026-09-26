@@ -1,0 +1,41 @@
+menu "XYMODEM Test"
+
+    config XYMODEM_TEST_UART_BAUD
+        int "UART baud rate"
+        default 115200
+        range 9600 2000000
+        help
+            Baud rate used by both UART ports in the loopback test.
+
+    config XYMODEM_TEST_SENDER_UART
+        int "Sender UART port number"
+        default 1
+        range 1 5
+        help
+            UART port used by the sender. Do not use the console UART (usually UART0).
+
+    config XYMODEM_TEST_RECEIVER_UART
+        int "Receiver UART port number"
+        default 2
+        range 1 5
+        help
+            UART port used by the receiver. Must be different from the sender port.
+            Requires a target with at least three UART controllers (for example ESP32 or ESP32-S3).
+
+    config XYMODEM_TEST_GPIO_A
+        int "GPIO for sender TX / receiver RX"
+        default 4
+        range 0 63
+        help
+            This GPIO is driven by the sender UART TX and sampled by the receiver UART RX
+            through the GPIO matrix. No external jumper is required.
+
+    config XYMODEM_TEST_GPIO_B
+        int "GPIO for receiver TX / sender RX"
+        default 5
+        range 0 63
+        help
+            This GPIO is driven by the receiver UART TX and sampled by the sender UART RX
+            through the GPIO matrix. No external jumper is required.
+
+endmenu
