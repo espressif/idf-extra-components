@@ -13,7 +13,8 @@
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 
-#include <cJSON.h>
+#include <stdlib.h>
+#include <json_generator.h>
 
 #include <esp_log.h>
 #include <esp_err.h>
@@ -94,6 +95,16 @@ struct network_prov_info {
 /**
  * @brief  Context data for provisioning manager
  */
+/* Application information registered through network_prov_mgr_set_app_info(),
+ * kept until the version string is generated when the service starts */
+struct app_info_entry {
+    char *label;
+    char *version;
+    char **capabilities;
+    size_t total_capabilities;
+    struct app_info_entry *next;
+};
+
 struct network_prov_mgr_ctx {
     /* Provisioning manager configuration */
     network_prov_mgr_config_t mgr_config;
@@ -134,8 +145,8 @@ struct network_prov_mgr_ctx {
     /* Provisioning service information */
     struct network_prov_info mgr_info;
 
-    /* Application related information in JSON format */
-    cJSON *app_info_json;
+    /* Application related information, one entry per label */
+    struct app_info_entry *app_info;
 
     /* Delay after which resources will be cleaned up asynchronously
      * upon execution of network_prov_mgr_stop_provisioning() */
@@ -235,6 +246,95 @@ static void execute_event_cb(network_prov_cb_event_t event_id, void *event_data,
     }
 }
 
+static void app_info_entry_free(struct app_info_entry *entry)
+{
+    for (size_t i = 0; i < entry->total_capabilities; i++) {
+        free(entry->capabilities[i]);
+    }
+    free(entry->capabilities);
+    free(entry->version);
+    free(entry->label);
+    free(entry);
+}
+
+static void app_info_free_all(struct app_info_entry *entry)
+{
+    while (entry) {
+        struct app_info_entry *next = entry->next;
+        app_info_entry_free(entry);
+        entry = next;
+    }
+}
+
+/* Write one application's entry: "<label>":{"ver":"...","cap":[...]} */
+static void app_info_write_entry(json_gen_str_t *jstr, const struct app_info_entry *entry)
+{
+    json_gen_push_object(jstr, entry->label);
+    json_gen_obj_set_string(jstr, "ver", entry->version);
+    json_gen_push_array(jstr, "cap");
+    for (size_t i = 0; i < entry->total_capabilities; i++) {
+        json_gen_arr_set_string(jstr, entry->capabilities[i]);
+    }
+    json_gen_pop_array(jstr);
+    json_gen_pop_object(jstr);
+}
+
+/* Store a copy of the application information. The caller's strings need not
+ * outlive the call. Registering a label again replaces the earlier entry. */
+static esp_err_t app_info_add(const char *label, const char *version,
+                              const char **capabilities, size_t total_capabilities)
+{
+    struct app_info_entry *entry = calloc(1, sizeof(*entry));
+    if (!entry) {
+        return ESP_ERR_NO_MEM;
+    }
+    entry->label = strdup(label);
+    entry->version = strdup(version);
+    if (total_capabilities) {
+        entry->capabilities = calloc(total_capabilities, sizeof(char *));
+    }
+    if (!entry->label || !entry->version || (total_capabilities && !entry->capabilities)) {
+        goto no_mem;
+    }
+    for (size_t i = 0; i < total_capabilities; i++) {
+        if (!capabilities[i]) {
+            continue;
+        }
+        entry->capabilities[entry->total_capabilities] = strdup(capabilities[i]);
+        if (!entry->capabilities[entry->total_capabilities]) {
+            goto no_mem;
+        }
+        entry->total_capabilities++;
+    }
+
+    /* Strings the version document cannot carry (invalid UTF-8) are the
+     * caller's error; report them here rather than at service start */
+    json_gen_str_t jstr;
+    json_gen_str_start_measure(&jstr);
+    json_gen_start_object(&jstr);
+    app_info_write_entry(&jstr, entry);
+    json_gen_end_object(&jstr);
+    if (json_gen_str_end(&jstr) < 0) {
+        app_info_entry_free(entry);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    struct app_info_entry **link = &prov_ctx->app_info;
+    while (*link && strcmp((*link)->label, label) != 0) {
+        link = &(*link)->next;
+    }
+    if (*link) {
+        entry->next = (*link)->next;
+        app_info_entry_free(*link);
+    }
+    *link = entry;
+    return ESP_OK;
+
+no_mem:
+    app_info_entry_free(entry);
+    return ESP_ERR_NO_MEM;
+}
+
 esp_err_t network_prov_mgr_set_app_info(const char *label, const char *version,
                                         const char **capabilities, size_t total_capabilities)
 {
@@ -251,25 +351,7 @@ esp_err_t network_prov_mgr_set_app_info(const char *label, const char *version,
     ACQUIRE_LOCK(prov_ctx_lock);
 
     if (prov_ctx && prov_ctx->prov_state == NETWORK_PROV_STATE_IDLE) {
-        if (!prov_ctx->app_info_json) {
-            prov_ctx->app_info_json = cJSON_CreateObject();
-        }
-
-        cJSON *new_entry_json = cJSON_CreateObject();
-        cJSON *capabilities_json = cJSON_CreateArray();
-        cJSON_AddItemToObject(prov_ctx->app_info_json, label, new_entry_json);
-
-        /* Version ("ver") */
-        cJSON_AddStringToObject(new_entry_json, "ver", version);
-
-        /* List of capabilities ("cap") */
-        cJSON_AddItemToObject(new_entry_json, "cap", capabilities_json);
-        for (unsigned int i = 0; i < total_capabilities; i++) {
-            if (capabilities[i]) {
-                cJSON_AddItemToArray(capabilities_json, cJSON_CreateString(capabilities[i]));
-            }
-        }
-        ret = ESP_OK;
+        ret = app_info_add(label, version, capabilities, total_capabilities);
     } else {
         ret = ESP_ERR_INVALID_STATE;
     }
@@ -278,52 +360,85 @@ esp_err_t network_prov_mgr_set_app_info(const char *label, const char *version,
     return ret;
 }
 
-static cJSON *network_prov_get_info_json(void)
+/* Write the version document: one object per registered application, then
+ * the provisioning service's own information under "prov" */
+static void network_prov_write_info_json(json_gen_str_t *jstr)
 {
-    cJSON *full_info_json = prov_ctx->app_info_json ?
-                            cJSON_Duplicate(prov_ctx->app_info_json, 1) : cJSON_CreateObject();
-    cJSON *prov_info_json = cJSON_CreateObject();
-    cJSON *prov_capabilities = cJSON_CreateArray();
+    json_gen_start_object(jstr);
+
+    for (struct app_info_entry *entry = prov_ctx->app_info; entry; entry = entry->next) {
+        app_info_write_entry(jstr, entry);
+    }
 
     /* Use label "prov" to indicate provisioning related information */
-    cJSON_AddItemToObject(full_info_json, "prov", prov_info_json);
+    json_gen_push_object(jstr, "prov");
 
     /* Version field */
-    cJSON_AddStringToObject(prov_info_json, "ver", prov_ctx->mgr_info.version);
+    json_gen_obj_set_string(jstr, "ver", prov_ctx->mgr_info.version);
 
     /* Security field */
-    cJSON_AddNumberToObject(prov_info_json, "sec_ver", prov_ctx->security);
+    json_gen_obj_set_int(jstr, "sec_ver", (int)prov_ctx->security);
 #ifdef CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_PATCH_VERSION
     int sec_ver = 0;
     uint8_t sec_patch_ver = 0;
     protocomm_get_sec_version(prov_ctx->pc, &sec_ver, &sec_patch_ver);
     assert(sec_ver == prov_ctx->security);
-    cJSON_AddNumberToObject(prov_info_json, "sec_patch_ver", sec_patch_ver);
+    json_gen_obj_set_int(jstr, "sec_patch_ver", sec_patch_ver);
 #endif
 
     /* Capabilities field */
-    cJSON_AddItemToObject(prov_info_json, "cap", prov_capabilities);
+    json_gen_push_array(jstr, "cap");
 
     /* If Security / Proof of Possession is not used, indicate in capabilities */
     if (prov_ctx->mgr_info.capabilities.no_sec) {
-        cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("no_sec"));
+        json_gen_arr_set_string(jstr, "no_sec");
     } else if (prov_ctx->mgr_info.capabilities.no_pop) {
-        cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("no_pop"));
+        json_gen_arr_set_string(jstr, "no_pop");
     }
 
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
     /* Indicate capability for performing Wi-Fi provision */
-    cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("wifi_prov"));
+    json_gen_arr_set_string(jstr, "wifi_prov");
     /* Indicate capability for performing Wi-Fi scan */
-    cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("wifi_scan"));
+    json_gen_arr_set_string(jstr, "wifi_scan");
 #endif
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
     /* Indicate capability for performing Thread provision */
-    cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("thread_prov"));
+    json_gen_arr_set_string(jstr, "thread_prov");
     /* Indicate capability for performing Thread scan */
-    cJSON_AddItemToArray(prov_capabilities, cJSON_CreateString("thread_scan"));
+    json_gen_arr_set_string(jstr, "thread_scan");
 #endif
-    return full_info_json;
+    json_gen_pop_array(jstr);
+    json_gen_pop_object(jstr);
+    json_gen_end_object(jstr);
+}
+
+/* Returns the version document in a buffer of exactly the right size, which
+ * the caller frees, or NULL if out of memory (the strings were validated when
+ * they were registered) */
+static char *network_prov_get_info_json(void)
+{
+    json_gen_str_t jstr;
+
+    json_gen_str_start_measure(&jstr);
+    network_prov_write_info_json(&jstr);
+    int len = json_gen_str_end(&jstr);
+    if (len < 0) {
+        ESP_LOGE(TAG, "Failed to generate version information (%d)", len);
+        return NULL;
+    }
+
+    char *json = malloc(len);
+    if (!json) {
+        return NULL;
+    }
+    json_gen_str_start(&jstr, json, len, NULL, NULL);
+    network_prov_write_info_json(&jstr);
+    if (json_gen_str_end(&jstr) < 0) {
+        free(json);
+        return NULL;
+    }
+    return json;
 }
 
 /* Declare the internal event handler */
@@ -394,11 +509,13 @@ static esp_err_t network_prov_mgr_start_service(const char *service_name, const 
     }
 
     /* Set version information / capabilities of provisioning service and application */
-    cJSON *version_json = network_prov_get_info_json();
-    char *version_str = cJSON_Print(version_json);
-    ret = protocomm_set_version(prov_ctx->pc, "proto-ver", version_str);
-    free(version_str);
-    cJSON_Delete(version_json);
+    char *version_str = network_prov_get_info_json();
+    if (!version_str) {
+        ret = ESP_ERR_NO_MEM;
+    } else {
+        ret = protocomm_set_version(prov_ctx->pc, "proto-ver", version_str);
+        free(version_str);
+    }
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set version endpoint");
         scheme->prov_stop(prov_ctx->pc);
@@ -2028,9 +2145,7 @@ esp_err_t network_prov_mgr_deinit(void)
         return ESP_OK;
     }
 
-    if (prov_ctx->app_info_json) {
-        cJSON_Delete(prov_ctx->app_info_json);
-    }
+    app_info_free_all(prov_ctx->app_info);
 
     if (prov_ctx->prov_scheme_config) {
         prov_ctx->mgr_config.scheme.delete_config(prov_ctx->prov_scheme_config);
