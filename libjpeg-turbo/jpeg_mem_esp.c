@@ -5,9 +5,10 @@
  */
 
 #include <stddef.h>
-
+#include "sdkconfig.h"
 #include "esp_heap_caps.h"
 
+#if CONFIG_LIBJPEG_TURBO_ALLOC_PREFER_SPIRAM
 /*
  * libjpeg-turbo's memory manager (jmemmgr.c) gets all of its memory through
  * jpeg_get_small() and jpeg_get_large() in jmemnobs.c, which call malloc().
@@ -39,3 +40,4 @@ void *__wrap_jpeg_get_large(struct jpeg_common_struct *cinfo, size_t sizeofobjec
     (void)cinfo;
     return jpeg_caps_malloc(sizeofobject);
 }
+#endif // CONFIG_LIBJPEG_TURBO_ALLOC_PREFER_SPIRAM
