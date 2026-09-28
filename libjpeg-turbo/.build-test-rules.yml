@@ -1,4 +1,10 @@
-libjpeg-turbo/examples/hello_jpeg:
+libjpeg-turbo/host_test:
+  enable:
+    - if: IDF_TARGET == "linux"
+  disable:
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 4
+
+libjpeg-turbo/examples/progressive_jpeg:
   enable:
     - if: IDF_TARGET in ["esp32", "esp32c3", "esp32c5"]
       reason: "Sufficient to test on representative Xtensa and RISC-V targets"
