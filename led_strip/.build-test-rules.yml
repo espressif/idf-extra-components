@@ -1,0 +1,9 @@
+led_strip/examples/led_strip_rmt_ws2812:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32s3", "esp32c3", "esp32c5"]
+      reason: Test on representative ESP targets only
+
+led_strip/examples/led_strip_spi_ws2812:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32s3", "esp32c3", "esp32c5"]
+      reason: Test on representative ESP targets only
