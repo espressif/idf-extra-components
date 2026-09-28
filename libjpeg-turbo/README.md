@@ -50,7 +50,10 @@ jpeg_read_header(&cinfo, TRUE);
 jpeg_start_decompress(&cinfo);
 ```
 
-The [examples/hello_jpeg](examples/hello_jpeg/README.md) project decodes a bundled JPEG and prints the result — a complete starting point for ESP-IDF.
+An example and a host test ship with the component:
+
+- [examples/progressive_jpeg](examples/progressive_jpeg/README.md) decodes a 64×32 progressive JPEG one fragment at a time and prints the whole picture after every scan — a starting point for any application that wants a preview before the download has finished. The simple in-memory path (`jpeg_mem_src()` plus `jpeg_read_scanlines()`) is the snippet above; the example adds a suspending source and buffered-image mode on top of it.
+- [host_test](host_test) exercises that in-memory encode/decode path on the Linux target with Unity: header parsing, RGB and grayscale output with pinned checksums, an encode/decode roundtrip, and malformed-input error handling. Run it with `idf.py --preview set-target linux && idf.py build monitor` from the `host_test` directory.
 
 ## API documentation
 
