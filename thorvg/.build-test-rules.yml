@@ -1,6 +1,7 @@
 thorvg/examples/thorvg_lottie:
+  enable:
+    - if: IDF_TARGET in ["esp32s3", "esp32p4"]
+      reason: "Running lottie animation requires a large PSRAM"
   disable:
-    - if: IDF_TARGET not in ["esp32s3", "esp32p4"]
-      reason: Running lottie animation requires a large PSRAM
     - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 5
-      reason: test version >= 5.5 is sufficient
+      reason: ESP32-P4 is supported only on IDF v5.5 and above

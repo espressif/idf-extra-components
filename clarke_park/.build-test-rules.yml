@@ -3,4 +3,5 @@ clarke_park/host_test:
     - if: IDF_TARGET == "linux"
       reason: "The Clarke/Park transforms are pure math, so the float and IQmath backends are fully validated on the Linux host."
   disable:
-    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 4
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 5
+      reason: test linux target on version >= 5.5 is sufficient
