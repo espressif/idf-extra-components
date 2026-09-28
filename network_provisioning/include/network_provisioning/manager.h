@@ -207,6 +207,39 @@ typedef struct network_prov_scheme {
 /**
  * @brief   Structure for specifying the manager configuration
  */
+/**
+ * @brief   Operating mode of the provisioning manager
+ */
+typedef enum {
+    /**
+     * Full provisioning mode (default, backward compatible).
+     * The manager registers all provisioning endpoints (prov-session, proto-ver,
+     * prov-config, prov-scan, prov-ctrl) and runs the full provisioning state
+     * machine.
+     */
+    NETWORK_PROV_MODE_FULL = 0,
+
+    /**
+     * Session-only mode: the provisioning transport is kept alive after
+     * provisioning completes (and on already-provisioned boots) so that
+     * the application can reuse the protocomm session for its own purposes.
+     * Only prov-session and proto-ver are registered by default; no
+     * provisioning endpoints or state machine are active.
+     *
+     * Call network_prov_mgr_enable_provisioning() between init() and
+     * start_provisioning() to optionally layer provisioning on top.
+     *
+     * network_prov_mgr_set_app_info() works identically in this mode.
+     * Capabilities such as no_pop/no_sec are still set automatically based
+     * on the security parameters passed to start_provisioning(). Provisioning
+     * capabilities (wifi_scan, wifi_prov, etc.) are added only if
+     * enable_provisioning() has been called.
+     *
+     * Applicable to all transport schemes (BLE, SoftAP, etc.).
+     */
+    NETWORK_PROV_MODE_SESSION_ONLY,
+} network_prov_mode_t;
+
 typedef struct {
     /**
      * Provisioning scheme to use. Following schemes are already available:
@@ -215,6 +248,13 @@ typedef struct {
      *     - network_prov_scheme_console : for provisioning over Serial UART transport + Console (for debugging)
      */
     network_prov_scheme_t scheme;
+
+    /**
+     * Operating mode. Set to NETWORK_PROV_MODE_SESSION_ONLY to keep the
+     * transport alive after provisioning for application reuse of the
+     * protocomm session. Default (0) = NETWORK_PROV_MODE_FULL.
+     */
+    network_prov_mode_t mode;
 
     /**
      * Event handler required by the scheme for incorporating scheme specific
@@ -239,6 +279,7 @@ typedef struct {
      */
     network_prov_wifi_conn_cfg_t network_prov_wifi_conn_cfg;
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
+
 } network_prov_mgr_config_t;
 
 /**
@@ -528,6 +569,42 @@ esp_err_t network_prov_mgr_disable_auto_stop(uint32_t cleanup_delay);
  */
 esp_err_t network_prov_mgr_set_app_info(const char *label, const char *version,
                                         const char **capabilities, size_t total_capabilities);
+
+/**
+ * @brief   Enable provisioning endpoints in SESSION_ONLY mode
+ *
+ * In NETWORK_PROV_MODE_SESSION_ONLY, the manager does not register the
+ * provisioning endpoints (prov-config, prov-scan, prov-ctrl) or run the
+ * provisioning state machine by default. Call this API between
+ * network_prov_mgr_init() and network_prov_mgr_start_provisioning() to
+ * opt-in to full provisioning on this boot.
+ *
+ * After this call, start_provisioning() behaves identically to
+ * NETWORK_PROV_MODE_FULL: it registers all provisioning handlers, adds
+ * wifi_scan/wifi_prov capabilities to proto-ver, and runs the state machine.
+ *
+ * Has no effect (returns ESP_OK) in NETWORK_PROV_MODE_FULL, since
+ * provisioning is always enabled in that mode.
+ *
+ * Must be called while the manager is in the idle state (after init, before
+ * start_provisioning).
+ *
+ * @return
+ *  - ESP_OK              : Success
+ *  - ESP_ERR_INVALID_STATE : Manager not initialized or already started
+ */
+esp_err_t network_prov_mgr_enable_provisioning(void);
+
+/**
+ * @brief   Get the provisioning manager mode configured at initialization
+ *
+ * May be called from any provisioning event handler, including NETWORK_PROV_DEINIT
+ * (where the manager context has already been freed). In that case the cached
+ * mode from the last initialization is returned.
+ *
+ * @return  NETWORK_PROV_MODE_FULL or NETWORK_PROV_MODE_SESSION_ONLY
+ */
+network_prov_mode_t network_prov_mgr_get_mode(void);
 
 /**
  * @brief   Create an additional endpoint and allocate internal resources for it
