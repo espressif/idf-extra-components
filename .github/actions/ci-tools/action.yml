@@ -1,0 +1,10 @@
+name: ESP-IDF CI tools
+description: Make the scripts shipped with this CI revision available to every job.
+runs:
+  using: composite
+  steps:
+    - name: Locate CI tools
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: echo "IDF_CI_TOOLS_PATH=$ACTION_PATH" >> "$GITHUB_ENV"

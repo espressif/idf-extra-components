@@ -1,0 +1,79 @@
+{
+  "idf_targets": [
+    "esp32",
+    "esp32s2",
+    "esp32s3",
+    "esp32c3",
+    "linux"
+  ],
+  "parallel_count": 5,
+  "runs_per_job": 40,
+  "profiles": {
+    "default": {
+      "exclude_markers": []
+    },
+    "no-linux-tests": {
+      "exclude_markers": [
+        "host_test"
+      ]
+    }
+  },
+  "runner_policy": {
+    "default_labels": [
+      "self-hosted",
+      "linux",
+      "docker"
+    ],
+    "environments": {
+      "hardware": {},
+      "qemu": {
+        "pytest_args": "--embedded-services idf,qemu",
+        "targets": [
+          "esp32s3",
+          "esp32c3"
+        ]
+      },
+      "host_test": {
+        "labels": [
+          "ubuntu-latest"
+        ],
+        "pytest_args": "--embedded-services idf"
+      }
+    },
+    "tag_aliases": {
+      "generic": []
+    },
+    "overrides": [
+      {
+        "targets": [
+          "esp32"
+        ],
+        "markers": [
+          "ethernet"
+        ],
+        "replace_tags": [
+          "esp32",
+          "ethernet"
+        ],
+        "labels": [
+          "ESP32-ETHERNET-KIT"
+        ]
+      },
+      {
+        "targets": [
+          "esp32"
+        ],
+        "markers": [
+          "spi_nand_flash"
+        ],
+        "replace_tags": [
+          "esp32",
+          "spi_nand_flash"
+        ],
+        "labels": [
+          "spi_nand_flash"
+        ]
+      }
+    ]
+  }
+}
