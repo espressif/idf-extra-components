@@ -39,14 +39,25 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
     ret = nand_wl_attach_ops(*handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to attach wear-leveling operations");
+        spi_nand_flash_deinit_device(*handle);
+        *handle = NULL;
+        return ret;
     }
 
     if ((*handle)->ops->init == NULL) {
         ESP_LOGE(TAG, "Failed to initialize spi_nand_ops");
-        ret = ESP_FAIL;
+        spi_nand_flash_deinit_device(*handle);
+        *handle = NULL;
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    ret = (*handle)->ops->init(*handle, NULL);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize wear-leveling state");
+        spi_nand_flash_deinit_device(*handle);
+        *handle = NULL;
         return ret;
     }
-    (*handle)->ops->init(*handle, NULL);
 
     return ESP_OK;
 #endif // CONFIG_NAND_FLASH_ENABLE_BDL

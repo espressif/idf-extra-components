@@ -18,6 +18,42 @@
 
 static const char *TAG = "nand_diag";
 
+esp_err_t nand_get_perf_stats(spi_nand_flash_device_t *flash, spi_nand_flash_perf_stats_t *stats)
+{
+    if (flash == NULL || stats == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    xSemaphoreTake(flash->mutex, portMAX_DELAY);
+    esp_err_t ret = nand_wl_get_perf_stats(flash, stats);
+    xSemaphoreGive(flash->mutex);
+    return ret;
+}
+
+esp_err_t nand_reset_perf_stats(spi_nand_flash_device_t *flash)
+{
+    if (flash == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    xSemaphoreTake(flash->mutex, portMAX_DELAY);
+    esp_err_t ret = nand_wl_reset_perf_stats(flash);
+    xSemaphoreGive(flash->mutex);
+    return ret;
+}
+
+esp_err_t nand_invalidate_metadata_cache(spi_nand_flash_device_t *flash)
+{
+    if (flash == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    xSemaphoreTake(flash->mutex, portMAX_DELAY);
+    esp_err_t ret = nand_wl_invalidate_metadata_cache(flash);
+    xSemaphoreGive(flash->mutex);
+    return ret;
+}
+
 esp_err_t nand_get_bad_block_stats(spi_nand_flash_device_t *flash, uint32_t *bad_block_count)
 {
     esp_err_t ret = ESP_OK;

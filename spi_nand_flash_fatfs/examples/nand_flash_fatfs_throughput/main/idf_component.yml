@@ -1,0 +1,8 @@
+dependencies:
+  espressif/spi_nand_flash_fatfs:
+    version: '*'
+    override_path: '../../../'
+  espressif/cjson:
+    version: "^1.7.19"
+    rules:
+      - if: "idf_version >= 6.0"
