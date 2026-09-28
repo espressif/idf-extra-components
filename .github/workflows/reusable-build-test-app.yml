@@ -64,7 +64,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: $/.github/actions/setup-idf-build-env
+      # Fetch helpers from this workflow's revision, not the caller's checkout.
+      # Remote action staging follows dangling submodule symlinks in this repo.
+      - name: Checkout shared CI helpers
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/ci-source
+          sparse-checkout: /.github/actions/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: ./.github/ci-source/.github/actions/setup-idf-build-env
         with:
           install_python_tools: 'false'
       - name: Build test app

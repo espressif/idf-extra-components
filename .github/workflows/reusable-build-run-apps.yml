@@ -52,13 +52,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - uses: $/.github/actions/ci-tools
+      # Fetch helpers from this workflow's revision, not the caller's checkout.
+      # Remote action staging follows dangling submodule symlinks in this repo.
+      - name: Checkout shared CI helpers
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/ci-source
+          sparse-checkout: /.github/actions/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: ./.github/ci-source/.github/actions/ci-tools
       - name: Install ESP-IDF Python environment
         shell: bash
         run: |
           export IDF_PYTHON_CHECK_CONSTRAINTS=yes
           "${IDF_PATH}/install.sh" --enable-ci
-      - uses: $/.github/actions/setup-idf-build-env
+      - uses: ./.github/ci-source/.github/actions/setup-idf-build-env
         with:
           target: ${{ inputs.idf_target }}
       - name: Build apps
@@ -99,8 +110,26 @@ jobs:
       image: ${{ inputs.idf_target == 'linux' && 'python:3.14-slim-trixie' || 'python:3.11-bookworm' }}
       options: ${{ inputs.idf_target != 'linux' && '--privileged' || '' }}
     steps:
+      - name: Ensure Git is available for sparse checkout
+        shell: bash
+        run: |
+          if ! command -v git >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y --no-install-recommends git
+          fi
       - uses: actions/checkout@v4
-      - uses: $/.github/actions/ci-tools
+      # Fetch helpers from this workflow's revision, not the caller's checkout.
+      # Remote action staging follows dangling submodule symlinks in this repo.
+      - name: Checkout shared CI helpers
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/ci-source
+          sparse-checkout: /.github/actions/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: ./.github/ci-source/.github/actions/ci-tools
       - uses: actions/download-artifact@v4
         with:
           pattern: app_binaries_${{ inputs.pipeline_id }}_${{ inputs.idf_target }}_*

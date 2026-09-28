@@ -19,9 +19,16 @@ test, downstream jobs run from dynamic matrices.
   compile coverage. Empty matrices are skipped explicitly.
 - Runner/shard policy lives in `.github/ci-config.json`. Generic named test
   profiles replace the separate per-marker lists of IDF versions.
+- Test groups, target requirements and complete marker combinations come
+  from the pinned idf-ci collection API. Infrastructure policy supplies
+  shared labels and explicit runner aliases; new environment markers such
+  as `quad_psram` need no per-target test configuration. Workers select the
+  collected node IDs after applying build-metadata directory exclusions.
 - Shared scripts and tool pins are packaged in `.github/actions/ci-tools`.
-  Self-repository action references (`$/`) keep them on the CI revision
-  when another repository invokes the workflow.
+  A separate sparse checkout using `job.workflow_repository` and
+  `job.workflow_sha` keeps local helper actions on the CI revision when
+  another repository invokes the workflow. This avoids the runner's remote
+  action staging failure on dangling links into submodules.
 - Builds still use `idf-build-apps`. Metadata drives tar artifact packaging
   and the existing pytest app selection; paths and Linux executable modes
   survive upload/download independently of the consumer's directory layout.
@@ -174,14 +181,19 @@ Prerequisites confirmed against published idf-ci 1.3.0:
   (idf-ci shells out to idf.py; env-based flags should still apply — verify
   on one component).
 
-### 4. Switch test selection to `idf-ci test collect`
+### 4. Switch test selection to collected groups — PARTIALLY DONE
 
-- Generate the test matrix from collected cases (grouped by target + env
-  marker) instead of static `test_configs` in ci-matrix.json.
-- Test job runs pytest with the collected case list / `-m` marker directly;
-  delete the packaged `actions/ci-tools/get_pytest_args.py`.
-- Keep the runner-label mapping (generic/ethernet/spi_nand_flash/qemu)
-  somewhere explicit — either in ci-matrix.json or derived from markers.
+- Done: generate groups from the idf-ci API underlying `test collect`,
+  retaining complete marker requirements, runner tags and exact node IDs.
+  The API avoids losing spaces in parametrized IDs in the CLI formatter.
+- Done: replace static `test_configs` with shared labels, tag aliases and
+  infrastructure overrides. Hardware markers such as `quad_psram` pass
+  through dynamically; QEMU keeps explicit infrastructure target limits.
+- Done: select exact nodes via a pytest collection hook after build-info
+  directory exclusions. Use stable group IDs for artifact names and collect
+  Linux IDs in the same target context as the Linux worker.
+- Pending: remove `get_pytest_args.py` only when native artifact filtering
+  agrees with the build-directory and changed-component contracts in step 3.
 
 ### 5. Clean up the prepare job and delete custom scripts
 

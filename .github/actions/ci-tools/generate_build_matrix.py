@@ -6,7 +6,7 @@ never extrapolates application counts or test availability to other versions.
 """
 
 import argparse
- import hashlib
+import hashlib
 import json
 import math
 import os
