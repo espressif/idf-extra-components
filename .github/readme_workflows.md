@@ -33,6 +33,24 @@ and schedule triggers, labels, component selection, reporting and stable
 `CI Gate` status. Each target's tests wait only for that target's build
 shards in its own IDF version. There is no cross-version matrix aggregation.
 
+The Actions sidebar can flatten the nested target workflows, so leaf job
+names include the target explicitly. For example, under `CI (release-v5.5)`:
+
+```text
+Build esp32 (shard 1/2)
+Build esp32 (shard 2/2)
+Test esp32 (generic)
+Build esp32s3 (shard 1/2)
+Test esp32s3 (qemu)
+Build linux (shard 1/1)
+Test linux (host_test)
+Build other targets (compile only, shard 1/5)
+```
+
+`shard 1/2` means the first of two parallel batches of applications for that
+target. `other targets` compiles applications for targets outside
+`ci-config.json`'s `idf_targets`; those jobs do not run runtime tests.
+
 ## Configuration and public inputs
 
 Two project-owned files have separate responsibilities:

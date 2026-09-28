@@ -100,7 +100,7 @@ jobs:
       test_matrix: ${{ toJSON(matrix.tests) }}
 
   build-extra:
-    name: Build other targets (${{ matrix.parallel_index }}/${{ matrix.parallel_count }})
+    name: Build other targets (compile only, shard ${{ matrix.parallel_index }}/${{ matrix.parallel_count }})
     needs: generate
     if: needs.generate.outputs.has_extra == 'true'
     strategy:

@@ -40,8 +40,9 @@ on:
         default: '[]'
 
 jobs:
+  # GitHub may flatten nested workflow jobs in the sidebar; each leaf names its target.
   build:
-    name: Build (${{ matrix.parallel_index }}/${{ inputs.parallel_count }})
+    name: Build ${{ inputs.idf_target }} (shard ${{ matrix.parallel_index }}/${{ inputs.parallel_count }})
     strategy:
       fail-fast: false
       matrix:
@@ -95,7 +96,7 @@ jobs:
           if-no-files-found: error
 
   run-target:
-    name: Test (${{ matrix.config.marker }})
+    name: Test ${{ inputs.idf_target }} (${{ matrix.config.marker }})
     if: inputs.run_test
     needs: build
     strategy:
