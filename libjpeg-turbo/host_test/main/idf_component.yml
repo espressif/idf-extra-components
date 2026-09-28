@@ -1,0 +1,4 @@
+dependencies:
+  espressif/libjpeg-turbo:
+    version: "*"
+    override_path: "../../"
