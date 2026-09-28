@@ -1,0 +1,8 @@
+raylib/examples/esp32/m5stack-core2_hello:
+  enable:
+    - if: IDF_TARGET in ["esp32"]
+      reason: "One ESP32 target"
+raylib/examples/esp32s3/espressif-esp32-s3-box-3_hello:
+  enable:
+    - if: IDF_TARGET in ["esp32s3"]
+      reason: "One ESP32-S3 target"
