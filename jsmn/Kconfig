@@ -11,11 +11,16 @@ menu "jsmn"
         bool "Enable strict mode"
         default n
         help
-            In strict mode primitives are: numbers and booleans
+            Accept exactly the JSON grammar of RFC 8259: separators are
+            checked, primitives must be true, false, null or a number as the
+            RFC spells it, strings may not contain raw control characters,
+            the text must be UTF-8, and there is exactly one top-level value.
+            A NUL byte inside the given length is an error, not an end of
+            text marker. Without strict mode the tokenizer is permissive.
 
     config JSMN_STATIC
         bool "Declare JSMN API as static"
-        default node
+        default n
         help
             Declare JSMN API as static (instead of extern)
 
