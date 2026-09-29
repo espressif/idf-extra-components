@@ -1,0 +1,4 @@
+# int64_t formatting without a 64-bit printf. Both options exist on ESP-IDF 6.x only;
+# on 5.x this variant builds with the default libc.
+CONFIG_LIBC_NEWLIB=y
+CONFIG_LIBC_NEWLIB_NANO_FORMAT=y

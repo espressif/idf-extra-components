@@ -25,7 +25,13 @@
 
 #include <json_generator.h>
 
-#define MAX_INT_IN_STR      24
+/* Whether snprintf() can format a 64-bit integer; ESP-IDF's "nano" printf
+ * (CONFIG_LIBC_NEWLIB_NANO_FORMAT) cannot, and CMakeLists.txt sets this to 0 */
+#ifndef JSON_GEN_PRINTF_HAS_INT64
+#define JSON_GEN_PRINTF_HAS_INT64 1
+#endif
+
+/* The longest int64 is 20 characters, plus NUL */
 #define MAX_INT64_IN_STR    24
 /* "%.Nf" of FLT_MAX: 39 integer digits + '.' + N fraction digits + sign + NUL */
 #define MAX_FLOAT_IN_STR    (39 + 1 + JSON_FLOAT_PRECISION + 1 + 1)
@@ -350,7 +356,7 @@ int json_gen_arr_set_bool(json_gen_str_t *jstr, bool val)
     return json_gen_set_bool(jstr, val);
 }
 
-/* Add a formatted number, refusing to emit anything snprintf had to truncate */
+/* Add a formatted number, refusing to emit anything the formatter had to truncate */
 static int json_gen_add_number(json_gen_str_t *jstr, const char *str, int cap, int written)
 {
     jstr->comma_req = true;
@@ -360,11 +366,11 @@ static int json_gen_add_number(json_gen_str_t *jstr, const char *str, int cap, i
     return json_gen_add_len(jstr, str, written);
 }
 
+static int json_gen_set_int64(json_gen_str_t *jstr, int64_t val);
+
 static int json_gen_set_int(json_gen_str_t *jstr, int val)
 {
-    char str[MAX_INT_IN_STR];
-    int written = snprintf(str, sizeof(str), "%d", val);
-    return json_gen_add_number(jstr, str, sizeof(str), written);
+    return json_gen_set_int64(jstr, val);
 }
 
 int json_gen_obj_set_int(json_gen_str_t *jstr, const char *name, int val)
@@ -380,10 +386,33 @@ int json_gen_arr_set_int(json_gen_str_t *jstr, int val)
     return json_gen_set_int(jstr, val);
 }
 
+#if JSON_GEN_PRINTF_HAS_INT64
+#define json_gen_format_int64(str, size, val) snprintf(str, size, "%" PRId64, val)
+#else
+/* Decimal text of val, as "%" PRId64 writes it: digits are produced from the
+ * end of str backwards, then moved to the front. size is MAX_INT64_IN_STR. */
+static int json_gen_format_int64(char *str, int size, int64_t val)
+{
+    char *end = str + size - 1, *p = end;
+    uint64_t mag = val < 0 ? 0 - (uint64_t)val : (uint64_t)val;
+    *p = '\0';
+    do {
+        uint64_t q = mag / 10;   /* one 64-bit division per digit */
+        *--p = (char)('0' + (unsigned)(mag - q * 10));
+        mag = q;
+    } while (mag);
+    if (val < 0) {
+        *--p = '-';
+    }
+    memmove(str, p, end - p + 1);
+    return (int)(end - p);
+}
+#endif
+
 static int json_gen_set_int64(json_gen_str_t *jstr, int64_t val)
 {
     char str[MAX_INT64_IN_STR];
-    int written = snprintf(str, sizeof(str), "%" PRId64, val);
+    int written = json_gen_format_int64(str, sizeof(str), val);
     return json_gen_add_number(jstr, str, sizeof(str), written);
 }
 

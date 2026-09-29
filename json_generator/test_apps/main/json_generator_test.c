@@ -47,6 +47,19 @@ TEST_CASE("object with nested array and every scalar type", "[json_generator]")
                "\"n\":null,\"cap\":[\"wifi_prov\",7,false,null],\"o\":{}}");
 }
 
+TEST_CASE("int64 extremes, with or without a 64-bit printf", "[json_generator]")
+{
+    BEGIN();
+    json_gen_start_array(&j);
+    json_gen_arr_set_int64(&j, INT64_MIN);
+    json_gen_arr_set_int64(&j, INT64_MAX);
+    json_gen_arr_set_int64(&j, 0);
+    json_gen_arr_set_int64(&j, -1);
+    json_gen_arr_set_int64(&j, 1000000000000LL);
+    json_gen_end_array(&j);
+    END_EXPECT("[-9223372036854775808,9223372036854775807,0,-1,1000000000000]");
+}
+
 TEST_CASE("top-level array", "[json_generator]")
 {
     BEGIN();

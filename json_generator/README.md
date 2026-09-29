@@ -30,7 +30,9 @@ Include the C and H files in your project's build system and that should be enou
   (`JSON_FLOAT_PRECISION`, default 5). `json_gen_*_set_double()` writes the
   fewest significant digits (15 to 17) that parse back to the same value, so
   `0.1` is written as `0.1`, not `0.10000000000000001`. NaN and infinity have
-  no JSON representation and are written as `null`.
+  no JSON representation and are written as `null`. `int64_t` values are
+  written correctly even with ESP-IDF's "nano" printf
+  (`CONFIG_LIBC_NEWLIB_NANO_FORMAT`), which cannot format 64-bit integers.
 - **Errors** — every generating call returns `0` or a negative
   `JSON_GEN_ERR_*` code; `json_gen_str_end()` returns the generated size
   (including the terminator) or the negative code. The first error is
