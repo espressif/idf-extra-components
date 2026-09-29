@@ -21,6 +21,25 @@ static const char *TAG = "nand_winbond";
  * so keep it vendor-local. */
 #define WB_REG_ECC_MBF  0x30
 
+/* Status Register-2 (B0h) BUF bit: 1 = Buffer Read mode, 0 = Continuous/Sequential Read mode.
+ * The driver only supports Buffer Read: one page per read, column address honoured, and ECC
+ * status for that page. BUF is volatile and its power-on default differs by part suffix
+ * (W25N01GVxxxT powers up with BUF=0), which the JEDEC ID does not reveal. On the KV parts,
+ * BUF=0 also disables internal ECC. */
+#define WB_CONFIG_BUF   (1 << 3)
+
+static esp_err_t wb_enable_buffer_read(spi_nand_flash_device_t *dev)
+{
+    uint8_t config;
+
+    ESP_RETURN_ON_ERROR(spi_nand_read_register(dev, REG_CONFIG, &config), TAG, "failed to read config register");
+    if (config & WB_CONFIG_BUF) {
+        return ESP_OK;
+    }
+    ESP_LOGD(TAG, "BUF=0 at init (config 0x%02" PRIx8 "), switching to Buffer Read mode", config);
+    return spi_nand_write_register(dev, REG_CONFIG, config | WB_CONFIG_BUF);
+}
+
 /* ECC status decoders installed as dev->ecc_status_decoder. Only the 30h read lives here;
  * the bit decoding is in nand_winbond_ecc_decode.c so host tests can exercise it. */
 static esp_err_t wb_kv_ecc_decode(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
@@ -83,5 +102,6 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
     default:
         return ESP_ERR_INVALID_RESPONSE;
     }
+    ESP_RETURN_ON_ERROR(wb_enable_buffer_read(dev), TAG, "failed to enable Buffer Read mode");
     return ESP_OK;
 }
