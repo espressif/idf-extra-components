@@ -5,6 +5,7 @@ import json
 import math
 
 import pytest
+from pytest_embedded_idf.utils import idf_parametrize
 
 # One entry per document printed by print_corpus() in json_generator_test.c,
 # in the same order. 'ERR' means the generator must refuse to produce it.
@@ -27,6 +28,7 @@ def _reject_constants(name: str) -> None:
 
 
 @pytest.mark.generic
+@idf_parametrize('target', ['esp32'], indirect=['target'])
 def test_json_generator(dut) -> None:
     got = []
     while True:
