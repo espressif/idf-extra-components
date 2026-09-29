@@ -61,6 +61,12 @@ static esp_err_t wb_ecc_decode_1bit_strength(spi_nand_flash_device_t *dev, uint8
     return ESP_OK;
 }
 
+/* 1-bit (Hamming) parts report at most 1 corrected bit, so the default threshold of 4 would
+ * never trigger a refresh. After a 1-bit correction a sector has no margin left: one more flip
+ * makes it uncorrectable. Refresh on any correction (matches Linux MTD's default
+ * bitflip_threshold of 3/4 of the ECC strength, rounded up). */
+#define WB_1BIT_ECC_REFRESH_THRESHOLD  1
+
 #define SWAP_BYTES(x)  (uint16_t)((((x) & 0xFF) << 8) | (((x) >> 8) & 0xFF))
 
 esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
@@ -84,12 +90,14 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
     case WINBOND_DI_BA20: // W25N512GWxxR/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
         dev->chip.num_blocks = 512;
         dev->ecc_status_decoder = wb_ecc_decode_1bit_strength;
+        dev->chip.ecc_data.ecc_data_refresh_threshold = WB_1BIT_ECC_REFRESH_THRESHOLD;
         break;
     case WINBOND_DI_AA21: // W25N01GVxxxG/T/R (3.3 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BA21: // W25N01GWxxxG/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BC21: // W25N01JWxxxG/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
         dev->chip.num_blocks = 1024;
         dev->ecc_status_decoder = wb_ecc_decode_1bit_strength;
+        dev->chip.ecc_data.ecc_data_refresh_threshold = WB_1BIT_ECC_REFRESH_THRESHOLD;
         break;
     case WINBOND_DI_AA22: // W25N02KVxxIR/U (3.3 V) - 8 bits/528B ECC strength
         dev->chip.num_blocks = 2048;
