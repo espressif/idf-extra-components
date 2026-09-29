@@ -801,6 +801,80 @@ TEST_CASE("Test overlapping partitions are rejected", "[esp_ext_part_table]")
     TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
 }
 
+TEST_CASE("Test more than 4 partitions are rejected, not truncated", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t part_list = {0};
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT + 1; i++) {
+        esp_ext_part_list_item_t item = {
+            .info = {
+                .size = 1024 * 1024,
+                .type = ESP_EXT_PART_TYPE_FAT32,
+                .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS,
+            }
+        };
+        TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item));
+    }
+
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_SUPPORTED, esp_mbr_generate(mbr, &part_list, NULL));
+    // Nothing was written, not even the boot signature.
+    TEST_ASSERT_EQUAL(0, mbr->boot_signature);
+    TEST_ASSERT_EQUAL(0, mbr->partition_table[0].type);
+
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+}
+
+TEST_CASE("Test failed generate leaves the MBR buffer untouched", "[esp_ext_part_table]")
+{
+    // Pre-load the buffer with an "existing" MBR, as in a read-modify-write.
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    esp_mbr_t *orig = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    TEST_ASSERT_NOT_NULL(orig);
+    memset(mbr->bootstrap_code_classical, 0xA5, sizeof(mbr->bootstrap_code_classical));
+    mbr->boot_signature = ESP_MBR_SIGNATURE;
+    mbr->disk_signature = 0x12345678;
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
+        mbr->partition_table[i].type = 0x0C;
+        mbr->partition_table[i].lba_start = 2048 + i * 4096;
+        mbr->partition_table[i].sector_count = 2048;
+    }
+    memcpy(orig, mbr, sizeof(esp_mbr_t));
+
+    // The first entry is valid and gets built; the second overlaps it, which is only
+    // detected by the final layout validation.
+    esp_ext_part_list_t part_list = {0};
+    esp_ext_part_list_item_t item1 = {
+        .info = {
+            .address = esp_ext_part_sector_count_to_bytes(2048, ESP_EXT_PART_SECTOR_SIZE_512B),
+            .size = esp_ext_part_sector_count_to_bytes(4096, ESP_EXT_PART_SECTOR_SIZE_512B),
+            .type = ESP_EXT_PART_TYPE_FAT16,
+        }
+    };
+    esp_ext_part_list_item_t item2 = {
+        .info = {
+            .address = esp_ext_part_sector_count_to_bytes(4096, ESP_EXT_PART_SECTOR_SIZE_512B),
+            .size = esp_ext_part_sector_count_to_bytes(4096, ESP_EXT_PART_SECTOR_SIZE_512B),
+            .type = ESP_EXT_PART_TYPE_FAT16,
+        }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item1));
+    TEST_ESP_OK(esp_ext_part_list_insert(&part_list, &item2));
+
+    esp_mbr_generate_extra_args_t args = {
+        .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
+        .alignment = ESP_EXT_PART_ALIGN_NONE,
+    };
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_STATE, esp_mbr_generate(mbr, &part_list, &args));
+    TEST_ASSERT_EQUAL_MEMORY(orig, mbr, sizeof(esp_mbr_t));
+
+    free(orig);
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&part_list));
+}
+
 // Test 10 & 11: disk-bounds (total_size) check.
 TEST_CASE("Test total_size bounds check rejects off-disk partitions", "[esp_ext_part_table]")
 {

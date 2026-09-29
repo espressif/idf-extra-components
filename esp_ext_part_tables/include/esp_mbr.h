@@ -108,6 +108,9 @@ typedef struct {
  *       real partitions; this component cannot read a GPT table. Check for that type,
  *       or probe the device with `esp_ext_part_probe`, if GPT media are possible.
  *
+ * @note On any error `part_list` is left empty (as if `esp_ext_part_list_deinit` had
+ *       been called); no partially parsed list is returned.
+ *
  * @note This function is not thread-safe.
  *
  * @param[in]  mbr_buf    Pointer to a buffer containing the raw MBR data (must be at least `ESP_MBR_SIZE` bytes and start of the MBR must align with start of the buffer).
@@ -152,9 +155,9 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
  *     aligned LBA (after the MBR sector).
  *   - With `ESP_EXT_PART_FLAG_FILL` and `info.size == 0`, the partition is sized to
  *     fill from its computed start to the end of the disk; this requires
- *     `extra_args->total_size` (or, via `esp_ext_part_list_bdl_write`, the device
+ *     `extra_args->total_size` (or, via `esp_mbr_bdl_write`, the device
  *     geometry).
- *   - Auto-placement is honored only here (and through `esp_ext_part_list_bdl_write`);
+ *   - Auto-placement is honored only here (and through `esp_mbr_bdl_write`);
  *     `esp_mbr_partition_set` does not support it. The caller's partition list is not
  *     modified.
  *
@@ -172,6 +175,13 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
  *       marker follows `ESP_EXT_PART_LIST_FLAG_NONE`/`ESP_EXT_PART_LIST_FLAG_READ_ONLY`
  *       in both directions.
  *
+ * @note The MBR is built in a temporary heap copy and written to `mbr` only once every
+ *       entry has been built and the layout validated. On any error `mbr` is left
+ *       unmodified.
+ *
+ * @note A primary MBR holds at most `ESP_MBR_MAX_PARTITION_COUNT` (4) partitions. A
+ *       longer list is rejected with `ESP_ERR_NOT_SUPPORTED`; nothing is truncated.
+ *
  * @note This function is not thread-safe.
  *
  * @param[out] mbr         Pointer to the MBR structure to be filled (must already be allocated and be at least `ESP_MBR_SIZE` bytes). May contain a previously loaded MBR.
@@ -183,7 +193,8 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
  *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, a partition start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`, an AUTO_ADDRESS partition has size 0 without the FILL flag, or a list item has type `ESP_EXT_PART_TYPE_NONE`.
  *     - ESP_ERR_INVALID_STATE: Error filling a partition entry, or two partitions overlap.
  *     - ESP_ERR_INVALID_SIZE:  Alignment consumed a whole partition (PRESERVE_END policy), a partition runs past `total_size`, or a FILL partition cannot be sized (no/insufficient total size).
- *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.
+ *     - ESP_ERR_NOT_SUPPORTED: The list holds more than `ESP_MBR_MAX_PARTITION_COUNT` partitions, or a partition address or size (sector count) exceeds 32-bit limit of MBR.
+ *     - ESP_ERR_NO_MEM:        The temporary MBR copy could not be allocated.
  *     - Other error codes from `esp_ext_part_list_signature_get` or `esp_mbr_partition_set`.
  */
 esp_err_t esp_mbr_generate(esp_mbr_t *mbr,

@@ -85,7 +85,7 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
     err = esp_ext_part_list_signature_set(part_list, &signature);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set partition list (disk) signature");
-        return err;
+        goto fail;
     }
 
     const esp_mbr_partition_t *partition;
@@ -138,10 +138,16 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
         err = esp_ext_part_list_insert(part_list, &item);
         if (err != ESP_OK) {
             ESP_LOGD(TAG, "Failed to add partition info to list");
-            return err;
+            goto fail;
         }
     }
     return ESP_OK;
+
+fail:
+    // Do not hand back a half-filled list (flags, signature and some items may already
+    // be set). The list was required to be empty on entry, so resetting it is lossless.
+    esp_ext_part_list_deinit(part_list);
+    return err;
 }
 
 static bool mbr_partition_fill(esp_mbr_partition_t *partition, const esp_ext_part_list_item_t *item)
@@ -279,13 +285,12 @@ esp_err_t esp_mbr_partition_set(esp_mbr_t *mbr, uint8_t partition_index, const e
     return ESP_OK;
 }
 
-esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
-                           const esp_ext_part_list_t *part_list,
-                           const esp_mbr_generate_extra_args_t *extra_args)
+// Builds the MBR into `mbr` in place. May leave `mbr` partially written on error;
+// esp_mbr_generate only ever calls it on a private staging copy.
+static esp_err_t mbr_generate_in_place(esp_mbr_t *mbr,
+                                       const esp_ext_part_list_t *part_list,
+                                       const esp_mbr_generate_extra_args_t *extra_args)
 {
-    if (mbr == NULL || part_list == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
     esp_err_t err = ESP_OK;
 
     // Set default arguments for MBR generation
@@ -356,11 +361,6 @@ esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
     // lands on the first aligned LBA (e.g. sector 2048 for 1 MiB / 512 B).
     uint32_t next_free_lba = 1;
     SLIST_FOREACH(it, &part_list->head, next) {
-        if (i >= ESP_MBR_MAX_PARTITION_COUNT) {
-            ESP_LOGW(TAG, "More than %d partitions in the list, only the first %d will be added to the MBR", ESP_MBR_MAX_PARTITION_COUNT, ESP_MBR_MAX_PARTITION_COUNT);
-            break; // MBR can only hold 4 partitions
-        }
-
         // An empty (ESP_EXT_PART_TYPE_NONE) item cannot be written as a partition entry:
         // it would leave a zeroed slot in the middle of the table, which esp_mbr_parse
         // stops at (silently dropping later partitions). Reject it.
@@ -462,6 +462,45 @@ esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
     }
 
     return ESP_OK;
+}
+
+esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
+                           const esp_ext_part_list_t *part_list,
+                           const esp_mbr_generate_extra_args_t *extra_args)
+{
+    if (mbr == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // A primary MBR table holds at most ESP_MBR_MAX_PARTITION_COUNT entries. Refuse a
+    // longer list instead of silently dropping the tail.
+    size_t count = 0;
+    const esp_ext_part_list_item_t *it = NULL;
+    SLIST_FOREACH(it, &part_list->head, next) {
+        count++;
+    }
+    if (count > ESP_MBR_MAX_PARTITION_COUNT) {
+        ESP_LOGE(TAG, "Partition list has %u partitions, MBR can hold at most %d",
+                 (unsigned) count, ESP_MBR_MAX_PARTITION_COUNT);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    // Generate into a staging copy (which keeps the caller's bootstrap code) and commit
+    // it only once every entry has been built and the whole layout validated. On error
+    // the caller's buffer is left untouched, so a read-modify-write never sees a mix of
+    // new and stale entries.
+    esp_mbr_t *staged = malloc(sizeof(esp_mbr_t));
+    if (staged == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    memcpy(staged, mbr, sizeof(esp_mbr_t));
+
+    esp_err_t err = mbr_generate_in_place(staged, part_list, extra_args);
+    if (err == ESP_OK) {
+        memcpy(mbr, staged, sizeof(esp_mbr_t));
+    }
+    free(staged);
+    return err;
 }
 
 esp_err_t esp_mbr_remove_gaps_between_partition_entries(esp_mbr_t *mbr)
