@@ -5,7 +5,18 @@ All notable changes to this component will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). See [VERSIONING.md](VERSIONING.md) for this component's versioning policy.
 
 ## [Unreleased]
+
+### Added
+
+- New `nand_ecc_status_t` values: `NAND_ECC_1_TO_4_BITS_CORRECTED`, exact counts `NAND_ECC_1_BIT_CORRECTED` ... `NAND_ECC_8_BITS_CORRECTED`, and `NAND_ECC_INVALID` for an ECC status that cannot be determined
+
+### Fixed
+
 - feat: map ECC status correctly on GigaDevice chips using the ECCSE bits (status register F0h)
+
+### Deprecated
+
+- `nand_ecc_data_t.ecc_status_reg_len_in_bits`: no longer used by the driver
 
 ## [1.4.4] - 2026-09-10
 
