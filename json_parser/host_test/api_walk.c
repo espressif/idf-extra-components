@@ -43,9 +43,9 @@ static char out[1 << 17];
 
 static void set_hex(const char *s)
 {
-    char *o = out + sprintf(out, "s=");
+    char *o = out + snprintf(out, sizeof(out), "s=");
     for (; *s; s++) {
-        o += sprintf(o, "%02x", (unsigned char) * s);
+        o += snprintf(o, sizeof(out) - (o - out), "%02x", (unsigned char) * s);
     }
 }
 
@@ -74,7 +74,7 @@ static int run(const char *op, const char *k, uint32_t idx)
         return json_arr_leave_array(&ctx);
     } else if (!strcmp(op, "oa")) {
         rc = json_obj_get_array(&ctx, k, &n);
-        sprintf(out, "n=%d", n);
+        snprintf(out, sizeof(out), "n=%d", n);
     } else if (!strcmp(op, "os") || !strcmp(op, "as") || !strcmp(op, "rs")) {
         rc = op[0] == 'o' ? json_obj_get_string(&ctx, k, sbuf, sizeof(sbuf))
              : op[0] == 'a' ? json_arr_get_string(&ctx, idx, sbuf, sizeof(sbuf))
@@ -84,27 +84,27 @@ static int run(const char *op, const char *k, uint32_t idx)
         rc = op[0] == 's' ? json_obj_get_strlen(&ctx, k, &n)
              : op[0] == 'a' ? json_arr_get_strlen(&ctx, idx, &n)
              : json_root_get_strlen(&ctx, &n);
-        sprintf(out, "n=%d", n);
+        snprintf(out, sizeof(out), "n=%d", n);
     } else if (!strcmp(op, "oi") || !strcmp(op, "ai") || !strcmp(op, "ri")) {
         rc = op[0] == 'o' ? json_obj_get_int(&ctx, k, &iv)
              : op[0] == 'a' ? json_arr_get_int(&ctx, idx, &iv)
              : json_root_get_int(&ctx, &iv);
-        sprintf(out, "i=%d", iv);
+        snprintf(out, sizeof(out), "i=%d", iv);
     } else if (!strcmp(op, "ol") || !strcmp(op, "aL") || !strcmp(op, "rl")) {
         rc = op[0] == 'o' ? json_obj_get_int64(&ctx, k, &lv)
              : op[0] == 'a' ? json_arr_get_int64(&ctx, idx, &lv)
              : json_root_get_int64(&ctx, &lv);
-        sprintf(out, "i=%lld", (long long)lv);
+        snprintf(out, sizeof(out), "i=%lld", (long long)lv);
     } else if (!strcmp(op, "od") || !strcmp(op, "ad") || !strcmp(op, "rd")) {
         rc = op[0] == 'o' ? json_obj_get_double(&ctx, k, &dv)
              : op[0] == 'a' ? json_arr_get_double(&ctx, idx, &dv)
              : json_root_get_double(&ctx, &dv);
-        sprintf(out, "d=%.17g", dv);
+        snprintf(out, sizeof(out), "d=%.17g", dv);
     } else if (!strcmp(op, "ob") || !strcmp(op, "ab") || !strcmp(op, "rb")) {
         rc = op[0] == 'o' ? json_obj_get_bool(&ctx, k, &bv)
              : op[0] == 'a' ? json_arr_get_bool(&ctx, idx, &bv)
              : json_root_get_bool(&ctx, &bv);
-        sprintf(out, "b=%d", bv);
+        snprintf(out, sizeof(out), "b=%d", bv);
     } else if (!strcmp(op, "on")) {
         return json_obj_get_null(&ctx, k);
     } else if (!strcmp(op, "an")) {

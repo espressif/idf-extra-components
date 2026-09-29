@@ -253,9 +253,10 @@ static int jsmn_primitive_valid(const char *s, size_t n)
 
 /*
  * Length of the well-formed UTF-8 sequence starting at js[pos] (RFC 3629
- * section 4: no overlong forms, no surrogates, nothing above U+10FFFF), or 0.
+ * section 4: no overlong forms, no surrogates, nothing above U+10FFFF),
+ * 0 when it is malformed, -1 when the input ends before it is complete.
  */
-static size_t jsmn_utf8_seq_len(const char *js, size_t pos, size_t len)
+static int jsmn_utf8_seq_len(const char *js, size_t pos, size_t len)
 {
     unsigned char c = (unsigned char)js[pos];
     unsigned char lo = 0x80, hi = 0xBF;
@@ -280,7 +281,7 @@ static size_t jsmn_utf8_seq_len(const char *js, size_t pos, size_t len)
         return 0;
     }
     if (pos + need >= len) {
-        return 0;
+        return -1;
     }
     for (i = 1; i <= need; i++) {
         unsigned char cc = (unsigned char)js[pos + i];
@@ -332,9 +333,15 @@ static int jsmn_parse_primitive(jsmn_parser *parser, const char *js,
             return JSMN_ERROR_INVAL;
         }
     }
-    /* End of input terminates a primitive: a lone top-level value is a JSON
-     * text (RFC 8259 section 2). An unclosed container is caught by the
-     * caller. */
+#ifdef JSMN_STRICT
+    /* End of input completes a top-level primitive: a lone value is a JSON
+     * text (RFC 8259 section 2). Inside a container more of the primitive
+     * may follow in the next chunk, so let the caller resume. */
+    if (parser->toksuper != -1) {
+        parser->pos = start;
+        return JSMN_ERROR_PART;
+    }
+#endif
 
 found:
     if (tokens == NULL) {
@@ -386,10 +393,10 @@ static int jsmn_parse_string(jsmn_parser *parser, const char *js,
                 return JSMN_ERROR_INVAL;
             }
             if ((unsigned char)c >= 0x80) {
-                size_t seq = jsmn_utf8_seq_len(js, parser->pos, len);
-                if (seq == 0) {
+                int seq = jsmn_utf8_seq_len(js, parser->pos, len);
+                if (seq <= 0) {
                     parser->pos = start;
-                    return JSMN_ERROR_INVAL;
+                    return seq < 0 ? JSMN_ERROR_PART : JSMN_ERROR_INVAL;
                 }
                 parser->pos += seq - 1;
                 continue;

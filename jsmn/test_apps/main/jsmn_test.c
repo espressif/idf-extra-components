@@ -55,6 +55,29 @@ TEST_CASE("strict mode enforces the RFC 8259 grammar", "[jsmn]")
     TEST_ASSERT_LESS_THAN_INT(0, parse("12\0", 3));
 }
 
+TEST_CASE("a parse resumes after JSMN_ERROR_PART", "[jsmn]")
+{
+    /* each text cut inside a value: the first call reports more input is
+     * needed, the second call with the whole text completes the parse */
+    const char *cut[][2] = {
+        { "{\"a\":12", "{\"a\":123}" }, { "[tr", "[true]" }, { "[\"\xc3", "[\"\xc3\xa9\"]" },   /* codespell:ignore tr */
+        { "[\"ab", "[\"abc\"]" }, { "[\"\\u00", "[\"\\u00e9\"]" }, { "{\"a\":[1,", "{\"a\":[1,2]}" },
+    };
+    for (size_t i = 0; i < sizeof(cut) / sizeof(cut[0]); i++) {
+        jsmn_parser p;
+        jsmn_init(&p);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(JSMN_ERROR_PART, jsmn_parse(&p, cut[i][0], strlen(cut[i][0]), toks, 8), cut[i][0]);
+        int n = jsmn_parse(&p, cut[i][1], strlen(cut[i][1]), toks, 8);
+        TEST_ASSERT_GREATER_THAN_MESSAGE(0, n, cut[i][1]);
+        TEST_ASSERT_EQUAL_INT(strlen(cut[i][1]), toks[0].end);   /* the outer container spans the whole text */
+    }
+    /* a top-level primitive is complete at the end of the input, so it
+     * cannot be continued: "12" is a JSON text of its own */
+    jsmn_parser p;
+    jsmn_init(&p);
+    TEST_ASSERT_EQUAL_INT(1, jsmn_parse(&p, "12", 2, toks, 8));
+}
+
 TEST_CASE("the counting pass and the token pass agree", "[jsmn]")
 {
     const char *js = "{\"k\":[1,{\"n\":null}],\"s\":\"\\u0041\"}";
