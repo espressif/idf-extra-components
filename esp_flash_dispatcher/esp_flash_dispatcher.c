@@ -17,6 +17,83 @@
 #include "spi_flash_mmap.h"
 #include "esp_private/spi_flash_os.h"
 #include "esp_memory_utils.h"
+#include "esp_idf_version.h"
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 2, 0)
+/* IDF 5.0/5.1 have no *WithCaps helpers. Place the worker stack, TCB, and
+ * semaphores in internal byte-accessible RAM, matching MALLOC_CAP_INTERNAL |
+ * MALLOC_CAP_8BIT.
+ *
+ * task_stack_size uses the same unit as xTaskCreatePinnedToCoreWithCaps():
+ * the kernel treats it as a StackType_t count and the allocation is
+ * count * sizeof(StackType_t) bytes. Pass the value through unchanged.
+ */
+static SemaphoreHandle_t dispatcher_sem_create_mutex(void)
+{
+    StaticSemaphore_t *buffer = heap_caps_malloc(sizeof(*buffer), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (buffer == NULL) {
+        return NULL;
+    }
+    SemaphoreHandle_t sem = xSemaphoreCreateMutexStatic(buffer);
+    if (sem == NULL) {
+        heap_caps_free(buffer);
+    }
+    return sem;
+}
+
+static SemaphoreHandle_t dispatcher_sem_create_binary(void)
+{
+    StaticSemaphore_t *buffer = heap_caps_malloc(sizeof(*buffer), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (buffer == NULL) {
+        return NULL;
+    }
+    SemaphoreHandle_t sem = xSemaphoreCreateBinaryStatic(buffer);
+    if (sem == NULL) {
+        heap_caps_free(buffer);
+    }
+    return sem;
+}
+
+static void dispatcher_sem_delete(SemaphoreHandle_t sem)
+{
+    if (sem == NULL) {
+        return;
+    }
+    /* Static semaphores are not freed by vSemaphoreDelete(). The handle is
+     * the heap_caps buffer itself. */
+    vSemaphoreDelete(sem);
+    heap_caps_free(sem);
+}
+
+static BaseType_t dispatcher_task_create(TaskFunction_t fn, const char *name, uint32_t stack_depth,
+                                         void *arg, UBaseType_t priority, TaskHandle_t *handle, BaseType_t core)
+{
+    StackType_t *stack = heap_caps_malloc((size_t)stack_depth * sizeof(StackType_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    StaticTask_t *tcb = heap_caps_malloc(sizeof(*tcb), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if ((stack == NULL) || (tcb == NULL)) {
+        heap_caps_free(stack);
+        heap_caps_free(tcb);
+        return errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY;
+    }
+
+    TaskHandle_t created = xTaskCreateStaticPinnedToCore(fn, name, stack_depth, arg, priority, stack, tcb, core);
+    if (created == NULL) {
+        heap_caps_free(stack);
+        heap_caps_free(tcb);
+        return errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY;
+    }
+    if (handle != NULL) {
+        *handle = created;
+    }
+    return pdPASS;
+}
+
+#define xSemaphoreCreateMutexWithCaps(caps) dispatcher_sem_create_mutex()
+#define xSemaphoreCreateBinaryWithCaps(caps) dispatcher_sem_create_binary()
+#define vSemaphoreDeleteWithCaps(sem) dispatcher_sem_delete(sem)
+#define xTaskCreatePinnedToCoreWithCaps(fn, name, depth, arg, prio, handle, core, caps) \
+    dispatcher_task_create((fn), (name), (depth), (arg), (prio), (handle), (core))
+#endif
 
 static const char *TAG = "flash_dispatcher";
 
