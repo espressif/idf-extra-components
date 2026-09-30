@@ -1,3 +1,11 @@
+# 1.3.0 (27-September-2026)
+
+- Generate the `proto-ver` version document with `json_generator` instead of
+  cJSON, removing cJSON from the component's dependencies. The document is
+  now compact (no indentation); its content is unchanged.
+- `network_prov_mgr_set_app_info()` called again with the same label now
+  replaces the earlier entry instead of adding a duplicate key.
+
 # 1.2.5 (9-September-2026)
 
 - Fix buffer overreads when Wi-Fi SSIDs or passwords are not null-terminated.

@@ -27,6 +27,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -37,6 +38,41 @@ extern "C"
 #ifndef JSON_FLOAT_PRECISION
 #define JSON_FLOAT_PRECISION 5
 #endif
+
+/** \defgroup json_gen_errors Error handling
+ *
+ * Every generating json_gen_* call returns 0 (JSON_GEN_OK) on success or
+ * one of the negative codes below; json_gen_str_end() returns the generated
+ * size (a positive number) on success or the negative code. The
+ * json_gen_str_start*() functions return nothing. The first error is
+ * remembered in the \ref json_gen_str_t and every later call becomes a
+ * no-op returning that same code, so it is enough to check the value
+ * returned by json_gen_str_end(). After an error the contents of the buffer are
+ * unspecified and must not be used. With a flush callback, chunks flushed
+ * before the error have already been delivered and form an incomplete JSON
+ * text the generator cannot recall; run a measuring pass first when the
+ * input is untrusted.
+ *
+ * Strings and element names are escaped as required by RFC 8259 section 7
+ * and must be valid UTF-8 (section 8.1); the output is therefore always a
+ * well-formed JSON text. NaN and infinity have no JSON representation and
+ * are written as null.
+ *
+ * String values are NUL-terminated; use the *_len() variants for a value
+ * that contains U+0000 or is not terminated. Element names are always
+ * NUL-terminated and therefore cannot contain U+0000.
+ * @{ */
+/** Success */
+#define JSON_GEN_OK                  0
+/** Buffer is full and no flush callback was given to json_gen_str_start() */
+#define JSON_GEN_ERR_BUF_FULL       -1
+/** A string value or element name is not well-formed UTF-8 */
+#define JSON_GEN_ERR_INVALID_UTF8   -2
+/** A number did not fit its formatting buffer; nothing was written for it */
+#define JSON_GEN_ERR_NUM_TRUNC      -3
+/** A NULL string was given with a non-zero length, or a length beyond INT_MAX */
+#define JSON_GEN_ERR_INVALID_ARG    -4
+/** @} */
 
 /** JSON string flush callback prototype
  *
@@ -70,6 +106,12 @@ typedef struct {
     char *free_ptr;
     /** Total length */
     int total_len;
+    /** (For Internal use only) First error encountered, 0 if none */
+    int err;
+    /** (For Internal use only) UTF-8 validator state, kept across long-string chunks */
+    uint8_t utf8_need;
+    uint8_t utf8_lo;
+    uint8_t utf8_hi;
 } json_gen_str_t;
 
 /** Start a JSON String
@@ -82,7 +124,8 @@ typedef struct {
  * This will be initialised internally and needs to be passed to all
  * subsequent function calls
  * \param[out] buf Pointer to an allocated buffer into which the JSON
- * string will be written
+ * string will be written. For a pass that only measures, use
+ * json_gen_str_start_measure() instead
  * \param[in] buf_size Size of the buffer
  * \param[in] flush_cb Pointer to the flushing function of type \ref json_gen_flush_cb_t
  * which will be invoked either when the buffer is full or when json_gen_str_end()
@@ -93,6 +136,18 @@ typedef struct {
 void json_gen_str_start(json_gen_str_t *jstr, char *buf, int buf_size,
                         json_gen_flush_cb_t flush_cb, void *priv);
 
+/** Start a measuring pass
+ *
+ * Same as json_gen_str_start() with no buffer: the generator only counts.
+ * Issue the same json_gen_* calls as for the real string, and
+ * json_gen_str_end() returns the buffer size (including the NULL terminator)
+ * that the real pass will need, or a negative error code if any call fails.
+ * Typical use is to allocate exactly the right buffer before a second pass.
+ *
+ * \param[out] jstr Pointer to an allocated \ref json_gen_str_t structure
+ */
+void json_gen_str_start_measure(json_gen_str_t *jstr);
+
 /** End JSON string
  *
  * This should be the last function to be called after the entire JSON string
@@ -101,7 +156,9 @@ void json_gen_str_start(json_gen_str_t *jstr, char *buf, int buf_size,
  * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
  * json_gen_str_start()
  *
- * \return Total length of the JSON created, including the NULL termination byte.
+ * \return Total length of the JSON created, including the NULL termination byte
+ * \return Negative JSON_GEN_ERR_* code if any call since json_gen_str_start()
+ * failed; the buffer contents are then unspecified
  */
 int json_gen_str_end(json_gen_str_t *jstr);
 
@@ -113,9 +170,7 @@ int json_gen_str_end(json_gen_str_t *jstr);
  * json_gen_str_start()
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_start_object(json_gen_str_t *jstr);
 
@@ -127,9 +182,7 @@ int json_gen_start_object(json_gen_str_t *jstr);
  * json_gen_str_start()
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_end_object(json_gen_str_t *jstr);
 
@@ -141,9 +194,7 @@ int json_gen_end_object(json_gen_str_t *jstr);
  * json_gen_str_start()
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_start_array(json_gen_str_t *jstr);
 
@@ -155,9 +206,7 @@ int json_gen_start_array(json_gen_str_t *jstr);
  * json_gen_str_start()
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_end_array(json_gen_str_t *jstr);
 
@@ -170,9 +219,7 @@ int json_gen_end_array(json_gen_str_t *jstr);
  * \param[in] name Name of the object
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_push_object(json_gen_str_t *jstr, const char *name);
 
@@ -185,9 +232,7 @@ int json_gen_push_object(json_gen_str_t *jstr, const char *name);
  * json_gen_str_start()
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_pop_object(json_gen_str_t *jstr);
 
@@ -201,12 +246,11 @@ int json_gen_pop_object(json_gen_str_t *jstr);
  * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
  * json_gen_str_start()
  * \param[in] name Name of the JSON object string
- * \param[in] object_str The pre-formatted JSON object string
+ * \param[in] object_str The pre-formatted JSON object string. It is copied
+ * verbatim, so the caller must guarantee it is valid JSON; nothing is checked
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that.
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_push_object_str(json_gen_str_t *jstr, const char *name, const char *object_str);
 
@@ -219,9 +263,7 @@ int json_gen_push_object_str(json_gen_str_t *jstr, const char *name, const char 
  * \param[in] name Name of the array
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_push_array(json_gen_str_t *jstr, const char *name);
 
@@ -234,9 +276,7 @@ int json_gen_push_array(json_gen_str_t *jstr, const char *name);
  * json_gen_str_start()
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_pop_array(json_gen_str_t *jstr);
 
@@ -250,12 +290,11 @@ int json_gen_pop_array(json_gen_str_t *jstr);
  * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
  * json_gen_str_start()
  * \param[in] name Name of the JSON array string
- * \param[in] array_str The pre-formatted JSON array string
+ * \param[in] array_str The pre-formatted JSON array string. It is copied
+ * verbatim, so the caller must guarantee it is valid JSON; nothing is checked
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that.
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_push_array_str(json_gen_str_t *jstr, const char *name, const char *array_str);
 
@@ -272,9 +311,7 @@ int json_gen_push_array_str(json_gen_str_t *jstr, const char *name, const char *
  * \param[in] val Boolean value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_obj_set_bool(json_gen_str_t *jstr, const char *name, bool val);
 
@@ -291,9 +328,7 @@ int json_gen_obj_set_bool(json_gen_str_t *jstr, const char *name, bool val);
  * \param[in] val Integer value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_obj_set_int(json_gen_str_t *jstr, const char *name, int val);
 
@@ -308,9 +343,7 @@ int json_gen_obj_set_int(json_gen_str_t *jstr, const char *name, int val);
  * \param[in] val 64 bit integer value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_obj_set_int64(json_gen_str_t *jstr, const char *name, int64_t val);
 
@@ -327,9 +360,7 @@ int json_gen_obj_set_int64(json_gen_str_t *jstr, const char *name, int64_t val);
  * \param[in] val Float value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_obj_set_float(json_gen_str_t *jstr, const char *name, float val);
 
@@ -346,9 +377,7 @@ int json_gen_obj_set_float(json_gen_str_t *jstr, const char *name, float val);
  * \param[in] val Null terminated string value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_obj_set_string(json_gen_str_t *jstr, const char *name, const char *val);
 
@@ -364,9 +393,7 @@ int json_gen_obj_set_string(json_gen_str_t *jstr, const char *name, const char *
  * \param[in] name Name of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_obj_set_null(json_gen_str_t *jstr, const char *name);
 
@@ -380,9 +407,7 @@ int json_gen_obj_set_null(json_gen_str_t *jstr, const char *name);
  * \param[in] val Boolean value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_arr_set_bool(json_gen_str_t *jstr, bool val);
 
@@ -396,9 +421,7 @@ int json_gen_arr_set_bool(json_gen_str_t *jstr, bool val);
  * \param[in] val Integer value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_arr_set_int(json_gen_str_t *jstr, int val);
 
@@ -412,9 +435,7 @@ int json_gen_arr_set_int(json_gen_str_t *jstr, int val);
  * \param[in] val 64 bit integer value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_arr_set_int64(json_gen_str_t *jstr, int64_t val);
 
@@ -428,11 +449,44 @@ int json_gen_arr_set_int64(json_gen_str_t *jstr, int64_t val);
  * \param[in] val Float value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_arr_set_float(json_gen_str_t *jstr, float val);
+
+/** Add a double element to an object
+ *
+ * This adds a double element to an object with round-trip precision, i.e.
+ * the value parsed back from the JSON is bit-identical to the one given.
+ * Eg. "double_val":0.1
+ *
+ * \note This must be called between json_gen_start_object()/json_gen_push_object()
+ * and json_gen_end_object()/json_gen_pop_object()
+ *
+ * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
+ * json_gen_str_start()
+ * \param[in] name Name of the element
+ * \param[in] val Double value of the element. NaN and infinity are written as null
+ *
+ * \return 0 on Success
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
+ */
+int json_gen_obj_set_double(json_gen_str_t *jstr, const char *name, double val);
+
+/** Add a double element to an array
+ *
+ * This adds a double element to an array with round-trip precision. Eg. 0.1
+ *
+ * \note This must be called between json_gen_start_array()/json_gen_push_array()
+ * and json_gen_end_array()/json_gen_pop_array()
+ *
+ * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
+ * json_gen_str_start()
+ * \param[in] val Double value of the element. NaN and infinity are written as null
+ *
+ * \return 0 on Success
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
+ */
+int json_gen_arr_set_double(json_gen_str_t *jstr, double val);
 
 /** Add a string element to an array
  *
@@ -444,11 +498,40 @@ int json_gen_arr_set_float(json_gen_str_t *jstr, float val);
  * \param[in] val Null terminated string value of the element
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_arr_set_string(json_gen_str_t *jstr, const char *val);
+
+/** Add a string element of a given length to an object
+ *
+ * Same as json_gen_obj_set_string() for a value that is not NUL-terminated
+ * or that contains U+0000, which is written as \u0000.
+ *
+ * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
+ * json_gen_str_start()
+ * \param[in] name Name of the element
+ * \param[in] val String value of the element
+ * \param[in] len Number of bytes of val to write
+ *
+ * \return 0 on Success
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
+ */
+int json_gen_obj_set_string_len(json_gen_str_t *jstr, const char *name, const char *val, size_t len);
+
+/** Add a string element of a given length to an array
+ *
+ * Same as json_gen_arr_set_string() for a value that is not NUL-terminated
+ * or that contains U+0000, which is written as \u0000.
+ *
+ * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
+ * json_gen_str_start()
+ * \param[in] val String value of the element
+ * \param[in] len Number of bytes of val to write
+ *
+ * \return 0 on Success
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
+ */
+int json_gen_arr_set_string_len(json_gen_str_t *jstr, const char *val, size_t len);
 
 /** Add a NULL element to an array
  *
@@ -459,9 +542,7 @@ int json_gen_arr_set_string(json_gen_str_t *jstr, const char *val);
  * json_gen_str_start()
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_arr_set_null(json_gen_str_t *jstr);
 
@@ -481,9 +562,7 @@ int json_gen_arr_set_null(json_gen_str_t *jstr);
  * \param[in] val Null terminated initial part of the string value. It can also be NULL
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_obj_start_long_string(json_gen_str_t *jstr, const char *name, const char *val);
 
@@ -502,9 +581,7 @@ int json_gen_obj_start_long_string(json_gen_str_t *jstr, const char *name, const
  * \param[in] val Null terminated initial part of the string value. It can also be NULL
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_arr_start_long_string(json_gen_str_t *jstr, const char *val);
 
@@ -518,11 +595,24 @@ int json_gen_arr_start_long_string(json_gen_str_t *jstr, const char *val);
  * \param[in] val Null terminated extending part of the string value.
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_add_to_long_string(json_gen_str_t *jstr, const char *val);
+
+/** Add a given number of bytes to a long string
+ *
+ * Same as json_gen_add_to_long_string() for a chunk that is not
+ * NUL-terminated or that contains U+0000, which is written as \u0000.
+ *
+ * \param[in] jstr Pointer to the \ref json_gen_str_t structure initialised by
+ * json_gen_str_start()
+ * \param[in] val Bytes to add to the string
+ * \param[in] len Number of bytes of val to write
+ *
+ * \return 0 on Success
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
+ */
+int json_gen_add_to_long_string_len(json_gen_str_t *jstr, const char *val, size_t len);
 
 /** End a JSON Long string
  *
@@ -533,9 +623,7 @@ int json_gen_add_to_long_string(json_gen_str_t *jstr, const char *val);
  *
  *
  * \return 0 on Success
- * \return -1 if buffer is out of space (possible only if no callback function
- * is passed to json_gen_str_start(). Else, buffer will be flushed out and new data
- * added after that
+ * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_end_long_string(json_gen_str_t *jstr);
 #ifdef __cplusplus
