@@ -1,5 +1,8 @@
-## Unreleased
+## 3.0.4
 
+- Add async refresh API, the next frame is free to be computed while the current frame is being transmitted.
+- Support to use custom timing config in RMT backend
+- Support to switch GPIO at runtime in RMT backend
 - SPI backend uses official `SPICOMMON_BUSFLAG_DATA_OUT_INV`, older IDF keeps the GPIO-matrix fallback.
 
 ## 3.0.3
