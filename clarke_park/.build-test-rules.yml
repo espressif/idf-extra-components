@@ -5,3 +5,11 @@ clarke_park/host_test:
   disable:
     - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 5
       reason: test linux target on version >= 5.5 is sufficient
+
+clarke_park/examples/benchmark:
+  enable:
+    - if: IDF_TARGET == "esp32s31"
+      reason: "choose a target with CORDIC peripheral support"
+  disable:
+    - if: IDF_VERSION_MAJOR < 6 or (IDF_VERSION_MAJOR == 6 and IDF_VERSION_MINOR < 1)
+      reason: cordic driver is introduced since IDF v6.1
