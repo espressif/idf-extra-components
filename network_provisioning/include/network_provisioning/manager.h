@@ -464,6 +464,11 @@ void network_prov_mgr_stop_provisioning(void);
  * i.e. till event NETWORK_PROV_END is emitted.
  *
  * This will not block if provisioning is not started or not initialized.
+ *
+ * Do not call this API in callbacks from the default event loop task or from
+ * the ESP timer task. The service is stopped from those tasks, so waiting
+ * there prevents the stop from completing and this API never
+ * returns.
  */
 void network_prov_mgr_wait(void);
 
