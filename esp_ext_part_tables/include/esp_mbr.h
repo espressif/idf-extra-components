@@ -106,6 +106,8 @@ typedef struct {
  * All four table slots are read; unused slots (type `0x00`) are skipped wherever they
  * are, including between used ones. Each item's `info.slot` is set to its 1-based slot
  * number, so `esp_mbr_generate` with `preserve_slots` can write it back to the same slot.
+ * Used entries with zero sectors or a start at sector 0 cannot be written back, so
+ * they are skipped too (with a warning) and the list is marked `ESP_EXT_PART_LIST_FLAG_LOSSY`.
  *
  * @note A GPT disk carries a protective MBR in its first sector, so this function
  *       succeeds on one and returns a single partition of type
@@ -167,6 +169,9 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
  *     mapper returns `0x00`, which marks an unused slot) is rejected with
  *     `ESP_ERR_NOT_SUPPORTED`. A partition with size 0 is rejected with
  *     `ESP_ERR_INVALID_SIZE` (except AUTO_ADDRESS + FILL, which computes the size).
+ *   - An explicit `info.address` must be a multiple of the sector size and must not
+ *     be 0 (sector 0 holds the MBR); otherwise `ESP_ERR_INVALID_ARG` is returned.
+ *     `info.size` is rounded up to whole sectors.
  *
  * Automatic placement:
  *   - A partition item with `ESP_EXT_PART_FLAG_AUTO_ADDRESS` has its start address
@@ -217,7 +222,7 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
  *
  * @return
  *     - ESP_OK:                Generation was successful.
- *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, a partition start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`, an AUTO_ADDRESS partition has size 0 without the FILL flag, a list item has type `ESP_EXT_PART_TYPE_NONE`, a slot is out of range, or (with `preserve_slots`) two items share a slot.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, a partition start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`, an AUTO_ADDRESS partition has size 0 without the FILL flag, a list item has type `ESP_EXT_PART_TYPE_NONE`, a slot is out of range, (with `preserve_slots`) two items share a slot, an explicit `info.address` is not a multiple of the sector size, or a partition would start at sector 0 (the MBR).
  *     - ESP_ERR_INVALID_STATE: Two partitions overlap.
  *     - ESP_ERR_INVALID_SIZE:  A partition has size 0, a LittleFS block size is invalid (see `esp_mbr_partition_set`), alignment consumed a whole partition (PRESERVE_END policy), a partition runs past `total_size`, or a FILL partition cannot be sized (no/insufficient total size).
  *     - ESP_ERR_NOT_SUPPORTED: The list holds more than `ESP_MBR_MAX_PARTITION_COUNT` partitions, a partition type has no MBR type code, or a partition address or size (sector count) exceeds 32-bit limit of MBR.
@@ -268,7 +273,7 @@ esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
  *
  * @return
  *     - ESP_OK:                Success.
- *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, `extra_args->sector_size` is `ESP_EXT_PART_SECTOR_SIZE_UNKNOWN`, or the start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, `extra_args->sector_size` is `ESP_EXT_PART_SECTOR_SIZE_UNKNOWN`, the start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`, `info.address` is not a multiple of the sector size, or the partition would start at sector 0 (the MBR).
  *     - ESP_ERR_INVALID_SIZE:  The partition has size 0, alignment consumed the whole partition (PRESERVE_END policy), or a LittleFS block size (`extra`) is not 0 or a power of two from 128 B to 1 MiB.
  *     - ESP_ERR_NOT_SUPPORTED: The partition type has no MBR type code, or the partition address or size (sector count) exceeds 32-bit limit of MBR.
  */

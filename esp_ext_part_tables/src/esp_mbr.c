@@ -123,6 +123,16 @@ esp_err_t esp_mbr_parse(const void *mbr_buf,
             continue;
         }
 
+        // An entry with no sectors, or one starting at sector 0 (the MBR itself), does
+        // not describe usable storage and esp_mbr_generate would refuse to write it
+        // back. Drop it so a parsed list can always be regenerated.
+        if (partition->sector_count == 0 || partition->lba_start == 0) {
+            ESP_LOGW(TAG, "Skipping MBR slot %d: invalid entry (start %" PRIu32 ", %" PRIu32 " sectors)",
+                     i + 1, partition->lba_start, partition->sector_count);
+            part_list->flags |= ESP_EXT_PART_LIST_FLAG_LOSSY;
+            continue;
+        }
+
         // Resolve the partition type. The bool return is not used to gate insertion;
         // filtering is done by the optional `match` predicate below.
         uint8_t parsed_type = ESP_EXT_PART_TYPE_NONE;
@@ -242,6 +252,15 @@ esp_err_t esp_mbr_partition_set(esp_mbr_t *mbr, uint8_t partition_index, const e
         return ESP_ERR_INVALID_ARG;
     }
 
+    // The start address must be a whole sector. Rounding it (up or down) would move the
+    // partition away from where it was asked to be, which KEEP_ADDRESS promises not to do.
+    // (The size is rounded up to whole sectors below; that does not move anything.)
+    if (item->info.address % (uint64_t) extra_args->sector_size != 0) {
+        ESP_LOGE(TAG, "Partition %u address %" PRIu64 " is not a multiple of the sector size %u",
+                 partition_index, item->info.address, (unsigned) extra_args->sector_size);
+        return ESP_ERR_INVALID_ARG;
+    }
+
     // Check if we have enough space in the MBR partition table
     uint64_t first_sector_address = esp_ext_part_bytes_to_sector_count(item->info.address, extra_args->sector_size);
     uint64_t sector_count = esp_ext_part_bytes_to_sector_count(item->info.size, extra_args->sector_size);
@@ -300,6 +319,12 @@ esp_err_t esp_mbr_partition_set(esp_mbr_t *mbr, uint8_t partition_index, const e
         break;
     default:
         ESP_LOGE(TAG, "Unknown align_policy %d", (int) extra_args->align_policy);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Sector 0 holds the MBR itself; a partition starting there would overwrite it.
+    if (aligned_start == 0) {
+        ESP_LOGE(TAG, "Partition %u starts at sector 0, which holds the MBR", partition_index);
         return ESP_ERR_INVALID_ARG;
     }
 

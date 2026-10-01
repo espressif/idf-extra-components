@@ -294,7 +294,7 @@ TEST_CASE("Test esp_mbr_generate with esp_mbr_parse", "[esp_ext_part_table]")
     // 2 FAT12 partitions with same parameters as in the original MBR in the array
     esp_ext_part_list_item_t item1 = {
         .info = {
-            .address = 8, // Should be round up to 2048 (aligned to 1MiB) due to defined sector size and alignment in `esp_mbr_generate_extra_args_t args` below
+            .address = esp_ext_part_sector_count_to_bytes(8, mbr_args.sector_size), // Explicit address, kept as is (default align_policy is KEEP_ADDRESS)
             .size = esp_ext_part_sector_count_to_bytes(7953, mbr_args.sector_size),
             .type = ESP_EXT_PART_TYPE_FAT12,
             .label = NULL,
@@ -2552,6 +2552,75 @@ TEST_CASE("Test 0xC3 entry without block size round-trips", "[esp_ext_part_table
     TEST_ASSERT_EQUAL_UINT32(2048, mbr->partition_table[0].lba_start);
     free(mbr);
     TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+}
+
+TEST_CASE("Test generate rejects a partition at sector 0", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    memset(mbr, 0xAB, sizeof(esp_mbr_t));
+    esp_mbr_t before = *mbr;
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t item = {
+        .info = { .address = 0, .size = 100 * 512ULL, .type = ESP_EXT_PART_TYPE_FAT12 }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL_MEMORY(&before, mbr, sizeof(esp_mbr_t));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    free(mbr);
+}
+
+TEST_CASE("Test generate rejects a start address that is not sector aligned", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t item = {
+        .info = { .address = 2048 * 512ULL + 1, .size = 100 * 512ULL, .type = ESP_EXT_PART_TYPE_FAT12 }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &list, NULL));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    // A size that is not a whole number of sectors is still rounded up
+    item.info.address = 2048 * 512ULL;
+    item.info.size = 100 * 512ULL + 1;
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+    TEST_ESP_OK(esp_mbr_generate(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL_UINT32(2048, mbr->partition_table[0].lba_start);
+    TEST_ASSERT_EQUAL_UINT32(101, mbr->partition_table[0].sector_count);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    free(mbr);
+}
+
+TEST_CASE("Test parse skips entries that cannot be regenerated", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    mbr->boot_signature = ESP_MBR_SIGNATURE;
+    mbr->partition_table[0].type = 0x0C; // zero sectors
+    mbr->partition_table[0].lba_start = 2048;
+    mbr->partition_table[1].type = 0x0C; // starts at the MBR sector
+    mbr->partition_table[1].lba_start = 0;
+    mbr->partition_table[1].sector_count = 100;
+    mbr->partition_table[2].type = 0x0C; // valid
+    mbr->partition_table[2].lba_start = 4096;
+    mbr->partition_table[2].sector_count = 100;
+
+    esp_ext_part_list_t list = {0};
+    TEST_ESP_OK(esp_mbr_parse(mbr, &list, NULL));
+    TEST_ASSERT_TRUE(list.flags & ESP_EXT_PART_LIST_FLAG_LOSSY);
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&list);
+    TEST_ASSERT_NOT_NULL(it);
+    TEST_ASSERT_EQUAL_UINT8(3, it->info.slot);
+    TEST_ASSERT_NULL(esp_ext_part_list_item_next(it));
+
+    // The parsed list can be written back
+    TEST_ESP_OK(esp_mbr_generate(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL_UINT32(4096, mbr->partition_table[0].lba_start);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    free(mbr);
 }
 
 void app_main(void)
