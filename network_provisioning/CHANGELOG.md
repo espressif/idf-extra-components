@@ -1,3 +1,8 @@
+# 1.3.1 (1-October-2026)
+
+- Depend on `json_generator` 2.0.0, which replaces 1.3.0 under a new major
+  version. No functional change.
+
 # 1.3.0 (27-September-2026)
 
 - Generate the `proto-ver` version document with `json_generator` instead of
