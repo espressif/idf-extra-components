@@ -25,8 +25,8 @@
 
 ## Breaking changes
 
-- Strings come back decoded. Pair with a json_generator that escapes on
-  output (espressif/idf-extra-components#859); mixing an old and a new
+- Strings come back decoded. Pair with json_generator 2.0.0, which escapes
+  on output (espressif/idf-extra-components#859); mixing an old and a new
   version double-escapes or under-escapes strings containing `"` or `\`.
 - The length passed to `json_parse_start()` must be the exact text length:
   a NUL byte inside it is an error. Pass `strlen(buf)` or the received byte
