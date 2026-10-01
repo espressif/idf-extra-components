@@ -125,7 +125,8 @@ void generate_original_mbr(esp_mbr_t *mbr)
 {
     esp_mbr_generate_extra_args_t mbr_args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
-        .alignment = ESP_EXT_PART_ALIGN_1MiB
+        .alignment = ESP_EXT_PART_ALIGN_1MiB,
+        .align_policy = ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE, // Opt in to moving the explicit start below
     };
 
     esp_ext_part_list_t part_list = {0};
@@ -506,10 +507,13 @@ TEST_CASE("Test esp_mbr_partition_set and esp_mbr_remove_gaps_between_partition_
     while ((it = esp_ext_part_list_item_next(it)) != NULL) {
         partition_count++;
     }
-    TEST_ASSERT_EQUAL(partition_count, 1);
+    TEST_ASSERT_EQUAL(2, partition_count); // Partitions in slots 1 and 4 are both read despite the empty slots
+    it = esp_ext_part_list_item_head(&part_list_from_mbr);
+    TEST_ASSERT_EQUAL(1, it->info.slot);
+    TEST_ASSERT_EQUAL(4, esp_ext_part_list_item_next(it)->info.slot);
 
     // Print the partition list
-    printf("Partition list after creating gaps (partition 3 is missing because the gaps were created and not shifted out):\n");
+    printf("Partition list after creating gaps (partitions 0 and 3 are still read):\n");
     it = esp_ext_part_list_item_head(&part_list_from_mbr);
     TEST_ASSERT_NOT_NULL(it);
     print_esp_ext_part_list_items(it);
@@ -738,9 +742,11 @@ TEST_CASE("Test ALIGN_NONE leaves the start untouched", "[esp_ext_part_table]")
 TEST_CASE("Test ALIGN_AUTO applies the 1MiB default alignment", "[esp_ext_part_table]")
 {
     // Explicit AUTO
+    // KEEP_SIZE: explicit addresses are only aligned when the policy asks for it
     esp_mbr_generate_extra_args_t args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
         .alignment = ESP_EXT_PART_ALIGN_AUTO,
+        .align_policy = ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE,
     };
     esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr);
@@ -754,6 +760,7 @@ TEST_CASE("Test ALIGN_AUTO applies the 1MiB default alignment", "[esp_ext_part_t
     // Zero-initialized alignment field must also select AUTO (=> 1 MiB), not NONE.
     esp_mbr_generate_extra_args_t args0 = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
+        .align_policy = ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE,
     };
     esp_mbr_t *mbr2 = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     TEST_ASSERT_NOT_NULL(mbr2);
@@ -885,6 +892,7 @@ TEST_CASE("Test total_size bounds check rejects off-disk partitions", "[esp_ext_
     esp_mbr_generate_extra_args_t args = {
         .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B,
         .alignment = ESP_EXT_PART_ALIGN_1MiB,
+        .align_policy = ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE, // start 8 is moved to 2048
         .total_size = esp_ext_part_sector_count_to_bytes(2000, ESP_EXT_PART_SECTOR_SIZE_512B), // too small
     };
     esp_err_t err = gen_single_partition(mbr,
@@ -1568,9 +1576,15 @@ TEST_CASE("Test esp_ext_part_match_mountable classifies types", "[esp_ext_part_t
     info.type = ESP_EXT_PART_TYPE_FAT32;
     TEST_ASSERT_TRUE(matcher.fn(&info, matcher.ctx));
 
-    // LittleFS: mountable because ESP_EXT_PART_HAS_LITTLEFS is defined for this build.
+    // LittleFS: mountable because ESP_EXT_PART_HAS_LITTLEFS is defined for this build,
+    // but only with a usable block size.
     info.type = ESP_EXT_PART_TYPE_LITTLEFS;
+    TEST_ASSERT_FALSE(matcher.fn(&info, matcher.ctx)); // no block size
+    info.flags = ESP_EXT_PART_FLAG_EXTRA;
+    info.extra = 4096;
     TEST_ASSERT_TRUE(matcher.fn(&info, matcher.ctx));
+    info.flags = ESP_EXT_PART_FLAG_NONE;
+    info.extra = 0;
 
     // Not mountable: raw data, exFAT/NTFS, Linux, GPT-protective, none.
     info.type = ESP_EXT_PART_TYPE_RAW_DATA;
@@ -1934,6 +1948,611 @@ TEST_CASE("Test auto-placement: FILL via BDL uses device geometry", "[esp_ext_pa
     free(buffer);
 }
 #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+
+// ---------------------------------------------------------------------------
+// Empty slots in the middle of an MBR partition table and slot preservation
+// ---------------------------------------------------------------------------
+
+static void set_raw_entry(esp_mbr_t *mbr, int idx, uint8_t type, uint32_t lba, uint32_t count)
+{
+    memset(&mbr->partition_table[idx], 0, sizeof(esp_mbr_partition_t));
+    mbr->partition_table[idx].type = type;
+    mbr->partition_table[idx].lba_start = lba;
+    mbr->partition_table[idx].sector_count = count;
+}
+
+static int list_count(esp_ext_part_list_t *list)
+{
+    int n = 0;
+    for (esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(list); it != NULL; it = esp_ext_part_list_item_next(it)) {
+        n++;
+    }
+    return n;
+}
+
+// fdisk/Windows leave a zeroed slot when a non-last partition is deleted; the Linux
+// kernel reads all four slots. Every used slot must be parsed, whatever precedes it.
+TEST_CASE("Test esp_mbr_parse reads partitions after an empty slot", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    mbr->boot_signature = ESP_MBR_SIGNATURE;
+    set_raw_entry(mbr, 1, 0x0C, 2048, 4096);  // slot 2 (1-based)
+    set_raw_entry(mbr, 3, 0x0C, 8192, 4096);  // slot 4, slots 1 and 3 empty
+
+    esp_ext_part_list_t list = {0};
+    TEST_ESP_OK(esp_mbr_parse(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL(2, list_count(&list));
+
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&list);
+    TEST_ASSERT_EQUAL(2, it->info.slot);
+    TEST_ASSERT_EQUAL_UINT64(2048 * 512ULL, it->info.address);
+    it = esp_ext_part_list_item_next(it);
+    TEST_ASSERT_EQUAL(4, it->info.slot);
+    TEST_ASSERT_EQUAL_UINT64(8192 * 512ULL, it->info.address);
+
+    // No partition was dropped, so the list is not lossy
+    TEST_ASSERT_FALSE(list.flags & ESP_EXT_PART_LIST_FLAG_LOSSY);
+
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    free(mbr);
+}
+
+TEST_CASE("Test esp_mbr_generate compacts slots by default", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t item = {
+        .info = {
+            .address = 2048 * 512ULL,
+            .size = 4096 * 512ULL,
+            .type = ESP_EXT_PART_TYPE_FAT32,
+            .slot = 3,
+        }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    TEST_ESP_OK(esp_mbr_generate(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL_HEX8(0x0C, mbr->partition_table[0].type);
+    TEST_ASSERT_EQUAL_HEX8(0x00, mbr->partition_table[2].type);
+
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+}
+
+TEST_CASE("Test esp_mbr_generate preserve_slots pins and fills free slots", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t pinned = {
+        .info = {
+            .address = 8192 * 512ULL,
+            .size = 4096 * 512ULL,
+            .type = ESP_EXT_PART_TYPE_FAT32,
+            .slot = 3,
+        }
+    };
+    esp_ext_part_list_item_t unpinned = {
+        .info = {
+            .address = 2048 * 512ULL,
+            .size = 4096 * 512ULL,
+            .type = ESP_EXT_PART_TYPE_FAT12,
+            .slot = 0, // auto
+        }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &pinned));
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &unpinned));
+
+    esp_mbr_generate_extra_args_t args = { .preserve_slots = true };
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    TEST_ESP_OK(esp_mbr_generate(mbr, &list, &args));
+
+    TEST_ASSERT_EQUAL_HEX8(0x01, mbr->partition_table[0].type); // unpinned -> lowest free slot
+    TEST_ASSERT_EQUAL_UINT32(2048, mbr->partition_table[0].lba_start);
+    TEST_ASSERT_EQUAL_HEX8(0x00, mbr->partition_table[1].type);
+    TEST_ASSERT_EQUAL_HEX8(0x0C, mbr->partition_table[2].type); // pinned to slot 3
+    TEST_ASSERT_EQUAL_UINT32(8192, mbr->partition_table[2].lba_start);
+    TEST_ASSERT_EQUAL_HEX8(0x00, mbr->partition_table[3].type);
+
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+}
+
+TEST_CASE("Test esp_mbr_generate preserve_slots rejects bad slots", "[esp_ext_part_table]")
+{
+    esp_mbr_generate_extra_args_t args = { .preserve_slots = true };
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+
+    // Duplicate slot
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t a = {
+        .info = { .address = 2048 * 512ULL, .size = 1024 * 512ULL, .type = ESP_EXT_PART_TYPE_FAT12, .slot = 2 }
+    };
+    esp_ext_part_list_item_t b = {
+        .info = { .address = 4096 * 512ULL, .size = 1024 * 512ULL, .type = ESP_EXT_PART_TYPE_FAT12, .slot = 2 }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &a));
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &b));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &list, &args));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    // Out-of-range slot (also rejected without preserve_slots)
+    a.info.slot = ESP_MBR_MAX_PARTITION_COUNT + 1;
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &a));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &list, &args));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_mbr_generate(mbr, &list, NULL));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    free(mbr);
+}
+
+// parse -> generate(preserve_slots, keep_signature, no alignment) must reproduce the
+// partition table of a holey MBR byte for byte (CHS aside, which is not set here).
+TEST_CASE("Test holey MBR round-trips with preserve_slots", "[esp_ext_part_table]")
+{
+    esp_mbr_t *src = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(src);
+    src->boot_signature = ESP_MBR_SIGNATURE;
+    src->disk_signature = 0x12345678;
+    set_raw_entry(src, 1, 0x0C, 2048, 4096);
+    set_raw_entry(src, 3, 0xDA, 8192, 4096);
+
+    esp_ext_part_list_t list = {0};
+    TEST_ESP_OK(esp_mbr_parse(src, &list, NULL));
+
+    esp_mbr_t *dst = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(dst);
+    esp_mbr_generate_extra_args_t args = {
+        .alignment = ESP_EXT_PART_ALIGN_NONE,
+        .keep_signature = true,
+        .preserve_slots = true,
+    };
+    TEST_ESP_OK(esp_mbr_generate(dst, &list, &args));
+
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
+        TEST_ASSERT_EQUAL_HEX8(src->partition_table[i].type, dst->partition_table[i].type);
+        TEST_ASSERT_EQUAL_UINT32(src->partition_table[i].lba_start, dst->partition_table[i].lba_start);
+        TEST_ASSERT_EQUAL_UINT32(src->partition_table[i].sector_count, dst->partition_table[i].sector_count);
+    }
+    TEST_ASSERT_EQUAL_HEX32(0x12345678, dst->disk_signature);
+
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    free(src);
+    free(dst);
+}
+
+// ---------------------------------------------------------------------------
+// Explicit addresses are not moved by default (align_policy KEEP_ADDRESS)
+// ---------------------------------------------------------------------------
+
+// A partition at LBA 63 (pre-2008 DOS layout) must stay there when a parsed table is
+// regenerated with default arguments; moving it would orphan the filesystem.
+TEST_CASE("Test default generate keeps explicit unaligned addresses", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    TEST_ESP_OK(gen_single_partition(mbr, 63 * 512ULL, 100000 * 512ULL, ESP_EXT_PART_TYPE_FAT32, NULL));
+    TEST_ASSERT_EQUAL_UINT32(63, mbr->partition_table[0].lba_start);
+    TEST_ASSERT_EQUAL_UINT32(100000, mbr->partition_table[0].sector_count);
+    free(mbr);
+}
+
+TEST_CASE("Test AUTO_ADDRESS partitions are still aligned by default", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t item = {
+        .info = { .size = 1000 * 512ULL, .type = ESP_EXT_PART_TYPE_FAT12, .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    TEST_ESP_OK(esp_mbr_generate(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL_UINT32(2048, mbr->partition_table[0].lba_start);
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+}
+
+// ---------------------------------------------------------------------------
+// A boot sector without a partition table (e.g. a FAT volume boot record on a
+// "superfloppy" SD card) also ends in 0x55AA and must not be parsed as an MBR.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Test esp_mbr_parse rejects a sector with invalid status bytes", "[esp_ext_part_table]")
+{
+    uint8_t *sector = (uint8_t *) calloc(1, ESP_MBR_SIZE);
+    TEST_ASSERT_NOT_NULL(sector);
+    memcpy(sector, mbr_bin, ESP_MBR_SIZE);
+    esp_mbr_t *mbr = (esp_mbr_t *) sector;
+
+    // Valid statuses parse
+    mbr->partition_table[0].status = ESP_MBR_PARTITION_STATUS_ACTIVE;
+    esp_ext_part_list_t list = {0};
+    TEST_ESP_OK(esp_mbr_parse(sector, &list, NULL));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    // Boot code bytes in the "status" position => not an MBR
+    mbr->partition_table[1].status = 0x29;
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_FOUND, esp_mbr_parse(sector, &list, NULL));
+    TEST_ASSERT_NULL(esp_ext_part_list_item_head(&list));
+
+    // An unused entry with a non-zero status is rejected as well
+    mbr->partition_table[1].status = 0x00;
+    mbr->partition_table[3].status = 0x01;
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_FOUND, esp_mbr_parse(sector, &list, NULL));
+
+    free(sector);
+}
+
+// ---------------------------------------------------------------------------
+// A list type that the generator cannot map must not become an empty (0x00) slot
+// ---------------------------------------------------------------------------
+
+static uint8_t gen_type_map_nothing(uint8_t type)
+{
+    (void) type;
+    return 0x00;
+}
+
+TEST_CASE("Test esp_mbr_generate rejects a type that maps to 0x00", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    esp_mbr_generate_extra_args_t args = { .esp_mbr_generate_custom_supported_partition_types = gen_type_map_nothing };
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_SUPPORTED,
+                      gen_single_partition(mbr, 2048 * 512ULL, 1000 * 512ULL, ESP_EXT_PART_TYPE_FAT12, &args));
+
+    // Default mapper: an out-of-range type value maps to 0x00 too
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_SUPPORTED, gen_single_partition(mbr, 2048 * 512ULL, 1000 * 512ULL, 0x7F, NULL));
+
+    // The buffer was left untouched
+    for (size_t i = 0; i < sizeof(esp_mbr_t); i++) {
+        TEST_ASSERT_EQUAL_HEX8(0, ((uint8_t *) mbr)[i]);
+    }
+    free(mbr);
+}
+
+// ---------------------------------------------------------------------------
+// CHS for LBAs beyond the CHS range must be the conventional maximum (1023/254/63)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Test esp_mbr_lba_to_chs_arr saturates to FE FF FF", "[esp_ext_part_table]")
+{
+    uint8_t chs[3];
+
+    // In range: LBA 2048 => C=0, H=32, S=33
+    esp_mbr_lba_to_chs_arr(chs, 2048);
+    TEST_ASSERT_EQUAL_HEX8(0x20, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x21, chs[1]);
+    TEST_ASSERT_EQUAL_HEX8(0x00, chs[2]);
+
+    // Last addressable CHS: C=1023 H=254 S=63
+    esp_mbr_lba_to_chs_arr(chs, 1024UL * 255 * 63 - 1);
+    TEST_ASSERT_EQUAL_HEX8(0xFE, chs[0]);
+    TEST_ASSERT_EQUAL_HEX8(0xFF, chs[1]);
+    TEST_ASSERT_EQUAL_HEX8(0xFF, chs[2]);
+
+    // Beyond the range: saturate
+    const uint32_t beyond[] = { 1024UL * 255 * 63, 1024UL * 255 * 63 + 100, UINT32_MAX };
+    for (size_t i = 0; i < sizeof(beyond) / sizeof(beyond[0]); i++) {
+        esp_mbr_lba_to_chs_arr(chs, beyond[i]);
+        TEST_ASSERT_EQUAL_HEX8(0xFE, chs[0]);
+        TEST_ASSERT_EQUAL_HEX8(0xFF, chs[1]);
+        TEST_ASSERT_EQUAL_HEX8(0xFF, chs[2]);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Zero-size partitions
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Test zero-size explicit partition is rejected", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, gen_single_partition(mbr, 2048 * 512ULL, 0, ESP_EXT_PART_TYPE_FAT12, NULL));
+
+    esp_ext_part_list_item_t item = {
+        .info = { .address = 0, .size = 0, .type = ESP_EXT_PART_TYPE_FAT12 }
+    };
+    esp_mbr_generate_extra_args_t args = { .sector_size = ESP_EXT_PART_SECTOR_SIZE_512B };
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, esp_mbr_partition_set(mbr, 0, &item, &args));
+    TEST_ASSERT_EQUAL_HEX8(0, mbr->partition_table[0].type);
+    free(mbr);
+}
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+// ---------------------------------------------------------------------------
+// Block devices with an I/O unit larger than 512 B and erase-before-write
+// ---------------------------------------------------------------------------
+
+#define FLASH_SIM_UNIT 4096
+
+typedef struct {
+    uint8_t *data;
+    int erase_count;
+} flash_sim_t;
+
+static esp_err_t flash_sim_read(esp_blockdev_handle_t h, uint8_t *dst, size_t dst_size, uint64_t addr, size_t len)
+{
+    flash_sim_t *f = (flash_sim_t *) h->ctx;
+    if (addr % FLASH_SIM_UNIT || len % FLASH_SIM_UNIT || len > dst_size || addr + len > h->geometry.disk_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    memcpy(dst, f->data + addr, len);
+    return ESP_OK;
+}
+
+static esp_err_t flash_sim_write(esp_blockdev_handle_t h, const uint8_t *src, uint64_t addr, size_t len)
+{
+    flash_sim_t *f = (flash_sim_t *) h->ctx;
+    if (addr % FLASH_SIM_UNIT || len % FLASH_SIM_UNIT || addr + len > h->geometry.disk_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    for (size_t i = 0; i < len; i++) {
+        f->data[addr + i] &= src[i]; // NOR flash: a write can only clear bits
+    }
+    return ESP_OK;
+}
+
+static esp_err_t flash_sim_erase(esp_blockdev_handle_t h, uint64_t addr, size_t len)
+{
+    flash_sim_t *f = (flash_sim_t *) h->ctx;
+    if (addr % FLASH_SIM_UNIT || len % FLASH_SIM_UNIT || addr + len > h->geometry.disk_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    memset(f->data + addr, 0xFF, len);
+    f->erase_count++;
+    return ESP_OK;
+}
+
+static esp_err_t flash_sim_release(esp_blockdev_handle_t h)
+{
+    free(h);
+    return ESP_OK;
+}
+
+static const esp_blockdev_ops_t flash_sim_ops = {
+    .read = flash_sim_read,
+    .write = flash_sim_write,
+    .erase = flash_sim_erase,
+    .release = flash_sim_release,
+};
+
+static esp_blockdev_handle_t flash_sim_get(flash_sim_t *f, size_t size)
+{
+    esp_blockdev_handle_t h = (esp_blockdev_handle_t) calloc(1, sizeof(esp_blockdev_t));
+    TEST_ASSERT_NOT_NULL(h);
+    h->ctx = f;
+    h->device_flags.erase_before_write = 1;
+    h->device_flags.and_type_write = 1;
+    h->device_flags.default_val_after_erase = 1;
+    h->geometry.disk_size = size;
+    h->geometry.read_size = FLASH_SIM_UNIT;
+    h->geometry.write_size = FLASH_SIM_UNIT;
+    h->geometry.erase_size = FLASH_SIM_UNIT;
+    h->ops = &flash_sim_ops;
+    return h;
+}
+
+// Small enough to fit in target RAM: 64 KiB device, 4 KiB alignment, one 16 KiB partition
+#define SMALL_DISK_SIZE (64 * 1024)
+static const esp_mbr_generate_extra_args_t small_disk_args = { .alignment = ESP_EXT_PART_ALIGN_4KiB };
+
+static void one_fat_partition_list(esp_ext_part_list_t *list)
+{
+    esp_ext_part_list_item_t item = {
+        .info = { .size = 16 * 1024, .type = ESP_EXT_PART_TYPE_FAT12, .flags = ESP_EXT_PART_FLAG_AUTO_ADDRESS }
+    };
+    TEST_ESP_OK(esp_ext_part_list_insert(list, &item));
+}
+
+TEST_CASE("Test BDL helpers on a 4 KiB-unit erase-before-write device", "[esp_ext_part_table]")
+{
+    const size_t size = SMALL_DISK_SIZE;
+    flash_sim_t f = { .data = malloc(size) };
+    TEST_ASSERT_NOT_NULL(f.data);
+    memset(f.data, 0xFF, size);
+    // Pre-existing content in the first unit: bootstrap code and data past the MBR
+    for (int i = 0; i < 440; i++) {
+        f.data[i] = (uint8_t) i;
+    }
+    for (int i = ESP_MBR_SIZE; i < FLASH_SIM_UNIT; i++) {
+        f.data[i] = (uint8_t)(i * 7);
+    }
+    esp_blockdev_handle_t h = flash_sim_get(&f, size);
+
+    esp_ext_part_list_t list = {0};
+    one_fat_partition_list(&list);
+    TEST_ESP_OK(esp_mbr_bdl_write(h, &list, &small_disk_args));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    TEST_ASSERT_EQUAL(1, f.erase_count);
+
+    // Bootstrap code and the rest of the unit survived
+    for (int i = 0; i < 440; i++) {
+        TEST_ASSERT_EQUAL_HEX8((uint8_t) i, f.data[i]);
+    }
+    for (int i = ESP_MBR_SIZE; i < FLASH_SIM_UNIT; i++) {
+        TEST_ASSERT_EQUAL_HEX8((uint8_t)(i * 7), f.data[i]);
+    }
+
+    esp_ext_part_signature_type_t type;
+    TEST_ESP_OK(esp_ext_part_probe(h, &type));
+    TEST_ASSERT_EQUAL(ESP_EXT_PART_LIST_SIGNATURE_MBR, type);
+
+    TEST_ESP_OK(esp_mbr_bdl_read(h, &list, NULL));
+    esp_ext_part_list_item_t *it = esp_ext_part_list_item_head(&list);
+    TEST_ASSERT_NOT_NULL(it);
+    TEST_ASSERT_EQUAL_UINT64(4096, it->info.address);
+    TEST_ASSERT_EQUAL_UINT64(16 * 1024, it->info.size);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    h->ops->release(h);
+    free(f.data);
+}
+
+TEST_CASE("Test esp_mbr_bdl_write preserves the bootstrap code", "[esp_ext_part_table]")
+{
+    const size_t size = SMALL_DISK_SIZE;
+    uint8_t *buffer = calloc(1, size);
+    TEST_ASSERT_NOT_NULL(buffer);
+    for (int i = 0; i < 440; i++) {
+        buffer[i] = (uint8_t)(0xA0 ^ i);
+    }
+    esp_blockdev_handle_t h = NULL;
+    TEST_ESP_OK(bdl_simulated_get_blockdev(buffer, size, &h));
+
+    esp_ext_part_list_t list = {0};
+    one_fat_partition_list(&list);
+    TEST_ESP_OK(esp_mbr_bdl_write(h, &list, &small_disk_args));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    for (int i = 0; i < 440; i++) {
+        TEST_ASSERT_EQUAL_HEX8((uint8_t)(0xA0 ^ i), buffer[i]);
+    }
+    TEST_ASSERT_EQUAL_HEX16(ESP_MBR_SIGNATURE, ((esp_mbr_t *) buffer)->boot_signature);
+
+    h->ops->release(h);
+    free(buffer);
+}
+
+TEST_CASE("Test esp_ext_part_probe rejects a volume boot record", "[esp_ext_part_table]")
+{
+    const size_t size = 4096;
+    uint8_t *buffer = calloc(1, size);
+    TEST_ASSERT_NOT_NULL(buffer);
+    memcpy(buffer, mbr_bin, ESP_MBR_SIZE);
+    ((esp_mbr_t *) buffer)->partition_table[2].status = 0x4E; // boot code byte
+    esp_blockdev_handle_t h = NULL;
+    TEST_ESP_OK(bdl_simulated_get_blockdev(buffer, size, &h));
+
+    esp_ext_part_signature_type_t type;
+    TEST_ASSERT_EQUAL(ESP_ERR_NOT_FOUND, esp_ext_part_probe(h, &type));
+
+    h->ops->release(h);
+    free(buffer);
+}
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+
+// ---------------------------------------------------------------------------
+// LittleFS block size stored in the CHS-start bytes of a 0xC3 entry
+// ---------------------------------------------------------------------------
+
+static void parse_single_c3(const uint8_t chs[3], esp_ext_part_list_t *list)
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    mbr->boot_signature = ESP_MBR_SIGNATURE;
+    set_raw_entry(mbr, 0, 0xC3, 2048, 4096);
+    memcpy(mbr->partition_table[0].chs_start, chs, 3);
+    TEST_ESP_OK(esp_mbr_parse(mbr, list, NULL));
+    free(mbr);
+    TEST_ASSERT_NOT_NULL(esp_ext_part_list_item_head(list));
+}
+
+TEST_CASE("Test LittleFS block size is parsed only when plausible", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t *it;
+
+    // 4096 (0x001000) written by this library
+    parse_single_c3((const uint8_t[3]) {
+        0x00, 0x10, 0x00
+    }, &list);
+    it = esp_ext_part_list_item_head(&list);
+    TEST_ASSERT_EQUAL_UINT64(4096, it->info.extra);
+    TEST_ASSERT_TRUE(it->info.flags & ESP_EXT_PART_FLAG_EXTRA);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    // Zero: no block size
+    parse_single_c3((const uint8_t[3]) {
+        0, 0, 0
+    }, &list);
+    it = esp_ext_part_list_item_head(&list);
+    TEST_ASSERT_EQUAL_UINT64(0, it->info.extra);
+    TEST_ASSERT_FALSE(it->info.flags & ESP_EXT_PART_FLAG_EXTRA);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    // Real CHS of LBA 2048 (20 21 00 => 0x2120) from another tool: not a block size
+    parse_single_c3((const uint8_t[3]) {
+        0x20, 0x21, 0x00
+    }, &list);
+    it = esp_ext_part_list_item_head(&list);
+    TEST_ASSERT_EQUAL_UINT64(0, it->info.extra);
+    TEST_ASSERT_FALSE(it->info.flags & ESP_EXT_PART_FLAG_EXTRA);
+    esp_ext_part_match_t m = esp_ext_part_match_mountable();
+    TEST_ASSERT_FALSE(m.fn(&it->info, m.ctx));
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    // Power of two but out of range (64 B and 2 MiB)
+    parse_single_c3((const uint8_t[3]) {
+        0x40, 0x00, 0x00
+    }, &list);
+    TEST_ASSERT_FALSE(esp_ext_part_list_item_head(&list)->info.flags & ESP_EXT_PART_FLAG_EXTRA);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    parse_single_c3((const uint8_t[3]) {
+        0x00, 0x00, 0x20
+    }, &list);
+    TEST_ASSERT_FALSE(esp_ext_part_list_item_head(&list)->info.flags & ESP_EXT_PART_FLAG_EXTRA);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+}
+
+TEST_CASE("Test LittleFS block size is validated on generate", "[esp_ext_part_table]")
+{
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    esp_ext_part_list_t list = {0};
+    esp_ext_part_list_item_t item = {
+        .info = { .address = 2048 * 512ULL, .size = 4096 * 512ULL, .type = ESP_EXT_PART_TYPE_LITTLEFS, .flags = ESP_EXT_PART_FLAG_EXTRA }
+    };
+
+    const uint64_t bad[] = { 8480, 64, 2 * 1024 * 1024, 0x1000000, 0x1001000 };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        item.info.extra = bad[i];
+        TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+        TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, esp_mbr_generate(mbr, &list, NULL));
+        TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    }
+
+    const uint64_t good[] = { 128, 4096, 1024 * 1024 };
+    for (size_t i = 0; i < sizeof(good) / sizeof(good[0]); i++) {
+        item.info.extra = good[i];
+        TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+        TEST_ESP_OK(esp_mbr_generate(mbr, &list, NULL));
+        TEST_ASSERT_EQUAL_UINT32((uint32_t) good[i], esp_mbr_chs_arr_val_get(mbr->partition_table[0].chs_start));
+        TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+    }
+
+    // No block size: allowed, CHS-start written as zeros
+    memset(mbr->partition_table[0].chs_start, 0xAA, 3);
+    item.info.extra = 0;
+    item.info.flags = ESP_EXT_PART_FLAG_NONE;
+    TEST_ESP_OK(esp_ext_part_list_insert(&list, &item));
+    TEST_ESP_OK(esp_mbr_generate(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL_UINT32(0, esp_mbr_chs_arr_val_get(mbr->partition_table[0].chs_start));
+    TEST_ASSERT_EQUAL_HEX8(0xC3, mbr->partition_table[0].type);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+
+    free(mbr);
+}
+
+// A disk with a 0xC3 entry without a block size must not block editing the table
+TEST_CASE("Test 0xC3 entry without block size round-trips", "[esp_ext_part_table]")
+{
+    esp_ext_part_list_t list = {0};
+    parse_single_c3((const uint8_t[3]) {
+        0x20, 0x21, 0x00
+    }, &list);
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
+    TEST_ASSERT_NOT_NULL(mbr);
+    TEST_ESP_OK(esp_mbr_generate(mbr, &list, NULL));
+    TEST_ASSERT_EQUAL_HEX8(0xC3, mbr->partition_table[0].type);
+    TEST_ASSERT_EQUAL_UINT32(2048, mbr->partition_table[0].lba_start);
+    free(mbr);
+    TEST_ESP_OK(esp_ext_part_list_deinit(&list));
+}
 
 void app_main(void)
 {

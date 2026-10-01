@@ -17,6 +17,7 @@
 
 #include "esp_ext_part_tables.h"
 #include "esp_mbr.h"
+#include "esp_mbr_private.h"
 
 #if __has_include(<bsd/sys/queue.h>)
 #include <bsd/sys/queue.h>
@@ -195,14 +196,10 @@ esp_err_t esp_ext_part_probe(esp_blockdev_handle_t handle, esp_ext_part_signatur
         return ESP_ERR_INVALID_ARG;
     }
 
-    uint8_t *buf = malloc(ESP_MBR_SIZE);
-    if (buf == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    esp_err_t err = handle->ops->read(handle, buf, ESP_MBR_SIZE, 0, ESP_MBR_SIZE);
+    uint8_t *buf = NULL;
+    size_t unit = 0;
+    esp_err_t err = esp_mbr_bdl_read_first_unit(handle, false, &buf, &unit);
     if (err != ESP_OK) {
-        free(buf);
         return err;
     }
 
@@ -210,8 +207,8 @@ esp_err_t esp_ext_part_probe(esp_blockdev_handle_t handle, esp_ext_part_signatur
     // protective MBR whose single entry has type 0xEE, which is what distinguishes the
     // two formats here.
     const esp_mbr_t *mbr = (const esp_mbr_t *) buf;
-    if (mbr->boot_signature != ESP_MBR_SIGNATURE) {
-        ESP_LOGD(TAG, "No MBR boot signature, no known partition table");
+    if (!esp_mbr_is_valid(mbr)) {
+        ESP_LOGD(TAG, "No valid MBR in the first sector, no known partition table");
         free(buf);
         return ESP_ERR_NOT_FOUND;
     }

@@ -41,12 +41,14 @@ typedef enum {
 } esp_ext_part_align_t;
 
 typedef enum {
-    /*!< Default: align the partition start up, keep the requested size as the length from the aligned start (matches fdisk/parted behavior). */
-    ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE = 0,
-    /*!< Return an error if a partition start was not already aligned (do not silently relocate it). */
+    /*!< Default: a partition with an explicit address is written exactly where it was given, aligned or not. Only partitions placed by the library (`ESP_EXT_PART_FLAG_AUTO_ADDRESS`) are aligned. This keeps existing partitions in place when a parsed table is regenerated. */
+    ESP_EXT_PART_ALIGN_POLICY_KEEP_ADDRESS = 0,
+    /*!< Return an error if an explicit partition start is not aligned (do not silently relocate it). */
     ESP_EXT_PART_ALIGN_POLICY_REJECT,
-    /*!< Align the partition start up, then shrink the size so the end stays at the originally requested address + size. Errors if alignment consumes the whole partition. */
+    /*!< Align an explicit partition start up, then shrink the size so the end stays at the originally requested address + size. Errors if alignment consumes the whole partition. */
     ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END,
+    /*!< Align an explicit partition start up and keep the requested size as the length from the aligned start. Moves the partition, so do not use it on a table that describes existing data. */
+    ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE,
 } esp_ext_part_align_policy_t;
 
 typedef enum __attribute__((packed))
@@ -90,10 +92,11 @@ typedef struct {
 typedef struct {
     uint64_t address; /*!< Start address in bytes */
     uint64_t size; /*!< Size in bytes */
-    uint64_t extra; /*!< Extra information (e.g. LittleFS block size stored in CHS hack, etc.) */
+    uint64_t extra; /*!< Extra information. For LittleFS (MBR type 0xC3): the block size, stored in the CHS-start bytes. It must be 0 (none) or a power of two from 128 B to 1 MiB; the parser sets it, with `ESP_EXT_PART_FLAG_EXTRA`, only when the stored value is such a block size. */
     char *label;
     esp_ext_part_flags_t flags; /*!< Flags for the partition */
     uint8_t type; /*!< Known partition type for this component (usually a part of `esp_ext_part_type_known_t`) */
+    uint8_t slot; /*!< 1-based position of the entry in the on-disk partition table (1..4 for MBR, matching partition numbers such as sdX1..sdX4), or 0 = not assigned. Set by the parser. Used by the generator only when `esp_mbr_generate_extra_args_t::preserve_slots` is true. */
 } esp_ext_part_t;
 
 typedef struct esp_ext_part_list_item_ {
@@ -257,6 +260,9 @@ esp_ext_part_list_item_t *esp_ext_part_list_next_matching(esp_ext_part_list_item
  *   to this library at compile time - detected via `__has_include("esp_littlefs.h")`,
  *   or forced by defining `ESP_EXT_PART_HAS_LITTLEFS`. If neither applies, LittleFS
  *   is reported as not mountable (a safe under-report rather than a false claim).
+ *   A LittleFS partition also needs a block size (`ESP_EXT_PART_FLAG_EXTRA` set and
+ *   a valid `extra`); type 0xC3 is used by other software too, and without a block
+ *   size the partition cannot be mounted.
  * - All other types (raw data, exFAT/NTFS, Linux, GPT-protective, none) are not
  *   mountable.
  *
@@ -308,8 +314,10 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
  * instead of guessing.
  *
  * Detection relies on the first sector always being an MBR: a GPT disk carries a
- * protective MBR there, whose single partition entry has type `0xEE`. A disk with a
- * boot signature but no protective entry is reported as MBR.
+ * protective MBR there, whose single partition entry has type `0xEE`. A valid MBR (see
+ * `esp_mbr_parse`) with no protective entry is reported as MBR. A sector with a boot
+ * signature but invalid entry status bytes - typically the boot sector of a filesystem
+ * on a medium without a partition table - is not a partition table.
  *
  * @note Only formats this component can parse are reported; see
  *       `esp_ext_part_signature_type_t`. A GPT disk is detected but cannot be parsed
@@ -324,7 +332,8 @@ esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const 
  * @return
  *     - ESP_OK: A known partition table format was detected.
  *     - ESP_ERR_INVALID_ARG: `handle` or `out_type` is NULL.
- *     - ESP_ERR_NOT_FOUND: No partition table was recognized (no MBR boot signature).
+ *     - ESP_ERR_NOT_FOUND: No partition table was recognized (no boot signature, or invalid entry status bytes).
+ *     - ESP_ERR_NOT_SUPPORTED: The device geometry has no usable I/O unit for the MBR.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
  *     - propagated errors from BDL operations.
  */

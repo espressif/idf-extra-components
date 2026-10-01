@@ -135,7 +135,8 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
     esp_ext_part_list_t part_list = {0};
 
     // A zero-initialized args struct already selects sensible defaults
-    // (AUTO alignment => 1 MiB, KEEP_SIZE policy, 512 B sectors). Here we set only
+    // (AUTO alignment => 1 MiB for auto-placed partitions, explicit addresses
+    // kept as given, 512 B sectors). Here we set only
     // what the auto-placement/FILL demo needs: an explicit sector size and the
     // total disk size (so FILL and the bounds check know where the disk ends).
     esp_mbr_generate_extra_args_t mbr_args = {
