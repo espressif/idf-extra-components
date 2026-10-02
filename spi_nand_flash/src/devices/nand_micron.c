@@ -31,22 +31,22 @@ esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
     dev->ecc_status_decoder = nand_ecc_decode_3bit;
     dev->chip.erase_block_delay_us = 2000;
     switch (device_id) {
-    case MICRON_DI_34:
+    case MICRON_DI_34: // MT29F4G01ABAFDWB, MT29F4G01ABAFD12 (3.3 V) - 8 bits/sector ECC strength
         dev->chip.read_page_delay_us = 115;
         dev->chip.program_page_delay_us = 240;
         dev->chip.num_blocks = 2048;
         dev->chip.log2_ppb = 6;        // 64 pages per block
         dev->chip.log2_page_size = 12; // 4096 bytes per page
         break;
-    case MICRON_DI_14:
-    case MICRON_DI_15:
+    case MICRON_DI_14: // MT29F1G01ABAFDSF, MT29F1G01ABAFD12, MT29F1G01ABAFDWB (3.3 V) - 8 bits/sector ECC strength
+    case MICRON_DI_15: // M78A 1Gb 1.8 V variant of 0x14 (per Linux spinand micron.c) - 8 bits/sector ECC strength
         dev->chip.read_page_delay_us = 46;
         dev->chip.program_page_delay_us = 220;
         dev->chip.num_blocks = 1024;
         dev->chip.log2_ppb = 6;          // 64 pages per block
         dev->chip.log2_page_size = 11;   // 2048 bytes per page
         break;
-    case MICRON_DI_24:
+    case MICRON_DI_24: // MT29F2G01ABAGDSF, MT29F2G01ABAGD12, MT29F2G01ABAGDWB - 8 bits/sector ECC strength
         dev->chip.read_page_delay_us = 55;
         dev->chip.program_page_delay_us = 220;
         dev->chip.num_blocks = 2048;
