@@ -8,7 +8,9 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_ext_part_tables.h"
+#include "esp_mbr.h"
 #include "esp_mbr_utils.h"
+#include "esp_mbr_private.h"
 
 static const char *TAG = "esp_mbr_utils";
 
@@ -30,25 +32,21 @@ void esp_mbr_lba_to_chs_arr(uint8_t chs[3], uint32_t lba)
     uint8_t head;
     uint8_t sector;
 
-    uint32_t sectors_per_cylinder = MBR_CHS_HEADS * MBR_CHS_SECTORS_PER_TRACK;
+    uint32_t sectors_per_cylinder = ESP_MBR_CHS_HEADS * ESP_MBR_CHS_SECTORS_PER_TRACK;
     uint32_t temp;
 
-    cylinder = lba / sectors_per_cylinder;
-    temp = lba % sectors_per_cylinder;
-    head = temp / MBR_CHS_SECTORS_PER_TRACK;
-    sector = (temp % MBR_CHS_SECTORS_PER_TRACK) + 1;
-
-    // Clamp to BIOS CHS limits
-    if (cylinder > MBR_CHS_MAX_CYLINDER) {
-        cylinder = MBR_CHS_MAX_CYLINDER;
+    if (lba / sectors_per_cylinder > ESP_MBR_CHS_MAX_CYLINDER) {
+        // Not addressable with CHS: use the conventional maximum C/H/S = 1023/254/63
+        // (bytes FE FF FF), which tells readers to use the LBA fields instead.
+        cylinder = ESP_MBR_CHS_MAX_CYLINDER;
+        head = ESP_MBR_CHS_MAX_HEAD;
+        sector = ESP_MBR_CHS_MAX_SECTOR;
+    } else {
+        cylinder = lba / sectors_per_cylinder;
+        temp = lba % sectors_per_cylinder;
+        head = temp / ESP_MBR_CHS_SECTORS_PER_TRACK;
+        sector = (temp % ESP_MBR_CHS_SECTORS_PER_TRACK) + 1;
     }
-    if (head > MBR_CHS_MAX_HEAD) {
-        head = MBR_CHS_MAX_HEAD;
-    }
-    if (sector > MBR_CHS_MAX_SECTOR) {
-        sector = MBR_CHS_MAX_SECTOR;
-    }
-
     uint8_t chs_bytes[3];
     chs_bytes[0] = head & 0xFF;
     chs_bytes[1] = ((cylinder >> 2) & 0xC0) | (sector & 0x3F); // high 2 bits of cylinder + 6-bit sector
@@ -82,6 +80,11 @@ uint32_t esp_mbr_lba_align(uint32_t lba, esp_ext_part_sector_size_t sector_size,
         return UINT32_MAX;
     }
     return lba + to_add;
+}
+
+bool esp_mbr_littlefs_block_size_valid(uint64_t val)
+{
+    return val >= ESP_MBR_LITTLEFS_BLOCK_SIZE_MIN && val <= ESP_MBR_LITTLEFS_BLOCK_SIZE_MAX && (val & (val - 1)) == 0;
 }
 
 static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_type_known_t *out_type_parsed)
@@ -122,7 +125,7 @@ static bool default_known_supported_partition_types(uint8_t type, esp_ext_part_t
         parsed_type = ESP_EXT_PART_TYPE_LINUX_ANY;
         supported = false; // Not mountable
         break;
-    case 0xEE: // GPT protective MBR
+    case ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE: // GPT protective MBR
         parsed_type = ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR;
         supported = false; // Not mountable
         break;
@@ -202,9 +205,11 @@ static bool match_mountable_fn(const esp_ext_part_t *info, void *ctx)
         return true; // FatFs is part of ESP-IDF
     case ESP_EXT_PART_TYPE_LITTLEFS:
         // Mountable only if the LittleFS component is available to this library at
-        // compile time (its header is visible), or explicitly forced by the consumer.
+        // compile time (its header is visible), or explicitly forced by the consumer,
+        // and the partition carries a usable block size (without one it cannot be
+        // mounted, and it may not be LittleFS at all - 0xC3 is also used by others).
 #if defined(ESP_EXT_PART_HAS_LITTLEFS) || (defined(__has_include) && __has_include("esp_littlefs.h"))
-        return true;
+        return (info->flags & ESP_EXT_PART_FLAG_EXTRA) && esp_mbr_littlefs_block_size_valid(info->extra);
 #else
         return false;
 #endif

@@ -16,12 +16,13 @@
 extern "C" {
 #endif
 
-#define MBR_SIZE 512
-#define MBR_SIGNATURE 0xAA55
-#define MBR_COPY_PROTECTED 0x5A5A
-#define MBR_PARTITION_TABLE_OFFSET 0x1BE
-#define MBR_PARTITION_STATUS_ACTIVE 0x80
-#define MBR_MAX_PARTITION_COUNT 4
+#define ESP_MBR_SIZE 512
+#define ESP_MBR_SIGNATURE 0xAA55
+#define ESP_MBR_COPY_PROTECTED 0x5A5A
+#define ESP_MBR_PARTITION_TABLE_OFFSET 0x1BE
+#define ESP_MBR_PARTITION_STATUS_ACTIVE 0x80
+#define ESP_MBR_MAX_PARTITION_COUNT 4
+#define ESP_MBR_PARTITION_TYPE_GPT_PROTECTIVE 0xEE
 
 // MBR partition entry structure - https://en.wikipedia.org/wiki/Master_boot_record#Partition_table_entries
 #pragma pack(push, 1)
@@ -44,7 +45,7 @@ typedef struct {
     };
     uint32_t lba_start;
     uint32_t sector_count;
-} mbr_partition_t;
+} esp_mbr_partition_t;
 #pragma pack(pop)
 
 // MBR structure - https://en.wikipedia.org/wiki/Master_boot_record#Sector_layout
@@ -64,9 +65,9 @@ typedef struct {
             uint16_t copy_protected;
         };
     };
-    mbr_partition_t partition_table[4];
+    esp_mbr_partition_t partition_table[ESP_MBR_MAX_PARTITION_COUNT];
     uint16_t boot_signature;
-} mbr_t;
+} esp_mbr_t;
 #pragma pack(pop)
 
 typedef struct {
@@ -82,8 +83,9 @@ typedef struct {
     uint8_t (*esp_mbr_generate_custom_supported_partition_types)(uint8_t); // Custom function for generating supported MBR partition types, optional
     esp_ext_part_sector_size_t sector_size; // Sector size for correct LBA alignment. Overrides the list's `sector_size` for this call; 0 (UNKNOWN) falls back to the list's value, then to 512 B.
     esp_ext_part_align_t alignment; // Partition start alignment. 0 (ESP_EXT_PART_ALIGN_AUTO, the default) resolves to 1 MiB; ESP_EXT_PART_ALIGN_NONE leaves LBAs untouched; ESP_EXT_PART_ALIGN_4KiB / ESP_EXT_PART_ALIGN_1MiB request a specific alignment.
-    esp_ext_part_align_policy_t align_policy; // Policy applied when alignment moves a partition start (default 0 = KEEP_SIZE)
+    esp_ext_part_align_policy_t align_policy; // How partitions with an explicit address are aligned (default 0 = KEEP_ADDRESS: written as given). Auto-placed partitions are always aligned.
     bool keep_signature; // If true, the disk signature will be preserved in the generated MBR and not overwritten with a random value
+    bool preserve_slots; // If true, items with a non-zero `info.slot` are written to that slot and items with slot 0 fill the lowest free slots in list order. If false (default), list items are written to consecutive slots starting at the first one and `info.slot` is ignored.
 } esp_mbr_generate_extra_args_t;
 
 /**
@@ -101,22 +103,43 @@ typedef struct {
  * unknown/extended type, or one rejected by `match`), the list is marked
  * `ESP_EXT_PART_LIST_FLAG_LOSSY`.
  *
+ * All four table slots are read; unused slots (type `0x00`) are skipped wherever they
+ * are, including between used ones. Each item's `info.slot` is set to its 1-based slot
+ * number, so `esp_mbr_generate` with `preserve_slots` can write it back to the same slot.
+ * Used entries with zero sectors or a start at sector 0 cannot be written back, so
+ * they are skipped too (with a warning) and the list is marked `ESP_EXT_PART_LIST_FLAG_LOSSY`.
+ *
+ * @note A GPT disk carries a protective MBR in its first sector, so this function
+ *       succeeds on one and returns a single partition of type
+ *       `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` spanning the device. Those are not the
+ *       real partitions; this component cannot read a GPT table. Check for that type,
+ *       or probe the device with `esp_ext_part_probe`, if GPT media are possible.
+ *
+ * @note The sector is accepted as an MBR only if it carries the `0x55AA` boot signature
+ *       and every partition entry's status byte is `0x00` or `0x80`. This rejects a
+ *       volume boot record (e.g. a FAT boot sector on a medium formatted without a
+ *       partition table), which has the same signature but boot code in that area.
+ *
+ * @note On any error `part_list` is left empty (as if `esp_ext_part_list_deinit` had
+ *       been called); no partially parsed list is returned.
+ *
  * @note This function is not thread-safe.
  *
- * @param[in]  mbr_buf    Pointer to a buffer containing the raw MBR data (must be at least `MBR_SIZE` bytes and start of the MBR must align with start of the buffer).
- * @param[out] part_list  Pointer to the partition list structure to be filled with parsed entries.
+ * @param[in]  mbr_buf    Pointer to a buffer containing the raw MBR data (must be at least `ESP_MBR_SIZE` bytes and start of the MBR must align with start of the buffer).
+ * @param[out] part_list  Pointer to the partition list structure to be filled with parsed entries. Must be empty (zero-initialized, or emptied with `esp_ext_part_list_deinit`), because the parsed table fully defines the list.
  * @param[in]  extra_args Optional extra arguments for parsing (can be NULL for defaults).
  *
  * @return
- *     - ESP_OK:              Parsing was successful.
- *     - ESP_ERR_INVALID_ARG: Invalid arguments were provided.
- *     - ESP_ERR_NOT_FOUND:   MBR signature not found or invalid MBR.
- *     - ESP_ERR_NO_MEM:      Memory allocation failed during parsing.
+ *     - ESP_OK:                Parsing was successful.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided.
+ *     - ESP_ERR_INVALID_STATE: `part_list` already holds partitions.
+ *     - ESP_ERR_NOT_FOUND:     No boot signature, or an entry has an invalid status byte (not an MBR).
+ *     - ESP_ERR_NO_MEM:        Memory allocation failed during parsing.
  *     - Other error codes from `esp_ext_part_list_insert`.
  */
-esp_err_t esp_mbr_parse(void *mbr_buf,
+esp_err_t esp_mbr_parse(const void *mbr_buf,
                         esp_ext_part_list_t *part_list,
-                        esp_mbr_parse_extra_args_t *extra_args);
+                        const esp_mbr_parse_extra_args_t *extra_args);
 
 /**
  * @brief Generates a Master Boot Record (MBR) from a partition list.
@@ -134,8 +157,21 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
  *   - `extra_args->alignment == ESP_EXT_PART_ALIGN_AUTO` (the default when a
  *     zero-initialized `extra_args` is used) resolves to a 1 MiB alignment.
  *   - `ESP_EXT_PART_ALIGN_NONE` leaves partition start LBAs untouched.
- *   - When alignment moves a partition start, `extra_args->align_policy` decides
- *     what happens to the size (see `esp_ext_part_align_policy_t`).
+ *   - Partitions placed by the library (`ESP_EXT_PART_FLAG_AUTO_ADDRESS`) always
+ *     start on an aligned LBA.
+ *   - Partitions with an explicit address are written where they were given by
+ *     default (`ESP_EXT_PART_ALIGN_POLICY_KEEP_ADDRESS`), so regenerating a parsed
+ *     table never moves existing partitions. Set `extra_args->align_policy` to check
+ *     (`REJECT`) or move (`PRESERVE_END`, `KEEP_SIZE`) unaligned explicit starts.
+ *
+ * Partition types:
+ *   - Every item must map to a non-zero MBR type code; a type with no mapping (the
+ *     mapper returns `0x00`, which marks an unused slot) is rejected with
+ *     `ESP_ERR_NOT_SUPPORTED`. A partition with size 0 is rejected with
+ *     `ESP_ERR_INVALID_SIZE` (except AUTO_ADDRESS + FILL, which computes the size).
+ *   - An explicit `info.address` must be a multiple of the sector size and must not
+ *     be 0 (sector 0 holds the MBR); otherwise `ESP_ERR_INVALID_ARG` is returned.
+ *     `info.size` is rounded up to whole sectors.
  *
  * Automatic placement:
  *   - A partition item with `ESP_EXT_PART_FLAG_AUTO_ADDRESS` has its start address
@@ -144,35 +180,58 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
  *     aligned LBA (after the MBR sector).
  *   - With `ESP_EXT_PART_FLAG_FILL` and `info.size == 0`, the partition is sized to
  *     fill from its computed start to the end of the disk; this requires
- *     `extra_args->total_size` (or, via `esp_ext_part_list_bdl_write`, the device
+ *     `extra_args->total_size` (or, via `esp_mbr_bdl_write`, the device
  *     geometry).
- *   - Auto-placement is honored only here (and through `esp_ext_part_list_bdl_write`);
+ *   - Auto-placement is honored only here (and through `esp_mbr_bdl_write`);
  *     `esp_mbr_partition_set` does not support it. The caller's partition list is not
  *     modified.
  *
+ * Table slots:
+ *   - By default list items are written to consecutive slots starting at the first
+ *     one, in list order, and `info.slot` is ignored. A table that had unused slots
+ *     when parsed is therefore compacted, which renumbers its partitions.
+ *   - With `extra_args->preserve_slots`, an item with `info.slot` 1..4 is written to
+ *     that slot and items with slot 0 fill the lowest free slots in list order, so a
+ *     parsed table keeps its numbering. Two items with the same slot are rejected.
+ *   - An `info.slot` above `ESP_MBR_MAX_PARTITION_COUNT` is always rejected.
+ *
  * Empty list items:
- *   - A list item with `type == ESP_EXT_PART_TYPE_NONE` cannot be encoded as a
- *     partition entry without leaving a gap in the table (which truncates the parsed
- *     result and disturbs auto-placement). Such an item is rejected with
- *     `ESP_ERR_INVALID_ARG`.
+ *   - A list item with `type == ESP_EXT_PART_TYPE_NONE` has no partition to write and
+ *     is rejected with `ESP_ERR_INVALID_ARG`.
+ *
+ * @note The partition table is fully rewritten from `part_list`: every one of the
+ *       `ESP_MBR_MAX_PARTITION_COUNT` entries is either built from a list item or
+ *       zeroed, so entries left over from a previously loaded MBR never survive. The
+ *       bootstrap code area is preserved, which makes read-modify-write of an existing
+ *       MBR (typically together with `keep_signature`) safe. The copy-protection
+ *       marker follows `ESP_EXT_PART_LIST_FLAG_NONE`/`ESP_EXT_PART_LIST_FLAG_READ_ONLY`
+ *       in both directions.
+ *
+ * @note The MBR is built in a temporary heap copy and written to `mbr` only once every
+ *       entry has been built and the layout validated. On any error `mbr` is left
+ *       unmodified.
+ *
+ * @note A primary MBR holds at most `ESP_MBR_MAX_PARTITION_COUNT` (4) partitions. A
+ *       longer list is rejected with `ESP_ERR_NOT_SUPPORTED`; nothing is truncated.
  *
  * @note This function is not thread-safe.
  *
- * @param[out] mbr         Pointer to the blank MBR structure to be filled (must already be allocated and be at least `MBR_SIZE` bytes).
+ * @param[out] mbr         Pointer to the MBR structure to be filled (must already be allocated and be at least `ESP_MBR_SIZE` bytes). May contain a previously loaded MBR.
  * @param[in]  part_list   Pointer to the partition list structure containing partition entries to encode.
- * @param[in]  extra_args  Optional extra arguments for generation (can be NULL for defaults: 1 MiB alignment, KEEP_SIZE policy, no disk-bounds check).
+ * @param[in]  extra_args  Optional extra arguments for generation (can be NULL for defaults: 1 MiB alignment of auto-placed partitions, explicit addresses kept, no disk-bounds check).
  *
  * @return
  *     - ESP_OK:                Generation was successful.
- *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, a partition start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`, an AUTO_ADDRESS partition has size 0 without the FILL flag, or a list item has type `ESP_EXT_PART_TYPE_NONE`.
- *     - ESP_ERR_INVALID_STATE: Error filling a partition entry, or two partitions overlap.
- *     - ESP_ERR_INVALID_SIZE:  Alignment consumed a whole partition (PRESERVE_END policy), a partition runs past `total_size`, or a FILL partition cannot be sized (no/insufficient total size).
- *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, a partition start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`, an AUTO_ADDRESS partition has size 0 without the FILL flag, a list item has type `ESP_EXT_PART_TYPE_NONE`, a slot is out of range, (with `preserve_slots`) two items share a slot, an explicit `info.address` is not a multiple of the sector size, or a partition would start at sector 0 (the MBR).
+ *     - ESP_ERR_INVALID_STATE: Two partitions overlap.
+ *     - ESP_ERR_INVALID_SIZE:  A partition has size 0, a LittleFS block size is invalid (see `esp_mbr_partition_set`), alignment consumed a whole partition (PRESERVE_END policy), a partition runs past `total_size`, or a FILL partition cannot be sized (no/insufficient total size).
+ *     - ESP_ERR_NOT_SUPPORTED: The list holds more than `ESP_MBR_MAX_PARTITION_COUNT` partitions, a partition type has no MBR type code, or a partition address or size (sector count) exceeds 32-bit limit of MBR.
+ *     - ESP_ERR_NO_MEM:        The temporary MBR copy could not be allocated.
  *     - Other error codes from `esp_ext_part_list_signature_get` or `esp_mbr_partition_set`.
  */
-esp_err_t esp_mbr_generate(mbr_t *mbr,
-                           esp_ext_part_list_t *part_list,
-                           esp_mbr_generate_extra_args_t *extra_args);
+esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
+                           const esp_ext_part_list_t *part_list,
+                           const esp_mbr_generate_extra_args_t *extra_args);
 
 /**
  * @brief Sets a partition entry in the MBR (Master Boot Record).
@@ -181,36 +240,52 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
  * with the information from the given partition list item. Additional arguments for
  * partition generation must be supplied via the extra_args parameter.
  *
- * When alignment moves the partition start, `extra_args->align_policy` decides how
- * the size is treated (keep it, reject, or shrink to preserve the end; see
- * `esp_ext_part_align_policy_t`). This low-level function does NOT resolve
- * `ESP_EXT_PART_ALIGN_AUTO` to a default alignment - callers that want the 1 MiB
- * default should either go through `esp_mbr_generate` or pass a concrete alignment
- * value. It also does NOT perform overlap or disk-bounds validation (that is done
- * by `esp_mbr_generate`).
+ * `extra_args->align_policy` decides whether the start is aligned at all (the default
+ * `KEEP_ADDRESS` writes it as given) and, if it is moved, how the size is treated
+ * (see `esp_ext_part_align_policy_t`). This low-level function resolves no defaults:
+ * `extra_args->sector_size` must be set to a concrete value (passing
+ * `ESP_EXT_PART_SECTOR_SIZE_UNKNOWN` returns `ESP_ERR_INVALID_ARG` rather than
+ * assuming 512 B), and `ESP_EXT_PART_ALIGN_AUTO` is not resolved to the 1 MiB
+ * default either - callers that want those defaults should go through
+ * `esp_mbr_generate`. It also does NOT perform overlap or disk-bounds validation
+ * (that is done by `esp_mbr_generate`).
+ *
+ * Clearing an entry (`item->info.type == ESP_EXT_PART_TYPE_NONE`) needs no sector
+ * size and is always accepted.
+ *
+ * The target entry is written in full: every field is either derived from `item` or
+ * zeroed, so no value from a previously present partition survives. On error the
+ * entry is left untouched.
  *
  * @note This function is not thread-safe.
  *
- * @warning If the partition entry is empty (i.e., `item->info.type` is `ESP_EXT_PART_TYPE_NONE`), it will be cleared in the MBR.
- *          If there is an empty gap between partition entries, partition entries after the gap will most likely be ignored when the MBR is parsed (MBR does not allow gaps in the partition table).
- *          To avoid this, you can use `esp_mbr_remove_gaps_between_partiton_entries()` function to remove gaps in the MBR partition table.
+ * @note If `item->info.type` is `ESP_EXT_PART_TYPE_NONE`, the entry is cleared. Unused
+ *       entries between used ones are valid and are skipped by `esp_mbr_parse`; use
+ *       `esp_mbr_remove_gaps_between_partition_entries()` if you want the used entries
+ *       to be consecutive (this renumbers the partitions after the gap).
+ *
+ * @note `item->info.slot` is ignored here; the target slot is `partition_index`.
  *
  * @param[in,out] mbr               Pointer to the MBR structure to be updated.
  * @param[in]     partition_index   Index of the partition entry to set (0-3).
  * @param[in]     item              Pointer to the partition list item structure containing partition information.
- * @param[in]     extra_args        Extra arguments for partition entry setting (required).
+ * @param[in]     extra_args        Extra arguments for partition entry setting (required, and its `sector_size` must be set unless the entry is being cleared).
  *
  * @return
  *     - ESP_OK:                Success.
- *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, or the start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`.
- *     - ESP_ERR_INVALID_STATE: Error filling partition entry.
- *     - ESP_ERR_INVALID_SIZE:  Alignment consumed the whole partition (PRESERVE_END policy).
- *     - ESP_ERR_NOT_SUPPORTED: Partition address or size (sector count) exceeds 32-bit limit of MBR.
+ *     - ESP_ERR_INVALID_ARG:   Invalid arguments were provided, `extra_args->sector_size` is `ESP_EXT_PART_SECTOR_SIZE_UNKNOWN`, the start was not aligned while `align_policy` is `ESP_EXT_PART_ALIGN_POLICY_REJECT`, `info.address` is not a multiple of the sector size, or the partition would start at sector 0 (the MBR).
+ *     - ESP_ERR_INVALID_SIZE:  The partition has size 0, alignment consumed the whole partition (PRESERVE_END policy), or a LittleFS block size (`extra`) is not 0 or a power of two from 128 B to 1 MiB.
+ *     - ESP_ERR_NOT_SUPPORTED: The partition type has no MBR type code, or the partition address or size (sector count) exceeds 32-bit limit of MBR.
  */
-esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_part_list_item_t *item, esp_mbr_generate_extra_args_t *extra_args);
+esp_err_t esp_mbr_partition_set(esp_mbr_t *mbr, uint8_t partition_index, const esp_ext_part_list_item_t *item, const esp_mbr_generate_extra_args_t *extra_args);
 
 /**
  * @brief Removes gaps in the MBR partition table by shifting partitions.
+ *
+ * Moves used entries down so they occupy consecutive slots from the first one, keeping
+ * their order. Unused slots between used ones are valid MBR, so this is only needed if
+ * consecutive numbering is wanted; note that it renumbers the moved partitions
+ * (e.g. Linux `sdX4` becomes `sdX2`).
  *
  * @note This function is not thread-safe.
  *
@@ -219,7 +294,76 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
  *     - ESP_OK: Success.
  *     - ESP_ERR_INVALID_ARG: Invalid pointer to MBR structure.
  */
-esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t *mbr);
+esp_err_t esp_mbr_remove_gaps_between_partition_entries(esp_mbr_t *mbr);
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+/**
+ * @brief Read the MBR from a block device and parse it into a partition list.
+ *
+ * Reads the first I/O unit of the device (512 B, or the device's read granularity if
+ * larger) and hands it to `esp_mbr_parse`. The sector size is not taken from the
+ * device: pass it in `extra_args->sector_size` for media with sectors other than 512 B.
+ *
+ * The first sector of a partitioned medium is always an MBR, so this is a valid first
+ * step even on a device whose format is unknown. On a GPT disk it succeeds and yields
+ * a single partition of type `ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR` covering the
+ * device - that is the protective MBR, not the real GPT table, which this component
+ * cannot read. Use `esp_ext_part_probe` first if you need to know the format up front.
+ *
+ * @note This function is not thread-safe.
+ *
+ * @param[in]  handle     Block device handle to read from.
+ * @param[out] part_list  Partition list to populate. Must be empty (zero-initialized, or emptied with `esp_ext_part_list_deinit`).
+ * @param[in]  extra_args Optional extra arguments for parsing (can be NULL for defaults).
+ *
+ * @return
+ *     - ESP_OK: Partition list was successfully loaded.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
+ *     - ESP_ERR_INVALID_STATE: `part_list` already holds partitions.
+ *     - ESP_ERR_NOT_FOUND: No valid MBR found (see `esp_mbr_parse`).
+ *     - ESP_ERR_NOT_SUPPORTED: The device geometry has no usable I/O unit for the MBR.
+ *     - ESP_ERR_NO_MEM: Memory allocation failed.
+ *     - propagated errors from BDL operations.
+ */
+esp_err_t esp_mbr_bdl_read(esp_blockdev_handle_t handle,
+                           esp_ext_part_list_t *part_list,
+                           const esp_mbr_parse_extra_args_t *extra_args);
+
+/**
+ * @brief Generate an MBR from a partition list and write it to a block device.
+ *
+ * Reads the first I/O unit of the device, generates the MBR into its first 512 bytes
+ * with `esp_mbr_generate`, and writes the unit back, erasing it first if the device
+ * needs erase-before-write. The I/O unit is 512 B or the largest of the device's read,
+ * write and (if erase is needed) erase granularities. Everything in the unit other
+ * than the MBR fields - including the bootstrap code - is preserved. The sector size
+ * is not taken from the device (see `esp_mbr_bdl_read`).
+ *
+ * @note The caller's `extra_args` is never modified. When its `total_size` is 0, a
+ *       copy is made with `total_size` filled in from the block device geometry, so
+ *       the "fits within disk" check is performed by default.
+ *
+ * @warning On an erase-before-write device the erase and the write are separate
+ *          operations. A power loss between them leaves the device without an MBR.
+ *
+ * @note This function is not thread-safe.
+ *
+ * @param[in] handle     Block device handle to write to.
+ * @param[in] part_list  Partition list to generate the MBR from.
+ * @param[in] extra_args Optional extra arguments for generation (can be NULL for defaults).
+ *
+ * @return
+ *     - ESP_OK: Partition table was successfully written.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
+ *     - ESP_ERR_NOT_SUPPORTED: The device needs erase-before-write but has no erase
+ *       operation, or its geometry has no usable I/O unit for the MBR.
+ *     - ESP_ERR_NO_MEM: Memory allocation failed.
+ *     - propagated errors from BDL operations or from `esp_mbr_generate`.
+ */
+esp_err_t esp_mbr_bdl_write(esp_blockdev_handle_t handle,
+                            const esp_ext_part_list_t *part_list,
+                            const esp_mbr_generate_extra_args_t *extra_args);
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 #ifdef __cplusplus
 }

@@ -5,45 +5,79 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_idf_version.h"
 
 #include "esp_ext_part_tables.h"
 #include "esp_mbr.h"
 #include "esp_mbr_utils.h"
+#include "esp_mbr_private.h"
 
 static const char *TAG = "esp_mbr";
 
-static void ext_part_list_item_do_extra(esp_ext_part_list_item_t *item, mbr_partition_t *partition)
+bool esp_mbr_is_valid(const esp_mbr_t *mbr)
+{
+    if (mbr->boot_signature != ESP_MBR_SIGNATURE) {
+        return false;
+    }
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
+        uint8_t status = mbr->partition_table[i].status;
+        if (status != 0x00 && status != ESP_MBR_PARTITION_STATUS_ACTIVE) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void ext_part_list_item_do_extra(esp_ext_part_list_item_t *item, const esp_mbr_partition_t *partition)
 {
     // This function is for any extra actions that might be needed for specific partition types.
     // It can be used to set flags, perform additional operations or checks if needed.
 
     switch (item->info.type) { // Parsed type
-    case ESP_EXT_PART_TYPE_LITTLEFS:
-        item->info.flags |= ESP_EXT_PART_FLAG_EXTRA; // Set the extra flag to indicate that this partition has extra information
-        item->info.extra = (uint64_t) esp_mbr_chs_arr_val_get(partition->chs_start); // Put LittleFS block size which was stored in `chs_start` to `extra` field
+    case ESP_EXT_PART_TYPE_LITTLEFS: {
+        // The LittleFS block size is stored in `chs_start`. Accept it only if it is a
+        // plausible block size: 0 means none was stored, and 0xC3 entries written by
+        // other tools hold real CHS bytes there, which decode to arbitrary numbers.
+        uint32_t val = esp_mbr_chs_arr_val_get(partition->chs_start);
+        if (esp_mbr_littlefs_block_size_valid(val)) {
+            item->info.flags |= ESP_EXT_PART_FLAG_EXTRA;
+            item->info.extra = val;
+        } else if (val != 0) {
+            ESP_LOGW(TAG, "0xC3 partition with CHS-start value 0x%06" PRIX32 ", which is not a LittleFS block size; ignoring it", val);
+        }
         break;
+    }
     default:
         break;
     }
 }
 
-esp_err_t esp_mbr_parse(void *mbr_buf,
+esp_err_t esp_mbr_parse(const void *mbr_buf,
                         esp_ext_part_list_t *part_list,
-                        esp_mbr_parse_extra_args_t *extra_args)
+                        const esp_mbr_parse_extra_args_t *extra_args)
 {
     if (mbr_buf == NULL || part_list == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    mbr_t *mbr = (mbr_t *) mbr_buf;
-    // Check MBR signature
-    if (mbr->boot_signature != MBR_SIGNATURE) {
-        ESP_LOGE(TAG, "MBR signature not found");
+    // The parsed table fully defines the list, so parsing into a list that already holds
+    // items would merge two unrelated tables and overwrite the signature and sector size
+    // of the first one. Require an empty list; call esp_ext_part_list_deinit() to reuse one.
+    if (!SLIST_EMPTY(&part_list->head)) {
+        ESP_LOGE(TAG, "Partition list is not empty, call esp_ext_part_list_deinit() before parsing into it");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    const esp_mbr_t *mbr = (const esp_mbr_t *) mbr_buf;
+    // Check MBR signature and that the entries look like partition entries
+    if (!esp_mbr_is_valid(mbr)) {
+        ESP_LOGE(TAG, "No valid MBR found (missing boot signature or invalid partition entry status)");
         return ESP_ERR_NOT_FOUND;
     }
 
@@ -64,23 +98,39 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
     }
 
     esp_err_t err = ESP_OK;
-    if (mbr->copy_protected == MBR_COPY_PROTECTED) {
+    if (mbr->copy_protected == ESP_MBR_COPY_PROTECTED) {
         part_list->flags |= ESP_EXT_PART_LIST_FLAG_READ_ONLY;
     }
 
-    err = esp_ext_part_list_signature_set(part_list, &mbr->disk_signature, ESP_EXT_PART_LIST_SIGNATURE_MBR);
+    const esp_ext_part_list_signature_t signature = {
+        .data = { mbr->disk_signature },
+        .type = ESP_EXT_PART_LIST_SIGNATURE_MBR,
+    };
+    err = esp_ext_part_list_signature_set(part_list, &signature);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set partition list (disk) signature");
-        return err;
+        goto fail;
     }
 
-    mbr_partition_t *partition;
-    for (int i = 0; i < 4; i++) {
-        partition = (mbr_partition_t *) &mbr->partition_table[i];
+    const esp_mbr_partition_t *partition;
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
+        partition = &mbr->partition_table[i];
 
-        // Check if the partition entry is empty and if so, skip it
+        // Skip unused entries. Used entries do not have to be contiguous: deleting a
+        // partition with fdisk or Windows leaves its slot zeroed and later slots in
+        // place, and e.g. the Linux kernel reads all four slots. So keep going.
         if (partition->type == 0x00) {
-            break; // No more partitions, exit the loop (MBR partition table cannot have holes in it)
+            continue;
+        }
+
+        // An entry with no sectors, or one starting at sector 0 (the MBR itself), does
+        // not describe usable storage and esp_mbr_generate would refuse to write it
+        // back. Drop it so a parsed list can always be regenerated.
+        if (partition->sector_count == 0 || partition->lba_start == 0) {
+            ESP_LOGW(TAG, "Skipping MBR slot %d: invalid entry (start %" PRIu32 ", %" PRIu32 " sectors)",
+                     i + 1, partition->lba_start, partition->sector_count);
+            part_list->flags |= ESP_EXT_PART_LIST_FLAG_LOSSY;
+            continue;
         }
 
         // Resolve the partition type. The bool return is not used to gate insertion;
@@ -103,10 +153,11 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
                 .label = NULL, // MBR does not have labels
                 .flags = ESP_EXT_PART_FLAG_NONE,
                 .type = parsed_type,
+                .slot = (uint8_t)(i + 1), // 1-based on-disk slot
             }
         };
 
-        if (partition->status == MBR_PARTITION_STATUS_ACTIVE) {
+        if (partition->status == ESP_MBR_PARTITION_STATUS_ACTIVE) {
             item.info.flags |= ESP_EXT_PART_FLAG_ACTIVE;
         }
 
@@ -124,16 +175,22 @@ esp_err_t esp_mbr_parse(void *mbr_buf,
         err = esp_ext_part_list_insert(part_list, &item);
         if (err != ESP_OK) {
             ESP_LOGD(TAG, "Failed to add partition info to list");
-            return err;
+            goto fail;
         }
     }
     return ESP_OK;
+
+fail:
+    // Do not hand back a half-filled list (flags, signature and some items may already
+    // be set). The list was required to be empty on entry, so resetting it is lossless.
+    esp_ext_part_list_deinit(part_list);
+    return err;
 }
 
-static bool mbr_partition_fill(mbr_partition_t *partition, esp_ext_part_list_item_t *item)
+static esp_err_t mbr_partition_fill(esp_mbr_partition_t *partition, const esp_ext_part_list_item_t *item)
 {
     uint32_t lba_start = partition->lba_start;
-    uint32_t lba_end = lba_start - 1 + partition->sector_count;
+    uint32_t lba_end = lba_start - 1 + partition->sector_count; // sector_count > 0 is checked by the caller
 
     switch (item->info.type) {
     case ESP_EXT_PART_TYPE_FAT12:
@@ -144,34 +201,35 @@ static bool mbr_partition_fill(mbr_partition_t *partition, esp_ext_part_list_ite
         esp_mbr_lba_to_chs_arr(partition->chs_end, lba_end);
         break;
     case ESP_EXT_PART_TYPE_LITTLEFS:
-        // Use `chs_start` to store LittleFS block size (if stored in `extra` field)
-        if (item->info.extra != 0) {
-            // If the extra flag is set, use the extra field to store the LittleFS block size
-            esp_mbr_chs_arr_val_set(partition->chs_start, (uint32_t) item->info.extra);
-
-            if (!(item->info.flags & ESP_EXT_PART_FLAG_EXTRA)) {
-                // If the extra flag is not set but the extra field is set, log a warning
-                ESP_LOGW(TAG, "LittleFS partition with extra field set but extra flag was not set");
-            }
-        } else {
-            ESP_LOGE(TAG, "LittleFS partition with 0xC3 type without any block size value in `extra` field");
-            return false; // Error
+        // `chs_start` holds the LittleFS block size (from `extra`); zeros mean "none".
+        if (item->info.extra == 0) {
+            ESP_LOGW(TAG, "LittleFS partition without a block size in `extra`; writing none");
+            break;
         }
+        if (!esp_mbr_littlefs_block_size_valid(item->info.extra)) {
+            ESP_LOGE(TAG, "LittleFS block size %" PRIu64 " is not a power of two in [%d, %d]",
+                     item->info.extra, ESP_MBR_LITTLEFS_BLOCK_SIZE_MIN, ESP_MBR_LITTLEFS_BLOCK_SIZE_MAX);
+            return ESP_ERR_INVALID_SIZE;
+        }
+        if (!(item->info.flags & ESP_EXT_PART_FLAG_EXTRA)) {
+            ESP_LOGW(TAG, "LittleFS partition with extra field set but extra flag was not set");
+        }
+        esp_mbr_chs_arr_val_set(partition->chs_start, (uint32_t) item->info.extra);
         break;
     default:
         break;
     }
-    return true; // OK
+    return ESP_OK;
 }
 
-esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_part_list_item_t *item, esp_mbr_generate_extra_args_t *extra_args)
+esp_err_t esp_mbr_partition_set(esp_mbr_t *mbr, uint8_t partition_index, const esp_ext_part_list_item_t *item, const esp_mbr_generate_extra_args_t *extra_args)
 {
-    if (mbr == NULL || partition_index >= 4 || item == NULL || extra_args == NULL) {
+    if (mbr == NULL || partition_index >= ESP_MBR_MAX_PARTITION_COUNT || item == NULL || extra_args == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     // Set defaults
-    mbr_partition_t *partition = &mbr->partition_table[partition_index];
+    esp_mbr_partition_t *partition = &mbr->partition_table[partition_index];
     uint8_t (*f_generate_supported_partition_types)(uint8_t) = esp_mbr_generate_default_supported_partition_types;
 
     // Load extra arguments if provided
@@ -180,9 +238,27 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
     }
 
     // Check if the partition entry is empty and if so, skip it
+    // (clearing an entry needs no sector size, so this is checked before the one below)
     if (item->info.type == ESP_EXT_PART_TYPE_NONE) {
-        memset(partition, 0, sizeof(mbr_partition_t));
+        memset(partition, 0, sizeof(esp_mbr_partition_t));
         return ESP_OK; // No partition to set
+    }
+
+    // Unlike esp_mbr_generate, this low-level function resolves no defaults. Without a
+    // sector size all byte<->sector math below would silently collapse to zero and
+    // produce a zero-length entry at LBA 0 (the MBR sector itself), so refuse instead.
+    if (extra_args->sector_size == ESP_EXT_PART_SECTOR_SIZE_UNKNOWN) {
+        ESP_LOGE(TAG, "extra_args->sector_size must be set (ESP_EXT_PART_SECTOR_SIZE_UNKNOWN is not resolved here)");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // The start address must be a whole sector. Rounding it (up or down) would move the
+    // partition away from where it was asked to be, which KEEP_ADDRESS promises not to do.
+    // (The size is rounded up to whole sectors below; that does not move anything.)
+    if (item->info.address % (uint64_t) extra_args->sector_size != 0) {
+        ESP_LOGE(TAG, "Partition %u address %" PRIu64 " is not a multiple of the sector size %u",
+                 partition_index, item->info.address, (unsigned) extra_args->sector_size);
+        return ESP_ERR_INVALID_ARG;
     }
 
     // Check if we have enough space in the MBR partition table
@@ -193,24 +269,43 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
         return ESP_ERR_NOT_SUPPORTED; // Address or size too large for MBR
     }
 
+    // Build the entry in a zeroed local copy and commit it only once every check has
+    // passed. This guarantees that (a) no field keeps a stale value from whatever the
+    // caller's buffer contained before (e.g. a `status` byte or CHS bytes of a
+    // previously present partition), and (b) a rejected entry leaves the MBR untouched.
+    esp_mbr_partition_t entry = {0};
+
     // Set the partition info
     if (item->info.flags & ESP_EXT_PART_FLAG_ACTIVE) {
-        partition->status = MBR_PARTITION_STATUS_ACTIVE;
+        entry.status = ESP_MBR_PARTITION_STATUS_ACTIVE;
     }
 
-    uint32_t aligned_start = esp_mbr_lba_align((uint32_t) first_sector_address, extra_args->sector_size, extra_args->alignment);
+    // A zero-length entry describes no storage and could not be told apart from a
+    // mistake (e.g. an unset size), so refuse it.
+    if (sector_count == 0) {
+        ESP_LOGE(TAG, "Partition %u has size 0", partition_index);
+        return ESP_ERR_INVALID_SIZE;
+    }
 
-    if (aligned_start != (uint32_t) first_sector_address) {
-        // Alignment moved the partition start; apply the configured policy.
-        switch (extra_args->align_policy) {
-        case ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE:
-            // Default: keep the requested size as the length from the aligned start (matches fdisk/parted).
-            break;
-        case ESP_EXT_PART_ALIGN_POLICY_REJECT:
+    uint32_t aligned_start = (uint32_t) first_sector_address;
+    switch (extra_args->align_policy) {
+    case ESP_EXT_PART_ALIGN_POLICY_KEEP_ADDRESS:
+        // Default: write the partition where it was asked to be. Moving the start of
+        // a partition that already holds a filesystem would orphan that filesystem.
+        break;
+    case ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE:
+    case ESP_EXT_PART_ALIGN_POLICY_REJECT:
+    case ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END:
+        aligned_start = esp_mbr_lba_align((uint32_t) first_sector_address, extra_args->sector_size, extra_args->alignment);
+        if (aligned_start == (uint32_t) first_sector_address) {
+            break; // Already aligned
+        }
+        if (extra_args->align_policy == ESP_EXT_PART_ALIGN_POLICY_REJECT) {
             ESP_LOGE(TAG, "Partition %u start (sector %" PRIu32 ") is not aligned and align_policy is REJECT",
                      partition_index, (uint32_t) first_sector_address);
             return ESP_ERR_INVALID_ARG;
-        case ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END: {
+        }
+        if (extra_args->align_policy == ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END) {
             // Shrink the size so the end stays at the originally requested address + size.
             uint64_t orig_end = first_sector_address + sector_count; // exclusive end, in sectors
             if ((uint64_t) aligned_start >= orig_end) {
@@ -219,12 +314,18 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
                 return ESP_ERR_INVALID_SIZE;
             }
             sector_count = orig_end - (uint64_t) aligned_start;
-            break;
         }
-        default:
-            ESP_LOGE(TAG, "Unknown align_policy %d", (int) extra_args->align_policy);
-            return ESP_ERR_INVALID_ARG;
-        }
+        // KEEP_SIZE: keep the requested size as the length from the aligned start.
+        break;
+    default:
+        ESP_LOGE(TAG, "Unknown align_policy %d", (int) extra_args->align_policy);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Sector 0 holds the MBR itself; a partition starting there would overwrite it.
+    if (aligned_start == 0) {
+        ESP_LOGE(TAG, "Partition %u starts at sector 0, which holds the MBR", partition_index);
+        return ESP_ERR_INVALID_ARG;
     }
 
     // The exclusive end LBA (start + count) must also fit in the 32-bit MBR fields.
@@ -238,24 +339,30 @@ esp_err_t esp_mbr_partition_set(mbr_t *mbr, uint8_t partition_index, esp_ext_par
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    partition->lba_start = aligned_start;
-    partition->sector_count = (uint32_t) sector_count;
-    partition->type = f_generate_supported_partition_types(item->info.type);
-
-    if (mbr_partition_fill(partition, item) == false) {
-        return ESP_ERR_INVALID_STATE; // Error filling partition
+    entry.lba_start = aligned_start;
+    entry.sector_count = (uint32_t) sector_count;
+    entry.type = f_generate_supported_partition_types(item->info.type);
+    if (entry.type == 0x00) {
+        // 0x00 marks an unused slot; writing it would make the partition disappear.
+        ESP_LOGE(TAG, "Partition %u: type %u has no MBR partition type", partition_index, (unsigned) item->info.type);
+        return ESP_ERR_NOT_SUPPORTED;
     }
 
+    esp_err_t err = mbr_partition_fill(&entry, item);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    *partition = entry; // Commit the fully-built entry
     return ESP_OK;
 }
 
-esp_err_t esp_mbr_generate(mbr_t *mbr,
-                           esp_ext_part_list_t *part_list,
-                           esp_mbr_generate_extra_args_t *extra_args)
+// Builds the MBR into `mbr` in place. May leave `mbr` partially written on error;
+// esp_mbr_generate only ever calls it on a private staging copy.
+static esp_err_t mbr_generate_in_place(esp_mbr_t *mbr,
+                                       const esp_ext_part_list_t *part_list,
+                                       const esp_mbr_generate_extra_args_t *extra_args)
 {
-    if (mbr == NULL || part_list == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
     esp_err_t err = ESP_OK;
 
     // Set default arguments for MBR generation
@@ -264,8 +371,9 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
         .total_size = 0, // Default: no "fits within disk" check
         .sector_size = part_list->sector_size != ESP_EXT_PART_SECTOR_SIZE_UNKNOWN ? part_list->sector_size : ESP_EXT_PART_SECTOR_SIZE_512B, // Default sector size
         .alignment = ESP_EXT_PART_ALIGN_AUTO, // Resolved to the default (1 MiB) below unless overridden
-        .align_policy = ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE, // Default: keep the requested size (current behavior)
+        .align_policy = ESP_EXT_PART_ALIGN_POLICY_KEEP_ADDRESS, // Default: do not move explicitly placed partitions
         .keep_signature = false, // Default is to generate a new disk signature
+        .preserve_slots = false, // Default: write list items to consecutive slots
     };
 
     // Load extra arguments if provided
@@ -278,6 +386,7 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
             args.alignment = extra_args->alignment;
         }
         args.keep_signature = extra_args->keep_signature;
+        args.preserve_slots = extra_args->preserve_slots;
         if (extra_args->esp_mbr_generate_custom_supported_partition_types) {
             args.esp_mbr_generate_custom_supported_partition_types = extra_args->esp_mbr_generate_custom_supported_partition_types;
         }
@@ -290,21 +399,24 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
         args.alignment = ESP_EXT_PART_ALIGN_1MiB;
     }
 
-    mbr->boot_signature = MBR_SIGNATURE;
+    mbr->boot_signature = ESP_MBR_SIGNATURE;
     if (args.keep_signature) {
         // Use the disk signature from the partition list
-        err = esp_ext_part_list_signature_get(part_list, &mbr->disk_signature);
+        esp_ext_part_list_signature_t signature = {0};
+        err = esp_ext_part_list_signature_get(part_list, &signature);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to get disk signature from partition list");
             return err;
         }
+        mbr->disk_signature = signature.data[0];
     } else {
         mbr->disk_signature = esp_random();
     }
 
-    if (part_list->flags & ESP_EXT_PART_LIST_FLAG_READ_ONLY) {
-        mbr->copy_protected = MBR_COPY_PROTECTED;
-    }
+    // Mirror the read-only flag in both directions, so that parsing an MBR, editing
+    // the list and regenerating round-trips. Note that these two bytes overlap the
+    // classical bootstrap code area of the union.
+    mbr->copy_protected = (part_list->flags & ESP_EXT_PART_LIST_FLAG_READ_ONLY) ? ESP_MBR_COPY_PROTECTED : 0;
 
     // Total disk size in sectors (used both for auto-fill/FILL and the bounds check).
     // Use FLOOR division here: this is a device capacity, so a trailing partial sector
@@ -316,23 +428,60 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
         total_sectors = args.total_size / (uint64_t) args.sector_size;
     }
 
+    // Decide which table slot (0-based) each list item goes to. By default items are
+    // written to consecutive slots from the first one. With preserve_slots, items with
+    // a slot set are pinned there and the rest fill the lowest free slots in list order.
+    // The caller has already checked the list holds at most ESP_MBR_MAX_PARTITION_COUNT
+    // items, so a free slot always exists.
+    int slot_of[ESP_MBR_MAX_PARTITION_COUNT];
+    bool slot_used[ESP_MBR_MAX_PARTITION_COUNT] = {false};
     esp_ext_part_list_item_t *it = NULL;
     int i = 0;
+    SLIST_FOREACH(it, &part_list->head, next) {
+        if (it->info.slot > ESP_MBR_MAX_PARTITION_COUNT) {
+            ESP_LOGE(TAG, "Partition %d has slot %u, MBR slots are 1..%d (0 = not assigned)",
+                     i, (unsigned) it->info.slot, ESP_MBR_MAX_PARTITION_COUNT);
+            return ESP_ERR_INVALID_ARG;
+        }
+        slot_of[i] = -1;
+        if (!args.preserve_slots) {
+            slot_of[i] = i;
+            slot_used[i] = true;
+        } else if (it->info.slot != 0) {
+            int s = it->info.slot - 1;
+            if (slot_used[s]) {
+                ESP_LOGE(TAG, "Partition %d: slot %u is assigned to more than one partition", i, (unsigned) it->info.slot);
+                return ESP_ERR_INVALID_ARG;
+            }
+            slot_of[i] = s;
+            slot_used[s] = true;
+        }
+        i++;
+    }
+    int partition_count = i; // Number of list items (= partition entries to write)
+    for (int k = 0; k < partition_count; k++) {
+        if (slot_of[k] < 0) {
+            int s = 0;
+            while (slot_used[s]) {
+                s++;
+            }
+            slot_of[k] = s;
+            slot_used[s] = true;
+        }
+    }
+
     // Running cursor for automatic placement (in sectors). Starts at 1 so the first
     // auto-placed partition begins after the MBR sector (sector 0) and, once aligned,
-    // lands on the first aligned LBA (e.g. sector 2048 for 1 MiB / 512 B).
+    // lands on the first aligned LBA (e.g. sector 2048 for 1 MiB / 512 B). It follows
+    // list order, not slot order.
     uint32_t next_free_lba = 1;
+    i = 0;
     SLIST_FOREACH(it, &part_list->head, next) {
-        if (i >= MBR_MAX_PARTITION_COUNT) {
-            ESP_LOGW(TAG, "More than %d partitions in the list, only the first %d will be added to the MBR", MBR_MAX_PARTITION_COUNT, MBR_MAX_PARTITION_COUNT);
-            break; // MBR can only hold 4 partitions
-        }
-
-        // An empty (ESP_EXT_PART_TYPE_NONE) item cannot be written as a partition entry:
-        // it would leave a zeroed slot in the middle of the table, which esp_mbr_parse
-        // stops at (silently dropping later partitions). Reject it.
+        // An empty (ESP_EXT_PART_TYPE_NONE) item has no partition to write; accepting it
+        // would silently turn a list entry into an unused slot. Reject it. (To leave a
+        // slot unused on purpose, use preserve_slots and pin the other partitions.)
         if (it->info.type == ESP_EXT_PART_TYPE_NONE) {
-            ESP_LOGE(TAG, "Empty partition (ESP_EXT_PART_TYPE_NONE) in list would create a gap in the MBR partition table");
+            ESP_LOGE(TAG, "Partition %d has type ESP_EXT_PART_TYPE_NONE, which cannot be written as a partition entry", i);
             return ESP_ERR_INVALID_ARG;
         }
 
@@ -376,21 +525,31 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
             local.info.flags &= ~(esp_ext_part_flags_t) ESP_EXT_PART_FLAG_AUTO_ADDRESS; // Now concrete
         }
 
-        err = esp_mbr_partition_set(mbr, i, &local, &args);
+        err = esp_mbr_partition_set(mbr, (uint8_t) slot_of[i], &local, &args);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to set partition %d: %s", i, esp_err_to_name(err));
             return err; // Error setting partition
         }
 
         // Advance the cursor from the entry actually written (post-alignment).
-        next_free_lba = mbr->partition_table[i].lba_start + mbr->partition_table[i].sector_count;
+        const esp_mbr_partition_t *written = &mbr->partition_table[slot_of[i]];
+        next_free_lba = written->lba_start + written->sector_count;
         i += 1;
     }
-    int partition_count = i; // Number of partition entries actually written
+
+    // Clear the slots the list did not fill. Without this, regenerating into a buffer
+    // that still holds an older MBR would leave those entries in place and they would
+    // reappear on the next parse, so the partition list would not be the single source
+    // of truth for the generated table.
+    for (int e = 0; e < ESP_MBR_MAX_PARTITION_COUNT; e++) {
+        if (!slot_used[e]) {
+            memset(&mbr->partition_table[e], 0, sizeof(esp_mbr_partition_t));
+        }
+    }
 
     // Validate the generated layout (using the final post-alignment LBA values).
-    for (int a = 0; a < partition_count; a++) {
-        mbr_partition_t *pa = &mbr->partition_table[a];
+    for (int a = 0; a < ESP_MBR_MAX_PARTITION_COUNT; a++) {
+        esp_mbr_partition_t *pa = &mbr->partition_table[a];
         if (pa->type == 0x00) {
             continue; // Empty entry, nothing to validate
         }
@@ -406,7 +565,7 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
 
         // Overlap check against previously placed partitions.
         for (int b = 0; b < a; b++) {
-            mbr_partition_t *pb = &mbr->partition_table[b];
+            esp_mbr_partition_t *pb = &mbr->partition_table[b];
             if (pb->type == 0x00) {
                 continue;
             }
@@ -423,27 +582,192 @@ esp_err_t esp_mbr_generate(mbr_t *mbr,
     return ESP_OK;
 }
 
-esp_err_t esp_mbr_remove_gaps_between_partiton_entries(mbr_t *mbr)
+esp_err_t esp_mbr_generate(esp_mbr_t *mbr,
+                           const esp_ext_part_list_t *part_list,
+                           const esp_mbr_generate_extra_args_t *extra_args)
+{
+    if (mbr == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // A primary MBR table holds at most ESP_MBR_MAX_PARTITION_COUNT entries. Refuse a
+    // longer list instead of silently dropping the tail.
+    size_t count = 0;
+    const esp_ext_part_list_item_t *it = NULL;
+    SLIST_FOREACH(it, &part_list->head, next) {
+        count++;
+    }
+    if (count > ESP_MBR_MAX_PARTITION_COUNT) {
+        ESP_LOGE(TAG, "Partition list has %u partitions, MBR can hold at most %d",
+                 (unsigned) count, ESP_MBR_MAX_PARTITION_COUNT);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    // Generate into a staging copy (which keeps the caller's bootstrap code) and commit
+    // it only once every entry has been built and the whole layout validated. On error
+    // the caller's buffer is left untouched, so a read-modify-write never sees a mix of
+    // new and stale entries.
+    esp_mbr_t *staged = malloc(sizeof(esp_mbr_t));
+    if (staged == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    memcpy(staged, mbr, sizeof(esp_mbr_t));
+
+    esp_err_t err = mbr_generate_in_place(staged, part_list, extra_args);
+    if (err == ESP_OK) {
+        memcpy(mbr, staged, sizeof(esp_mbr_t));
+    }
+    free(staged);
+    return err;
+}
+
+esp_err_t esp_mbr_remove_gaps_between_partition_entries(esp_mbr_t *mbr)
 {
     if (mbr == NULL) {
         return ESP_ERR_INVALID_ARG; // Invalid MBR pointer
     }
 
     // Iterate through the partition table and remove gaps
-    mbr_partition_t *partition;
+    esp_mbr_partition_t *partition;
     uint8_t gap_index = 0; // Next index to fill
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < ESP_MBR_MAX_PARTITION_COUNT; i++) {
         partition = &mbr->partition_table[i];
         if (partition->type == 0x00) {
             continue; // Skip empty entries
         }
         if (gap_index != i) {
             // Move the partition to the next available index
-            memcpy(&mbr->partition_table[gap_index], partition, sizeof(mbr_partition_t));
-            memset(partition, 0, sizeof(mbr_partition_t)); // Clear the old entry
+            memcpy(&mbr->partition_table[gap_index], partition, sizeof(esp_mbr_partition_t));
+            memset(partition, 0, sizeof(esp_mbr_partition_t)); // Clear the old entry
         }
         gap_index++;
     }
 
     return ESP_OK;
 }
+
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
+// Round `unit` up to a multiple of `granularity` (0 = no constraint).
+static bool round_up_to(size_t *unit, size_t granularity)
+{
+    if (granularity == 0 || *unit % granularity == 0) {
+        return true;
+    }
+    if (*unit > SIZE_MAX - granularity) {
+        return false;
+    }
+    *unit = (*unit / granularity + 1) * granularity;
+    return true;
+}
+
+esp_err_t esp_mbr_bdl_io_unit(esp_blockdev_handle_t handle, bool for_write, size_t *out_unit)
+{
+    const esp_blockdev_geometry_t *g = &handle->geometry;
+    size_t unit = ESP_MBR_SIZE;
+    bool ok = round_up_to(&unit, g->read_size);
+    if (for_write) {
+        ok = ok && round_up_to(&unit, g->write_size);
+        if (handle->device_flags.erase_before_write) {
+            ok = ok && round_up_to(&unit, g->erase_size);
+        }
+    }
+    // Rounding to one granularity can break another (e.g. 1536 and 1024); give up then
+    // rather than loop. Real devices use powers of two, where this never happens.
+    ok = ok && unit % (g->read_size ? g->read_size : 1) == 0;
+    if (for_write) {
+        ok = ok && unit % (g->write_size ? g->write_size : 1) == 0;
+    }
+    if (!ok || (g->disk_size != 0 && unit > g->disk_size)) {
+        ESP_LOGE(TAG, "Cannot find an I/O unit for the MBR (read %u, write %u, erase %u, disk %" PRIu64 ")",
+                 (unsigned) g->read_size, (unsigned) g->write_size, (unsigned) g->erase_size, g->disk_size);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    *out_unit = unit;
+    return ESP_OK;
+}
+
+esp_err_t esp_mbr_bdl_read_first_unit(esp_blockdev_handle_t handle, bool for_write, uint8_t **out_buf, size_t *out_unit)
+{
+    size_t unit = 0;
+    esp_err_t err = esp_mbr_bdl_io_unit(handle, for_write, &unit);
+    if (err != ESP_OK) {
+        return err;
+    }
+    uint8_t *buf = malloc(unit);
+    if (buf == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    err = handle->ops->read(handle, buf, unit, 0, unit);
+    if (err != ESP_OK) {
+        free(buf);
+        return err;
+    }
+    *out_buf = buf;
+    *out_unit = unit;
+    return ESP_OK;
+}
+
+esp_err_t esp_mbr_bdl_read(esp_blockdev_handle_t handle,
+                           esp_ext_part_list_t *part_list,
+                           const esp_mbr_parse_extra_args_t *extra_args)
+{
+    if (handle == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t *buf = NULL;
+    size_t unit = 0;
+    esp_err_t err = esp_mbr_bdl_read_first_unit(handle, false, &buf, &unit);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = esp_mbr_parse(buf, part_list, extra_args);
+    free(buf);
+    return err;
+}
+
+esp_err_t esp_mbr_bdl_write(esp_blockdev_handle_t handle,
+                            const esp_ext_part_list_t *part_list,
+                            const esp_mbr_generate_extra_args_t *extra_args)
+{
+    if (handle == NULL || part_list == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (handle->device_flags.erase_before_write && handle->ops->erase == NULL) {
+        ESP_LOGE(TAG, "Device needs erase before write but has no erase operation");
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    // Read-modify-write the whole first I/O unit: this keeps the bootstrap code and
+    // anything stored in the unit after the MBR, and satisfies devices whose read,
+    // write or erase granularity is larger than 512 B.
+    uint8_t *buf = NULL;
+    size_t unit = 0;
+    esp_err_t err = esp_mbr_bdl_read_first_unit(handle, true, &buf, &unit);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    // Auto-fill the "fits within disk" bound from the device geometry when the caller
+    // did not provide one. This is a pure arithmetic check inside esp_mbr_generate - it
+    // does not allocate a buffer of `total_size`.
+    esp_mbr_generate_extra_args_t local_args = {0};
+    if (extra_args != NULL) {
+        local_args = *extra_args; // Caller's choices take precedence
+    }
+    if (local_args.total_size == 0 && handle->geometry.disk_size > 0) {
+        local_args.total_size = handle->geometry.disk_size;
+    }
+
+    err = esp_mbr_generate((esp_mbr_t *) buf, part_list, &local_args);
+    if (err == ESP_OK && handle->device_flags.erase_before_write) {
+        err = handle->ops->erase(handle, 0, unit);
+    }
+    if (err == ESP_OK) {
+        err = handle->ops->write(handle, buf, 0, unit);
+    }
+
+    free(buf);
+    return err;
+}
+#endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
