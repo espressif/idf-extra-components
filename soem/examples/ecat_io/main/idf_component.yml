@@ -1,0 +1,5 @@
+description: EtherCAT digital IO example
+dependencies:
+  espressif/soem:
+    version: "*"
+    override_path: "../../../"

@@ -1,4 +1,4 @@
 [codespell]
 skip = build,COPYING*,LICENSE*,*/COPYING*,*/LICENSE*,*.svg
-ignore-words-list = ser,DOUT,dout,ans,nd,Dettached,IST
+ignore-words-list = ser,DOUT,dout,ans,nd,Dettached,IST,soem,SOEM,emac,EMAC
 write-changes = true
