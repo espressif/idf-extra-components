@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 430" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="860" height="430" fill="#ffffff"/>
+  <text x="20" y="26" font-size="15" font-weight="bold" fill="#222">1-Wire write-1 and write-0 time slots</text>
+
+  <!-- ================= WRITE 1 ================= -->
+  <text x="20" y="72" font-size="13.5" font-weight="bold" fill="#1565c0">WRITE 1 — short low, then released</text>
+
+  <line x1="70" y1="92" x2="830" y2="92" stroke="#cfd8dc" stroke-width="1.2"/>
+  <line x1="70" y1="152" x2="830" y2="152" stroke="#cfd8dc" stroke-width="1.2"/>
+  <text x="20" y="96" font-size="11.5" fill="#555">HIGH</text>
+  <text x="20" y="156" font-size="11.5" fill="#555">LOW</text>
+
+  <polyline points="
+      70,92
+      110,92
+      110,152
+      140,152
+      140,92
+      330,92
+      330,152
+      360,152
+      360,92
+      560,92
+      560,152
+      590,152
+      590,92
+      830,92"
+    fill="none" stroke="#1565c0" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- slot measures -->
+  <g stroke="#e53935" stroke-width="1.3" fill="none">
+    <line x1="110" y1="182" x2="330" y2="182"/>
+    <line x1="110" y1="176" x2="110" y2="188"/>
+    <line x1="330" y1="176" x2="330" y2="188"/>
+  </g>
+  <text x="118" y="176" font-size="12" fill="#c62828">t_SLOT 60..120 µs</text>
+
+  <g stroke="#2e7d32" stroke-width="1.3" fill="none">
+    <line x1="110" y1="210" x2="140" y2="210"/>
+    <line x1="110" y1="204" x2="110" y2="216"/>
+    <line x1="140" y1="204" x2="140" y2="216"/>
+  </g>
+  <text x="146" y="214" font-size="12" fill="#1b5e20">low ≈ 1..15 µs</text>
+
+  <g stroke="#6a1b9a" stroke-width="1.3" fill="none">
+    <line x1="330" y1="202" x2="360" y2="202"/>
+    <line x1="330" y1="196" x2="330" y2="208"/>
+    <line x1="360" y1="196" x2="360" y2="208"/>
+  </g>
+  <text x="366" y="206" font-size="12" fill="#6a1b9a">t_REC ≥ 1 µs</text>
+
+  <!-- sample marker -->
+  <line x1="140" y1="92" x2="140" y2="245" stroke="#ff8f00" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="146" y="242" font-size="12" fill="#ef6c00">▲ sample point t_SAMPLE ≈ 15 µs → reads HIGH → bit = 1</text>
+
+  <!-- ================= WRITE 0 ================= -->
+  <text x="20" y="290" font-size="13.5" font-weight="bold" fill="#1565c0">WRITE 0 — low for the whole slot</text>
+
+  <line x1="70" y1="310" x2="830" y2="310" stroke="#cfd8dc" stroke-width="1.2"/>
+  <line x1="70" y1="370" x2="830" y2="370" stroke="#cfd8dc" stroke-width="1.2"/>
+  <text x="20" y="314" font-size="11.5" fill="#555">HIGH</text>
+  <text x="20" y="374" font-size="11.5" fill="#555">LOW</text>
+
+  <polyline points="
+      70,310
+      110,310
+      110,370
+      330,370
+      330,310
+      560,310
+      560,370
+      590,370
+      590,310
+      830,310"
+    fill="none" stroke="#1565c0" stroke-width="3" stroke-linejoin="round"/>
+
+  <g stroke="#e53935" stroke-width="1.3" fill="none">
+    <line x1="110" y1="398" x2="330" y2="398"/>
+    <line x1="110" y1="392" x2="110" y2="404"/>
+    <line x1="330" y1="392" x2="330" y2="404"/>
+  </g>
+  <text x="118" y="392" font-size="12" fill="#c62828">low for t_SLOT (≥ 60 µs)</text>
+
+  <line x1="140" y1="310" x2="140" y2="370" stroke="#ff8f00" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="146" y="345" font-size="12" fill="#ef6c00">▲ sample point reads LOW → bit = 0</text>
+
+  <!-- time axis -->
+  <line x1="70" y1="420" x2="830" y2="420" stroke="#666" stroke-width="1.4" marker-end="url(#arr2)"/>
+  <text x="800" y="414" font-size="12" fill="#666">time</text>
+</svg>
