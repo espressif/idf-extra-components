@@ -33,26 +33,26 @@ esp_err_t spi_nand_alliance_init(spi_nand_flash_device_t *dev)
     case ALLIANCE_DI_25: // AS5F31G04SND-08LIN (3.3 V) - 4 bits/528B ECC strength
         dev->chip.num_blocks = 1024;
         dev->chip.read_page_delay_us = 60;
-        dev->ecc_decoder = &nand_ecc_decoder_eccs2_t4;
+        dev->ecc_decoder = &nand_ecc_decoder_2bit_t4;
         break;
     case ALLIANCE_DI_2E: // AS5F32G04SND-08LIN (3.3 V) - 8 bits/544B ECC strength
     case ALLIANCE_DI_8E: // AS5F12G04SND-10LIN (1.8 V) - 8 bits/544B ECC strength
         dev->chip.num_blocks = 2048;
         dev->chip.read_page_delay_us = 60;
-        dev->ecc_decoder = &nand_ecc_decoder_eccs2_t8;
+        dev->ecc_decoder = &nand_ecc_decoder_2bit_t8;
         break;
     case ALLIANCE_DI_2F: // AS5F34G04SND-08LIN (3.3 V) - 8 bits/544B ECC strength
     case ALLIANCE_DI_8F: // AS5F14G04SND-10LIN (1.8 V) - 8 bits/544B ECC strength
         dev->chip.num_blocks = 4096;
         dev->chip.read_page_delay_us = 60;
-        dev->ecc_decoder = &nand_ecc_decoder_eccs2_t8;
+        dev->ecc_decoder = &nand_ecc_decoder_2bit_t8;
         break;
     case ALLIANCE_DI_2D: // AS5F38G04SND-08LIN (3.3 V) - 8 bits/544B ECC strength
     case ALLIANCE_DI_8D: // AS5F18G04SND-10LIN (1.8 V) - 8 bits/544B ECC strength
         dev->chip.log2_page_size = 12; // 4k pages
         dev->chip.num_blocks = 4096;
         dev->chip.read_page_delay_us = 130; // somewhat slower reads
-        dev->ecc_decoder = &nand_ecc_decoder_eccs2_t8;
+        dev->ecc_decoder = &nand_ecc_decoder_2bit_t8;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;

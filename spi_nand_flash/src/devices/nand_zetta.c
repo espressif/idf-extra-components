@@ -29,7 +29,7 @@ esp_err_t spi_nand_zetta_init(spi_nand_flash_device_t *dev)
     dev->chip.quad_enable_bit_pos = 0;
     dev->chip.erase_block_delay_us = 2000;
     dev->chip.program_page_delay_us = 400;
-    dev->ecc_decoder = &nand_ecc_decoder_eccs2_t8;
+    dev->ecc_decoder = &nand_ecc_decoder_2bit_t8;
     switch (device_id) {
     case ZETTA_DI_71: // ZD35Q1GC - 8 bits/528B ECC strength
         dev->chip.num_blocks = 1024;

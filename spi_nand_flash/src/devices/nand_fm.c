@@ -28,7 +28,7 @@ esp_err_t spi_nand_fm_init(spi_nand_flash_device_t *dev)
     dev->chip.has_quad_enable_bit = 1;
     dev->chip.quad_enable_bit_pos = 0;
     dev->chip.ecc_data.ecc_status_reg_len_in_bits = 3;
-    dev->ecc_decoder = &nand_ecc_decoder_eccs3;
+    dev->ecc_decoder = &nand_ecc_decoder_3bit;
     dev->chip.erase_block_delay_us = 4000;
     dev->chip.program_page_delay_us = 400;
     dev->chip.read_page_delay_us = 105;

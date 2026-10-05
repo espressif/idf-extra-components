@@ -101,7 +101,7 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
 
     (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
     (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
-    (*handle)->ecc_decoder = &nand_ecc_decoder_eccs2_default;
+    (*handle)->ecc_decoder = &nand_ecc_decoder_2bit_default;
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
     (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
     (*handle)->chip.num_planes = 1;
