@@ -19,114 +19,72 @@ static const uint8_t k_ecc_101 = 0b0101'0000; /* Micron 7-8 */
 static const uint8_t k_ecc_110 = 0b0110'0000; /* reserved 3-bit */
 static const uint8_t k_ecc_111 = 0b0111'0000; /* reserved 3-bit */
 
-static nand_ecc_status_t decode_2bit(uint8_t c0)
-{
-    nand_ecc_status_t st = NAND_ECC_OK;
-    REQUIRE(nand_ecc_decode_2bit(NULL, c0, &st) == ESP_OK);
-    return st;
-}
-
-static nand_ecc_status_t decode_3bit(uint8_t c0)
-{
-    nand_ecc_status_t st = NAND_ECC_OK;
-    REQUIRE(nand_ecc_decode_3bit(NULL, c0, &st) == ESP_OK);
-    return st;
-}
-
 TEST_CASE("2-bit ECCS field decodes into nand_ecc_status_t", "[spi_nand_flash][ecc]")
 {
-    REQUIRE(decode_2bit(k_ecc_00) == NAND_ECC_OK);
-    REQUIRE(decode_2bit(k_ecc_01) == NAND_ECC_1_TO_3_BITS_CORRECTED);
-    REQUIRE(decode_2bit(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
-    REQUIRE(decode_2bit(k_ecc_11) == NAND_ECC_4_TO_6_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit(k_ecc_00, 0) == NAND_ECC_OK);
+    REQUIRE(nand_ecc_decode_2bit(k_ecc_01, 0) == NAND_ECC_1_TO_3_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit(k_ecc_10, 0) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit(k_ecc_11, 0) == NAND_ECC_4_TO_6_BITS_CORRECTED);
 }
 
 TEST_CASE("3-bit ECCS field decodes into nand_ecc_status_t", "[spi_nand_flash][ecc]")
 {
-    REQUIRE(decode_3bit(k_ecc_00) == NAND_ECC_OK);
-    REQUIRE(decode_3bit(k_ecc_01) == NAND_ECC_1_TO_3_BITS_CORRECTED);
-    REQUIRE(decode_3bit(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
-    REQUIRE(decode_3bit(k_ecc_11) == NAND_ECC_4_TO_6_BITS_CORRECTED);
-    REQUIRE(decode_3bit(k_ecc_101) == NAND_ECC_7_8_BITS_CORRECTED);
-    REQUIRE(decode_3bit(k_ecc_100) == NAND_ECC_INVALID);
-    REQUIRE(decode_3bit(k_ecc_110) == NAND_ECC_INVALID);
-    REQUIRE(decode_3bit(k_ecc_111) == NAND_ECC_INVALID);
-}
-
-static nand_ecc_status_t decode_2bit_strength_1(uint8_t c0)
-{
-    nand_ecc_status_t st = NAND_ECC_MAX;
-    REQUIRE(nand_ecc_decode_2bit_strength_1(NULL, c0, &st) == ESP_OK);
-    return st;
-}
-
-static nand_ecc_status_t decode_xtx(uint8_t c0)
-{
-    nand_ecc_status_t st = NAND_ECC_MAX;
-    REQUIRE(nand_ecc_decode_xtx(NULL, c0, &st) == ESP_OK);
-    return st;
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_00, 0) == NAND_ECC_OK);
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_01, 0) == NAND_ECC_1_TO_3_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_10, 0) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_11, 0) == NAND_ECC_4_TO_6_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_101, 0) == NAND_ECC_7_8_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_100, 0) == NAND_ECC_INVALID);
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_110, 0) == NAND_ECC_INVALID);
+    REQUIRE(nand_ecc_decode_3bit(k_ecc_111, 0) == NAND_ECC_INVALID);
 }
 
 TEST_CASE("2-bit ECCS, strength 1: 01 is exactly 1, 10 and 11 are uncorrectable", "[spi_nand_flash][ecc]")
 {
-    REQUIRE(decode_2bit_strength_1(k_ecc_00) == NAND_ECC_OK);
-    REQUIRE(decode_2bit_strength_1(k_ecc_01) == NAND_ECC_1_BIT_CORRECTED);
-    REQUIRE(decode_2bit_strength_1(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
-    REQUIRE(decode_2bit_strength_1(k_ecc_11) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_1(k_ecc_00, 0) == NAND_ECC_OK);
+    REQUIRE(nand_ecc_decode_2bit_strength_1(k_ecc_01, 0) == NAND_ECC_1_BIT_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_1(k_ecc_10, 0) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_1(k_ecc_11, 0) == NAND_ECC_NOT_CORRECTED);
     /* Bit 6 is outside the 2-bit field and must be ignored. */
-    REQUIRE(decode_2bit_strength_1(k_ecc_101) == NAND_ECC_1_BIT_CORRECTED);
-}
-
-static nand_ecc_status_t decode_2bit_strength_4(uint8_t c0)
-{
-    nand_ecc_status_t st = NAND_ECC_MAX;
-    REQUIRE(nand_ecc_decode_2bit_strength_4(NULL, c0, &st) == ESP_OK);
-    return st;
-}
-
-static nand_ecc_status_t decode_2bit_strength_8(uint8_t c0)
-{
-    nand_ecc_status_t st = NAND_ECC_MAX;
-    REQUIRE(nand_ecc_decode_2bit_strength_8(NULL, c0, &st) == ESP_OK);
-    return st;
+    REQUIRE(nand_ecc_decode_2bit_strength_1(k_ecc_101, 0) == NAND_ECC_1_BIT_CORRECTED);
 }
 
 TEST_CASE("2-bit ECCS, strength 4: 01 is 1-3 corrected, 11 is exactly 4", "[spi_nand_flash][ecc]")
 {
-    REQUIRE(decode_2bit_strength_4(k_ecc_00) == NAND_ECC_OK);
-    REQUIRE(decode_2bit_strength_4(k_ecc_01) == NAND_ECC_1_TO_3_BITS_CORRECTED);
-    REQUIRE(decode_2bit_strength_4(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
-    REQUIRE(decode_2bit_strength_4(k_ecc_11) == NAND_ECC_4_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_4(k_ecc_00, 0) == NAND_ECC_OK);
+    REQUIRE(nand_ecc_decode_2bit_strength_4(k_ecc_01, 0) == NAND_ECC_1_TO_3_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_4(k_ecc_10, 0) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_4(k_ecc_11, 0) == NAND_ECC_4_BITS_CORRECTED);
     /* Bit 6 is outside the 2-bit field and must be ignored. */
-    REQUIRE(decode_2bit_strength_4(k_ecc_111) == NAND_ECC_4_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_4(k_ecc_111, 0) == NAND_ECC_4_BITS_CORRECTED);
 }
 
 TEST_CASE("2-bit ECCS, strength 8: 01 is 1-7 corrected, 11 is exactly 8", "[spi_nand_flash][ecc]")
 {
-    REQUIRE(decode_2bit_strength_8(k_ecc_00) == NAND_ECC_OK);
-    REQUIRE(decode_2bit_strength_8(k_ecc_01) == NAND_ECC_1_TO_7_BITS_CORRECTED);
-    REQUIRE(decode_2bit_strength_8(k_ecc_10) == NAND_ECC_NOT_CORRECTED);
-    REQUIRE(decode_2bit_strength_8(k_ecc_11) == NAND_ECC_8_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_8(k_ecc_00, 0) == NAND_ECC_OK);
+    REQUIRE(nand_ecc_decode_2bit_strength_8(k_ecc_01, 0) == NAND_ECC_1_TO_7_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_8(k_ecc_10, 0) == NAND_ECC_NOT_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_8(k_ecc_11, 0) == NAND_ECC_8_BITS_CORRECTED);
     /* Bit 6 is outside the 2-bit field and must be ignored. */
-    REQUIRE(decode_2bit_strength_8(k_ecc_101) == NAND_ECC_1_TO_7_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_2bit_strength_8(k_ecc_101, 0) == NAND_ECC_1_TO_7_BITS_CORRECTED);
 }
 
 TEST_CASE("XTX ECCS3:0 decodes all 16 patterns", "[spi_nand_flash][ecc]")
 {
     /* ECCS1:0 = 01b: ECCS3:2 gives the count */
-    REQUIRE(decode_xtx(0b0001'0000) == NAND_ECC_1_TO_4_BITS_CORRECTED);
-    REQUIRE(decode_xtx(0b0101'0000) == NAND_ECC_5_BITS_CORRECTED);
-    REQUIRE(decode_xtx(0b1001'0000) == NAND_ECC_6_BITS_CORRECTED);
-    REQUIRE(decode_xtx(0b1101'0000) == NAND_ECC_7_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_xtx(0b0001'0000, 0) == NAND_ECC_1_TO_4_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_xtx(0b0101'0000, 0) == NAND_ECC_5_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_xtx(0b1001'0000, 0) == NAND_ECC_6_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_xtx(0b1101'0000, 0) == NAND_ECC_7_BITS_CORRECTED);
     /* ECCS1:0 = 00b / 10b / 11b: ECCS3:2 is don't-care */
     for (uint8_t hi = 0; hi < 4; hi++) {
         const uint8_t h = (uint8_t)(hi << 6);
-        REQUIRE(decode_xtx(h | k_ecc_00) == NAND_ECC_OK);
-        REQUIRE(decode_xtx(h | k_ecc_10) == NAND_ECC_NOT_CORRECTED);
-        REQUIRE(decode_xtx(h | k_ecc_11) == NAND_ECC_8_BITS_CORRECTED);
+        REQUIRE(nand_ecc_decode_xtx(h | k_ecc_00, 0) == NAND_ECC_OK);
+        REQUIRE(nand_ecc_decode_xtx(h | k_ecc_10, 0) == NAND_ECC_NOT_CORRECTED);
+        REQUIRE(nand_ecc_decode_xtx(h | k_ecc_11, 0) == NAND_ECC_8_BITS_CORRECTED);
     }
     /* Bits [3:0] are not ECC status and must be ignored. */
-    REQUIRE(decode_xtx(0b0101'1111) == NAND_ECC_5_BITS_CORRECTED);
+    REQUIRE(nand_ecc_decode_xtx(0b0101'1111, 0) == NAND_ECC_5_BITS_CORRECTED);
 }
 
 TEST_CASE("2-bit ECCS with count: count is needed only for 01b or 11b", "[spi_nand_flash][ecc]")

@@ -28,7 +28,7 @@ esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev)
     dev->chip.has_quad_enable_bit = 0;
     dev->chip.quad_enable_bit_pos = 0;
     dev->chip.ecc_data.ecc_status_reg_len_in_bits = 3;
-    dev->ecc_status_decoder = nand_ecc_decode_3bit;
+    dev->ecc_decoder = &nand_ecc_decoder_3bit;
     dev->chip.erase_block_delay_us = 2000;
     switch (device_id) {
     case MICRON_DI_34: // MT29F4G01ABAFDWB, MT29F4G01ABAFD12 (3.3 V) - 8 bits/sector ECC strength

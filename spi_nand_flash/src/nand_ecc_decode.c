@@ -81,61 +81,58 @@ static const nand_ecc_status_t s_ecc_count_map[9] = {
     [8] = NAND_ECC_8_BITS_CORRECTED,
 };
 
-esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+nand_ecc_status_t nand_ecc_decode_2bit(uint8_t status_c0, uint8_t extra)
 {
-    (void)dev;
-    *out = s_ecc_2bit_status_map[NAND_ECC_2BIT_FIELD(status_c0)];
-    return ESP_OK;
+    (void)extra;
+    return s_ecc_2bit_status_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
-esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+nand_ecc_status_t nand_ecc_decode_3bit(uint8_t status_c0, uint8_t extra)
 {
-    (void)dev;
-    *out = s_ecc_3bit_status_map[NAND_ECC_3BIT_FIELD(status_c0)];
-    return ESP_OK;
+    (void)extra;
+    return s_ecc_3bit_status_map[NAND_ECC_3BIT_FIELD(status_c0)];
 }
 
-esp_err_t nand_ecc_decode_2bit_strength_4(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+nand_ecc_status_t nand_ecc_decode_2bit_strength_4(uint8_t status_c0, uint8_t extra)
 {
-    (void)dev;
-    *out = s_ecc_2bit_strength_4_map[NAND_ECC_2BIT_FIELD(status_c0)];
-    return ESP_OK;
+    (void)extra;
+    return s_ecc_2bit_strength_4_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
-esp_err_t nand_ecc_decode_2bit_strength_8(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+nand_ecc_status_t nand_ecc_decode_2bit_strength_8(uint8_t status_c0, uint8_t extra)
 {
-    (void)dev;
-    *out = s_ecc_2bit_strength_8_map[NAND_ECC_2BIT_FIELD(status_c0)];
-    return ESP_OK;
+    (void)extra;
+    return s_ecc_2bit_strength_8_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
-esp_err_t nand_ecc_decode_2bit_strength_1(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+nand_ecc_status_t nand_ecc_decode_2bit_strength_1(uint8_t status_c0, uint8_t extra)
 {
-    (void)dev;
-    *out = s_ecc_2bit_strength_1_map[NAND_ECC_2BIT_FIELD(status_c0)];
-    return ESP_OK;
+    (void)extra;
+    return s_ecc_2bit_strength_1_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
-esp_err_t nand_ecc_decode_xtx(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+nand_ecc_status_t nand_ecc_decode_xtx(uint8_t status_c0, uint8_t extra)
 {
-    (void)dev;
-    *out = NAND_ECC_INVALID;    /* always overwritten: the switch covers all 4 values */
+    (void)extra;
     switch (NAND_ECC_2BIT_FIELD(status_c0)) {
     case NAND_ECC_2BIT_NO_ERROR:
-        *out = NAND_ECC_OK;
-        break;
+        return NAND_ECC_OK;
     case XTX_ECCS_CORRECTED:
-        *out = s_ecc_xtx_corrected_map[XTX_ECCS_HI(status_c0)];
-        break;
+        return s_ecc_xtx_corrected_map[XTX_ECCS_HI(status_c0)];
     case NAND_ECC_2BIT_UNCORRECTABLE:
-        *out = NAND_ECC_NOT_CORRECTED;
-        break;
+        return NAND_ECC_NOT_CORRECTED;
     case XTX_ECCS_8_CORRECTED:
-        *out = NAND_ECC_8_BITS_CORRECTED;
-        break;
+        return NAND_ECC_8_BITS_CORRECTED;
     }
-    return ESP_OK;
+    return NAND_ECC_INVALID;    /* unreachable: NAND_ECC_2BIT_FIELD() is 2 bits wide */
 }
+
+const nand_ecc_decoder_t nand_ecc_decoder_2bit            = { .decode = nand_ecc_decode_2bit };
+const nand_ecc_decoder_t nand_ecc_decoder_3bit            = { .decode = nand_ecc_decode_3bit };
+const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_1 = { .decode = nand_ecc_decode_2bit_strength_1 };
+const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_4 = { .decode = nand_ecc_decode_2bit_strength_4 };
+const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_8 = { .decode = nand_ecc_decode_2bit_strength_8 };
+const nand_ecc_decoder_t nand_ecc_decoder_xtx             = { .decode = nand_ecc_decode_xtx };
 
 static nand_ecc_status_t ecc_status_from_bit_count(uint8_t count)
 {

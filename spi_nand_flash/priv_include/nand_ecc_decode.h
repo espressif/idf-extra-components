@@ -91,79 +91,62 @@ static inline bool nand_ecc_exceeds_data_refresh_threshold(const nand_ecc_data_t
 }
 
 /**
- * @brief Decode a 2-bit ECCS field (C0h bits [5:4]). Default decoder for most chips.
+ * @brief Per-chip ECC status decoder, installed as spi_nand_flash_device_t::ecc_decoder.
  *
- * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
- * @param status_c0  Raw C0h status byte.
- * @param[out] out   Decoded ECC status.
- * @return ESP_OK always; no extra register reads are needed.
+ * Decoding is split so that only read_extra touches the SPI bus; decode is a pure function
+ * that the host tests call directly. After a page read, the driver:
+ *   1. reads C0h,
+ *   2. if read_extra is set and needs_extra_read(C0h) is true (or needs_extra_read is NULL),
+ *      calls read_extra to fetch one vendor register byte,
+ *   3. calls decode(C0h, extra), with extra = 0 when no read was made.
  */
-esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+typedef struct {
+    /** Whether this C0h value needs the extra register. NULL means always, when read_extra is set. */
+    bool (*needs_extra_read)(uint8_t status_c0);
+    /** Read one vendor register byte. NULL for chips that decode from C0h alone. */
+    esp_err_t (*read_extra)(spi_nand_flash_device_t *dev, uint8_t *extra);
+    /** Map C0h and the extra byte to a status. Never NULL. */
+    nand_ecc_status_t (*decode)(uint8_t status_c0, uint8_t extra);
+} nand_ecc_decoder_t;
+
+/*
+ * Pure decoders for chips that report ECC status in C0h alone. Each takes the raw C0h byte;
+ * `extra` is unused and present only to match nand_ecc_decoder_t::decode.
+ * The strength_N suffix is the number of bits the chip's internal ECC can correct per step.
+ */
+
+/** @brief 2-bit ECCS (C0h [5:4]): 00 OK, 01 1-3, 10 not corrected, 11 4-6. Default decoder. */
+nand_ecc_status_t nand_ecc_decode_2bit(uint8_t status_c0, uint8_t extra);
+
+/** @brief 3-bit ECCS (C0h [6:4]). Reserved patterns 100b, 110b, 111b map to NAND_ECC_INVALID. */
+nand_ecc_status_t nand_ecc_decode_3bit(uint8_t status_c0, uint8_t extra);
+
+/** @brief 2-bit ECCS, 4-bit strength: 01b is 1-3 corrected (no count), 11b is exactly 4. */
+nand_ecc_status_t nand_ecc_decode_2bit_strength_4(uint8_t status_c0, uint8_t extra);
+
+/** @brief 2-bit ECCS, 8-bit strength: 01b is 1-7 corrected (no count), 11b is exactly 8. */
+nand_ecc_status_t nand_ecc_decode_2bit_strength_8(uint8_t status_c0, uint8_t extra);
 
 /**
- * @brief Decode a 3-bit ECCS field (C0h bits [6:4]).
- *
- * Reserved patterns (100b, 110b, 111b) map to NAND_ECC_INVALID.
- *
- * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
- * @param status_c0  Raw C0h status byte.
- * @param[out] out   Decoded ECC status.
- * @return ESP_OK always; no extra register reads are needed.
+ * @brief 2-bit ECCS, 1-bit (Hamming) strength: 01b is exactly 1. 10b and 11b are both
+ *        NAND_ECC_NOT_CORRECTED (Winbond W25N512G, W25N01GV/GW/JW: 11b is a 2-bit error in
+ *        continuous read mode).
  */
-esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+nand_ecc_status_t nand_ecc_decode_2bit_strength_1(uint8_t status_c0, uint8_t extra);
 
 /**
- * @brief Decode a 2-bit ECCS field (C0h bits [5:4]) where 11b means "maximum corrected",
- *        for chips with 4-bit internal ECC strength.
- *
- * 01b means corrected below the maximum (no count), so it maps to 1-3; 11b maps to exactly 4.
- *
- * The strength_N suffix is the number of bits the chip's internal ECC can correct per ECC step.
- *
- * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
- * @param status_c0  Raw C0h status byte.
- * @param[out] out   Decoded ECC status.
- * @return ESP_OK always; no extra register reads are needed.
+ * @brief XTX XT26G08D 4-bit ECCS (C0h [7:4]). ECCS1:0: 00b OK, 10b not corrected, 11b
+ *        exactly 8. When ECCS1:0 is 01b, ECCS3:2 gives the count: <=4, 5, 6 or 7.
  */
-esp_err_t nand_ecc_decode_2bit_strength_4(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+nand_ecc_status_t nand_ecc_decode_xtx(uint8_t status_c0, uint8_t extra);
 
-/**
- * @brief Same as nand_ecc_decode_2bit_strength_4(), for chips with 8-bit internal ECC strength.
- *
- * 01b maps to 1-7; 11b maps to exactly 8.
- *
- * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
- * @param status_c0  Raw C0h status byte.
- * @param[out] out   Decoded ECC status.
- * @return ESP_OK always; no extra register reads are needed.
- */
-esp_err_t nand_ecc_decode_2bit_strength_8(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
-
-/**
- * @brief Decode a 2-bit ECCS field (C0h bits [5:4]) for chips with 1-bit (Hamming) internal ECC.
- *
- * 00b: no errors; 01b: exactly 1 bit corrected. 10b and 11b both map to NAND_ECC_NOT_CORRECTED
- * (Winbond W25N512G, W25N01GV/GW/JW: 11b is a 2-bit error in continuous read mode).
- *
- * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
- * @param status_c0  Raw C0h status byte.
- * @param[out] out   Decoded ECC status.
- * @return ESP_OK always; no extra register reads are needed.
- */
-esp_err_t nand_ecc_decode_2bit_strength_1(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
-
-/**
- * @brief Decode the XTX XT26G08D 4-bit ECCS field (C0h bits [7:4]).
- *
- * ECCS1:0 (bits [5:4]): 00b no errors, 10b not correctable, 11b exactly 8 corrected.
- * When ECCS1:0 is 01b, ECCS3:2 (bits [7:6]) gives the count: <=4, 5, 6 or 7.
- *
- * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
- * @param status_c0  Raw C0h status byte.
- * @param[out] out   Decoded ECC status.
- * @return ESP_OK always; no extra register reads are needed.
- */
-esp_err_t nand_ecc_decode_xtx(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+/* Decoder descriptors for the pure decoders above (no extra register read). */
+extern const nand_ecc_decoder_t nand_ecc_decoder_2bit;
+extern const nand_ecc_decoder_t nand_ecc_decoder_3bit;
+extern const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_1;
+extern const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_4;
+extern const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_8;
+extern const nand_ecc_decoder_t nand_ecc_decoder_xtx;
 
 /**
  * @brief Check whether a 2-bit ECCS field (C0h bits [5:4]) reports a correction (01b or 11b).

@@ -38,20 +38,25 @@ static esp_err_t wb_enable_buffer_read(spi_nand_flash_device_t *dev)
     return spi_nand_write_register(dev, REG_CONFIG, config | WB_CONFIG_BUF);
 }
 
-/* ECC status decoder installed as dev->ecc_status_decoder for the KV series. ECC-1:0 (C0h
- * bits [5:4]) 01b/11b only differ by the bit flip detection threshold; the exact count is
- * read from MBF either way. */
-static esp_err_t wb_kv_ecc_decode(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+/* KV series: ECC-1:0 (C0h bits [5:4]) 01b/11b only differ by the bit flip detection
+ * threshold; the exact count is read from MBF either way. */
+static esp_err_t wb_kv_read_mbf(spi_nand_flash_device_t *dev, uint8_t *reg30)
 {
-    uint8_t mbf = 0;
-
-    if (nand_ecc_2bit_reports_correction(status_c0)) {
-        ESP_RETURN_ON_ERROR(spi_nand_read_register(dev, WB_REG_ECC_MBF, &mbf), TAG,
-                            "failed to read ECC max bit flip register");
-    }
-    *out = nand_ecc_decode_2bit_with_count(status_c0, WB_REG30_MBF(mbf));
+    ESP_RETURN_ON_ERROR(spi_nand_read_register(dev, WB_REG_ECC_MBF, reg30), TAG,
+                        "failed to read ECC max bit flip register");
     return ESP_OK;
 }
+
+static nand_ecc_status_t wb_kv_ecc_decode(uint8_t status_c0, uint8_t reg30)
+{
+    return nand_ecc_decode_2bit_with_count(status_c0, WB_REG30_MBF(reg30));
+}
+
+static const nand_ecc_decoder_t s_wb_kv_ecc_decoder = {
+    .needs_extra_read = nand_ecc_2bit_reports_correction,
+    .read_extra = wb_kv_read_mbf,
+    .decode = wb_kv_ecc_decode,
+};
 
 /* 1-bit ECC parts never report more than 1 corrected bit, so refresh on any correction. */
 #define WB_1BIT_ECC_REFRESH_THRESHOLD  1
@@ -78,23 +83,23 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
     case WINBOND_DI_AA20: // W25N512GVxxG/T/R (3.3 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BA20: // W25N512GWxxR/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
         dev->chip.num_blocks = 512;
-        dev->ecc_status_decoder = nand_ecc_decode_2bit_strength_1;
+        dev->ecc_decoder = &nand_ecc_decoder_2bit_strength_1;
         dev->chip.ecc_data.ecc_data_refresh_threshold = WB_1BIT_ECC_REFRESH_THRESHOLD;
         break;
     case WINBOND_DI_AA21: // W25N01GVxxxG/T/R (3.3 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BA21: // W25N01GWxxxG/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BC21: // W25N01JWxxxG/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
         dev->chip.num_blocks = 1024;
-        dev->ecc_status_decoder = nand_ecc_decode_2bit_strength_1;
+        dev->ecc_decoder = &nand_ecc_decoder_2bit_strength_1;
         dev->chip.ecc_data.ecc_data_refresh_threshold = WB_1BIT_ECC_REFRESH_THRESHOLD;
         break;
     case WINBOND_DI_AA22: // W25N02KVxxIR/U (3.3 V) - 8 bits/528B ECC strength
         dev->chip.num_blocks = 2048;
-        dev->ecc_status_decoder = wb_kv_ecc_decode;
+        dev->ecc_decoder = &s_wb_kv_ecc_decoder;
         break;
     case WINBOND_DI_AA23: // W25N04KVxxIR/U (3.3 V) - 8 bits/528B ECC strength
         dev->chip.num_blocks = 4096;
-        dev->ecc_status_decoder = wb_kv_ecc_decode;
+        dev->ecc_decoder = &s_wb_kv_ecc_decoder;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;

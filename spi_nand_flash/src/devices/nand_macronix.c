@@ -35,18 +35,18 @@ static esp_err_t mx_read_eccsr(spi_nand_flash_device_t *dev, uint8_t *eccsr)
     return spi_nand_execute_transaction(dev, &t);
 }
 
-/* ECC status decoder installed as dev->ecc_status_decoder. ECC_S (C0h bits [5:4]) 01b/11b
- * only differ by the bit flip threshold; the exact count is read from ECCSR either way. */
-static esp_err_t mx_ecc_decode(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+/* ECC_S (C0h bits [5:4]) 01b/11b only differ by the bit flip threshold; the exact count is
+ * read from ECCSR either way. */
+static nand_ecc_status_t mx_ecc_decode(uint8_t status_c0, uint8_t eccsr)
 {
-    uint8_t eccsr = 0;
-
-    if (nand_ecc_2bit_reports_correction(status_c0)) {
-        ESP_RETURN_ON_ERROR(mx_read_eccsr(dev, &eccsr), TAG, "failed to read ECC status (7Ch)");
-    }
-    *out = nand_ecc_decode_2bit_with_count(status_c0, MX_ECCSR_CURRENT_PAGE(eccsr));
-    return ESP_OK;
+    return nand_ecc_decode_2bit_with_count(status_c0, MX_ECCSR_CURRENT_PAGE(eccsr));
 }
+
+static const nand_ecc_decoder_t s_mx_ecc_decoder = {
+    .needs_extra_read = nand_ecc_2bit_reports_correction,
+    .read_extra = mx_read_eccsr,
+    .decode = mx_ecc_decode,
+};
 
 esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev)
 {
@@ -60,7 +60,7 @@ esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev)
 
     dev->chip.has_quad_enable_bit = 1;
     dev->chip.quad_enable_bit_pos = 0;
-    dev->ecc_status_decoder = mx_ecc_decode;
+    dev->ecc_decoder = &s_mx_ecc_decoder;
     switch (device_id) {
     case MACRONIX_DI_26: // MX35LF2GE4AD (2Gb) - 8 bits/544B ECC strength
         dev->chip.num_blocks = 2048;

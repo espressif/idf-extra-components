@@ -30,7 +30,7 @@ esp_err_t spi_nand_xtx_init(spi_nand_flash_device_t *dev)
     dev->chip.erase_block_delay_us = 3500;
     dev->chip.program_page_delay_us = 650;
     dev->chip.read_page_delay_us = 50;
-    dev->ecc_status_decoder = nand_ecc_decode_xtx;
+    dev->ecc_decoder = &nand_ecc_decoder_xtx;
     switch (device_id) {
     case XTX_DI_37: // XT26G08D - 8 bits/528B ECC strength (ECC always on)
         dev->chip.num_blocks = 4096;
