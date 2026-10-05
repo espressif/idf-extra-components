@@ -112,27 +112,33 @@ typedef struct {
 /*
  * Pure decoders for chips that report ECC status in C0h alone. Each takes the raw C0h byte;
  * `extra` is unused and present only to match nand_ecc_decoder_t::decode.
- * The strength_N suffix is the number of bits the chip's internal ECC can correct per step.
+ *
+ * Naming:
+ *   eccsN    decodes the N-bit ECCS field in C0h alone, in a layout any vendor may reuse.
+ *   tN       the chip's internal ECC corrects up to N bits per ECC step.
+ *   default  strength-agnostic fallback for chips that install no decoder.
+ * A decoder that needs a vendor-specific register, or a vendor-only C0h layout, is named by
+ * vendor (e.g. xtx, gd); if it reads a register it is a static in that vendor's file.
  */
 
 /** @brief 2-bit ECCS (C0h [5:4]): 00 OK, 01 1-3, 10 not corrected, 11 4-6. Default decoder. */
-nand_ecc_status_t nand_ecc_decode_2bit(uint8_t status_c0, uint8_t extra);
+nand_ecc_status_t nand_ecc_decode_eccs2_default(uint8_t status_c0, uint8_t extra);
 
 /** @brief 3-bit ECCS (C0h [6:4]). Reserved patterns 100b, 110b, 111b map to NAND_ECC_INVALID. */
-nand_ecc_status_t nand_ecc_decode_3bit(uint8_t status_c0, uint8_t extra);
+nand_ecc_status_t nand_ecc_decode_eccs3(uint8_t status_c0, uint8_t extra);
 
 /** @brief 2-bit ECCS, 4-bit strength: 01b is 1-3 corrected (no count), 11b is exactly 4. */
-nand_ecc_status_t nand_ecc_decode_2bit_strength_4(uint8_t status_c0, uint8_t extra);
+nand_ecc_status_t nand_ecc_decode_eccs2_t4(uint8_t status_c0, uint8_t extra);
 
 /** @brief 2-bit ECCS, 8-bit strength: 01b is 1-7 corrected (no count), 11b is exactly 8. */
-nand_ecc_status_t nand_ecc_decode_2bit_strength_8(uint8_t status_c0, uint8_t extra);
+nand_ecc_status_t nand_ecc_decode_eccs2_t8(uint8_t status_c0, uint8_t extra);
 
 /**
  * @brief 2-bit ECCS, 1-bit (Hamming) strength: 01b is exactly 1. 10b and 11b are both
  *        NAND_ECC_NOT_CORRECTED (Winbond W25N512G, W25N01GV/GW/JW: 11b is a 2-bit error in
  *        continuous read mode).
  */
-nand_ecc_status_t nand_ecc_decode_2bit_strength_1(uint8_t status_c0, uint8_t extra);
+nand_ecc_status_t nand_ecc_decode_eccs2_t1(uint8_t status_c0, uint8_t extra);
 
 /**
  * @brief XTX XT26G08D 4-bit ECCS (C0h [7:4]). ECCS1:0: 00b OK, 10b not corrected, 11b
@@ -141,11 +147,11 @@ nand_ecc_status_t nand_ecc_decode_2bit_strength_1(uint8_t status_c0, uint8_t ext
 nand_ecc_status_t nand_ecc_decode_xtx(uint8_t status_c0, uint8_t extra);
 
 /* Decoder descriptors for the pure decoders above (no extra register read). */
-extern const nand_ecc_decoder_t nand_ecc_decoder_2bit;
-extern const nand_ecc_decoder_t nand_ecc_decoder_3bit;
-extern const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_1;
-extern const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_4;
-extern const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_8;
+extern const nand_ecc_decoder_t nand_ecc_decoder_eccs2_default;
+extern const nand_ecc_decoder_t nand_ecc_decoder_eccs3;
+extern const nand_ecc_decoder_t nand_ecc_decoder_eccs2_t1;
+extern const nand_ecc_decoder_t nand_ecc_decoder_eccs2_t4;
+extern const nand_ecc_decoder_t nand_ecc_decoder_eccs2_t8;
 extern const nand_ecc_decoder_t nand_ecc_decoder_xtx;
 
 /**
@@ -157,7 +163,7 @@ extern const nand_ecc_decoder_t nand_ecc_decoder_xtx;
  * @param status_c0  Raw C0h status byte.
  * @return true if ECCS is 01b or 11b.
  */
-bool nand_ecc_2bit_reports_correction(uint8_t status_c0);
+bool nand_ecc_eccs2_reports_correction(uint8_t status_c0);
 
 /**
  * @brief Decode a 2-bit ECCS field (C0h bits [5:4]) together with an exact error count read
@@ -170,10 +176,10 @@ bool nand_ecc_2bit_reports_correction(uint8_t status_c0);
  *
  * @param status_c0  Raw C0h status byte.
  * @param count      4-bit error count, already extracted from the vendor register (don't-care
- *                   unless nand_ecc_2bit_reports_correction() is true).
+ *                   unless nand_ecc_eccs2_reports_correction() is true).
  * @return Decoded ECC status.
  */
-nand_ecc_status_t nand_ecc_decode_2bit_with_count(uint8_t status_c0, uint8_t count);
+nand_ecc_status_t nand_ecc_decode_eccs2_with_count(uint8_t status_c0, uint8_t count);
 
 #ifdef __cplusplus
 }

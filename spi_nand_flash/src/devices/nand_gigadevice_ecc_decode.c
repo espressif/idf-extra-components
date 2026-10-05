@@ -16,7 +16,7 @@
 /* F0h ECCSE, valid only when C0h ECCS == 01b.
  * 8-bit/528B internal-ECC-strength family: collapses 1-4 into a ceiling,
  * resolves 5/6/7 exactly; ECCS=11b separately means exactly 8. */
-static const nand_ecc_status_t s_gd_eccse_8bit_strength_map[4] = {
+static const nand_ecc_status_t s_gd_eccse_t8_map[4] = {
     [0] = NAND_ECC_1_TO_4_BITS_CORRECTED,
     [1] = NAND_ECC_5_BITS_CORRECTED,
     [2] = NAND_ECC_6_BITS_CORRECTED,
@@ -25,7 +25,7 @@ static const nand_ecc_status_t s_gd_eccse_8bit_strength_map[4] = {
 
 /* 4-bit/528B internal-ECC-strength family: ECCSE resolves 1/2/3/4 exactly.
  * ECCS=11b is reserved/invalid for this family. */
-static const nand_ecc_status_t s_gd_eccse_4bit_strength_map[4] = {
+static const nand_ecc_status_t s_gd_eccse_t4_map[4] = {
     [0] = NAND_ECC_1_BIT_CORRECTED,
     [1] = NAND_ECC_2_BITS_CORRECTED,
     [2] = NAND_ECC_3_BITS_CORRECTED,
@@ -37,7 +37,7 @@ bool nand_gd_ecc_needs_status_ext(uint8_t status_c0)
     return NAND_ECC_2BIT_FIELD(status_c0) == GD_ECCS_SEE_EXT;
 }
 
-nand_ecc_status_t nand_gd_ecc_decode_8bit_strength(uint8_t raw_status_c0, uint8_t raw_status_f0)
+nand_ecc_status_t nand_gd_ecc_decode_t8(uint8_t raw_status_c0, uint8_t raw_status_f0)
 {
     switch (NAND_ECC_2BIT_FIELD(raw_status_c0)) {
     case NAND_ECC_2BIT_NO_ERROR:
@@ -45,7 +45,7 @@ nand_ecc_status_t nand_gd_ecc_decode_8bit_strength(uint8_t raw_status_c0, uint8_
     case GD_ECCS_SEE_EXT:
         /* F0h ECCSE reuses bits [5:4], same positions as C0h ECCS -
          * this is intentional per the datasheet, not a copy-paste of the C0h read. */
-        return s_gd_eccse_8bit_strength_map[NAND_ECC_2BIT_FIELD(raw_status_f0)];
+        return s_gd_eccse_t8_map[NAND_ECC_2BIT_FIELD(raw_status_f0)];
     case NAND_ECC_2BIT_UNCORRECTABLE:
         return NAND_ECC_NOT_CORRECTED;
     case GD_ECCS_11B:
@@ -54,13 +54,13 @@ nand_ecc_status_t nand_gd_ecc_decode_8bit_strength(uint8_t raw_status_c0, uint8_
     return NAND_ECC_INVALID;    /* unreachable: NAND_ECC_2BIT_FIELD() is 2 bits wide */
 }
 
-nand_ecc_status_t nand_gd_ecc_decode_4bit_strength(uint8_t raw_status_c0, uint8_t raw_status_f0)
+nand_ecc_status_t nand_gd_ecc_decode_t4(uint8_t raw_status_c0, uint8_t raw_status_f0)
 {
     switch (NAND_ECC_2BIT_FIELD(raw_status_c0)) {
     case NAND_ECC_2BIT_NO_ERROR:
         return NAND_ECC_OK;
     case GD_ECCS_SEE_EXT:
-        return s_gd_eccse_4bit_strength_map[NAND_ECC_2BIT_FIELD(raw_status_f0)];
+        return s_gd_eccse_t4_map[NAND_ECC_2BIT_FIELD(raw_status_f0)];
     case NAND_ECC_2BIT_UNCORRECTABLE:
         return NAND_ECC_NOT_CORRECTED;
     case GD_ECCS_11B:

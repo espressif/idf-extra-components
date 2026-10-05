@@ -9,7 +9,7 @@
 /* 3-bit ECCS field: C0h bits [6:4]. The 2-bit field uses NAND_ECC_2BIT_FIELD(). */
 #define NAND_ECC_3BIT_FIELD(reg)  (((reg) >> 4) & 0x7u)
 
-static const nand_ecc_status_t s_ecc_2bit_status_map[4] = {
+static const nand_ecc_status_t s_ecc_eccs2_default_map[4] = {
     [0] = NAND_ECC_OK,
     [1] = NAND_ECC_1_TO_3_BITS_CORRECTED,
     [2] = NAND_ECC_NOT_CORRECTED,
@@ -17,7 +17,7 @@ static const nand_ecc_status_t s_ecc_2bit_status_map[4] = {
 };
 
 /* Raw 3-bit ECCS -> driver status. Reserved combinations (4, 6, 7) are invalid. */
-static const nand_ecc_status_t s_ecc_3bit_status_map[8] = {
+static const nand_ecc_status_t s_ecc_eccs3_map[8] = {
     [0] = NAND_ECC_OK,
     [1] = NAND_ECC_1_TO_3_BITS_CORRECTED,
     [2] = NAND_ECC_NOT_CORRECTED,
@@ -30,14 +30,14 @@ static const nand_ecc_status_t s_ecc_3bit_status_map[8] = {
 
 /* 2-bit ECCS where 01b is "corrected, below the maximum" (no count) and 11b is "exactly the
  * maximum corrected". Selected by the chip's internal ECC strength. */
-static const nand_ecc_status_t s_ecc_2bit_strength_4_map[4] = {
+static const nand_ecc_status_t s_ecc_eccs2_t4_map[4] = {
     [0] = NAND_ECC_OK,
     [1] = NAND_ECC_1_TO_3_BITS_CORRECTED,
     [2] = NAND_ECC_NOT_CORRECTED,
     [3] = NAND_ECC_4_BITS_CORRECTED,
 };
 
-static const nand_ecc_status_t s_ecc_2bit_strength_8_map[4] = {
+static const nand_ecc_status_t s_ecc_eccs2_t8_map[4] = {
     [0] = NAND_ECC_OK,
     [1] = NAND_ECC_1_TO_7_BITS_CORRECTED,
     [2] = NAND_ECC_NOT_CORRECTED,
@@ -46,7 +46,7 @@ static const nand_ecc_status_t s_ecc_2bit_strength_8_map[4] = {
 
 /* 1-bit (Hamming) ECC: 01b is exactly 1 bit corrected. 10b is a 2-bit error in the page;
  * 11b is 2-bit errors in multiple pages (continuous read only). Both are uncorrectable. */
-static const nand_ecc_status_t s_ecc_2bit_strength_1_map[4] = {
+static const nand_ecc_status_t s_ecc_eccs2_t1_map[4] = {
     [0] = NAND_ECC_OK,
     [1] = NAND_ECC_1_BIT_CORRECTED,
     [2] = NAND_ECC_NOT_CORRECTED,
@@ -81,34 +81,34 @@ static const nand_ecc_status_t s_ecc_count_map[9] = {
     [8] = NAND_ECC_8_BITS_CORRECTED,
 };
 
-nand_ecc_status_t nand_ecc_decode_2bit(uint8_t status_c0, uint8_t extra)
+nand_ecc_status_t nand_ecc_decode_eccs2_default(uint8_t status_c0, uint8_t extra)
 {
     (void)extra;
-    return s_ecc_2bit_status_map[NAND_ECC_2BIT_FIELD(status_c0)];
+    return s_ecc_eccs2_default_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
-nand_ecc_status_t nand_ecc_decode_3bit(uint8_t status_c0, uint8_t extra)
+nand_ecc_status_t nand_ecc_decode_eccs3(uint8_t status_c0, uint8_t extra)
 {
     (void)extra;
-    return s_ecc_3bit_status_map[NAND_ECC_3BIT_FIELD(status_c0)];
+    return s_ecc_eccs3_map[NAND_ECC_3BIT_FIELD(status_c0)];
 }
 
-nand_ecc_status_t nand_ecc_decode_2bit_strength_4(uint8_t status_c0, uint8_t extra)
+nand_ecc_status_t nand_ecc_decode_eccs2_t4(uint8_t status_c0, uint8_t extra)
 {
     (void)extra;
-    return s_ecc_2bit_strength_4_map[NAND_ECC_2BIT_FIELD(status_c0)];
+    return s_ecc_eccs2_t4_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
-nand_ecc_status_t nand_ecc_decode_2bit_strength_8(uint8_t status_c0, uint8_t extra)
+nand_ecc_status_t nand_ecc_decode_eccs2_t8(uint8_t status_c0, uint8_t extra)
 {
     (void)extra;
-    return s_ecc_2bit_strength_8_map[NAND_ECC_2BIT_FIELD(status_c0)];
+    return s_ecc_eccs2_t8_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
-nand_ecc_status_t nand_ecc_decode_2bit_strength_1(uint8_t status_c0, uint8_t extra)
+nand_ecc_status_t nand_ecc_decode_eccs2_t1(uint8_t status_c0, uint8_t extra)
 {
     (void)extra;
-    return s_ecc_2bit_strength_1_map[NAND_ECC_2BIT_FIELD(status_c0)];
+    return s_ecc_eccs2_t1_map[NAND_ECC_2BIT_FIELD(status_c0)];
 }
 
 nand_ecc_status_t nand_ecc_decode_xtx(uint8_t status_c0, uint8_t extra)
@@ -127,11 +127,11 @@ nand_ecc_status_t nand_ecc_decode_xtx(uint8_t status_c0, uint8_t extra)
     return NAND_ECC_INVALID;    /* unreachable: NAND_ECC_2BIT_FIELD() is 2 bits wide */
 }
 
-const nand_ecc_decoder_t nand_ecc_decoder_2bit            = { .decode = nand_ecc_decode_2bit };
-const nand_ecc_decoder_t nand_ecc_decoder_3bit            = { .decode = nand_ecc_decode_3bit };
-const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_1 = { .decode = nand_ecc_decode_2bit_strength_1 };
-const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_4 = { .decode = nand_ecc_decode_2bit_strength_4 };
-const nand_ecc_decoder_t nand_ecc_decoder_2bit_strength_8 = { .decode = nand_ecc_decode_2bit_strength_8 };
+const nand_ecc_decoder_t nand_ecc_decoder_eccs2_default            = { .decode = nand_ecc_decode_eccs2_default };
+const nand_ecc_decoder_t nand_ecc_decoder_eccs3            = { .decode = nand_ecc_decode_eccs3 };
+const nand_ecc_decoder_t nand_ecc_decoder_eccs2_t1 = { .decode = nand_ecc_decode_eccs2_t1 };
+const nand_ecc_decoder_t nand_ecc_decoder_eccs2_t4 = { .decode = nand_ecc_decode_eccs2_t4 };
+const nand_ecc_decoder_t nand_ecc_decoder_eccs2_t8 = { .decode = nand_ecc_decode_eccs2_t8 };
 const nand_ecc_decoder_t nand_ecc_decoder_xtx             = { .decode = nand_ecc_decode_xtx };
 
 static nand_ecc_status_t ecc_status_from_bit_count(uint8_t count)
@@ -145,13 +145,13 @@ static nand_ecc_status_t ecc_status_from_bit_count(uint8_t count)
     return NAND_ECC_INVALID;
 }
 
-bool nand_ecc_2bit_reports_correction(uint8_t status_c0)
+bool nand_ecc_eccs2_reports_correction(uint8_t status_c0)
 {
     const uint8_t s = NAND_ECC_2BIT_FIELD(status_c0);
     return s != NAND_ECC_2BIT_NO_ERROR && s != NAND_ECC_2BIT_UNCORRECTABLE;
 }
 
-nand_ecc_status_t nand_ecc_decode_2bit_with_count(uint8_t status_c0, uint8_t count)
+nand_ecc_status_t nand_ecc_decode_eccs2_with_count(uint8_t status_c0, uint8_t count)
 {
     switch (NAND_ECC_2BIT_FIELD(status_c0)) {
     case NAND_ECC_2BIT_NO_ERROR:

@@ -39,11 +39,11 @@ static esp_err_t mx_read_eccsr(spi_nand_flash_device_t *dev, uint8_t *eccsr)
  * read from ECCSR either way. */
 static nand_ecc_status_t mx_ecc_decode(uint8_t status_c0, uint8_t eccsr)
 {
-    return nand_ecc_decode_2bit_with_count(status_c0, MX_ECCSR_CURRENT_PAGE(eccsr));
+    return nand_ecc_decode_eccs2_with_count(status_c0, MX_ECCSR_CURRENT_PAGE(eccsr));
 }
 
 static const nand_ecc_decoder_t s_mx_ecc_decoder = {
-    .needs_extra_read = nand_ecc_2bit_reports_correction,
+    .needs_extra_read = nand_ecc_eccs2_reports_correction,
     .read_extra = mx_read_eccsr,
     .decode = mx_ecc_decode,
 };

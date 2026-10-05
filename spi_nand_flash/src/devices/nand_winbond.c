@@ -49,11 +49,11 @@ static esp_err_t wb_kv_read_mbf(spi_nand_flash_device_t *dev, uint8_t *reg30)
 
 static nand_ecc_status_t wb_kv_ecc_decode(uint8_t status_c0, uint8_t reg30)
 {
-    return nand_ecc_decode_2bit_with_count(status_c0, WB_REG30_MBF(reg30));
+    return nand_ecc_decode_eccs2_with_count(status_c0, WB_REG30_MBF(reg30));
 }
 
 static const nand_ecc_decoder_t s_wb_kv_ecc_decoder = {
-    .needs_extra_read = nand_ecc_2bit_reports_correction,
+    .needs_extra_read = nand_ecc_eccs2_reports_correction,
     .read_extra = wb_kv_read_mbf,
     .decode = wb_kv_ecc_decode,
 };
@@ -83,14 +83,14 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev)
     case WINBOND_DI_AA20: // W25N512GVxxG/T/R (3.3 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BA20: // W25N512GWxxR/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
         dev->chip.num_blocks = 512;
-        dev->ecc_decoder = &nand_ecc_decoder_2bit_strength_1;
+        dev->ecc_decoder = &nand_ecc_decoder_eccs2_t1;
         dev->chip.ecc_data.ecc_data_refresh_threshold = WB_1BIT_ECC_REFRESH_THRESHOLD;
         break;
     case WINBOND_DI_AA21: // W25N01GVxxxG/T/R (3.3 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BA21: // W25N01GWxxxG/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
     case WINBOND_DI_BC21: // W25N01JWxxxG/T (1.8 V) - 1 bit/528B ECC strength (Hamming)
         dev->chip.num_blocks = 1024;
-        dev->ecc_decoder = &nand_ecc_decoder_2bit_strength_1;
+        dev->ecc_decoder = &nand_ecc_decoder_eccs2_t1;
         dev->chip.ecc_data.ecc_data_refresh_threshold = WB_1BIT_ECC_REFRESH_THRESHOLD;
         break;
     case WINBOND_DI_AA22: // W25N02KVxxIR/U (3.3 V) - 8 bits/528B ECC strength

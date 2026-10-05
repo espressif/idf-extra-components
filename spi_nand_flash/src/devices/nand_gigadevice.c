@@ -29,16 +29,16 @@ static esp_err_t gd_read_status_ext(spi_nand_flash_device_t *dev, uint8_t *ext)
     return ESP_OK;
 }
 
-static const nand_ecc_decoder_t s_gd_ecc_decoder_8bit_strength = {
+static const nand_ecc_decoder_t s_gd_ecc_decoder_t8 = {
     .needs_extra_read = nand_gd_ecc_needs_status_ext,
     .read_extra = gd_read_status_ext,
-    .decode = nand_gd_ecc_decode_8bit_strength,
+    .decode = nand_gd_ecc_decode_t8,
 };
 
-static const nand_ecc_decoder_t s_gd_ecc_decoder_4bit_strength = {
+static const nand_ecc_decoder_t s_gd_ecc_decoder_t4 = {
     .needs_extra_read = nand_gd_ecc_needs_status_ext,
     .read_extra = gd_read_status_ext,
-    .decode = nand_gd_ecc_decode_4bit_strength,
+    .decode = nand_gd_ecc_decode_t4,
 };
 
 esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
@@ -63,32 +63,32 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
     case GIGADEVICE_DI_21: // GD5F1GQ5RExxH - 4 bits/528B
         // single-plane, Internal Data Move has no parity restriction
         dev->chip.num_blocks = 1024;
-        dev->ecc_decoder = &s_gd_ecc_decoder_4bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t4;
         break;
     case GIGADEVICE_DI_81: // GD5F1GM7RExxG - 8 bits/528B ECC strength
     case GIGADEVICE_DI_91: // GD5F1GM7UExxG - 8 bits/528B
         // single-plane, Internal Data Move has no parity restriction
         dev->chip.num_blocks = 1024;
-        dev->ecc_decoder = &s_gd_ecc_decoder_8bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t8;
         break;
     case GIGADEVICE_DI_32: // GD5F2GQ5UExxH - 4 bits/528B ECC strength
     case GIGADEVICE_DI_22: // GD5F2GQ5xExxH - 4 bits/528B
         dev->chip.num_blocks = 2048;
-        dev->ecc_decoder = &s_gd_ecc_decoder_4bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t4;
         break;
     case GIGADEVICE_DI_52: // GD5F2GQ5UExxG - 4 bits/528B ECC strength
     case GIGADEVICE_DI_42: // GD5F2GQ5RExxG - 4 bits/528B
         // single-plane; IDM requires same odd/even block parity
         dev->chip.num_blocks = 2048;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
-        dev->ecc_decoder = &s_gd_ecc_decoder_4bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t4;
         break;
     case GIGADEVICE_DI_92: // GD5F2GM7UExxG - 8 bits/528B ECC strength
     case GIGADEVICE_DI_82: // GD5F2GM7RExxG - 8 bits/528B
         // single-plane; IDM requires same odd/even block parity
         dev->chip.num_blocks = 2048;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
-        dev->ecc_decoder = &s_gd_ecc_decoder_8bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t8;
         break;
     case GIGADEVICE_DI_35: // TODO: unidentified part number
     case GIGADEVICE_DI_25: // TODO: unidentified part number
@@ -103,7 +103,7 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         // (2Gb partition limit for IDM is deferred)
         dev->chip.num_blocks = 4096;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
-        dev->ecc_decoder = &s_gd_ecc_decoder_4bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t4;
         break;
     case GIGADEVICE_DI_95: // GD5F4GM8UExxG - 8 bits/528B ECC strength
     case GIGADEVICE_DI_85: // GD5F4GM8RExxG - 8 bits/528B
@@ -111,21 +111,21 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         // (2Gb partition limit for IDM is deferred)
         dev->chip.num_blocks = 4096;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
-        dev->ecc_decoder = &s_gd_ecc_decoder_8bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t8;
         break;
     case GIGADEVICE_DI_94: // GD5F4GM7UExxG - 8 bits/528B ECC strength
         // single-plane; IDM requires same odd/even block parity
         dev->chip.log2_page_size = 12;  // 4096 bytes per page
         dev->chip.num_blocks = 2048;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
-        dev->ecc_decoder = &s_gd_ecc_decoder_8bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t8;
         break;
     case GIGADEVICE_DI_99: // GD5F8GM8UExxG - 8 bits/528B ECC strength
         // single-plane; IDM requires same odd/even block parity
         dev->chip.log2_page_size = 12; // 4096 bytes per page
         dev->chip.num_blocks = 4096;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
-        dev->ecc_decoder = &s_gd_ecc_decoder_8bit_strength;
+        dev->ecc_decoder = &s_gd_ecc_decoder_t8;
         break;
     default:
         return ESP_ERR_INVALID_RESPONSE;
