@@ -12,10 +12,22 @@
 extern "C" {
 #endif
 
+/**
+ * @brief State of a strip transaction, used to serialize the access to the shared pixel buffer
+ *
+ * @note This state machine only prevents two tasks from starting a transaction at the same time.
+ *       It does not provide ordering between tasks, nor does it make the driver as a whole
+ *       thread-safe. See the "Thread safety" note in the public API documentation.
+ */
 typedef enum {
-    LED_STRIP_TRANS_IDLE,
-    LED_STRIP_TRANS_INFLIGHT,
-    LED_STRIP_TRANS_LOCKED,
+    LED_STRIP_TRANS_IDLE,     /*!< No transaction is running, the pixel buffer can be modified freely */
+    LED_STRIP_TRANS_INFLIGHT, /*!< A transaction has been started but is still being transferred by the peripheral
+                                   (i.e. it is "in the air"). The pixel buffer must not be modified, otherwise the
+                                   peripheral may send a mix of old and new data. Use the wait API to join it */
+    LED_STRIP_TRANS_LOCKED,   /*!< The local critical section is taken by the current task, e.g. while it is writing
+                                   the pixel buffer or blocking to wait for a transaction to finish. The peripheral
+                                   itself may or may not be transmitting at this point. This state is only ever
+                                   held for the duration of a single driver call */
 } led_strip_trans_state_t;
 
 typedef atomic_int led_strip_trans_state_atomic_t;

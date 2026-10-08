@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_rom_gpio.h"
@@ -16,11 +18,12 @@
 #include "led_strip_common.h"
 
 #define LED_STRIP_SPI_DEFAULT_RESOLUTION (2.5 * 1000 * 1000) // 2.5MHz resolution
+#define LED_STRIP_SPI_WS2816_RESOLUTION (2.7 * 1000 * 1000)  // 2.7MHz resolution
 #define LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE 4
 
 #define SPI_BYTES_PER_COLOR_BYTE 3
 #define SPI_BITS_PER_COLOR_BYTE (SPI_BYTES_PER_COLOR_BYTE * 8)
-#define SPI_TRANS_MAX_DELAY (uint32_t) 0xffffffffUL
+#define SPI_TRANS_TIMEOUT portMAX_DELAY
 
 static const char *TAG = "led_strip_spi";
 
@@ -42,13 +45,13 @@ static esp_err_t led_strip_spi_trans(led_strip_spi_obj *spi_strip)
     spi_strip->trans.length = spi_strip->strip_len * spi_strip->bytes_per_pixel * SPI_BITS_PER_COLOR_BYTE;
     spi_strip->trans.tx_buffer = spi_strip->pixel_buf;
     spi_strip->trans.rx_buffer = NULL;
-    return spi_device_queue_trans(spi_strip->spi_device, &spi_strip->trans, SPI_TRANS_MAX_DELAY);
+    return spi_device_queue_trans(spi_strip->spi_device, &spi_strip->trans, SPI_TRANS_TIMEOUT);
 }
 
 static esp_err_t led_strip_spi_wait_trans_done(led_strip_spi_obj *spi_strip)
 {
     spi_transaction_t *tx_conf = NULL;
-    ESP_RETURN_ON_ERROR(spi_device_get_trans_result(spi_strip->spi_device, &tx_conf, SPI_TRANS_MAX_DELAY), TAG, "wait for SPI done failed");
+    ESP_RETURN_ON_ERROR(spi_device_get_trans_result(spi_strip->spi_device, &tx_conf, SPI_TRANS_TIMEOUT), TAG, "wait for SPI done failed");
     atomic_store(&spi_strip->trans_state, LED_STRIP_TRANS_IDLE);
     return ESP_OK;
 }
@@ -134,7 +137,7 @@ err:
     return ret;
 }
 
-static esp_err_t led_strip_spi_refresh_wait_async_done(led_strip_t *strip)
+static esp_err_t led_strip_spi_refresh_async_done(led_strip_t *strip)
 {
     esp_err_t ret = ESP_OK;
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
@@ -206,12 +209,14 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_FALSE(led_config && spi_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
     led_color_component_format_t component_fmt = led_config->color_component_format;
+    uint32_t clock_speed_hz = LED_STRIP_SPI_DEFAULT_RESOLUTION;
     // If R/G/B order is not specified, set default GRB order as fallback
     if (component_fmt.format_id == 0) {
         component_fmt = LED_STRIP_COLOR_COMPONENT_FMT_GRB;
     }
     if (led_config->led_model == LED_MODEL_WS2816) {
         component_fmt.format.bytes_per_color = 2;
+        clock_speed_hz = LED_STRIP_SPI_WS2816_RESOLUTION;
     }
     if (component_fmt.format.bytes_per_color == 0) {
         component_fmt.format.bytes_per_color = 1;
@@ -275,7 +280,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         .command_bits = 0,
         .address_bits = 0,
         .dummy_bits = 0,
-        .clock_speed_hz = LED_STRIP_SPI_DEFAULT_RESOLUTION,
+        .clock_speed_hz = clock_speed_hz,
         .mode = 0,
         //set -1 when CS is not used
         .spics_io_num = -1,
@@ -288,13 +293,12 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     int clock_resolution_khz = 0;
     spi_device_get_actual_freq(spi_strip->spi_device, &clock_resolution_khz);
     // TODO: ideally we should decide the SPI_BYTES_PER_COLOR_BYTE by the real clock resolution
-    // But now, let's fixed the resolution, the downside is, we don't support a clock source whose frequency is not multiple of LED_STRIP_SPI_DEFAULT_RESOLUTION
-    // clock_resolution between 2.2MHz to 2.8MHz is supported
-    ESP_GOTO_ON_FALSE((clock_resolution_khz < LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 + 300) && (clock_resolution_khz > LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
+    // But now, let's fixed the resolution
+    ESP_GOTO_ON_FALSE((clock_resolution_khz < clock_speed_hz / 1000 + 300) && (clock_resolution_khz > clock_speed_hz / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
                       TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
 
-    if (led_config->led_model != LED_MODEL_WS2812) {
-        ESP_LOGW(TAG, "Only support WS2812. The timing requirements for other models may not be met");
+    if (led_config->led_model != LED_MODEL_WS2812 && led_config->led_model != LED_MODEL_WS2816) {
+        ESP_LOGW(TAG, "Only support WS2812 and WS2816. The timing requirements for other models may not be met");
     }
 
     spi_strip->component_fmt = component_fmt;
@@ -304,7 +308,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip->base.set_pixel_rgbw = led_strip_spi_set_pixel_rgbw;
     spi_strip->base.refresh = led_strip_spi_refresh;
     spi_strip->base.refresh_async = led_strip_spi_refresh_async;
-    spi_strip->base.refresh_wait_async_done = led_strip_spi_refresh_wait_async_done;
+    spi_strip->base.refresh_async_done = led_strip_spi_refresh_async_done;
     spi_strip->base.clear = led_strip_spi_clear;
     spi_strip->base.del = led_strip_spi_del;
 

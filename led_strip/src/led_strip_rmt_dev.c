@@ -122,7 +122,7 @@ err:
     return ret;
 }
 
-static esp_err_t led_strip_rmt_refresh_wait_async_done(led_strip_t *strip)
+static esp_err_t led_strip_rmt_refresh_async_done(led_strip_t *strip)
 {
     esp_err_t ret = ESP_OK;
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
@@ -180,7 +180,6 @@ err:
     return ret;
 }
 
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
 static esp_err_t led_strip_rmt_switch_gpio(led_strip_t *strip, gpio_num_t new_gpio_num, bool invert_output)
 {
     esp_err_t ret = ESP_OK;
@@ -191,13 +190,64 @@ static esp_err_t led_strip_rmt_switch_gpio(led_strip_t *strip, gpio_num_t new_gp
     atomic_store(&rmt_strip->trans_state, LED_STRIP_TRANS_IDLE);
     return ret;
 }
-#endif
+
+static esp_err_t led_strip_get_timings(led_model_t led_model, const led_strip_timings_t *custom_timings, led_strip_timings_t *timings)
+{
+    if (led_model == LED_MODEL_CUSTOM) {
+        *timings = *custom_timings;
+        return ESP_OK;
+    }
+
+    switch (led_model) {
+    case LED_MODEL_WS2812:
+        *timings = (led_strip_timings_t) {
+            .t0h_ns = 300,
+            .t1h_ns = 900,
+            .t0l_ns = 900,
+            .t1l_ns = 600,
+            .reset_us = 280,
+        };
+        break;
+    case LED_MODEL_SK6812:
+        *timings = (led_strip_timings_t) {
+            .t0h_ns = 300,
+            .t1h_ns = 700,
+            .t0l_ns = 900,
+            .t1l_ns = 600,
+            .reset_us = 280,
+        };
+        break;
+    case LED_MODEL_WS2811:
+        *timings = (led_strip_timings_t) {
+            .t0h_ns = 500,
+            .t1h_ns = 1200,
+            .t0l_ns = 2000,
+            .t1l_ns = 1300,
+            .reset_us = 50,
+        };
+        break;
+    case LED_MODEL_WS2816:
+        *timings = (led_strip_timings_t) {
+            .t0h_ns = 300,
+            .t1h_ns = 750,
+            .t0l_ns = 950,
+            .t1l_ns = 500,
+            .reset_us = 280,
+        };
+        break;
+    default:
+        return ESP_ERR_INVALID_ARG;
+    }
+    return ESP_OK;
+}
 
 esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *rmt_config, led_strip_handle_t *ret_strip)
 {
     led_strip_rmt_obj *rmt_strip = NULL;
     esp_err_t ret = ESP_OK;
     ESP_GOTO_ON_FALSE(led_config && rmt_config && ret_strip, ESP_ERR_INVALID_ARG, err, TAG, "invalid argument");
+    led_strip_timings_t timings;
+    ESP_GOTO_ON_ERROR(led_strip_get_timings(led_config->led_model, &led_config->timings, &timings), err, TAG, "invalid LED model");
     led_color_component_format_t component_fmt = led_config->color_component_format;
     // If R/G/B order is not specified, set default GRB order as fallback
     if (component_fmt.format_id == 0) {
@@ -254,8 +304,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
 
     led_strip_encoder_config_t strip_encoder_conf = {
         .resolution = resolution,
-        .led_model = led_config->led_model,
-        .timings = led_config->timings,
+        .timings = timings,
     };
     ESP_GOTO_ON_ERROR(rmt_new_led_strip_encoder(&strip_encoder_conf, &rmt_strip->strip_encoder), err, TAG, "create LED strip encoder failed");
 
@@ -266,12 +315,10 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip->base.set_pixel_rgbw = led_strip_rmt_set_pixel_rgbw;
     rmt_strip->base.refresh = led_strip_rmt_refresh;
     rmt_strip->base.refresh_async = led_strip_rmt_refresh_async;
-    rmt_strip->base.refresh_wait_async_done = led_strip_rmt_refresh_wait_async_done;
+    rmt_strip->base.refresh_async_done = led_strip_rmt_refresh_async_done;
+    rmt_strip->base.switch_gpio = led_strip_rmt_switch_gpio;
     rmt_strip->base.clear = led_strip_rmt_clear;
     rmt_strip->base.del = led_strip_rmt_del;
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
-    rmt_strip->base.switch_gpio = led_strip_rmt_switch_gpio;
-#endif
 
     *ret_strip = &rmt_strip->base;
     return ret;

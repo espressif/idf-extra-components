@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
 
@@ -73,7 +74,9 @@ struct led_strip_t {
      *      - ESP_OK: Refresh successfully
      *      - ESP_FAIL: Refresh failed because some other error occurred
      *
-     * @note This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
+     * @note This function is non-blocking, but the driver does not have a double buffer yet, so the pixel buffer is
+     *       shared with the in-flight transaction. You still have to call `led_strip_refresh_async_done()` before
+     *       modifying the LED colors again.
      */
     esp_err_t (*refresh_async)(led_strip_t *strip);
 
@@ -84,8 +87,9 @@ struct led_strip_t {
      *
      * @return
      *      - ESP_OK: Wait for the async refresh to complete successfully
+     *      - ESP_ERR_INVALID_STATE: Wait failed because there is no in-flight async refresh
      */
-    esp_err_t (*refresh_wait_async_done)(led_strip_t *strip);
+    esp_err_t (*refresh_async_done)(led_strip_t *strip);
 
     /**
      * @brief Clear LED strip (turn off all LEDs)

@@ -104,9 +104,15 @@ esp_err_t led_strip_refresh(led_strip_handle_t strip);
  *      - ESP_OK: Refresh successfully
  *      - ESP_ERR_INVALID_ARG: Refresh failed because of an invalid argument
  *      - ESP_ERR_INVALID_STATE: Refresh failed because another transaction is in progress
+ *      - ESP_ERR_NOT_SUPPORTED: Async refresh is not supported by this backend
  *      - ESP_FAIL: Refresh failed because some other error occurred
  *
- * @note This function is non-blocking, so you need to call `led_strip_refresh_wait_async_done` to wait for the refresh to complete before modifying the LED colors again.
+ * @note This function is non-blocking, but the driver does not have a double buffer yet. The pixel
+ *       buffer is shared with the in-flight transaction, so you must still call
+ *       `led_strip_refresh_async_done` before modifying the LED colors again. In other words, the
+ *       only gain for now is that the waiting can be deferred and overlapped with CPU work that
+ *       does not touch the strip.
+ *
  */
 esp_err_t led_strip_refresh_async(led_strip_handle_t strip);
 
@@ -119,8 +125,12 @@ esp_err_t led_strip_refresh_async(led_strip_handle_t strip);
  *      - ESP_OK: Wait for the async refresh to complete successfully
  *      - ESP_ERR_INVALID_ARG: Wait failed because of an invalid argument
  *      - ESP_ERR_INVALID_STATE: Wait failed because there is no in-flight async refresh
+ *      - ESP_ERR_NOT_SUPPORTED: Async refresh is not supported by this backend
+ *
+ * @note Pair this with `led_strip_refresh_async`. Until the double buffer is added, the pixel
+ *       buffer must not be modified before this call returns.
  */
-esp_err_t led_strip_refresh_wait_async_done(led_strip_handle_t strip);
+esp_err_t led_strip_refresh_async_done(led_strip_handle_t strip);
 
 /**
  * @brief Clear LED strip (turn off all LEDs)
