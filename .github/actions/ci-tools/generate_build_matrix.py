@@ -25,10 +25,16 @@ def collect_app_counts():
     from idf_build_apps.args import FindArguments
     from idf_build_apps.constants import BuildStatus
 
-    # Same manifest/configuration discovery as idf-ci, without pytest collection.
-    apps = find_apps(find_arguments=FindArguments(
+    # Preview targets include Linux. Enabling previews globally would implicitly
+    # allow every unrestricted hardware app on the host (including sdmmc users).
+    # Keep hardware previews, then discover Linux with the normal manifest defaults.
+    hardware_apps = find_apps(find_arguments=FindArguments(
         paths=['.'], recursive=True, enable_preview_targets=True,
     ))
+    apps = [app for app in hardware_apps if app.target != 'linux']
+    apps.extend(find_apps(find_arguments=FindArguments(
+        paths=['.'], target='linux', recursive=True, enable_preview_targets=False,
+    )))
     return Counter(app.target for app in apps if app.build_status == BuildStatus.SHOULD_BE_BUILT)
 
 

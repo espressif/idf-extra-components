@@ -76,6 +76,12 @@ class ArtifactTests(unittest.TestCase):
         self.assertEqual(command[command.index('--modified-components') + 1], 'component')
         self.assertEqual(command[:4], ['idf-build-apps', 'build', '--target', 'esp32'])
 
+    def test_linux_build_uses_manifest_defaults_while_hardware_keeps_previews(self):
+        linux = BUILD.build_command('linux', 1, 1, 'host.json', [], [], [])
+        hardware = BUILD.build_command('esp32h4', 1, 1, 'hardware.json', [], [], [])
+        self.assertNotIn('--enable-preview-targets', linux)
+        self.assertIn('--enable-preview-targets', hardware)
+
     def test_extra_build_excludes_every_target_handled_by_workers(self):
         command = BUILD.build_command('all', 1, 1, 'extra.json', [], [], ['esp32', 'linux'])
         self.assertEqual(command[-3:], ['--disable-targets', 'esp32', 'linux'])

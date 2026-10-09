@@ -2,7 +2,9 @@
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'actions/ci-tools/generate_build_matrix.py'
 SPEC = importlib.util.spec_from_file_location('generate_build_matrix', SCRIPT)
@@ -11,6 +13,23 @@ SPEC.loader.exec_module(GENERATOR)
 
 
 class BuildMatrixTests(unittest.TestCase):
+    def test_linux_is_not_implicitly_enabled_by_hardware_preview_discovery(self):
+        def find_apps(find_arguments):
+            if find_arguments.enable_preview_targets:
+                return [SimpleNamespace(target=target, build_status='build')
+                        for target in ['esp32', 'esp32h4', 'linux', 'linux']]
+            self.assertEqual(find_arguments.target, 'linux')
+            return [SimpleNamespace(target='linux', build_status='build'),
+                    SimpleNamespace(target='linux', build_status='disabled')]
+
+        modules = {
+            'idf_build_apps': SimpleNamespace(find_apps=find_apps),
+            'idf_build_apps.args': SimpleNamespace(FindArguments=SimpleNamespace),
+            'idf_build_apps.constants': SimpleNamespace(BuildStatus=SimpleNamespace(SHOULD_BE_BUILT='build')),
+        }
+        with patch.dict('sys.modules', modules):
+            self.assertEqual(GENERATOR.collect_app_counts(), {'esp32': 1, 'esp32h4': 1, 'linux': 1})
+
     def test_versions_have_independent_targets_and_shards(self):
         first = GENERATOR.generate_build_matrix({'esp32': 21})['include']
         second = GENERATOR.generate_build_matrix({'esp32s3': 1})['include']

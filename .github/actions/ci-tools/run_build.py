@@ -19,10 +19,13 @@ def string_list(value):
 def build_command(target, parallel_index, parallel_count, info_file, modified_files, modified_components, disabled_targets):
     command = [
         'idf-build-apps', 'build', '--target', target,
-        '--enable-preview-targets',
         '--parallel-index', str(parallel_index), '--parallel-count', str(parallel_count),
         '--collect-app-info', info_file,
     ]
+    # Match discovery: Linux must not become a default-supported target for
+    # applications that only support ESP hardware.
+    if target != 'linux':
+        command.append('--enable-preview-targets')
     for option, values in (
         ('--modified-files', modified_files), ('--modified-components', modified_components),
     ):

@@ -51,6 +51,11 @@ Test linux (host_test)
 target. All targets use the same build job, including targets without pytest
 cases. Linux builds select the host toolchain.
 
+Hardware discovery includes preview chip targets. Linux is discovered separately
+with normal manifest defaults: enabling preview chips must not implicitly make
+every unrestricted hardware app host-compatible. The Linux builder uses the same
+policy. Manifests (or target-specific sdkconfig defaults) must enable host apps.
+
 ## Configuration and public inputs
 
 Project-owned files have separate responsibilities:
