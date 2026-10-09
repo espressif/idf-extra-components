@@ -1,3 +1,7 @@
+## 1.0.4
+
+- feat: Support ESP-IDF 5.0 and 5.1. Those versions have no `*WithCaps` FreeRTOS helpers, so the dispatcher allocates its task stack, TCB, and semaphores with `heap_caps_malloc(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)` instead.
+
 ## 1.0.3
 
 - fix: Bypass the dispatcher and call the real Flash operations directly when the stack resides in internal DRAM. This prevents deadlocks that could arise from nested calls to flash operation interfaces (e.g. specifically, calling a flash operation from within a flash operation already executing under the scheduler) and avoids unnecessary task scheduling overhead.
