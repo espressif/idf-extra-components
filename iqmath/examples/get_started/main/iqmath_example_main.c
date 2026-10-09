@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
@@ -27,7 +27,7 @@ void app_main(void)
     /* IQ variables using IQ8 type */
     _iq8 q8A, q8B, q8C;
     /* IQ variables using IQ15 type */
-    _iq15 q15A, q15C;
+    _iq15 q15A, q15B, q15C;
 
     /* Basic global IQ operations. */
     qA  = _IQ(1.0);
@@ -143,6 +143,16 @@ void app_main(void)
     /* 1.58203125 = sqrt(2.5) */
     res = _IQ8toF(q8C);
     if (!ERROR_WITHIN_TOLERANCE(res, 1.58203125, error_tolerance)) {
+        test_failure = true;
+    };
+
+    /* Basic explicit type IQ15 multiplication. */
+    q15A = _IQ15(1.6);
+    q15B = _IQ15(1.9);
+    q15C = _IQ15mpy(q15A, q15B);
+    /* 3.04 = 1.6 * 1.9 */
+    res = _IQ15toF(q15C);
+    if (!ERROR_WITHIN_TOLERANCE(res, 3.04, error_tolerance)) {
         test_failure = true;
     };
 
