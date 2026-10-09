@@ -28,7 +28,7 @@ def _reject_constants(name: str) -> None:
 
 
 @pytest.mark.generic
-@idf_parametrize('target', ['esp32'], indirect=['target'])
+@idf_parametrize('target', ['esp32', 'esp32c3'], indirect=['target'])
 def test_json_generator(dut) -> None:
     got = []
     while True:

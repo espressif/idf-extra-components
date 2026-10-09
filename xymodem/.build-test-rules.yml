@@ -14,3 +14,6 @@ xymodem/examples/xmodem:
       reason: "xymodem requires ESP-IDF v5.3 or later"
     - if: CONFIG_NAME in ["echo"] and IDF_TARGET not in ["esp32s3", "esp32p4"]
       reason: "Host-tool pytest uses USB Serial/JTAG console; covered on S3 and P4"
+  disable_test:
+    - if: IDF_TARGET not in ["esp32s3", "esp32p4"]
+      reason: "Host-tool pytest uses USB Serial/JTAG console; retain build coverage for other UART targets"

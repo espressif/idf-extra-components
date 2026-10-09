@@ -2,3 +2,6 @@ pid_ctrl/host_test:
   enable:
     - if: IDF_TARGET == "linux"
       reason: "PID control is pure math, host test is sufficient"
+  disable_test:
+    - if: IDF_TARGET == "linux" and IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR == 2
+      reason: "Preserve the Linux Unity execution exclusion documented in CI commit 11749ba; keep build coverage"

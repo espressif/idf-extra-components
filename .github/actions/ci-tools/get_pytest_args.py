@@ -3,6 +3,7 @@
 import argparse
 import json
 import glob
+import shlex
 
 
 def main():
@@ -29,7 +30,7 @@ def main():
                 app_dir = app_json['app_dir']
                 if app_dir not in app_ignore_status.keys():
                     app_ignore_status[app_dir] = True
-                if app_json['target'] == args.target and app_json['build_status'] != 'skipped':
+                if app_json['target'] == args.target and app_json['build_status'] == 'success':
                     app_ignore_status[app_dir] = False
 
     for app_dir, ignore in app_ignore_status.items():
@@ -45,9 +46,8 @@ def main():
                 print(f'Not skipping {app_dir}')
 
 
-    args.pytest_args.write(' '.join(pytest_args))
+    args.pytest_args.write(' '.join(shlex.quote(arg) for arg in pytest_args))
 
 
 if __name__ == '__main__':
     main()
-

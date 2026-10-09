@@ -1,0 +1,80 @@
+name: Reusable - Run tests on target
+
+# Downloads previously built binaries and runs pytest on a self-hosted
+# runner with real hardware attached.
+#
+# runner_labels is a JSON array, e.g.:
+#   '["self-hosted", "linux", "docker", "esp32"]'
+#   '["self-hosted", "ESP32-ETHERNET-KIT"]'
+
+on:
+  workflow_call:
+    inputs:
+      idf_target:
+        description: Target passed to pytest --target
+        required: true
+        type: string
+      runner_labels:
+        description: JSON array of runner labels for runs-on
+        required: true
+        type: string
+      artifact_pattern:
+        description: Artifact name or glob pattern with the built binaries
+        required: true
+        type: string
+      artifact_download_path:
+        description: Where to extract the downloaded artifacts
+        required: false
+        type: string
+        default: '.'
+      pytest_args:
+        description: Arguments passed to pytest (already interpolated by the caller)
+        required: true
+        type: string
+      working_directory:
+        description: Directory to run pytest from
+        required: false
+        type: string
+        default: '.'
+      extra_pip_packages:
+        description: Additional packages to install next to pytest-embedded
+        required: false
+        type: string
+        default: ''
+      results_artifact_name:
+        description: If set, upload JUnit XML results under this artifact name
+        required: false
+        type: string
+        default: ''
+      results_path:
+        description: Glob path of the JUnit XML files to upload
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  run-target:
+    name: Run on target (${{ inputs.idf_target }})
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
+    container:
+      image: python:3.7-buster
+      options: --privileged # Privileged mode has access to serial ports
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ inputs.artifact_pattern }}
+          path: ${{ inputs.artifact_download_path }}
+          merge-multiple: true
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --prefer-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf ${{ inputs.extra_pip_packages }}
+      - name: Run tests on target
+        working-directory: ${{ inputs.working_directory }}
+        run: pytest ${{ inputs.pytest_args }}
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs.results_artifact_name != ''
+        with:
+          name: ${{ inputs.results_artifact_name }}
+          path: ${{ inputs.results_path }}
