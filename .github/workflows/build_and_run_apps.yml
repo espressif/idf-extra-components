@@ -119,8 +119,6 @@ jobs:
     uses: ./.github/workflows/reusable-ci.yml
     with:
       idf_version: ${{ matrix.idf_version }}
-      config_file: .github/ci-config.json
-      test_profile: ${{ matrix.test_profile }}
       run_tests: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' }}
       modified_files: ${{ needs.prepare.outputs.modified_files || '[]' }}
       modified_components: ${{ needs.prepare.outputs.modified_components || '[]' }}

@@ -49,6 +49,7 @@ def get_grouped_cases(paths: list) -> dict:
     pytest_cases = get_pytest_cases(
         paths=paths,
         marker_expr=None,  # don't filter host_test
+        additional_args=['--suppress-no-test-exit-code'],
     )
 
     grouped_cases = {}

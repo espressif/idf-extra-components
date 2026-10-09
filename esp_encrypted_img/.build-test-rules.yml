@@ -5,6 +5,12 @@ esp_encrypted_img/examples:
       reason: IDF Version < 5.3 is not supported yet to use DS peripheral. Also skipping targets that do not support HMAC peripheral
 
 esp_encrypted_img/test_apps:
+  enable:
+    - if: CONFIG_NAME != "default" or IDF_TARGET in ["esp32", "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32c61", "esp32h2", "esp32p4", "esp32s2", "esp32s3"]
+      reason: Default builds cover the generic and QEMU pytest targets; retain existing special configurations
+  disable_test:
+    - if: IDF_TARGET not in ["esp32", "esp32c2", "esp32c3", "esp32c5", "esp32c6", "esp32c61", "esp32h2", "esp32p4", "esp32s2", "esp32s3"]
+      reason: Other targets retain compile coverage for special configurations
   disable:
     - if: CONFIG_NAME == "ds_peripheral" and (IDF_VERSION < "5.3" or SOC_HMAC_SUPPORTED != 1)
       temporary: true

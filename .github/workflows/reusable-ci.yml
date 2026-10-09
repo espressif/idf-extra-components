@@ -9,14 +9,6 @@ on:
         description: Docker tag of espressif/idf
         required: true
         type: string
-      config_file:
-        description: Runner and sharding configuration in the caller repository
-        type: string
-        default: .github/ci-config.json
-      test_profile:
-        description: Test policy profile from config_file
-        type: string
-        default: default
       run_tests:
         description: Enable runtime tests on the configured runners
         type: boolean
@@ -72,12 +64,9 @@ jobs:
       - name: Generate build matrix
         id: gen
         shell: bash
-        env:
-          CONFIG_FILE: ${{ inputs.config_file }}
-          TEST_PROFILE: ${{ inputs.test_profile }}
         run: |
           . "${IDF_PATH}/export.sh"
-          python3 "$IDF_CI_TOOLS_PATH/generate_build_matrix.py" --config "$CONFIG_FILE" --profile "$TEST_PROFILE"
+          python3 "$IDF_CI_TOOLS_PATH/generate_build_matrix.py"
 
   # Each target's tests start after its own shards, including the Linux target.
   apps:

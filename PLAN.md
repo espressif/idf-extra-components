@@ -12,13 +12,17 @@ test, downstream jobs run from dynamic matrices.
 
 - The project caller owns triggers, labels, changed root-level components,
   reporting and the outer IDF-version matrix in `.github/ci-matrix.json`.
-- Public `reusable-ci.yml` accepts one `idf_version`, project config, a test
-  profile, a runtime-test switch and structured change-selection data.
+- Public `reusable-ci.yml` accepts one `idf_version`, a runtime-test switch,
+  structured change-selection data.
 - Every invocation collects in its own IDF container. Its target workers
   build and test independently, including Linux; remaining targets get
   compile coverage. Empty matrices are skipped explicitly.
-- Runner/shard policy lives in `.github/ci-config.json`. Generic named test
-  profiles replace the separate per-marker lists of IDF versions.
+- Targets and test groups are discovered from pytest and intersected with
+  manifest build/test permissions per app, target and configuration. There is
+  no caller CI config or preset system. Shared runner conventions and sharding
+  defaults ship with the pinned helpers. The version matrix has no test
+  exclusions. The historical 5.2 Linux Unity restriction is scoped to the
+  affected apps in manifests; eligible 6.0 host tests run normally.
 - Test groups, target requirements and complete marker combinations come
   from the pinned idf-ci collection API. Infrastructure policy supplies
   shared labels and explicit runner aliases; new environment markers such
@@ -33,7 +37,8 @@ test, downstream jobs run from dynamic matrices.
   and the existing pytest app selection; paths and Linux executable modes
   survive upload/download independently of the consumer's directory layout.
 - Discovery counts the full app inventory for the selected IDF. Existing
-  component-dependency filtering is retained at build time.
+  component-dependency filtering is retained at build time. Changes to the
+  version matrix or global CI/test policy automatically request a full run.
 
 ## Target state (to-be)
 
@@ -139,7 +144,8 @@ with native filtering until these paths agree.
 - Move discovery inside that workflow and remove all `latest` extrapolation
   and conservative historical fallback logic introduced in step 2a.
 - Replace version-dependent marker branches with project-owned named test
-  profiles. Preserve the existing Linux test exclusions for 5.2 and 6.0.
+  profiles. Superseded: compatibility now lives in app manifests; the caller
+  matrix only lists SDK versions.
 - Use the same internal target worker for ESP and Linux. Pass change lists
   as JSON data rather than interpolated `idf-build-apps` command fragments.
 - Package shared scripts as an action resolved from the CI workflow's own
@@ -214,7 +220,7 @@ Prerequisites confirmed against published idf-ci 1.3.0:
 
 - Linux already shares the target worker after step 2b. Verify
   `idf-ci build run -t linux` and host_test artifact selection when replacing
-  its execution commands; preserve the caller-selected test profile.
+  its execution commands; preserve manifest build/test permissions.
 
 ### 8. Validation
 

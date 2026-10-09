@@ -28,6 +28,7 @@
     <div><div class="eyebrow">ESP-IDF · Reusable CI</div><h1>From input files to test results</h1><p class="sub">Follow the arrows from input files through reusable workflows to artifacts and reports. Select a block to inspect its inputs, processing and outputs. The same workflow runs for every ESP-IDF version.</p></div>
     <div class="snapshot">Working-tree snapshot<br><code id="revision"></code><br><span id="snapshot-date"></span></div>
   </header>
+  <p class="sub"><strong>Historical snapshot:</strong> this diagram predates automatic target discovery. The current CI derives targets and runner groups from pytest and manifests; caller configuration and named profiles shown below have been removed. See <a href="readme_workflows.md">the current workflow documentation</a>.</p>
   <div class="controls">
     <label>Caller scenario<select id="scenario"><option value="pr">PR · changed component</option><option value="build-only">PR · build only</option><option value="ci-only">PR · CI-only changes</option><option value="all">PR · test all apps</option><option value="push">Push / nightly schedule</option><option value="external">PR · other repository owner</option></select></label>
     <label>One matrix invocation<select id="version"></select></label>
