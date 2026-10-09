@@ -17,6 +17,7 @@ flowchart TD
         discover[Discover build candidates] --> builds[Build matrix: target and shard]
         builds --> results[Build results after reconfigure and compilation]
         results --> planner[Collect pytest and select successfully built variants]
+        results --> html[HTML build report, including failures]
         planner --> tests[Nonempty test groups: target and environment tags]
     end
     v52 --> discover
@@ -229,7 +230,8 @@ The public workflow runs four stages:
 1. `generate`: discover candidates and output only `build_matrix`.
 2. `build`: build each target/shard, retaining dependency filtering during
    reconfigure. Upload a uniquely named `build_info_<target>_<shard>.json`,
-   including empty/skipped results, when runtime tests are enabled. Package
+   including empty/skipped results, even for build-only calls and failures
+   when the build tool produced metadata. Package
    successful binaries as tar archives, preserving paths and executable bits;
    entirely skipped shards upload no binary archive.
 3. `plan-tests`: after all builds succeed, download only their small metadata
@@ -245,7 +247,35 @@ The public workflow runs four stages:
 A failed build prevents test planning for that IDF version and keeps CI red.
 Missing metadata is an error, not an empty inventory. Successful compile-only
 apps and skipped variants cannot create empty hardware jobs. Build-only calls
-skip metadata/artifact upload, test planning and test execution.
+skip binary upload, test planning and test execution, but retain build metadata
+and the HTML report.
+
+## HTML build report
+
+After the build matrix finishes, `build-report` generates a self-contained
+`build-report.html` for that ESP-IDF version. Download the
+`build_report_<pipeline_id or idf_version>` artifact from the workflow run or
+the link in the **Build report** job summary, extract it and open the HTML in
+a browser. It needs no server or network connection.
+
+The report lists actual recorded app/target/configuration variants, build
+status, skip/failure comments, shard, build directory and sdkconfig path.
+Search by app/configuration and filter by target or status. “Built” means a
+successful build, not a successful runtime test.
+
+Reporting runs after successful, failed and build-only runs. Missing shard
+metadata and malformed records are visible warnings; available valid records
+are still included and the diagnostic HTML is uploaded, while the reporting
+job fails. An empty shard file is valid. If compilation stops early, unrecorded
+apps are not invented as successful or skipped results. The report does not
+wait for hardware tests or change their scheduling.
+
+To render downloaded metadata locally (using the matching `BUILD_MATRIX`):
+
+```sh
+python3 .github/actions/ci-tools/generate_build_report.py ci-build-results build-report.html \
+  --idf-version release-v6.1 --build-result success
+```
 
 ## Validation and remaining migration
 

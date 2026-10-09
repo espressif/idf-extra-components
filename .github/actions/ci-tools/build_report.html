@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP-IDF · Build report</title>
+<style>
+:root{color-scheme:light dark;--bg:#f5f6f8;--panel:#fff;--ink:#192433;--muted:#637185;--line:#dee4eb;--accent:#315fda;--soft:#eaf0ff;--ok:#146948;--ok-bg:#e6f4ec;--bad:#ac3535;--bad-bg:#ffebeb;--skip:#735616;--skip-bg:#fff3d9}
+@media(prefers-color-scheme:dark){:root{--bg:#10161f;--panel:#17202c;--ink:#e5edf7;--muted:#a2b0c3;--line:#303d4f;--accent:#94b1ff;--soft:#243656;--ok:#8cd8b3;--ok-bg:#1d3b31;--bad:#ffaaaa;--bad-bg:#45262d;--skip:#e3c17b;--skip-bg:#3d3525}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1240px;margin:auto;padding:40px 28px 60px}h1{font-size:36px;font-weight:650;letter-spacing:-1.2px;margin:10px 0 8px}h2{font-size:18px;margin:0 0 16px}p{margin:0}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:650}.heading{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.version{background:var(--soft);color:var(--accent);padding:6px 12px;border-radius:7px;font-weight:600}#context{color:var(--muted);overflow-wrap:anywhere}.meta{display:flex;gap:8px 22px;flex-wrap:wrap;margin:20px 0 28px;font-size:13px;color:var(--muted)}.meta strong{color:var(--ink);font-weight:600}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 22px}.metric .value{display:block;font-size:32px;font-weight:650;letter-spacing:-1px}.metric .label{color:var(--muted);font-size:13px}.metric .hint{display:block;color:var(--muted);font-size:12px}.ok .value{color:var(--ok)}.bad .value{color:var(--bad)}.skipped .value{color:var(--skip)}.warning{background:var(--skip-bg);color:var(--skip);padding:16px 20px;border-radius:10px;margin-bottom:20px;overflow-wrap:anywhere}.warning strong{display:block;margin-bottom:6px}.warning ul{margin:8px 0 0;padding-left:20px}.toolbar{display:grid;grid-template-columns:minmax(180px,1fr) 190px 180px;gap:12px;align-items:end;margin:18px 0}.toolbar label{display:grid;gap:5px;font-size:12px;color:var(--muted)}input,select,button{font:inherit}input,select{width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:10px 12px;font-size:14px}input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}input::placeholder{color:var(--muted)}.list-title{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:30px}.list-title h2{margin:0}.list-title span{font-size:13px;color:var(--muted)}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}thead{background:var(--bg);color:var(--muted)}th{font-weight:550;padding:13px 16px;white-space:nowrap}td{padding:15px 16px;border-top:1px solid var(--line);vertical-align:top}td:first-child{width:42%;min-width:220px}td:last-child{width:28%;min-width:170px}.path{display:block;font-weight:600;overflow-wrap:anywhere}code{font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.status{display:inline-block;padding:3px 9px;border-radius:5px;white-space:nowrap;font-size:12px;background:var(--soft);color:var(--accent)}.status.success{background:var(--ok-bg);color:var(--ok)}.status.failed{background:var(--bad-bg);color:var(--bad)}.status.skipped,.status.disabled{background:var(--skip-bg);color:var(--skip)}.reason{white-space:pre-wrap;overflow-wrap:anywhere;max-height:8em;overflow:auto;color:var(--muted)}details{margin-top:8px;color:var(--muted);font-size:12px}summary{cursor:pointer;width:fit-content}dl{display:grid;grid-template-columns:80px minmax(0,1fr);gap:4px 10px;margin:10px 0}dt{font-weight:600}dd{margin:0;overflow-wrap:anywhere}.empty{padding:45px 20px;text-align:center;color:var(--muted)}footer{margin-top:18px;font-size:12px;color:var(--muted)}[hidden]{display:none!important}@media(max-width:650px){main{padding:24px 16px 40px}h1{font-size:29px}.metrics{grid-template-columns:repeat(2,1fr);gap:10px}.metric{padding:14px}.toolbar{grid-template-columns:1fr 1fr}.toolbar label:first-child{grid-column:1/-1}.meta{margin-bottom:20px}th,td{padding:12px}h1{letter-spacing:-.7px}}
+@media(max-width:650px){.table-wrap{overflow:visible}table,tbody{display:block}thead{display:none}tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line)}tr:first-child{border-top:0}td{display:block;border:0;padding:10px 12px;overflow-wrap:anywhere}td:first-child,td:last-child{width:auto;min-width:0;grid-column:1/-1}td:nth-child(2)::before,td:nth-child(3)::before,td:nth-child(4)::before{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}td:nth-child(2)::before{content:"Target"}td:nth-child(3)::before{content:"Configuration"}td:nth-child(4)::before{content:"Status"}.status{padding:3px 6px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<p class="eyebrow">ESP-IDF / CI results</p>
+<div class="heading"><h1>Build report</h1><span class="version" id="version"></span></div>
+<p id="context"></p>
+<div class="meta"><span>Build jobs: <strong id="build-result"></strong></span><span>Shard reports: <strong id="coverage"></strong></span><span id="run"></span><span id="generated"></span></div>
+</header>
+<section class="metrics" aria-label="Recorded build outcomes">
+<div class="metric ok"><span class="label">Built successfully</span><strong class="value" id="success-count">0</strong><span class="hint">app + target + configuration</span></div>
+<div class="metric bad"><span class="label">Failed</span><strong class="value" id="failed-count">0</strong><span class="hint">compilation or build checks</span></div>
+<div class="metric skipped"><span class="label">Skipped / disabled</span><strong class="value" id="skipped-count">0</strong><span class="hint">recorded by the build tool</span></div>
+<div class="metric"><span class="label">Recorded variants</span><strong class="value" id="total-count">0</strong><span class="hint" id="apps-count"></span></div>
+</section>
+<section class="warning" id="warning" hidden aria-label="Incomplete results"><strong id="warning-title"></strong><p id="warning-text"></p><ul id="issues"></ul></section>
+<section aria-label="Application build results">
+<div class="list-title"><h2>Applications &amp; configurations</h2><span id="visible-count" aria-live="polite"></span></div>
+<div class="toolbar">
+<label>Find application or configuration<input id="search" type="search" placeholder="e.g. json_parser, default, nano"></label>
+<label>Target<select id="target"><option value="">All targets</option></select></label>
+<label>Build status<select id="status"><option value="">All statuses</option></select></label>
+</div>
+<div class="table-wrap"><table><thead><tr><th scope="col">Application</th><th scope="col">Target</th><th scope="col">Configuration</th><th scope="col">Status</th><th scope="col">Reason</th></tr></thead><tbody id="rows"></tbody></table><p class="empty" id="empty" hidden>No matching recorded builds.</p></div>
+</section>
+<footer>Source: build_info JSON from idf-build-apps. Only recorded outcomes are listed; an interrupted job may leave applications unrecorded. “Built” confirms compilation, not a runtime test pass. This report works offline.</footer>
+<noscript><p>Enable JavaScript to display the embedded build results. No network access is needed.</p></noscript>
+</main>
+<script type="application/json" id="build-data"><!-- BUILD_REPORT_DATA --></script>
+<script>
+(() => {
+  const report = JSON.parse(document.getElementById('build-data').textContent);
+  const rows = report.records;
+  const get = id => document.getElementById(id);
+  const text = (id, value) => { get(id).textContent = value; };
+  const statusNames = {success:'Built',failed:'Failed',skipped:'Skipped',disabled:'Disabled','should be built':'Not built',unknown:'Unknown'};
+  text('version',report.idf_version);
+  document.title = `Build report · ${report.idf_version}`;
+  text('context',[report.repository,report.commit && report.commit.slice(0,12)].filter(Boolean).join(' · '));
+  text('build-result',report.build_result);
+  text('coverage',`${report.received_shards} / ${report.expected_shards}`);
+  text('run',report.run_id ? `Run ${report.run_id} · attempt ${report.attempt || '1'}` : 'Local report');
+  text('generated',`Generated ${report.generated_at}`);
+  text('success-count',rows.filter(r=>r.status==='success').length);
+  text('failed-count',rows.filter(r=>r.status==='failed').length);
+  text('skipped-count',rows.filter(r=>['skipped','disabled'].includes(r.status)).length);
+  text('total-count',rows.length);
+  text('apps-count',`${new Set(rows.map(r=>r.app)).size} applications · ${new Set(rows.map(r=>r.target)).size} targets`);
+  const issues = [...report.missing.map(s=>`Missing shard: ${s}`),...report.unexpected.map(s=>`Unexpected shard: ${s}`),...report.errors];
+  if (issues.length || ['failure','cancelled'].includes(report.build_result)) {
+    get('warning').hidden=false;
+    text('warning-title',issues.length ? 'Incomplete build metadata' : 'Build jobs did not all succeed');
+    text('warning-text','The table contains available records only. Missing or unprocessed applications are not counted as skipped or successful.');
+    for (const issue of issues) { const li=document.createElement('li');li.textContent=issue;get('issues').append(li); }
+  }
+  for (const target of [...new Set(rows.map(r=>r.target))].sort()) get('target').add(new Option(target,target));
+  for (const status of [...new Set(rows.map(r=>r.status))].sort()) get('status').add(new Option(statusNames[status] || status,status));
+  function cell(parent, value, className) { const td=document.createElement('td');td.textContent=value;if(className)td.className=className;parent.append(td);return td; }
+  function draw() {
+    const query=get('search').value.toLowerCase().trim();
+    const selected=rows.filter(r=>(!get('target').value || r.target===get('target').value) && (!get('status').value || r.status===get('status').value) && `${r.app} ${r.config}`.toLowerCase().includes(query));
+    const fragment=document.createDocumentFragment();
+    for (const row of selected) {
+      const tr=document.createElement('tr');
+      const app=cell(tr,'');const path=document.createElement('span');path.className='path';path.textContent=row.app;app.append(path);
+      const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent=`Build details · shard ${row.shard}`;details.append(summary);
+      const dl=document.createElement('dl');
+      for (const [name,value] of [['Work dir',row.work_dir],['Build dir',row.build_dir],['sdkconfig',row.sdkconfig || 'defaults'],['Metadata',row.source]]) { const dt=document.createElement('dt');dt.textContent=name;const dd=document.createElement('dd');dd.textContent=value || '—';dl.append(dt,dd); }
+      details.append(dl);app.append(details);
+      cell(tr,row.target);cell(tr,row.config);
+      const state=cell(tr,'');const badge=document.createElement('span');badge.className='status';if(['success','failed','skipped','disabled'].includes(row.status))badge.classList.add(row.status);badge.textContent=statusNames[row.status] || row.status;state.append(badge);
+      const reason=cell(tr,'');const description=document.createElement('div');description.className='reason';description.textContent=row.reason || '—';reason.append(description);
+      fragment.append(tr);
+    }
+    get('rows').replaceChildren(fragment);get('empty').hidden=selected.length>0;
+    text('visible-count',`${selected.length} of ${rows.length} recorded variants`);
+  }
+  get('search').addEventListener('input',draw);get('target').addEventListener('change',draw);get('status').addEventListener('change',draw);draw();
+})();
+</script>
+</body>
+</html>

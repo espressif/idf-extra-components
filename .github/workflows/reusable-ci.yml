@@ -108,7 +108,7 @@ jobs:
           . "${IDF_PATH}/export.sh"
           python3 "$IDF_CI_TOOLS_PATH/run_build.py" --target "$IDF_TARGET_NAME" --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ matrix.parallel_count }} --build-info build_info_${{ matrix.idf_target }}_${{ matrix.parallel_index }}.json
       - name: Upload build results
-        if: inputs.run_tests
+        if: always() && hashFiles(format('build_info_{0}_{1}.json', matrix.idf_target, matrix.parallel_index)) != ''
         uses: actions/upload-artifact@v4
         with:
           name: build_info_${{ inputs.pipeline_id || inputs.idf_version }}_${{ matrix.idf_target }}_${{ matrix.parallel_index }}
@@ -127,6 +127,57 @@ jobs:
           name: app_binaries_${{ inputs.pipeline_id || inputs.idf_version }}_${{ matrix.idf_target }}_${{ matrix.parallel_index }}
           path: app_binaries_${{ matrix.idf_target }}_${{ matrix.parallel_index }}.tar
           if-no-files-found: error
+
+  build-report:
+    name: Build report
+    needs: [generate, build]
+    # Also report failed and build-only runs; never turn missing data into success.
+    if: always() && needs.generate.result == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout shared CI helpers
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github/ci-source
+          sparse-checkout: /.github/actions/
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: ./.github/ci-source/.github/actions/ci-tools
+      - name: Download build results
+        id: download
+        if: needs.generate.outputs.has_builds == 'true'
+        # Render the missing-shard diagnostics even if the download fails.
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: build_info_${{ inputs.pipeline_id || inputs.idf_version }}_*
+          path: ci-build-results
+          merge-multiple: true
+      - name: Generate HTML report
+        env:
+          BUILD_MATRIX: ${{ needs.generate.outputs.build_matrix }}
+          IDF_VERSION: ${{ inputs.idf_version }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          python3 "$IDF_CI_TOOLS_PATH/generate_build_report.py" ci-build-results build-report.html --idf-version "$IDF_VERSION" --build-result "$BUILD_RESULT"
+      - name: Upload HTML report
+        id: upload
+        if: always() && hashFiles('build-report.html') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_report_${{ inputs.pipeline_id || inputs.idf_version }}
+          path: build-report.html
+          if-no-files-found: error
+      - name: Link report in job summary
+        if: always() && steps.upload.outcome == 'success'
+        env:
+          REPORT_URL: ${{ steps.upload.outputs.artifact-url }}
+          IDF_VERSION: ${{ inputs.idf_version }}
+        run: |
+          printf '### Build report — %s\n\n[Download HTML report](%s)\n\nExtract and open `build-report.html` locally.\n' "$IDF_VERSION" "$REPORT_URL" >> "$GITHUB_STEP_SUMMARY"
 
   plan-tests:
     name: Plan tests from build results

@@ -39,6 +39,10 @@ test, downstream jobs run from dynamic matrices.
 - Builds still use `idf-build-apps`. Metadata drives tar artifact packaging
   and the existing pytest app selection; paths and Linux executable modes
   survive upload/download independently of the consumer's directory layout.
+- A separate post-build job renders an offline HTML report from actual shard
+  metadata, including build-only runs and failures. It lists app/target/config
+  outcomes and marks missing or malformed metadata explicitly; it does not
+  delay test planning or turn incomplete results into success.
 - Discovery counts the full app inventory for the selected IDF. Existing
   component-dependency filtering is retained at build time. Changes to the
   version matrix or global CI/test policy automatically request a full run.
