@@ -13,11 +13,11 @@
 extern "C" {
 #endif
 
-#define MBR_CHS_HEADS 255
-#define MBR_CHS_SECTORS_PER_TRACK 63
-#define MBR_CHS_MAX_CYLINDER 1023
-#define MBR_CHS_MAX_HEAD 254
-#define MBR_CHS_MAX_SECTOR 63
+#define ESP_MBR_CHS_HEADS 255
+#define ESP_MBR_CHS_SECTORS_PER_TRACK 63
+#define ESP_MBR_CHS_MAX_CYLINDER 1023
+#define ESP_MBR_CHS_MAX_HEAD 254
+#define ESP_MBR_CHS_MAX_SECTOR 63
 
 // Helper functions for MBR CHS conversion and LBA alignment
 

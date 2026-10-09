@@ -261,12 +261,12 @@ static esp_err_t nand_flash_blockdev_ioctl(esp_blockdev_handle_t handle, const u
                     ESP_LOGE(TAG, "Failed to read ecc error for page=%" PRIu32, page);
                     return ret;
                 }
-                if (dev->chip.ecc_data.ecc_corrected_bits_status) {
+                if (dev->chip.ecc_data.ecc_corrected_bits_status != NAND_ECC_OK) {
                     ecc_err_total_count++;
                     if (dev->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
                         ecc_err_not_corrected_count++;
                         ESP_LOGD(TAG, "ecc error not corrected for page=%" PRIu32, page);
-                    } else if (nand_ecc_exceeds_data_refresh_threshold(dev)) {
+                    } else if (nand_ecc_exceeds_data_refresh_threshold(&dev->chip.ecc_data)) {
                         ecc_err_exceeding_threshold_count++;
                     }
                 }

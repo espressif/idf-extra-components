@@ -1,10 +1,10 @@
 {
   "idf_version": [
-    "release-v5.2",
     "release-v5.3",
     "release-v5.4",
     "release-v5.5",
     "release-v6.0",
+    "release-v6.1",
     "latest"
   ]
 }

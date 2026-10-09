@@ -1,16 +1,3 @@
-led_strip/examples/led_strip_rmt_ws2812:
-  disable:
-    - if: CONFIG_SOC_RMT_SUPPORTED != 1
-      reason: Relevant only for RMT enabled targets
-
-led_strip/examples/led_strip_spi_ws2812:
-  enable:
-    - if: (IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR > 5)
-      reason: Example uses some SPI driver features which was introduced in IDF v5.1
-  disable:
-    - if: CONFIG_SOC_GPSPI_SUPPORTED != 1
-      reason: Relevant only for SPI enabled targets
-
 esp_delta_ota:
   enable:
     - if: IDF_VERSION_MAJOR > 4
@@ -23,14 +10,6 @@ esp_encrypted_img/examples/pre_encrypted_ota:
   enable:
     - if: IDF_TARGET in ["esp32", "esp32s3"]
       reason: ESP32 runs RSA OTA encryption test, ESP32-S3 runs ECC OTA encryption test
-
-esp_ext_part_tables/test_apps:
-  enable:
-    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 1) or (IDF_VERSION_MAJOR >= 6)) and IDF_TARGET == "linux"
-      reason: Host test is enough
-  disable_test:
-    - if: IDF_TARGET == "linux" and IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR == 2
-      reason: "Preserve the Linux Unity execution exclusion documented in CI commit 11749ba; keep build coverage"
 
 sh2lib/examples/http2_request:
   enable:
@@ -92,8 +71,6 @@ spi_nand_flash/host_test:
   disable:
     - if: IDF_VERSION_MAJOR < 5
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
-    - if: IDF_VERSION_MAJOR == 5 and (IDF_VERSION_MINOR < 3)
-      reason: Fails to build on older versions of IDF
 
 spi_nand_flash_fatfs/examples/nand_flash:
   disable:

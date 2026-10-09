@@ -180,3 +180,14 @@ This software is distributed under [MIT license](http://www.opensource.org/licen
 
 [1]: http://www.json.org/
 [2]: http://zserge.com/jsmn.html
+
+# Strict mode
+
+With `JSMN_STRICT` (Kconfig `CONFIG_JSMN_STRICT`, or a `#define` before
+including `jsmn.h`) the tokenizer accepts exactly the JSON texts of RFC 8259:
+separators, literal spelling, the number grammar, a single top-level value of
+any type, no raw control characters in strings, and well-formed UTF-8 are all
+enforced. The checks run in the pass that is given a token array; a counting
+pass (`tokens == NULL`) only counts. Without `JSMN_STRICT` the tokenizer keeps
+its original permissive behaviour.
+

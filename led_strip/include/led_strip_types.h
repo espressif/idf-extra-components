@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <stdint.h>
+#include "hal/gpio_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,8 +26,21 @@ typedef enum {
     LED_MODEL_SK6812, /*!< LED strip model: SK6812 */
     LED_MODEL_WS2811, /*!< LED strip model: WS2811 */
     LED_MODEL_WS2816, /*!< LED strip model: WS2816 */
+    LED_MODEL_CUSTOM, /*!< Custom LED strip model. Only used for RMT backend. The timings can be specified by the `led_strip_timings_t` */
     LED_MODEL_INVALID /*!< Invalid LED strip model */
 } led_model_t;
+
+/**
+ * @brief LED strip timings.
+ * @note The bit timings are in nanoseconds and the reset timing is in microseconds.
+ */
+typedef struct {
+    uint32_t t0h_ns; /*!< High time for 0 bit, nanoseconds */
+    uint32_t t1h_ns; /*!< High time for 1 bit, nanoseconds */
+    uint32_t t0l_ns; /*!< Low time for 0 bit, nanoseconds */
+    uint32_t t1l_ns; /*!< Low time for 1 bit, nanoseconds */
+    uint32_t reset_us; /*!< Reset time, microseconds */
+} led_strip_timings_t;
 
 /**
  * @brief LED color component format
@@ -65,6 +79,9 @@ typedef struct {
     led_model_t led_model;        /*!< Specifies the LED strip model (e.g., WS2812, SK6812) */
     led_color_component_format_t color_component_format; /*!< Specifies the order of color components in each pixel.
                                                               Use helper macros like `LED_STRIP_COLOR_COMPONENT_FMT_GRB` to set the format */
+    led_strip_timings_t timings; /*!< When `led_model` is `LED_MODEL_CUSTOM`, this field is required and must
+                                      be initialized with appropriate timing values. For other LED models, it
+                                      may be left uninitialized, as model-specific defaults are used instead. */
     /*!< LED strip extra driver flags */
     struct led_strip_extra_flags {
         uint32_t invert_out: 1; /*!< Invert output signal */

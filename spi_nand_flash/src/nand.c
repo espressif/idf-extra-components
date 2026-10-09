@@ -84,9 +84,9 @@ esp_err_t spi_nand_flash_read_page(spi_nand_flash_device_t *handle, uint8_t *buf
     xSemaphoreTake(handle->mutex, portMAX_DELAY);
     ret = handle->ops->read(handle, buffer, page_id);
     // After a successful read operation, check the ECC corrected bit status; if the read fails, return an error
-    if (ret == ESP_OK && handle->chip.ecc_data.ecc_corrected_bits_status) {
+    if (ret == ESP_OK && handle->chip.ecc_data.ecc_corrected_bits_status != NAND_ECC_OK) {
         // This indicates a soft ECC error, we rewrite the page to recover if corrected bits are greater than refresh threshold
-        if (nand_ecc_exceeds_data_refresh_threshold(handle)) {
+        if (nand_ecc_exceeds_data_refresh_threshold(&handle->chip.ecc_data)) {
             ret = handle->ops->write(handle, buffer, page_id);
         }
     }

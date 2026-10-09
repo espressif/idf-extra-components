@@ -68,7 +68,7 @@ void esp_ext_part_tables_mbr_parse_example_task(void *pvParameters)
     esp_err_t err;
 
     // Allocate memory for the MBR
-    mbr_t *mbr = (mbr_t *) heap_caps_malloc(sizeof(mbr_t), (MALLOC_CAP_DMA | MALLOC_CAP_8BIT));
+    esp_mbr_t *mbr = (esp_mbr_t *) heap_caps_malloc(sizeof(esp_mbr_t), (MALLOC_CAP_DMA | MALLOC_CAP_8BIT));
     if (mbr == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for MBR");
         goto end_task;
@@ -135,7 +135,8 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
     esp_ext_part_list_t part_list = {0};
 
     // A zero-initialized args struct already selects sensible defaults
-    // (AUTO alignment => 1 MiB, KEEP_SIZE policy, 512 B sectors). Here we set only
+    // (AUTO alignment => 1 MiB for auto-placed partitions, explicit addresses
+    // kept as given, 512 B sectors). Here we set only
     // what the auto-placement/FILL demo needs: an explicit sector size and the
     // total disk size (so FILL and the bounds check know where the disk ends).
     esp_mbr_generate_extra_args_t mbr_args = {
@@ -189,7 +190,7 @@ void esp_ext_part_tables_mbr_generate_example_task(void *pvParameters)
         goto end_task;
     }
 
-    mbr_t *mbr = (mbr_t *) calloc(1, sizeof(mbr_t));
+    esp_mbr_t *mbr = (esp_mbr_t *) calloc(1, sizeof(esp_mbr_t));
     if (mbr == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for MBR");
         esp_ext_part_list_deinit(&part_list);

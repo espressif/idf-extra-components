@@ -1,0 +1,26 @@
+menu "Example Configuration"
+
+    config EXAMPLE_XYMODEM_UART_PORT
+        int "UART port number"
+        default 1
+        range 0 5
+        help
+            UART port used for the XMODEM link. Do not use the console UART (usually UART0)
+            unless the console has been moved to another interface.
+
+    config EXAMPLE_XYMODEM_UART_TX_GPIO
+        int "UART TX GPIO"
+        default 4
+        range 0 63
+
+    config EXAMPLE_XYMODEM_UART_RX_GPIO
+        int "UART RX GPIO"
+        default 5
+        range 0 63
+
+    config EXAMPLE_XYMODEM_UART_BAUD
+        int "UART baud rate"
+        default 115200
+        range 9600 5000000
+
+endmenu

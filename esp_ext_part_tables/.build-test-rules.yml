@@ -2,3 +2,11 @@ esp_ext_part_tables/examples/basic:
   enable:
     - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 2) or (IDF_VERSION_MAJOR >= 6)) and IDF_TARGET == "linux"
       reason: Host test is enough, linux build support is from IDF v5.2
+
+esp_ext_part_tables/test_apps:
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 2) or (IDF_VERSION_MAJOR >= 6)) and IDF_TARGET in ["linux", "esp32s3", "esp32c3"]
+      reason: Host test on linux and QEMU tests on esp32s3/esp32c3; linux build support is from IDF v5.2
+  disable_test:
+    - if: IDF_TARGET == "linux" and IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR == 2
+      reason: "Preserve the Linux Unity execution exclusion documented in CI commit 11749ba; keep build coverage"

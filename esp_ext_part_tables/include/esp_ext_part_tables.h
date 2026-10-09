@@ -41,12 +41,14 @@ typedef enum {
 } esp_ext_part_align_t;
 
 typedef enum {
-    /*!< Default: align the partition start up, keep the requested size as the length from the aligned start (matches fdisk/parted behavior). */
-    ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE = 0,
-    /*!< Return an error if a partition start was not already aligned (do not silently relocate it). */
+    /*!< Default: a partition with an explicit address is written exactly where it was given, aligned or not. Only partitions placed by the library (`ESP_EXT_PART_FLAG_AUTO_ADDRESS`) are aligned. This keeps existing partitions in place when a parsed table is regenerated. */
+    ESP_EXT_PART_ALIGN_POLICY_KEEP_ADDRESS = 0,
+    /*!< Return an error if an explicit partition start is not aligned (do not silently relocate it). */
     ESP_EXT_PART_ALIGN_POLICY_REJECT,
-    /*!< Align the partition start up, then shrink the size so the end stays at the originally requested address + size. Errors if alignment consumes the whole partition. */
+    /*!< Align an explicit partition start up, then shrink the size so the end stays at the originally requested address + size. Errors if alignment consumes the whole partition. */
     ESP_EXT_PART_ALIGN_POLICY_PRESERVE_END,
+    /*!< Align an explicit partition start up and keep the requested size as the length from the aligned start. Moves the partition, so do not use it on a table that describes existing data. */
+    ESP_EXT_PART_ALIGN_POLICY_KEEP_SIZE,
 } esp_ext_part_align_policy_t;
 
 typedef enum __attribute__((packed))
@@ -79,6 +81,7 @@ typedef enum {
 
 typedef enum {
     ESP_EXT_PART_LIST_SIGNATURE_MBR, /*!< MBR signature type */
+    ESP_EXT_PART_LIST_SIGNATURE_GPT, /*!< GPT. Reported by `esp_ext_part_probe` only; this component cannot parse or generate GPT, and the signature accessors reject this type. */
 } esp_ext_part_signature_type_t;
 
 typedef struct {
@@ -89,10 +92,11 @@ typedef struct {
 typedef struct {
     uint64_t address; /*!< Start address in bytes */
     uint64_t size; /*!< Size in bytes */
-    uint64_t extra; /*!< Extra information (e.g. LittleFS block size stored in CHS hack, etc.) */
+    uint64_t extra; /*!< Extra information. For LittleFS (MBR type 0xC3): the block size, stored in the CHS-start bytes. It must be 0 (none) or a power of two from 128 B to 1 MiB; the parser sets it, with `ESP_EXT_PART_FLAG_EXTRA`, only when the stored value is such a block size. */
     char *label;
     esp_ext_part_flags_t flags; /*!< Flags for the partition */
     uint8_t type; /*!< Known partition type for this component (usually a part of `esp_ext_part_type_known_t`) */
+    uint8_t slot; /*!< 1-based position of the entry in the on-disk partition table (1..4 for MBR, matching partition numbers such as sdX1..sdX4), or 0 = not assigned. Set by the parser. Used by the generator only when `esp_mbr_generate_extra_args_t::preserve_slots` is true. */
 } esp_ext_part_t;
 
 typedef struct esp_ext_part_list_item_ {
@@ -160,7 +164,7 @@ esp_err_t esp_ext_part_list_deinit(esp_ext_part_list_t *part_list);
  *     - ESP_ERR_INVALID_ARG: `part_list` or `item` is NULL.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
  */
-esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_list_item_t *item);
+esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, const esp_ext_part_list_item_t *item);
 
 /**
  * @brief Deep copy an external partition list.
@@ -168,17 +172,23 @@ esp_err_t esp_ext_part_list_insert(esp_ext_part_list_t *part_list, esp_ext_part_
  * This function creates a deep copy of the source partition list into the destination partition list.
  * It allocates memory for the destination list and copies all items, including their labels.
  *
+ * Use this instead of assigning or `memcpy`ing an `esp_ext_part_list_t`: the list holds
+ * its items in an intrusive linked list and owns each item's `label` allocation, so a
+ * plain struct copy would produce two lists sharing the same items, and deinitializing
+ * both would free them twice.
+ *
  * @note This function is not thread-safe.
  *
- * @param[out] dst Pointer to the destination partition list structure (must be allocated before but not initialized, i.e. "empty").
+ * @param[out] dst Pointer to the destination partition list structure (must be allocated before and be empty, i.e. zero-initialized or emptied with `esp_ext_part_list_deinit`).
  * @param[in] src Pointer to the source partition list structure to copy from.
  *
  * @return
  *     - ESP_OK: Deep copy was successful.
  *     - ESP_ERR_INVALID_ARG: `dst` or `src` is NULL.
+ *     - ESP_ERR_INVALID_STATE: `dst` already holds partitions.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
  */
-esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, esp_ext_part_list_t *src);
+esp_err_t esp_ext_part_list_deep_copy(esp_ext_part_list_t *dst, const esp_ext_part_list_t *src);
 
 /**
  * @brief Get the head (first item) of an external partition list.
@@ -250,6 +260,9 @@ esp_ext_part_list_item_t *esp_ext_part_list_next_matching(esp_ext_part_list_item
  *   to this library at compile time - detected via `__has_include("esp_littlefs.h")`,
  *   or forced by defining `ESP_EXT_PART_HAS_LITTLEFS`. If neither applies, LittleFS
  *   is reported as not mountable (a safe under-report rather than a false claim).
+ *   A LittleFS partition also needs a block size (`ESP_EXT_PART_FLAG_EXTRA` set and
+ *   a valid `extra`); type 0xC3 is used by other software too, and without a block
+ *   size the partition cannot be mounted.
  * - All other types (raw data, exFAT/NTFS, Linux, GPT-protective, none) are not
  *   mountable.
  *
@@ -260,79 +273,71 @@ esp_ext_part_match_t esp_ext_part_match_mountable(void);
 /**
  * @brief Get the signature of an external partition list.
  *
- * This function retrieves the disk signature or identifier from the partition list.
+ * Retrieves the disk signature or identifier from the partition list. The output
+ * carries both the raw signature data and its `type`, so the caller does not have
+ * to know the width of the signature in advance. For
+ * `ESP_EXT_PART_LIST_SIGNATURE_MBR` the 32-bit disk signature is in `data[0]`.
  *
- * @param[in] part_list Pointer to the partition list structure.
- * @param[out] signature Pointer to a buffer where the signature will be stored.
+ * @param[in]  part_list Pointer to the partition list structure.
+ * @param[out] signature Pointer to the signature structure to fill.
  *
  * @return
  *     - ESP_OK: Signature retrieval was successful.
- *     - ESP_ERR_INVALID_ARG: `part_list` or signature is NULL.
+ *     - ESP_ERR_INVALID_ARG: `part_list` or `signature` is NULL.
+ *     - ESP_ERR_NOT_SUPPORTED: Unsupported signature type stored in the list.
  */
-esp_err_t esp_ext_part_list_signature_get(esp_ext_part_list_t *part_list, void *signature);
+esp_err_t esp_ext_part_list_signature_get(const esp_ext_part_list_t *part_list, esp_ext_part_list_signature_t *signature);
 
 /**
  * @brief Set the signature of an external partition list.
  *
- * This function sets the disk signature or identifier for the partition list.
+ * Sets the disk signature or identifier for the partition list. The signature type
+ * is taken from `signature->type`; for `ESP_EXT_PART_LIST_SIGNATURE_MBR` the 32-bit
+ * disk signature is read from `signature->data[0]`.
  *
  * @param[in] part_list Pointer to the partition list structure.
- * @param[in] signature Pointer to the signature data to set.
- * @param[in] type      Type of the signature (e.g., MBR).
+ * @param[in] signature Pointer to the signature structure to set.
  *
  * @return
  *     - ESP_OK: Signature was successfully set.
  *     - ESP_ERR_INVALID_ARG: `part_list` or `signature` is NULL.
  *     - ESP_ERR_NOT_SUPPORTED: Unsupported signature type.
  */
-esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const void *signature, esp_ext_part_signature_type_t type);
+esp_err_t esp_ext_part_list_signature_set(esp_ext_part_list_t *part_list, const esp_ext_part_list_signature_t *signature);
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 /**
- * @brief Read a partition table from a block device handle and parse it.
+ * @brief Detect which partition table format a block device carries.
  *
- * This function reads the partition table from the specified block device and populates the provided partition list structure.
- * The type of partition table to read is specified by the 'type' parameter.
- * Additional arguments for parsing can be provided through the 'extra_args' parameter.
+ * Reads the first sector and reports the partition table format found there, so a
+ * caller that does not know the medium in advance can pick the matching parser
+ * instead of guessing.
  *
- * @note This function is not thread-safe.
+ * Detection relies on the first sector always being an MBR: a GPT disk carries a
+ * protective MBR there, whose single partition entry has type `0xEE`. A valid MBR (see
+ * `esp_mbr_parse`) with no protective entry is reported as MBR. A sector with a boot
+ * signature but invalid entry status bytes - typically the boot sector of a filesystem
+ * on a medium without a partition table - is not a partition table.
  *
- * @param[in] handle       Block device handle to read from.
- * @param[out] part_list   Pointer to the partition list structure to populate from the partition table.
- * @param[in] type         Type of partition table to read (e.g., MBR).
- * @param[in] extra_args   Pointer to additional arguments for parsing dependent on the partition type (optional, can be NULL).
- *
- * @return
- *     - ESP_OK: Partition list was successfully loaded.
- *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
- *     - ESP_ERR_NOT_SUPPORTED: Unsupported partition table type.
- *     - ESP_ERR_NO_MEM: Memory allocation failed.
- *     - propagated errors from BDL operations or partition table parsing functions.
- */
-esp_err_t esp_ext_part_list_bdl_read(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args);
-
-/**
- * @brief Generate a partition table and write it to a block device handle.
- *
- * This function writes the provided partition list to the specified block device.
- * The type of partition table to write is specified by the 'type' parameter.
- * Additional arguments for generation can be provided through the 'extra_args' parameter.
+ * @note Only formats this component can parse are reported; see
+ *       `esp_ext_part_signature_type_t`. A GPT disk is detected but cannot be parsed
+ *       by this component, so `esp_mbr_bdl_read` on such a device returns only the
+ *       protective entry (`ESP_EXT_PART_TYPE_GPT_PROTECTIVE_MBR`).
  *
  * @note This function is not thread-safe.
  *
- * @param[in] handle       Block device handle to write to.
- * @param[in] part_list    Pointer to the partition list structure generate the partition table from.
- * @param[in] type         Type of partition table to write (e.g., MBR).
- * @param[in] extra_args   Pointer to additional arguments for generation dependent on the partition type (optional, can be NULL).
+ * @param[in]  handle   Block device handle to probe.
+ * @param[out] out_type Detected partition table format.
  *
  * @return
- *     - ESP_OK: Partition list was successfully written.
- *     - ESP_ERR_INVALID_ARG: `handle` or `part_list` is NULL.
- *     - ESP_ERR_NOT_SUPPORTED: Unsupported partition table type.
+ *     - ESP_OK: A known partition table format was detected.
+ *     - ESP_ERR_INVALID_ARG: `handle` or `out_type` is NULL.
+ *     - ESP_ERR_NOT_FOUND: No partition table was recognized (no boot signature, or invalid entry status bytes).
+ *     - ESP_ERR_NOT_SUPPORTED: The device geometry has no usable I/O unit for the MBR.
  *     - ESP_ERR_NO_MEM: Memory allocation failed.
- *     - propagated errors from BDL operations or partition table generation functions.
+ *     - propagated errors from BDL operations.
  */
-esp_err_t esp_ext_part_list_bdl_write(esp_blockdev_handle_t handle, esp_ext_part_list_t *part_list, esp_ext_part_signature_type_t type, void *extra_args);
+esp_err_t esp_ext_part_probe(esp_blockdev_handle_t handle, esp_ext_part_signature_type_t *out_type);
 #endif // (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
 
 #ifdef __cplusplus

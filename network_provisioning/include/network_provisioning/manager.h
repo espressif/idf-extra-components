@@ -524,7 +524,7 @@ esp_err_t network_prov_mgr_disable_auto_stop(uint32_t cleanup_delay);
  *  - ESP_ERR_INVALID_STATE : Manager not initialized or
  *                            provisioning service already started
  *  - ESP_ERR_NO_MEM : Failed to allocate memory for version string
- *  - ESP_ERR_INVALID_ARG : Null argument
+ *  - ESP_ERR_INVALID_ARG : Null argument, or a string that is not valid UTF-8
  */
 esp_err_t network_prov_mgr_set_app_info(const char *label, const char *version,
                                         const char **capabilities, size_t total_capabilities);

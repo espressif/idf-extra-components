@@ -1,0 +1,2 @@
+# Build the default configuration used by the generic and QEMU pytest cases.
+# sdkconfig.ci.ds_peripheral is an additional variant, not a replacement.

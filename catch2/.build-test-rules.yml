@@ -2,7 +2,8 @@ catch2/host_test:
   enable:
     - if: IDF_TARGET == "linux"
   disable:
-    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR <= 4
+    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 5
+      reason: test linux target on version >= 5.5 is sufficient
 
 catch2/examples/catch2-console:
   enable:
