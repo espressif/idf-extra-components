@@ -69,6 +69,31 @@ ESP_ERROR_CHECK(led_strip_new_spi_device(&strip_config, &spi_config, &led_strip)
 
 The number of LED strip objects can be created depends on how many free SPI controllers are free to use in your project.
 
+## Asynchronous Refresh
+
+`led_strip_refresh_async()` starts a transmission and returns immediately, so the caller does not have to block for the whole frame. `led_strip_refresh_async_done()` waits for the in-flight transmission to finish.
+
+```c
+ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, 0, 0, 0, 255));
+ESP_ERROR_CHECK(led_strip_refresh_async(led_strip));
+// ... do some CPU work that does not touch the strip ...
+ESP_ERROR_CHECK(led_strip_refresh_async_done(led_strip));
+ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, 0, 0, 255, 0));
+```
+
+There is **no double buffer** yet: the pixel buffer is shared with the transmission being sent, so `led_strip_set_pixel*()` must not be called between `led_strip_refresh_async()` and `led_strip_refresh_async_done()`. The benefit of the async API therefore is limited to deferring/overlapping the wait, and does not yet allow computing the next frame while the current one is on the wire.
+
+## Thread Safety
+
+The `set_pixel` / `refresh` family is **not** a complete thread-safe solution. Internally the driver keeps a small state machine that only prevents two tasks from **starting** a transmission at the same time: the second task gets `ESP_ERR_INVALID_STATE`.
+
+What is **not** provided:
+
+- No ordering guarantee between tasks. If several tasks call `refresh` in a loop, the arrival order of frames is undefined.
+- No protection of a multi-call sequence. `set_pixel` + `refresh` is not atomic, another task may interleave in between and modify the pixel buffer that is about to be sent.
+
+If more than one task accesses the same strip, the caller has to add its own synchronization (e.g. a mutex or a dedicated LED task).
+
 ## FAQ
 
 -   How to set the brightness of the LED strip?

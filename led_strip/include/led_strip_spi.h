@@ -20,7 +20,7 @@ extern "C" {
 typedef struct {
     spi_clock_source_t clk_src; /*!< SPI clock source */
     spi_host_device_t spi_bus;  /*!< SPI bus ID. Which buses are available depends on the specific chip */
-    struct {
+    struct led_strip_spi_extra_config {
         uint32_t with_dma: 1;   /*!< Use DMA to transmit data */
     } flags;                    /*!< Extra driver flags */
 } led_strip_spi_config_t;
