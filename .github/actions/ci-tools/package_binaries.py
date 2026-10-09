@@ -7,6 +7,7 @@ and executable permissions of Linux binaries across upload/download-artifact.
 
 import argparse
 import json
+import os
 from pathlib import Path
 import tarfile
 
@@ -21,7 +22,7 @@ def runtime_files(build_path):
             yield path
 
 
-def package(info_file, output, root):
+def package(info_file, output, root, skip_empty=False):
     root = root.resolve()
     paths = {info_file.resolve()}
     for line in info_file.read_text().splitlines():
@@ -35,17 +36,25 @@ def package(info_file, output, root):
         build_path = build_path.resolve()
         build_path.relative_to(root)
         paths.update(path.resolve() for path in runtime_files(build_path))
+    has_binaries = any(path.suffix in ('.bin', '.elf') for path in paths)
+    if skip_empty and not has_binaries:
+        return False
     with tarfile.open(output, 'w') as archive:
         for path in sorted(paths):
             archive.add(path, arcname=path.relative_to(root).as_posix(), recursive=False)
+    return has_binaries
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--skip-empty', action='store_true')
     parser.add_argument('build_info', type=Path)
     parser.add_argument('output', type=Path)
     args = parser.parse_args()
-    package(args.build_info, args.output, Path.cwd())
+    has_binaries = package(args.build_info, args.output, Path.cwd(), args.skip_empty)
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+            output.write(f'has_binaries={str(has_binaries).lower()}\n')
 
 
 if __name__ == '__main__':

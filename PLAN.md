@@ -14,11 +14,14 @@ test, downstream jobs run from dynamic matrices.
   reporting and the outer IDF-version matrix in `.github/ci-matrix.json`.
 - Public `reusable-ci.yml` accepts one `idf_version`, a runtime-test switch,
   structured change-selection data.
-- Every invocation collects in its own IDF container. Its target workers
-  build and test independently, including Linux; remaining targets get
-  compile coverage. Empty matrices are skipped explicitly.
-- Targets and test groups are discovered from pytest and intersected with
-  manifest build/test permissions per app, target and configuration. There is
+- Every invocation discovers build candidates in its own IDF container and
+  creates target shards of approximately 20 variants. Reconfigure and change
+  filtering remain inside builds. After all shards succeed, a separate job
+  collects pytest and generates only nonempty test groups from successful
+  app/target/configuration results. Empty matrices are skipped explicitly.
+- Build targets come from app discovery. Test groups are discovered from
+  pytest after builds, intersected with successful build metadata and manifest
+  test permissions per app, target and configuration. There is
   no caller CI config or preset system. Shared runner conventions and sharding
   defaults ship with the pinned helpers. The version matrix has no test
   exclusions. The historical 5.2 Linux Unity restriction is scoped to the
@@ -43,10 +46,10 @@ test, downstream jobs run from dynamic matrices.
 ## Target state (to-be)
 
 - `prepare`: label handling only; exposes `changed_files.txt` as an artifact.
-- `generate`: `idf-ci` computes affected apps (modified-files filtering,
-  manifest-based — no reconfigure storm), splits test-related /
-  non-test-related, sizes shards by real app counts, and emits build and test
-  matrices (`idf-ci test collect --format github`).
+- `generate`: discover build candidates and emit build shards only.
+- `plan-tests`: after builds finish, intersect successful build results with
+  pytest and manifest permissions, then emit nonempty test groups. Preserve
+  this ordering when migrating the underlying build executor.
 - Build jobs: `idf-ci build run` (`--only-test-related` /
   `--only-non-test-related`).
 - Test jobs: matrix entries come from collected pytest cases; no
@@ -176,7 +179,7 @@ Prerequisites confirmed against published idf-ci 1.3.0:
   default collection excludes emulator cases, while an explicit nonempty
   marker expression forces test-related-only builds.
 
-- In `reusable-build-run-apps.yml` and `build-extra`: replace
+- In the `build` job of `reusable-ci.yml`: replace
   `idf-build-apps build ...` with `idf-ci build run -t <target>
   --parallel-index N --parallel-count M [--modified-files ...]
   [--only-test-related|--only-non-test-related]`.
@@ -189,6 +192,9 @@ Prerequisites confirmed against published idf-ci 1.3.0:
 
 ### 4. Switch test selection to collected groups — PARTIALLY DONE
 
+- Done: generate groups after all builds in that IDF version succeed, using
+  successful build metadata and manifest permissions. Empty groups do not
+  create test jobs; metadata is checked for missing shard artifacts.
 - Done: generate groups from the idf-ci API underlying `test collect`,
   retaining complete marker requirements, runner tags and exact node IDs.
   The API avoids losing spaces in parametrized IDs in the CLI formatter.
@@ -218,7 +224,7 @@ Prerequisites confirmed against published idf-ci 1.3.0:
 
 ### 7. Migrate Linux execution commands
 
-- Linux already shares the target worker after step 2b. Verify
+- Linux shares the build and post-build test pipeline. Verify
   `idf-ci build run -t linux` and host_test artifact selection when replacing
   its execution commands; preserve manifest build/test permissions.
 

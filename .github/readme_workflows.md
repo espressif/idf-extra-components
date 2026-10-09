@@ -14,43 +14,41 @@ flowchart TD
     versions --> v60[Reusable CI: IDF 6.0]
     versions --> latest[Reusable CI: latest]
     subgraph one[Inside each reusable invocation]
-        discover[Discover in the selected IDF] --> targets[Target matrix]
-        targets --> esp[ESP target: build shards then hardware or QEMU tests]
-        targets --> linux[Linux: build shards then host tests]
-        discover --> extra[Build remaining targets]
+        discover[Discover build candidates] --> builds[Build matrix: target and shard]
+        builds --> results[Build results after reconfigure and compilation]
+        results --> planner[Collect pytest and select successfully built variants]
+        planner --> tests[Nonempty test groups: target and environment tags]
     end
     v52 --> discover
     v60 --> discover
     latest --> discover
-    esp --> report[Caller: aggregate test artifacts]
-    linux --> report
+    tests --> report[Caller: aggregate test artifacts]
     report --> gate[Caller: CI Gate]
-    extra --> gate
+    builds --> gate
 ```
 
 [build_and_run_apps.yml](workflows/build_and_run_apps.yml) owns the PR, push
 and schedule triggers, labels, component selection, reporting and stable
-`CI Gate` status. Each target's tests wait only for that target's build
-shards in its own IDF version. There is no cross-version matrix aggregation.
+`CI Gate` status. Test planning waits for all build shards in its own IDF
+version. Versions remain independent; there is no cross-version aggregation.
 
-The Actions sidebar can flatten the nested target workflows, so leaf job
-names include the target explicitly. For example, under `CI (release-v5.5)`:
+Build and test jobs include their target in the name. For example, under `CI (release-v5.5)`:
 
 ```text
 Build esp32 (shard 1/2)
 Build esp32 (shard 2/2)
-Test esp32 (generic)
 Build esp32s3 (shard 1/2)
-Test esp32s3 (qemu)
 Build linux (shard 1/1)
+Build esp32h4 (shard 1/2)
+Plan tests from build results
+Test esp32 (generic)
+Test esp32s3 (qemu)
 Test linux (host_test)
-Build other targets (compile only, shard 1/5)
 ```
 
 `shard 1/2` means the first of two parallel batches of applications for that
-target. `other targets` compiles applications for targets without discovered
-test cases; those jobs do not run runtime tests. Linux builds always use their
-own target worker because they need the host toolchain.
+target. All targets use the same build job, including targets without pytest
+cases. Linux builds select the host toolchain.
 
 ## Configuration and public inputs
 
@@ -64,13 +62,13 @@ Project-owned files have separate responsibilities:
 - `pytest_*.py`: test logic, targets and environment requirements.
 
 There is no `ci-config.json`, preset selector or manually maintained target
-list. Discovery generates a target worker for each target with buildable test
-cases, plus Linux whenever host applications are buildable. Targets with no
-test cases go to the compile-only shards. A manifest can disable testing
-while retaining build coverage.
+list. Build discovery depends only on applications and manifests, without
+collecting pytest. After builds finish, test discovery intersects pytest cases
+with successful build results. A manifest can disable testing while retaining
+build coverage.
 
-Shared CI supplies the execution conventions and sizes build shards at 40
-applications per shard, capped at 5 shards. These are implementation defaults,
+Shared CI supplies the execution conventions and sizes build shards at
+approximately 20 app/target/configuration variants per shard. These are implementation defaults,
 not settings every repository must copy.
 
 `reusable-ci.yml` accepts:
@@ -90,9 +88,11 @@ does not accept shell fragments or require the caller to calculate shards.
 
 The manifests and `.idf_build_apps.toml` remain in the project. They control
 which apps and configurations are buildable in the current IDF. Discovery
-sizes shards as `min(ceil(apps / 40), 5)`.
+sizes shards for each target as `ceil(apps / 20)`.
 Changed-file/component filtering still happens at build time, so PRs may
-need fewer nonempty shards than the full discovered inventory.
+need fewer nonempty shards than the full discovered inventory. Reconfigure
+stays inside the builds; build shards may be skipped internally. This does
+not create empty test jobs.
 
 ## Application compatibility
 
@@ -103,8 +103,8 @@ configuration. Tests do not need version decorators or a custom pytest plugin.
 Environment markers such as `ethernet`, `quad_psram` and `qemu` describe how to
 run a test and remain in the test script.
 
-The planner intersects discovered cases with buildable app/target/configuration
-combinations and manifest test permissions. An implicit build configuration
+The post-build planner intersects discovered cases with **successfully built**
+app/target/configuration combinations and manifest test permissions. An implicit build configuration
 `""` matches pytest's `default`. A `disable_test` rule removes the affected cases
 before test groups are created; it does not disable unrelated tests sharing
 an environment marker. Exclusion reasons are logged.
@@ -161,8 +161,8 @@ The shared `resolve_runner` function translates discovered requirements:
   services. The existing worker setup supports ESP32-S3 and ESP32-C3; other
   QEMU targets are logged and retained for build coverage only.
 
-Adding a target such as `esp32c5` to a buildable pytest case now automatically
-creates its worker and matching runner requirements. There is no second target
+Adding a target such as `esp32c5` to a pytest case automatically creates a
+test job with matching runner requirements when its application is built. There is no second target
 allowlist to update. GitHub must have a runner with all the resulting labels;
 this workflow does not provision boards or alter runner registration.
 
@@ -224,14 +224,28 @@ caller's `github.*` context. They are available on GitHub.com, not GitHub
 Enterprise Server; GHES consumers need an explicit CI source repository/ref
 contract. See [GitHub's job context documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#example-usage-of-job-context-workflow-identity).
 
-The internal [target worker](workflows/reusable-build-run-apps.yml) packages
-runtime files using `build_info*.json`, preserving workspace-relative paths
-and executable permissions in tar archives. It supports apps at the project
-root and custom nested layouts. Artifacts are namespaced by pipeline ID,
-target and shard; test reports add the stable group ID so combined markers
-cannot collide. The worker receives the exact discovered groups as the
-`test_matrix` JSON input, expands them with `fromJSON`, and selects runners
-using each group's `runner_labels`.
+The public workflow runs four stages:
+
+1. `generate`: discover candidates and output only `build_matrix`.
+2. `build`: build each target/shard, retaining dependency filtering during
+   reconfigure. Upload a uniquely named `build_info_<target>_<shard>.json`,
+   including empty/skipped results, when runtime tests are enabled. Package
+   successful binaries as tar archives, preserving paths and executable bits;
+   entirely skipped shards upload no binary archive.
+3. `plan-tests`: after all builds succeed, download only their small metadata
+   artifacts and verify that every expected shard is present. Collect pytest
+   in the same IDF environment and match `app_dir + target + config_name`
+   against records with `build_status == success` and manifest permissions.
+   All applications referenced by a test must be available. Output only
+   nonempty groups in `test_matrix`, with a `has_tests` guard.
+4. `test`: expand the generated matrix, download runtime archives for the
+   group's target and run its exact node IDs. If no tests qualify, no matrix
+   instances are created; the test stage is skipped.
+
+A failed build prevents test planning for that IDF version and keeps CI red.
+Missing metadata is an error, not an empty inventory. Successful compile-only
+apps and skipped variants cannot create empty hardware jobs. Build-only calls
+skip metadata/artifact upload, test planning and test execution.
 
 ## Validation and remaining migration
 
@@ -246,6 +260,14 @@ Run the planner inside each supported ESP-IDF image after sourcing its
 
 ```sh
 GITHUB_OUTPUT=/tmp/ci.outputs python3 .github/actions/ci-tools/generate_build_matrix.py
+```
+
+After downloading the matching build-result artifacts to `ci-build-results`,
+run the post-build planner:
+
+```sh
+export BUILD_MATRIX="$(sed -n 's/^build_matrix=//p' /tmp/ci.outputs)"
+GITHUB_OUTPUT=/tmp/tests.outputs python3 .github/actions/ci-tools/generate_test_matrix.py ci-build-results
 ```
 
 Actionlint 1.7.12 does not yet recognize the documented workflow identity
@@ -263,7 +285,7 @@ configuration, pytest.ini or root conftest trigger a full run automatically.
 `PR: test all apps` can still request a full run for any PR. Fork/Dependabot PRs keep test summaries
 without requiring write access for checks or comments.
 
-Build execution still uses `idf-build-apps`, with the existing build-info
-selection for pytest. Moving to `idf-ci build run` is a separate step in
+Build execution still uses `idf-build-apps`; its build-info results determine
+the post-build pytest matrix. Moving to `idf-ci build run` is a separate step in
 [PLAN.md](../PLAN.md), particularly default configuration directories and
 component dependency mapping.

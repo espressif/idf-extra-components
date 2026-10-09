@@ -59,6 +59,16 @@ class ArtifactTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 PACKAGE.package(metadata, root / 'binaries.tar', root)
 
+    def test_skipped_shard_keeps_metadata_but_does_not_create_binary_archive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            metadata = root / 'build_info_esp32_1.json'
+            metadata.write_text(json.dumps(dict(build_status='skipped')) + '\n')
+            archive = root / 'binaries.tar'
+            self.assertFalse(PACKAGE.package(metadata, archive, root, skip_empty=True))
+            self.assertTrue(metadata.is_file())
+            self.assertFalse(archive.exists())
+
     def test_changed_paths_are_arguments_not_shell_commands(self):
         files = ['component/file with spaces.c', 'component/$(touch unwanted).c']
         command = BUILD.build_command('esp32', 2, 3, 'build_info.json', files, ['component'], [])

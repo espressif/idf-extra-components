@@ -19,6 +19,7 @@ def string_list(value):
 def build_command(target, parallel_index, parallel_count, info_file, modified_files, modified_components, disabled_targets):
     command = [
         'idf-build-apps', 'build', '--target', target,
+        '--enable-preview-targets',
         '--parallel-index', str(parallel_index), '--parallel-count', str(parallel_count),
         '--collect-app-info', info_file,
     ]

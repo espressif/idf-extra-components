@@ -30,7 +30,7 @@ def main():
                 app_dir = app_json['app_dir']
                 if app_dir not in app_ignore_status.keys():
                     app_ignore_status[app_dir] = True
-                if app_json['target'] == args.target and app_json['build_status'] != 'skipped':
+                if app_json['target'] == args.target and app_json['build_status'] == 'success':
                     app_ignore_status[app_dir] = False
 
     for app_dir, ignore in app_ignore_status.items():
