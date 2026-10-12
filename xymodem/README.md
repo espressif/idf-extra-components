@@ -25,6 +25,10 @@ Add the `xymodem` component to your project via the ESP Component Registry:
 idf.py add-dependency "espressif/xymodem"
 ```
 
+## Documentation
+
+- [Programming Guide & API Reference](https://espressif.github.io/idf-extra-components/latest/xymodem/index.html)
+
 ## Appendix
 
 - [Xmodem specification](https://www.menie.org/georges/embedded/xmodem_specification.html)
