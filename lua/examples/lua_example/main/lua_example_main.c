@@ -1,20 +1,17 @@
 /*
- * Lua Example
- *
- * This example demonstrates how to embed Lua in an ESP-IDF application.
- * It shows both embedded Lua script execution and loading Lua scripts from
- * a filesystem (LittleFS).
+ * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_littlefs.h"
 #include "esp_vfs.h"
-#include <dirent.h>
 
 #include "lua.h"
 #include "lualib.h"
@@ -22,6 +19,28 @@
 
 #define TAG "lua_example"
 #define LUA_FILE_PATH "/assets"
+
+/*
+ * Load only the libraries this example needs. Prefer luaL_requiref() over
+ * luaL_openlibs()/luaL_openselectedlibs(): those keep pointers to every
+ * luaopen_* in linit.c, so --gc-sections cannot drop unused libs.
+ */
+static void open_used_libs(lua_State *L)
+{
+    static const luaL_Reg libs[] = {
+        {LUA_GNAME, luaopen_base},
+        {LUA_MATHLIBNAME, luaopen_math},
+        {LUA_STRLIBNAME, luaopen_string},
+        {LUA_TABLIBNAME, luaopen_table},
+        {LUA_UTF8LIBNAME, luaopen_utf8},
+        {NULL, NULL},
+    };
+
+    for (const luaL_Reg *lib = libs; lib->func != NULL; lib++) {
+        luaL_requiref(L, lib->name, lib->func, 1);
+        lua_pop(L, 1);
+    }
+}
 
 // Function to log memory usage
 static void log_memory_usage(const char *message)
@@ -67,15 +86,8 @@ static void run_lua_file(const char *file_name, const char *test_name)
     }
     log_memory_usage("After luaL_newstate");
 
-    luaL_openlibs(L);
-
-    // Set the Lua module search path
-    if (luaL_dostring(L, "package.path = package.path .. ';./?.lua;/assets/?.lua'")) {
-        ESP_LOGE(TAG, "Failed to set package.path: %s", lua_tostring(L, -1));
-        lua_pop(L, 1);
-    }
-
-    log_memory_usage("After luaL_openlibs");
+    open_used_libs(L);
+    log_memory_usage("After opening Lua libraries");
 
     // Construct the full file path
     char full_path[128];
@@ -109,8 +121,8 @@ static void run_embedded_lua_test(const char *lua_script, const char *test_name)
     }
     log_memory_usage("After luaL_newstate");
 
-    luaL_openlibs(L);
-    log_memory_usage("After luaL_openlibs");
+    open_used_libs(L);
+    log_memory_usage("After opening Lua libraries");
 
     if (luaL_dostring(L, lua_script) == LUA_OK) {
         lua_pop(L, lua_gettop(L));

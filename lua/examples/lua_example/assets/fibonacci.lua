@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
+-- SPDX-License-Identifier: Apache-2.0
+--
 -- fibonacci.lua
 -- This script calculates the 10th number in the Fibonacci sequence and prints it.
 

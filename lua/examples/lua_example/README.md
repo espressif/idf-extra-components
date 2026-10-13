@@ -18,11 +18,13 @@ This example demonstrates how to embed Lua in an ESP-IDF application.
 
 - Any ESP32 series board (ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, etc.)
 - Minimum 4MB flash (for filesystem partition)
+- On ESP32-C5 the example turns on PSRAM (`sdkconfig.defaults.esp32c5`). Use a C5 board that actually has PSRAM.
 
 ## Configuration
 
 - The example uses LittleFS to store Lua scripts
 - A custom partition table is included with an "assets" partition for Lua scripts
+- ESP32-C5 enables `CONFIG_LUA_USE_PSRAM` so large Lua allocations prefer PSRAM
 
 ## Building and Flashing
 
@@ -45,6 +47,10 @@ I (xxx) lua_example: End of Lua test from file: Fibonacci Script from File
 I (xxx) lua_example: End of Lua example application.
 ```
 
+## Libraries
+
+The example opens only `base`, `math`, `string`, `table`, and `utf8`. It does not call `luaL_openlibs()`: that helper (and `luaL_openselectedlibs()`) keeps a table of every `luaopen_*` pointer, so the linker cannot drop unused libraries.
+
 ## Customization
 
 You can add your own Lua scripts to the `assets/` directory and execute them from your application code.
@@ -53,4 +59,4 @@ You can add your own Lua scripts to the `assets/` directory and execute them fro
 
 - [Lua Component Documentation](../../README.md)
 - [Lua Official Website](https://www.lua.org/)
-- [Lua Reference Manual](https://www.lua.org/manual/5.5/)
+- [Lua Reference Manual](https://www.lua.org/manual/)

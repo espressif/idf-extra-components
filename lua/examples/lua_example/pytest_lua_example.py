@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Unlicense OR CC0-1.0
 
 import pytest
@@ -6,6 +6,7 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
+@pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32c5'], indirect=['target'])
 def test_lua_example(dut: Dut) -> None:
     dut.expect_exact('Lua Example Starting')
     dut.expect_exact('Initializing LittleFS filesystem')
