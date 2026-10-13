@@ -47,13 +47,13 @@ All transport and source/sink callbacks are user-provided and run in task contex
 
 The original XMODEM specification recommends a receiver-driven model. After sending a packet, the sender does not retransmit unless it receives an explicit `NAK`. If data is corrupted or lost, retransmission is always initiated by the receiver using a relatively short timeout. The sender uses a much longer timeout; if no valid response arrives, it assumes the link is completely lost. This helps avoid the confusion that can arise when both sides attempt retransmission independently.
 
-This component follows that design. The sender configuration [`response_timeout_ms`](api.md) is the time to wait for the handshake or for `ACK` / `NAK`. It is **not** a retransmission timeout. If it expires with no valid response, the sender treats the link as lost (`ESP_ERR_XYMODEM_NO_RESPONSE`). The receiver configuration [`packet_timeout_ms`](api.md) is the time to wait for a packet before sending `NAK`. It is recommended to set `response_timeout_ms` several times longer than `packet_timeout_ms`.
+This component follows that design. The sender configuration [`response_timeout_ms`](api.md#struct-xymodem_send_config_t) is the time to wait for the handshake or for `ACK` / `NAK`. It is **not** a retransmission timeout. If it expires with no valid response, the sender treats the link as lost (`ESP_ERR_XYMODEM_NO_RESPONSE`). The receiver configuration [`packet_timeout_ms`](api.md#struct-xymodem_recv_config_t) is the time to wait for a packet before sending `NAK`. It is recommended to set `response_timeout_ms` several times longer than `packet_timeout_ms`.
 
-The [`XYMODEM_SEND_CONFIG_DEFAULT()`](api.md) and [`XYMODEM_RECV_CONFIG_DEFAULT()`](api.md) macros provide a set of configurations suitable for reliable connections and modern peer devices. If different behavior is required, you can override individual settings or provide your own configuration.
+The [`XYMODEM_SEND_CONFIG_DEFAULT()`](api.md#define-xymodem_send_config_default) and [`XYMODEM_RECV_CONFIG_DEFAULT()`](api.md#define-xymodem_recv_config_default) macros provide a set of configurations suitable for reliable connections and modern peer devices. If different behavior is required, you can override individual settings or provide your own configuration.
 
 ## Using XMODEM
 
-Provide a transport, a send or receive configuration, and a source or sink, then call [`xmodem_send()`](api.md) or [`xmodem_recv()`](api.md). Note that both functions block the current task until the transfer completes.
+Provide a transport, a send or receive configuration, and a source or sink, then call [`xmodem_send()`](api.md#function-xmodem_send) or [`xmodem_recv()`](api.md#function-xmodem_recv). Note that both functions block the current task until the transfer completes.
 
 Sender:
 
@@ -113,7 +113,7 @@ ESP_ERROR_CHECK(xmodem_recv(&transport, &recv_config, &sink));
 
 The `examples/xmodem` project shows a complete transport on the UART driver.
 
-If the payload is already a contiguous buffer, you do not need a source or sink. [`xmodem_send_buffer()`](api.md) sends `len` bytes from `buf` as the XMODEM payload. [`xmodem_recv_buffer()`](api.md) writes the incoming stream into `buf` (at most `len` bytes) and reports how many bytes were stored. Use the generic `read` / `write` callbacks instead when data comes from a file, is generated on the fly, or must be processed as each packet arrives.
+If the payload is already a contiguous buffer, you do not need a source or sink. [`xmodem_send_buffer()`](api.md#function-xmodem_send_buffer) sends `len` bytes from `buf` as the XMODEM payload. [`xmodem_recv_buffer()`](api.md#function-xmodem_recv_buffer) writes the incoming stream into `buf` (at most `len` bytes) and reports how many bytes were stored. Use the generic `read` / `write` callbacks instead when data comes from a file, is generated on the fly, or must be processed as each packet arrives.
 
 XMODEM cannot tell payload from trailing `0x1A` padding, so `xmodem_recv_buffer()` stores that padding as well. If the last packet is larger than the remaining buffer space, the extra bytes in that packet are discarded (they may be padding). If another packet arrives after the buffer is already full, the transfer is aborted with `ESP_ERR_NO_MEM`.
 

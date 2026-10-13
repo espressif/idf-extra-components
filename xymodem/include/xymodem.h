@@ -14,11 +14,11 @@ extern "C" {
 #endif
 
 #define ESP_ERR_XYMODEM_BASE           0x1E000
-#define ESP_ERR_XYMODEM_CANCEL_BY_PEER (ESP_ERR_XYMODEM_BASE + 1)  // Cancelled by the peer (two consecutive CAN bytes).
-#define ESP_ERR_XYMODEM_RETRY_EXCEEDED (ESP_ERR_XYMODEM_BASE + 2)  // Retry limit reached.
-#define ESP_ERR_XYMODEM_BAD_PACKET     (ESP_ERR_XYMODEM_BASE + 3)  // Received data is not a valid packet.
-#define ESP_ERR_XYMODEM_NO_RESPONSE    (ESP_ERR_XYMODEM_BASE + 4)  // Peer did not respond within the timeout.
-#define ESP_ERR_XYMODEM_OUT_OF_SYNC    (ESP_ERR_XYMODEM_BASE + 5)  // Packet sequence number is neither expected nor previous.
+#define ESP_ERR_XYMODEM_CANCEL_BY_PEER (ESP_ERR_XYMODEM_BASE + 1)  ///< Cancelled by the peer (two consecutive CAN bytes).
+#define ESP_ERR_XYMODEM_RETRY_EXCEEDED (ESP_ERR_XYMODEM_BASE + 2)  ///< Retry limit reached.
+#define ESP_ERR_XYMODEM_BAD_PACKET     (ESP_ERR_XYMODEM_BASE + 3)  ///< Received data is not a valid packet.
+#define ESP_ERR_XYMODEM_NO_RESPONSE    (ESP_ERR_XYMODEM_BASE + 4)  ///< Peer did not respond within the timeout.
+#define ESP_ERR_XYMODEM_OUT_OF_SYNC    (ESP_ERR_XYMODEM_BASE + 5)  ///< Packet sequence number is neither expected nor previous.
 
 /**
  * @brief The abstraction of the low-level communication channel used by X/YMODEM protocol layer.
@@ -125,42 +125,42 @@ typedef struct {
  * @brief Verification types as defined by the X/YMODEM protocol.
  */
 typedef enum {
-    XYMODEM_CHECK_AUTO = 0,  // Use CRC16 by default, and fall back to SUM if the peer does not support it.
-    XYMODEM_CHECK_SUM8,      // 8-bit checksum.
-    XYMODEM_CHECK_CRC16,     // CRC-16.
+    XYMODEM_CHECK_AUTO = 0,  ///< Use CRC16 by default, and fall back to SUM if the peer does not support it.
+    XYMODEM_CHECK_SUM8,      ///< 8-bit checksum.
+    XYMODEM_CHECK_CRC16,     ///< CRC-16.
 } xymodem_check_type_t;
 
 /**
  * @brief Block size as defined by the X/YMODEM protocol.
  */
 typedef enum {
-    XYMODEM_BLOCK_SIZE_MIXED = 0,    // Use 1024-byte blocks by default, and switch to 128-byte blocks if the remaining data is no more than 128 bytes.
-    XYMODEM_BLOCK_SIZE_128 = 128,    // Use 128-byte blocks only.
-    XYMODEM_BLOCK_SIZE_1024 = 1024,  // Use 1024-byte blocks only.
+    XYMODEM_BLOCK_SIZE_MIXED = 0,    ///< Use 1024-byte blocks by default, and switch to 128-byte blocks if the remaining data is no more than 128 bytes.
+    XYMODEM_BLOCK_SIZE_128 = 128,    ///< Use 128-byte blocks only.
+    XYMODEM_BLOCK_SIZE_1024 = 1024,  ///< Use 1024-byte blocks only.
 } xymodem_block_size_t;
 
 /**
  * @brief Sender configuration.
  */
 typedef struct {
-    xymodem_block_size_t block_size; // Packet payload size to use when sending.
-    uint32_t response_timeout_ms;    // Wait for handshake or ACK/NAK. Must be > 0. Set several times longer than the receiver packet timeout.
-    uint32_t max_retry_cnt;          // Maximum number of extra retries after the first attempt.
-    uint8_t cancel_can_count;        // Number of CAN bytes to send when aborting. Must be >= 2.
-    uint32_t can_interval_ms;        // Max interval between two CAN bytes when recognizing peer cancel. Must be > 0.
-    uint32_t purge_idle_timeout_ms;  // RX idle time required to finish a purge. Set based on the physical link rate.
+    xymodem_block_size_t block_size; ///< Packet payload size to use when sending.
+    uint32_t response_timeout_ms;    ///< Wait for handshake or ACK/NAK. Must be > 0. Set several times longer than the receiver packet timeout.
+    uint32_t max_retry_cnt;          ///< Maximum number of extra retries after the first attempt.
+    uint8_t cancel_can_count;        ///< Number of CAN bytes to send when aborting. Must be >= 2.
+    uint32_t can_interval_ms;        ///< Max interval between two CAN bytes when recognizing peer cancel. Must be > 0.
+    uint32_t purge_idle_timeout_ms;  ///< RX idle time required to finish a purge. Set based on the physical link rate.
 } xymodem_send_config_t;
 
 /**
  * @brief Receiver configuration.
  */
 typedef struct {
-    xymodem_check_type_t check_type; // Checksum or CRC mode to request during handshake.
-    uint32_t packet_timeout_ms;      // Wait for a packet before sending NAK. Must be > 0.
-    uint32_t max_retry_cnt;          // Maximum number of extra retries after the first attempt.
-    uint8_t cancel_can_count;        // Number of CAN bytes to send when aborting. Must be >= 2.
-    uint32_t can_interval_ms;        // Max interval between two CAN bytes when recognizing peer cancel. Must be > 0.
-    uint32_t purge_idle_timeout_ms;  // RX idle time required to finish a purge. Set based on the physical link rate.
+    xymodem_check_type_t check_type; ///< Checksum or CRC mode to request during handshake.
+    uint32_t packet_timeout_ms;      ///< Wait for a packet before sending NAK. Must be > 0.
+    uint32_t max_retry_cnt;          ///< Maximum number of extra retries after the first attempt.
+    uint8_t cancel_can_count;        ///< Number of CAN bytes to send when aborting. Must be >= 2.
+    uint32_t can_interval_ms;        ///< Max interval between two CAN bytes when recognizing peer cancel. Must be > 0.
+    uint32_t purge_idle_timeout_ms;  ///< RX idle time required to finish a purge. Set based on the physical link rate.
 } xymodem_recv_config_t;
 
 /**
