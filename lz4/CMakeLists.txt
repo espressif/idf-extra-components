@@ -13,6 +13,7 @@ idf_component_register(
         "lz4_frame.c"
         "lz4_file.c"
         "lz4_memory.c"
+    PRIV_REQUIRES esp_psram
 )
 
 if(CONFIG_LZ4_BLOCK_HASH_TABLE_SIZE_1KB)

@@ -1,7 +1,7 @@
 # Upstream libjpeg-turbo aborts unless it is the top-level project and
 # recommends ExternalProject_Add().
 idf_component_register(SRCS "jpeg_mem_esp.c"
-                       PRIV_REQUIRES heap)
+                       PRIV_REQUIRES heap esp_psram)
 
 include(ExternalProject)
 

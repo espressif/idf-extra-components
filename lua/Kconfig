@@ -1,11 +1,33 @@
 menu "Lua"
     config LUA_MAXSTACK
-        int "Stack size limit"
+        int "Maximum Lua stack size (slots)"
+        range 1000 1073741823
         default 1000000
         help
-            Limits the size of the Lua stack.
-            Change it if you need a different limit. This limit is arbitrary;
-            its only purpose is to stop Lua from consuming unlimited stack
-            space (and to reserve some numbers for pseudo-indices).
+            Maximum number of Lua stack slots a lua_State may grow to.
+            The unit is slots (Lua values), not bytes. Each slot holds
+            one value and occupies about 8 bytes on 32-bit ESP targets.
 
+            This is a growth cap, not a reservation. The stack starts
+            small and expands on demand until it hits this limit.
+
+            Size this cap together with the calling FreeRTOS task
+            stack. Raising it does not grow the C stack: a 2 KB task
+            stack will overflow long before a large Lua stack is
+            usable.
+
+    config LUA_USE_PSRAM
+        bool "Prefer PSRAM for large Lua allocations"
+        depends on SPIRAM
+        default n
+        help
+            Route luaL_newstate() through a heap_caps allocator so large
+            objects can live in PSRAM. A custom allocator passed to
+            lua_newstate() is left unchanged.
+
+            Allocations of 4 KiB or more (growing table arrays, long
+            strings, a large Lua stack) prefer PSRAM. Smaller objects
+            stay in internal RAM: the interpreter walks them randomly,
+            which is slower in PSRAM. Either region is a fallback if
+            the preferred heap cannot satisfy the request.
 endmenu

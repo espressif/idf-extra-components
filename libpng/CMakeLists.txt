@@ -1,7 +1,7 @@
 # Reuse upstream CMake instead of re-listing the sources.
 
 idf_component_register(SRCS "png_memory_esp.c"
-                       PRIV_REQUIRES heap)
+                       PRIV_REQUIRES heap esp_psram)
 
 # Only the static library and its public headers are needed;
 # the shared library, tests, tools and demos are switched off.
