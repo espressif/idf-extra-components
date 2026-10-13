@@ -1,0 +1,10 @@
+# Wokwi Configuration File
+# Reference: https://docs.wokwi.com/vscode/project-config
+# Author: Juraj Michalek <juraj.michalek@espressif.com>
+# Editor: esp-generate
+
+[wokwi]
+version = 1
+
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'

@@ -1,0 +1,194 @@
+//IF option("esp32_s3_box_3")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-box-3",
+      "id": "esp",
+      "attrs": { "psramSize": "16", "flashSize": "16" }
+    }
+  ],
+  "connections": [
+    ["esp:G43", "$serialMonitor:RX", ""],
+    ["esp:G44", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("esp32_s3_lcd_ev_board")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:G43", "$serialMonitor:RX", ""],
+    ["esp:G44", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("esp32s3_korvo_2")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-korvo-2",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", ""],
+    ["esp:RX", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("esp32_s3_box")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "attrs": { "psramSize": "8", "flashSize": "8" }
+    }
+  ],
+  "connections": [
+    ["esp:G43", "$serialMonitor:RX", ""],
+    ["esp:G44", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("esp_vocat")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp-vocat",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", ""],
+    ["esp:RX", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("esp32_s3_eye")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-eye",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", ""],
+    ["esp:RX", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("m5stack_core_s3")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-m5stack-core-s3", "id": "esp", "top": 0, "left": 0, "attrs": { "psramSize": "16", "flashSize": "16" } },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "aw9523-workaround",
+      "top": 217.6,
+      "left": 408.8,
+      "attrs": { "pins": "i2c", "i2cAddress": "0x58" }
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "axp2101-workaround",
+      "top": 64,
+      "left": 399.2,
+      "attrs": { "pins": "i2c", "i2cAddress": "0x34" }
+    }
+  ],
+  "connections": [
+    ["esp:G43", "$serialMonitor:RX", ""],
+    ["esp:G44", "$serialMonitor:TX", ""],
+    ["aw9523-workaround:SCL", "esp:G11", "green", ["h0"]],
+    ["aw9523-workaround:SDA", "esp:G12", "green", ["h0"]],
+    ["axp2101-workaround:SCL", "esp:G11", "green", ["h0"]],
+    ["axp2101-workaround:SDA", "esp:G12", "green", ["h0"]]
+  ]
+}
+//ELIF option("m5stack_atom_s3")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-m5stack-atom-s3",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", ""],
+    ["esp:RX", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("m5stack_atom_s3r")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-m5stack-atom-s3r",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", ""],
+    ["esp:RX", "$serialMonitor:TX", ""]
+  ]
+}
+//ELIF option("m5stack_core_2")
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-m5stack-core2",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:TX", "$serialMonitor:RX", ""],
+    ["esp:RX", "$serialMonitor:TX", ""]
+  ]
+}
+//ELSE
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp"
+    }
+  ],
+  "connections": [
+    ["esp:G43", "$serialMonitor:RX", ""],
+    ["esp:G44", "$serialMonitor:TX", ""]
+  ]
+}
+//ENDIF

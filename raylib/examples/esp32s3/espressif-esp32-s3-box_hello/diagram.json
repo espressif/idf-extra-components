@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "author": "Wokwi",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "attrs": { "psramSize": "8", "flashSize": "8" }
+    }
+  ],
+  "connections": [
+    ["esp:G43", "$serialMonitor:RX", ""],
+    ["esp:G44", "$serialMonitor:TX", ""]
+  ]
+}
