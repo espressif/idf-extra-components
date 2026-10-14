@@ -13,6 +13,9 @@
 - Add `network_prov_mgr_get_mode()`, which can be called from event handlers
   even after `network_prov_mgr_deinit()`.
 - Add the `wifi_prov_ext_protocomm` example.
+- Fix `network_prov_mgr_init()` leaving the manager unusable after a failed
+  initialization: the next `init()` reported "already initialized" and other
+  APIs could read freed memory.
 
 # 1.3.2 (20-October-2026)
 - Updates teardown behaviour to stop transport before protocomm state.

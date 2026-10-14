@@ -2268,6 +2268,7 @@ exit:
             config.scheme.delete_config(prov_ctx->prov_scheme_config);
         }
         free(prov_ctx);
+        prov_ctx = NULL;
     } else {
         s_mgr_mode = config.mode;
         execute_event_cb(NETWORK_PROV_INIT, NULL, 0);
