@@ -1,4 +1,8 @@
 esp_cli_commands/test_apps:
+  disable_test:
+    - if: IDF_TARGET != "linux"
+      temporary: true
+      reason: "Only the Linux host test was enabled in the previous CI matrix; retain hardware build coverage"
   enable:
     - if: IDF_TARGET in ["esp32", "linux"]
 

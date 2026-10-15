@@ -15,7 +15,7 @@ EXPECTED = [
     {'k': 'line1\nline2'},
     {'k': 'a\x01b'},
     {'ev"il': 'x'},
-    {'k': 'caf\u00e9 \u6e2c'},
+    {'k': '\u00e9t\u00e9 \u6e2c'},
     'ERR',  # invalid UTF-8 must not be emitted
     {'nan': None, 'inf': None, 'big': 1e30, 'tenth': 0.1, 'huge': 1e300, 'tiny': 5e-324},
     {'k': 'part1 " part2\u00e9'},

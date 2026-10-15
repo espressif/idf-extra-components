@@ -1,0 +1,12 @@
+coap/examples/coap_client:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"
+  disable_test:
+    - if: IDF_TARGET != "esp32"
+      reason: Test requires the Ethernet runner (ESP32-ETHERNET-KIT), which is esp32-based
+
+coap/examples/coap_server:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"

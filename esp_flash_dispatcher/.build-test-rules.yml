@@ -1,4 +1,11 @@
 esp_flash_dispatcher/test_apps:
+  disable_test:
+    - if: IDF_TARGET != "esp32"
+      temporary: true
+      reason: "Only ESP32 generic was enabled in the previous CI matrix; other generic targets and the S3 Quad PSRAM environment remain build-only"
+    - if: IDF_TARGET == "esp32s2"
+      temporary: true
+      reason: "Flash core-dump collection requires ESP-IDF, which is absent from the hardware test container; teardown aborts and breaks subsequent tests"
   disable:
     - if: SOC_SPIRAM_XIP_SUPPORTED != 1
       reason: "This feature is only necessary on chips which have PSRAM, and can XIP from PSRAM"

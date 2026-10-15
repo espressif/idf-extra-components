@@ -1,0 +1,2 @@
+# Build the default configuration used by the generic and Quad PSRAM tests.
+# Keep the ESP32-C5 clock configuration as a separate CI variant.

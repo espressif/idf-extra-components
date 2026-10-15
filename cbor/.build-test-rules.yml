@@ -6,6 +6,10 @@ cbor/host_test:
       reason: test linux target on version >= 5.5 is sufficient
 
 cbor/examples/cbor:
+  disable_test:
+    - if: IDF_TARGET == "esp32c3"
+      temporary: true
+      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
   enable:
     - if: IDF_TARGET in ["esp32s3", "esp32c3"]
       reason: "Sufficient to test on representative Xtensa and RISC-V targets"

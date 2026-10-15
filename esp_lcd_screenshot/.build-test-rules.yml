@@ -1,4 +1,8 @@
 esp_lcd_screenshot/examples/lvgl_screenshot:
+  disable_test:
+    - if: IDF_TARGET == "esp32p4"
+      temporary: true
+      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
   enable:
     - if: IDF_TARGET in ["esp32", "esp32p4"]
       reason: "Sufficient to test on representative Xtensa and RISC-V targets"

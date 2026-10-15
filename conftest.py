@@ -1,5 +1,5 @@
 from _pytest.fixtures import FixtureRequest
-from pytest_embedded.plugin import multi_dut_argument, multi_dut_fixture
+from pytest_embedded.plugin import multi_dut_fixture
 import pytest
 import os
 import logging
@@ -20,19 +20,8 @@ def pytest_ignore_collect(collection_path, config):
 
     return False
 
-@pytest.fixture
-@multi_dut_argument
-def config(request: FixtureRequest) -> str:
-    """Fixture that provides the configuration for tests.
-
-    :param request: Pytest fixture request
-
-    :returns: Configuration string, defaults to 'default' if not specified
-    """
-    return getattr(request, 'param', None) or 'default'
-
-
-
+# config is provided by idf-ci. Keep build_dir's local skip-on-missing behavior;
+# the upstream fixture raises an error when no build directory exists.
 @pytest.fixture
 @multi_dut_fixture
 def build_dir(

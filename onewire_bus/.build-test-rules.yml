@@ -1,4 +1,8 @@
 onewire_bus/test_apps:
+  disable_test:
+    - if: IDF_TARGET not in ["esp32", "esp32s2", "esp32s3"]
+      temporary: true
+      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
   disable:
     - if: CONFIG_NAME == "rmt" and SOC_RMT_SUPPORTED != 1
       reason: RMT backend variant requires SOC RMT support

@@ -1,4 +1,8 @@
 xymodem/test_apps:
+  disable_test:
+    - if: IDF_TARGET == "esp32p4"
+      temporary: true
+      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
   enable:
     - if: IDF_TARGET in ["esp32s3", "esp32p4"]
       reason: "This loopback test needs at least 3 UARTs; S3 and P4 are enough to cover Xtensa and RISC-V"
@@ -14,3 +18,9 @@ xymodem/examples/xmodem:
       reason: "xymodem requires ESP-IDF v5.3 or later"
     - if: CONFIG_NAME in ["echo"] and IDF_TARGET not in ["esp32s3", "esp32p4"]
       reason: "Host-tool pytest uses USB Serial/JTAG console; covered on S3 and P4"
+  disable_test:
+    - if: CONFIG_NAME == "echo"
+      temporary: true
+      reason: "USB Serial/JTAG host-tool tests were not enabled in the previous CI matrix; enable after runner validation"
+    - if: IDF_TARGET not in ["esp32s3", "esp32p4"]
+      reason: "Host-tool pytest uses USB Serial/JTAG console; retain build coverage for other UART targets"

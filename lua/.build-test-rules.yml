@@ -1,4 +1,8 @@
 lua/examples/lua_blink:
+  disable_test:
+    - if: IDF_TARGET in ["esp32c3", "esp32c5"]
+      temporary: true
+      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
   enable:
     - if: IDF_TARGET in ["esp32", "esp32c3", "esp32c5"]
       reason: "Sufficient to test on one Xtensa and one RISC-V target"

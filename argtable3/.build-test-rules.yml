@@ -1,4 +1,8 @@
 argtable3/test_apps/argtable_unit_tests:
+  disable_test:
+    - if: IDF_TARGET == "esp32c3"
+      temporary: true
+      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
   disable:
     - if: IDF_TARGET not in ["esp32", "esp32c3"]
       reason: "Sufficient to test on one Xtensa and one RISC-V target"

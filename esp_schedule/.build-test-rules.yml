@@ -1,2 +1,9 @@
-# ESP Schedule build test rules
-# This file can be empty - the component will be built with default rules
+esp_schedule/test_app:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"
+    - if: IDF_VERSION_MAJOR < 5
+      reason: Example relies on WHOLE_ARCHIVE component property which was introduced in IDF v5.0
+  disable_test:
+    - if: IDF_TARGET != "esp32"
+      reason: "Preserve existing ESP32 runtime coverage for the date/time tests; other targets retain build coverage"

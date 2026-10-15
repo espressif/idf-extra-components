@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 @pytest.mark.generic
+@pytest.mark.parametrize('config', ['defaults'], indirect=['config'])
 @pytest.mark.parametrize('target', ['esp32s2', 'esp32s3'], indirect=['target'])
 def test_touch_element(dut: Dut) -> None:
     dut.run_all_single_board_cases(timeout=120)

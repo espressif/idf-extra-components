@@ -3,11 +3,17 @@ import os
 
 
 @pytest.mark.parametrize(
-    "marker",
+    "target, marker",
     [
-        pytest.param("qemu", marks=pytest.mark.qemu),
-        pytest.param("generic", marks=pytest.mark.generic),
+        # Hardware and QEMU share a binary, but support different test environments.
+        # An app-level disable_test for C3 would also disable its QEMU coverage.
+        pytest.param("esp32", "generic", marks=pytest.mark.generic),
+        pytest.param("esp32s2", "generic", marks=pytest.mark.generic),
+        pytest.param("esp32s3", "generic", marks=pytest.mark.generic),
+        pytest.param("esp32c3", "qemu", marks=pytest.mark.qemu),
+        pytest.param("esp32s3", "qemu", marks=pytest.mark.qemu),
     ],
+    indirect=["target"],
 )
 def test_esp_encrypted_img(dut, marker) -> None:
     binary_path = getattr(dut.app, "binary_path", None)

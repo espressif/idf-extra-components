@@ -6,6 +6,9 @@ from pathlib import Path
 
 
 @pytest.mark.generic
+# Unity reads commands from UART; the secondary USB Serial/JTAG console is output-only.
+# Use the same UART port selection as the xymodem tests.
+@pytest.mark.parametrize('port', [pytest.param('/dev/ttyUSB*', id='uart')], indirect=True)
 @pytest.mark.skipif(
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that did not build"

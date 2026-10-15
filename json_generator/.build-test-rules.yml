@@ -2,3 +2,6 @@ json_generator/test_apps:
   enable:
     - if: IDF_TARGET in ["esp32", "esp32c3"]
       reason: "Sufficient to test on one Xtensa and one RISC-V target"
+  disable_test:
+    - if: IDF_TARGET != "esp32"
+      reason: "Preserve existing ESP32 runtime coverage; ESP32-C3 retains build coverage until its tests are enabled"

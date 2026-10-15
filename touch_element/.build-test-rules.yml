@@ -1,6 +1,10 @@
 touch_element/test_apps/:
   enable:
     - if: IDF_TARGET in ["esp32s2", "esp32s3"]
+  disable_test:
+    - if: IDF_TARGET == "esp32s3" and CONFIG_NAME == "defaults"
+      temporary: true
+      reason: "This configuration uses USB Serial/JTAG console, but the generic runner reads UART; disable execution until console routing is configured"
 
 touch_element/examples/:
   enable:
