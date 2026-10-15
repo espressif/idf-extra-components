@@ -39,7 +39,7 @@ void run_lua(void)
 }
 ```
 
-See [examples/lua_example](examples/lua_example) for a complete ESP-IDF project, including loading a script from the filesystem.
+See [examples/lua_blink](examples/lua_blink) for a complete ESP-IDF project: one long-lived `lua_State`, firmware APIs exposed as C modules that scripts `require()`, and a LittleFS script that drives an LED strip.
 
 ## On ESP-IDF
 
