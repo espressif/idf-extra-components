@@ -10,7 +10,7 @@ Three phase currents that all wiggle? The Clarke and Park transforms turn them i
 - **Park / inverse Park** - stator axes to rotor axes (d/q) and back, so that a constant-speed machine gives you nearly constant values.
 - **Two numeric backends in the same firmware** - `float` for convenience, IQmath fixed-point for speed. Pick the backend with the coordinate type you pass in; the calls do not change.
 - **Every IQmath Q-format from `_iq8` to `_iq28` at the same time** - the format is picked from the types you pass in, so nothing has to be configured. Unused formats are dropped by the linker.
-- **Nothing to allocate, nothing to initialize** - the transforms are pure math.
+- **Optional CORDIC hardware acceleration** - on chips that have the peripheral, `clarke_park_enable_cordic()` moves Park `sin`/`cos` into hardware for the formats the peripheral can serve. Off by default, opt-in at run time.
 
 ## Add it to your project
 
@@ -25,6 +25,7 @@ idf.py add-dependency "espressif/clarke_park"
 
 void example(float theta_rad)
 {
+    // the float backend
     clarke_park_uvw_f_t uvw = { .u = 1.0f, .v = -0.5f, .w = -0.5f };
     clarke_park_ab_f_t ab;
     clarke_park_dq_f_t dq;
@@ -33,16 +34,16 @@ void example(float theta_rad)
     clarke_park_park(theta_rad, &ab, &dq); // alpha/beta -> d/q
 
     // the fixed-point backend uses the very same calls
-    clarke_park_uvw_iq_t uvw_iq = { .u = _IQ(1.0f), .v = _IQ(-0.5f), .w = _IQ(-0.5f) };
-    clarke_park_ab_iq_t ab_iq;
-    clarke_park_dq_iq_t dq_iq;
+    clarke_park_uvw_iq15_t uvw_iq = { .u = _IQ15(1.0f), .v = _IQ15(-0.5f), .w = _IQ15(-0.5f) };
+    clarke_park_ab_iq15_t ab_iq;
+    clarke_park_dq_iq15_t dq_iq;
 
     clarke_park_clarke(&uvw_iq, &ab_iq);
-    clarke_park_park(_IQ(theta_rad), &ab_iq, &dq_iq);
+    clarke_park_park(_IQ15(theta_rad), &ab_iq, &dq_iq);
 }
 ```
 
-`theta` is the electrical angle in radians: a `float` for the float backend, an `_iq` value for the unsuffixed fixed-point backend.
+`theta_rad` is the electrical angle in radians: a `float` for the float backend, an `_iqN` value for the fixed-point backend (use the `_IQN()` helper that matches the type).
 
 ## IQmath Q-formats
 
@@ -62,3 +63,19 @@ The unsuffixed `_iq` API follows `GLOBAL_IQ` of the translation unit that includ
 
 > [!NOTE]
 > IQmath `_iqN` scalars are all `int32_t`, so Park's angle must be converted with the matching `_IQN()` helper.
+
+## CORDIC hardware acceleration
+
+On a chip with the [CORDIC peripheral](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s31/api-reference/peripherals/cordic.html), ask for the hardware at start-up:
+
+```c
+#include "clarke_park.h"
+
+void app_main(void)
+{
+    /* Park transforms now use the CORDIC peripheral where it can serve them. */
+    ESP_ERROR_CHECK(clarke_park_enable_cordic());
+}
+```
+
+Without that call Park keeps using the IQmath software tables, which is the default.

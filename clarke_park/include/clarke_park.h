@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "esp_err.h"
 #include "IQmathLib.h"
 
 #ifdef __cplusplus
@@ -90,34 +91,38 @@ void clarke_park_ipark_f(float theta_rad, const clarke_park_dq_f_t *dq, clarke_p
  * - to declare the Q-format coordinate types and suffixed C API functions
  * - to declare the C++ overloads for the unsuffixed coordinate types
  * - to declare the C _Generic arms for the unsuffixed coordinate types
+ * CLARKE_PARK_IQ_FORMATS_WITH_Q15 lets an implementation provide a separate
+ * callback for Q15; the regular list passes the same callback for every format.
  *
  * Q1..Q7 are omitted: 2/3 and IQmath's IQ31-table sin/cos cannot
  * hold the unit-scale constants. Q29 is omitted: range [-4, 4)
  * cannot hold a radian angle of 2π. Q30 is omitted: no radian
  * _IQ30sin/_IQ30cos.
  */
-#define CLARKE_PARK_IQ_FORMATS(_E) \
-    _E(8)                          \
-    _E(9)                          \
-    _E(10)                         \
-    _E(11)                         \
-    _E(12)                         \
-    _E(13)                         \
-    _E(14)                         \
-    _E(15)                         \
-    _E(16)                         \
-    _E(17)                         \
-    _E(18)                         \
-    _E(19)                         \
-    _E(20)                         \
-    _E(21)                         \
-    _E(22)                         \
-    _E(23)                         \
-    _E(24)                         \
-    _E(25)                         \
-    _E(26)                         \
-    _E(27)                         \
+#define CLARKE_PARK_IQ_FORMATS_WITH_Q15(_E, _Q15) \
+    _E(8)                                         \
+    _E(9)                                         \
+    _E(10)                                        \
+    _E(11)                                        \
+    _E(12)                                        \
+    _E(13)                                        \
+    _E(14)                                        \
+    _Q15(15)                                      \
+    _E(16)                                        \
+    _E(17)                                        \
+    _E(18)                                        \
+    _E(19)                                        \
+    _E(20)                                        \
+    _E(21)                                        \
+    _E(22)                                        \
+    _E(23)                                        \
+    _E(24)                                        \
+    _E(25)                                        \
+    _E(26)                                        \
+    _E(27)                                        \
     _E(28)
+
+#define CLARKE_PARK_IQ_FORMATS(_E) CLARKE_PARK_IQ_FORMATS_WITH_Q15(_E, _E)
 
 /**
  * @brief Coordinate types and prototypes for one Q-format.
@@ -149,6 +154,39 @@ void clarke_park_ipark_f(float theta_rad, const clarke_park_dq_f_t *dq, clarke_p
 
 CLARKE_PARK_IQ_FORMATS(CLARKE_PARK_IQ_DECLARE)
 #undef CLARKE_PARK_IQ_DECLARE
+
+/**
+ * @brief Enable CORDIC sin/cos for the Park transform
+ *
+ * After this returns, Park / inverse Park that the CORDIC can serve take
+ * sin/cos from the peripheral. Other Q-formats and the float backend keep
+ * their software implementations. Call this during start-up, before any Park
+ * transform runs. Accelerated calls go through @c cordic_calculate_polling(),
+ * which serializes the CORDIC in a critical section (interrupts on the calling
+ * core are masked until the point finishes). This function itself is not
+ * thread safe and takes no lock.
+ *
+ * @return
+ *      - ESP_OK when the CORDIC engine is acquired
+ *      - ESP_ERR_NOT_SUPPORTED when the target has no CORDIC peripheral
+ *      - ESP_ERR_INVALID_STATE when the engine was created with the deprecated exclusive API
+ *      - ESP_ERR_NO_MEM / ESP_FAIL when the CORDIC engine could not be acquired
+ */
+esp_err_t clarke_park_enable_cordic(void);
+
+/**
+ * @brief Disable CORDIC sin/cos and release this component's CORDIC reference
+ *
+ * Subsequent Park transforms use the IQmath software tables. Call this during
+ * start-up or when no task or ISR may be inside a Park transform. The function
+ * is not thread safe and takes no lock.
+ *
+ * On a target without CORDIC this is a no-op: dispatch already uses IQmath
+ * and no engine is held.
+ *
+ * @return ESP_OK
+ */
+esp_err_t clarke_park_disable_cordic(void);
 
 /**
  * @brief Three-phase (U/V/W) coordinate of unsuffixed _iq types.
