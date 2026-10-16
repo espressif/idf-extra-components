@@ -33,7 +33,7 @@ SDK pipelines are independent.
 1. Add an SDK Docker tag to [ci-matrix.json](ci-matrix.json).
 2. Add the app and configurations: `sdkconfig.ci` for `default`,
    `sdkconfig.ci.<name>` for named variants. Adding a default can expand coverage;
-   do not add one merely to satisfy the consistency report.
+   do not add one merely to satisfy the `check_test_scripts_build_test_rules` report.
 3. Add `pytest_*.py` with explicit targets and environment markers:
 
    ```python
@@ -115,7 +115,7 @@ the local `build_dir` fixture's skip-on-missing behavior, and `idf-ci`'s `config
 
 | Artifact | Contents |
 | --- | --- |
-| `build_test_consistency_<pipeline_id>` | Native inventory per SDK; missing configurations are diagnostic, collection errors fail |
+| `check_test_scripts_build_test_rules_<pipeline_id>` | Native inventory per SDK; missing configurations are diagnostic, collection errors fail |
 | `build_report_<pipeline_id>` | Actual build statuses, configurations and reasons, including failures; incomplete metadata fails reporting |
 | `test_selection_<pipeline_id>` | Exact planned pytest node IDs |
 | `test_results_<pipeline_id>_<target>_<group>` | JUnit XML and SDK/target/environment/runner context |
@@ -129,7 +129,7 @@ appear in planning logs. Diagnostics stay separate from aggregation to avoid
 counting nested Unity XML twice; pytest failures retain their exit status.
 
 Each IDF version has one workflow summary after its build and test jobs finish.
-It combines stage statuses and links to the consistency, build and test reports.
+It combines stage statuses and links to the `check_test_scripts_build_test_rules`, build and test reports.
 Build-only and failed runs also receive a summary; unavailable reports are omitted.
 
 Require `CI Gate` for branch protection: failed/cancelled dependencies fail it,

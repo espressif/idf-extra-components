@@ -38,7 +38,7 @@ env:
 
 jobs:
   check:
-    name: Check build/test consistency
+    name: check_test_scripts_build_test_rules
     runs-on: ubuntu-22.04
     outputs:
       report_url: ${{ steps.upload.outputs.artifact-url }}
@@ -69,13 +69,13 @@ jobs:
         # SDK-specific exclusions are valid. Collection errors fail this job.
         run: |
           . "${IDF_PATH}/export.sh"
-          idf-ci build collect --format html --output build-test-consistency.html
-      - name: Upload consistency report
+          idf-ci build collect --format html --output check_test_scripts_build_test_rules.html
+      - name: Upload check_test_scripts_build_test_rules report
         id: upload
         uses: actions/upload-artifact@v6
         with:
-          name: build_test_consistency_${{ inputs.pipeline_id || inputs.idf_version }}
-          path: build-test-consistency.html
+          name: check_test_scripts_build_test_rules_${{ inputs.pipeline_id || inputs.idf_version }}
+          path: check_test_scripts_build_test_rules.html
           if-no-files-found: error
 
   generate:
@@ -359,21 +359,21 @@ jobs:
           PLAN_RESULT: ${{ needs.plan-tests.result }}
           TEST_RESULT: ${{ needs.test.result }}
           TEST_REPORT_RESULT: ${{ steps.render.outcome == 'success' && steps.upload.outcome || steps.render.outcome }}
-          CONSISTENCY_URL: ${{ needs.check.outputs.report_url }}
+          CHECK_REPORT_URL: ${{ needs.check.outputs.report_url }}
           BUILD_URL: ${{ needs.build-report.outputs.report_url }}
           TEST_URL: ${{ steps.upload.outputs.artifact-url }}
         run: |
           {
             printf '## ESP-IDF %s\n\n' "$IDF_VERSION"
             printf '| Stage | Status |\n| --- | --- |\n'
-            printf '| Build/test consistency | %s |\n' "$CHECK_RESULT"
+            printf '| check_test_scripts_build_test_rules | %s |\n' "$CHECK_RESULT"
             printf '| Build discovery | %s |\n' "$DISCOVERY_RESULT"
             printf '| Builds | %s |\n' "$BUILD_RESULT"
             printf '| Build report | %s |\n' "$BUILD_REPORT_RESULT"
             printf '| Test planning | %s |\n' "$PLAN_RESULT"
             printf '| Tests | %s |\n' "$TEST_RESULT"
             printf '| Test report | %s |\n\n' "$TEST_REPORT_RESULT"
-            if [ -n "$CONSISTENCY_URL" ]; then printf -- '- [Build/test consistency](%s)\n' "$CONSISTENCY_URL"; fi
+            if [ -n "$CHECK_REPORT_URL" ]; then printf -- '- [check_test_scripts_build_test_rules](%s)\n' "$CHECK_REPORT_URL"; fi
             if [ -n "$BUILD_URL" ]; then printf -- '- [Build report](%s)\n' "$BUILD_URL"; fi
             if [ -n "$TEST_URL" ]; then printf -- '- [Test report](%s)\n' "$TEST_URL"; fi
           } >> "$GITHUB_STEP_SUMMARY"
