@@ -14,11 +14,16 @@ def pytest_collection_modifyitems(config, items):
         return
     from idf_ci.idf_pytest.plugin import IdfPytestPlugin
 
+    audit = os.environ.get('IDF_CI_INCLUDE_DISABLED_TESTS') == '1' and config.getoption('collectonly')
+    if audit:
+        # idf-ci's report already understands this marker and its skip reason.
+        config.addinivalue_line('markers', 'temp_skip(targets, reason): disabled node retained for the coverage audit')
     selected, deselected = [], []
     conditions = {}
     for item in items:
         case = IdfPytestPlugin.get_case_by_item(item)
         disabled = False
+        reasons = []
         for marker in item.iter_markers('disable_test'):
             reason = marker.kwargs.get('reason')
             if len(marker.args) > 1 or set(marker.kwargs) - {'targets', 'configs', 'reason'}:
@@ -54,7 +59,12 @@ def pytest_collection_modifyitems(config, items):
                 for app in case.apps
             )):
                 disabled = True
+                reasons.append(reason)
                 logging.info('Deselecting %s: %s', item.nodeid, reason)
+        if disabled and audit and case:
+            item.add_marker(pytest.mark.temp_skip(targets=case.targets, reason='; '.join(reasons)))
+            selected.append(item)
+            continue
         (deselected if disabled else selected).append(item)
     items[:] = selected
     if deselected:

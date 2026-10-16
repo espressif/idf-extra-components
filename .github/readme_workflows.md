@@ -119,7 +119,7 @@ the local `build_dir` fixture's skip-on-missing behavior, and `idf-ci`'s `config
 
 | Artifact | Contents |
 | --- | --- |
-| `check_test_scripts_build_test_rules_<pipeline_id>` | Native inventory per SDK; missing configurations are diagnostic, collection errors fail |
+| `check_test_scripts_build_test_rules_<pipeline_id>` | Native HTML inventory and JSON coverage audit per SDK; enabled tests without build definitions fail, unexplained build-only variants warn |
 | `build_report_<pipeline_id>` | Actual build statuses, configurations and reasons, including failures; incomplete metadata fails reporting |
 | `test_selection_<pipeline_id>` | Exact planned pytest node IDs |
 | `test_results_<pipeline_id>_<target>_<group>` | JUnit XML and SDK/target/environment/runner context |
@@ -135,6 +135,31 @@ counting nested Unity XML twice; pytest failures retain their exit status.
 Each IDF version has one workflow summary after its build and test jobs finish.
 It combines stage statuses and links to the `check_test_scripts_build_test_rules`, build and test reports.
 Build-only and failed runs also receive a summary; unavailable reports are omitted.
+
+Coverage is checked per `(app, target, config)`, not just per target. Each build
+candidate should have an enabled test, an explicitly disabled test, or an explicit
+build-only declaration. Several tests can cover the same build. Disabled nodes
+are retained only for this audit, including their reasons; runtime discovery
+still excludes them. The audit checks definitions, not successful compilation
+or hardware execution. An unnamed build configuration matches pytest's `default`.
+
+For applications intentionally built without tests, an optional
+`.github/build-only-apps.json` records the reason. Entries match an exact app
+directory; an optional `condition` uses the same IDF boolean expressions as
+test exclusions:
+
+```json
+[
+  {
+    "app": "component/examples/compile_only_example",
+    "condition": "CONFIG_NAME == \"default\"",
+    "reason": "Compilation example; no automated runtime test is provided"
+  }
+]
+```
+
+Without a declaration, a build without tests produces a warning. A declaration
+never hides an enabled test referencing a missing build configuration.
 
 Require `CI Gate` for branch protection: failed/cancelled dependencies fail it,
 intentional skips do not. `PR: build only` disables tests; `PR: test all apps`

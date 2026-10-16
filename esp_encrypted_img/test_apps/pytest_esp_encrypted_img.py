@@ -2,6 +2,10 @@ import pytest
 import os
 
 
+@pytest.mark.disable_test(
+    'CONFIG_NAME == "default"',
+    reason='No default build configuration is defined; only ds_peripheral is built. Enable after aligning the test configuration.',
+)
 @pytest.mark.parametrize(
     "target, marker",
     [

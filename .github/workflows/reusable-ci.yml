@@ -65,17 +65,19 @@ jobs:
           . "${IDF_PATH}/export.sh"
           pip install -r "$IDF_CI_TOOLS_PATH/requirements.txt"
       - name: Compare build configurations and pytest cases
-        # Coverage differences are reported, not forbidden: build-only apps and
-        # SDK-specific exclusions are valid. Collection errors fail this job.
+        # Missing build definitions fail; unexplained build-only variants warn.
         run: |
           . "${IDF_PATH}/export.sh"
-          idf-ci build collect --format html --output check_test_scripts_build_test_rules.html
+          python3 "$IDF_CI_TOOLS_PATH/check_test_coverage.py" --output check_test_scripts_build_test_rules.html
       - name: Upload check_test_scripts_build_test_rules report
         id: upload
+        if: always() && hashFiles('check_test_scripts_build_test_rules.html') != ''
         uses: actions/upload-artifact@v6
         with:
           name: check_test_scripts_build_test_rules_${{ inputs.pipeline_id || inputs.idf_version }}
-          path: check_test_scripts_build_test_rules.html
+          path: |
+            check_test_scripts_build_test_rules.html
+            check_test_scripts_build_test_rules.json
           if-no-files-found: error
 
   generate:
