@@ -20,3 +20,5 @@ def test_onewire_bus(dut: Dut, config: str) -> None:
         raise ValueError(f'Unknown test config: {config}')
     dut.expect_exact('test-app: Device iterator created, start searching')
     dut.expect_exact('test-app: Searching done')
+    dut.expect_exact('test-app: Family device iterator created, start searching')
+    dut.expect_exact('test-app: Family searching done')
