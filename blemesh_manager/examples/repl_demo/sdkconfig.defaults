@@ -1,0 +1,40 @@
+# BLE Mesh Manager example — sdkconfig defaults.
+#
+# Only what the component's Kconfig (BLEMESH_MGR_ENABLE) cannot provide lives
+# here: the BT-host choice, numeric tunables (select can't set int values),
+# and app/board policy. The mesh role + all Client models + SETTINGS + RECV_HB
+# are select'ed by the component, so they are intentionally NOT repeated below.
+
+# App / board policy
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
+CONFIG_FREERTOS_HZ=1000
+
+# BLE host — application choice (the component is host-agnostic; this is a
+# Kconfig `choice` and cannot be select'ed). NimBLE is lighter and is what the
+# manager was tuned on; swap to CONFIG_BT_BLUEDROID_ENABLED=y to use Bluedroid.
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_LOG_LEVEL_WARNING=y
+
+# Provisioner only (can't be expressed as a select — it's a `=n`).
+CONFIG_BLE_MESH_NODE=n
+
+# Mesh-stack scan duplicate filtering — critical with many beaconing nodes.
+# Without it the host is flooded with duplicate adv reports, which stalls
+# connection attempts (cancelled GATT connects) and provisioning.
+# The controller-level knobs live in the per-target defaults files because the
+# symbols differ by chip: esp32 uses BTDM_* (sdkconfig.defaults.esp32), every
+# other chip uses BT_CTRL_* (sdkconfig.defaults.btctrl, wired in CMakeLists).
+CONFIG_BLE_MESH_USE_DUPLICATE_SCAN=y
+CONFIG_BLE_MESH_SUPPORT_BLE_ADV=y
+
+# Numeric tunables — `select` can't set int values, so these stay app-side.
+# Segmentation + cache budgets for back-to-back Config Client bursts.
+CONFIG_BLE_MESH_TX_SEG_MSG_COUNT=8
+CONFIG_BLE_MESH_RX_SEG_MSG_COUNT=8
+CONFIG_BLE_MESH_MSG_CACHE_SIZE=20
+# Stack fallback timeout (used only where a caller passes msg_timeout=0). The
+# manager paths pass cfg.set_confirm_timeout_ms explicitly — see app_main.
+CONFIG_BLE_MESH_CLIENT_MSG_TIMEOUT=10000
+CONFIG_BLE_MESH_MAX_PROV_NODES=20
