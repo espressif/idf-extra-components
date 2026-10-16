@@ -10,7 +10,7 @@ flowchart LR
     discover --> build[Build target/shard jobs]
     build --> metadata[Actual build results]
     metadata --> buildreport[HTML build report]
-    metadata --> plan[Select built, manifest-enabled pytest cases]
+    metadata --> plan[Select built, enabled pytest cases]
     plan --> tests[Nonempty target + environment jobs]
     tests --> report[JUnit + HTML reports]
     report --> gate[CI Gate]
@@ -23,8 +23,8 @@ app/configuration variants, including apps without tests. Dependency filtering
 may leave a shard with fewer builds or none.
 
 After all builds for an SDK succeed, test planning intersects successful
-`(app, target, config)` records, manifest test permissions and collected pytest
-cases. Every required app must qualify. Empty groups create no test jobs;
+`(app, target, config)` records and collected pytest cases. Pytest `disable_test`
+markers exclude nodes during discovery. Every required app must qualify. Empty groups create no test jobs;
 missing metadata or runtime collection differing from planned node IDs fails CI.
 SDK pipelines are independent.
 
@@ -43,23 +43,27 @@ SDK pipelines are independent.
        dut.run_all_single_board_cases()
    ```
 
-Parameterize `config` for named variants. Keep SDK/target restrictions in the
+Parameterize `config` for named variants. Keep build restrictions in the
 component's `.build-test-rules.yml`, registered in `.idf_build_apps.toml`:
 
 ```yaml
 component/test_apps:
-  disable_test:
-    - if: IDF_TARGET == "esp32" and IDF_VERSION_MAJOR == 5
-      temporary: true
-      reason: "Describe the failure and reference its investigation or CI run"
+  disable:
+    - if: CONFIG_NAME == "rmt" and SOC_RMT_SUPPORTED != 1
+      reason: RMT configuration requires RMT hardware
 ```
 
-`disable` prevents builds and tests; `disable_test` keeps builds. Linux is a
+`disable` prevents builds and tests. To retain builds but disable runtime tests,
+add `@pytest.mark.disable_test('IDF_TARGET == "esp32" and IDF_VERSION_MAJOR == 5',
+reason='Describe the failure and reference its investigation or CI run')` to the
+pytest function. Shared rules can be placed in a module's `pytestmark` list.
+Linux is a
 default build target, so use `disable` with `IDF_TARGET == "linux"` for apps
 whose host builds are not enabled. A more specific folder rule replaces its
 parent: update the existing rule, since rules are not merged across folders.
-Restrictions apply to whole app variants, including hardware and QEMU cases
-sharing a binary. There are no pytest version markers or central target allowlists.
+Build restrictions apply to whole app variants. Test markers apply to individual
+functions or parameter variants, so hardware and QEMU can be disabled separately
+even when they share a binary. There is no central target allowlist.
 Temporary exclusions do not expire automatically or prove a target unsupported.
 Explicit pytest targets can expose previously undiscovered tests: validate new coverage.
 
@@ -74,7 +78,7 @@ Multi-DUT and QEMU targets other than S3/C3 fail planning.
 
 Declare valid target/environment pairs in pytest, as in `esp_encrypted_img`:
 ESP32/S2/S3 use `generic`, C3/S3 use `qemu`. Enable additional targets by updating
-their manifest restrictions and checking runner availability.
+their test exclusion markers and checking runner availability.
 
 ## Reusing the workflow
 
@@ -124,8 +128,8 @@ the local `build_dir` fixture's skip-on-missing behavior, and `idf-ci`'s `config
 
 Extract HTML artifacts and open locally. Test counts describe recorded
 JUnit/Unity cases, not Python functions. Missing XML remains visible; absent
-cases are never invented as passed or skipped. Manifest-disabled/unbuilt cases
-appear in planning logs. Diagnostics stay separate from aggregation to avoid
+cases are never invented as passed or skipped. Disabled nodes are deselected
+during collection; unbuilt variants are excluded during planning. Diagnostics stay separate from aggregation to avoid
 counting nested Unity XML twice; pytest failures retain their exit status.
 
 Each IDF version has one workflow summary after its build and test jobs finish.
@@ -138,6 +142,43 @@ and global CI/config changes request full builds. Fork/Dependabot runs retain
 summaries without attempting privileged result publishing.
 
 ## Local validation
+
+To disable a particular pytest function or parameter variant during discovery,
+use a test marker (not an environment/runner marker):
+
+```python
+@pytest.mark.disable_test(
+    targets=['esp32c3'], configs=['rmt'], reason='Waiting for runner validation',
+)
+@pytest.mark.parametrize('config', ['rmt', 'uart'], indirect=True)
+@pytest.mark.parametrize('target', ['esp32', 'esp32c3'], indirect=True)
+def test_onewire_bus(dut, config):
+    ...
+```
+
+This removes only the ESP32-C3/RMT node before `idf-ci` groups test jobs.
+Selectors are combined with AND; values within a selector are alternatives.
+Omit a selector to match any value, or omit both to disable the whole test.
+Markers can also be placed on `pytest.param`; multiple matching rules disable
+the node. A reason is required and logged during collection. These rules also
+apply to local pytest runs. Test exclusions live beside tests; build eligibility
+stays in manifests. A marker cannot enable testing of an unbuilt application.
+
+The optional first argument uses the same boolean parser as manifest `if` rules:
+
+```python
+@pytest.mark.disable_test(
+    'CONFIG_NAME == "rmt" and (IDF_VERSION < "5.5" or SOC_RMT_SUPPORTED != 1)',
+    reason='RMT needs a supported SDK and target',
+)
+```
+
+Expressions support `IDF_TARGET`, `CONFIG_NAME`, `IDF_VERSION`, version parts,
+and the SDK's SoC capabilities, with manifest operators such as `and`, `or`,
+`in` and comparisons. Conditions and optional target/config selectors must
+match the same application. Syntax errors fail collection. Discovery evaluates
+conditions inside the selected SDK; CI workers use the frozen `TEST_NODES`
+selection instead of re-evaluating them without an SDK.
 
 ```sh
 python3 -m unittest discover -s .github/tests -p 'test_*.py'

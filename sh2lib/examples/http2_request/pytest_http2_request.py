@@ -28,6 +28,10 @@ def is_test_server_available():  # type: () -> bool
         conn.close()
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET != "esp32"',
+    reason='Test requires the Ethernet runner (ESP32-ETHERNET-KIT), which is esp32-based',
+)
 @pytest.mark.ethernet
 @pytest.mark.parametrize('target', ['esp32'], indirect=['target'])
 def test_examples_protocol_http2_request(dut: Dut) -> None:

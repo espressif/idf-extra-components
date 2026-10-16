@@ -2,10 +2,3 @@ esp_jpeg/test_apps:
   disable:
     - if: IDF_TARGET == "linux"
       reason: "Linux builds are not enabled; preserve existing CI coverage"
-  disable_test:
-    - if: IDF_TARGET not in ["esp32", "esp32s2", "esp32s3"]
-      temporary: true
-      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
-    - if: IDF_TARGET == "esp32s3"
-      temporary: true
-      reason: "Newly selectable ESP32-S3 tests hit serial write timeouts (CI run 38376778030); retain builds pending runner/board investigation"

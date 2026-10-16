@@ -10,10 +10,6 @@ esp_encrypted_img/examples/pre_encrypted_ota:
   enable:
     - if: IDF_TARGET in ["esp32", "esp32s3"]
       reason: ESP32 runs RSA OTA encryption test, ESP32-S3 runs ECC OTA encryption test
-  disable_test:
-    - if: IDF_TARGET == "esp32s3" and CONFIG_NAME in ["default", "partial_download"]
-      temporary: true
-      reason: "Newly selectable ESP32-S3 OTA tests time out waiting for Magic Verified (CI run 38376778030); retain builds pending investigation"
 
 sh2lib/examples/http2_request:
   enable:
@@ -22,9 +18,6 @@ sh2lib/examples/http2_request:
   disable:
     - if: IDF_TARGET == "linux"
       reason: "Linux builds are not enabled; preserve existing CI coverage"
-  disable_test:
-    - if: IDF_TARGET != "esp32"
-      reason: Test requires the Ethernet runner (ESP32-ETHERNET-KIT), which is esp32-based
 
 esp_jpeg/examples/get_started:
   enable:
@@ -65,9 +58,6 @@ spi_nand_flash/test_app:
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
     - if: IDF_VERSION_MAJOR < 6 and CONFIG_NAME == "bdl"
       reason: BDL support requires the esp_blockdev interface, available starting from IDF version v6.0.
-  disable_test: &spi-nand-test-rules
-    - if: IDF_TARGET != "esp32"
-      reason: Test requires the spi_nand_flash runner, which is available only for esp32
 
 spi_nand_flash/host_test:
   enable:
@@ -82,7 +72,6 @@ spi_nand_flash_fatfs/examples/nand_flash:
       reason: "Linux builds are not enabled; preserve existing CI coverage"
     - if: IDF_VERSION_MAJOR < 5
       reason: The spi_nand_flash component is compatible with IDF version v5.0 and above, due to a change in the f_mkfs API in versions above v5.0, which is not supported in older IDF versions.
-  disable_test: *spi-nand-test-rules
 
 spi_nand_flash_fatfs/examples/nand_flash_bdl:
   disable:
@@ -90,7 +79,6 @@ spi_nand_flash_fatfs/examples/nand_flash_bdl:
       reason: "Linux builds are not enabled; preserve existing CI coverage"
     - if: IDF_VERSION_MAJOR < 6 or (IDF_VERSION_MAJOR == 6 and IDF_VERSION_MINOR < 1)
       reason: BDL FatFS example uses esp_vfs_fat_bdl_mount / diskio_bdl, available from ESP-IDF v6.1+.
-  disable_test: *spi-nand-test-rules
 
 spi_nand_flash_fatfs/examples/nand_flash_debug_app:
   disable:

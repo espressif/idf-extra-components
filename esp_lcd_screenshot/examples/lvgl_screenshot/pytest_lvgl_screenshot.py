@@ -176,6 +176,10 @@ def assert_image_matches_golden(result_image: RgbImage, golden_path: Path) -> No
     )
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET == "esp32p4"',
+    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
+)
 @pytest.mark.generic
 @idf_parametrize('target', ['esp32', 'esp32p4'], indirect=['target'])
 def test_lvgl_screenshot_example_generic(dut: Dut) -> None:

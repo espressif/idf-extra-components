@@ -1,8 +1,4 @@
 fmt/examples/hello_fmt:
-  disable_test:
-    - if: IDF_TARGET == "esp32c5"
-      temporary: true
-      reason: "Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation"
   enable:
     - if: IDF_TARGET in ["linux", "esp32s3", "esp32c5"]
       reason: "Host plus representative Xtensa and RISC-V targets"

@@ -5,6 +5,62 @@ import os
 import logging
 import typing as t
 
+
+def pytest_collection_modifyitems(config, items):
+    """Exclude disabled variants before idf-ci records cases and groups jobs."""
+    # Workers execute the frozen post-build plan without an installed ESP-IDF.
+    # Re-evaluating SDK/SoC conditions there could change the selected nodes.
+    if os.environ.get('TEST_NODES'):
+        return
+    from idf_ci.idf_pytest.plugin import IdfPytestPlugin
+
+    selected, deselected = [], []
+    conditions = {}
+    for item in items:
+        case = IdfPytestPlugin.get_case_by_item(item)
+        disabled = False
+        for marker in item.iter_markers('disable_test'):
+            reason = marker.kwargs.get('reason')
+            if len(marker.args) > 1 or set(marker.kwargs) - {'targets', 'configs', 'reason'}:
+                raise pytest.UsageError(f'{item.nodeid}: disable_test accepts one condition plus targets, configs and reason')
+            if not isinstance(reason, str) or not reason.strip():
+                raise pytest.UsageError(f'{item.nodeid}: disable_test requires a non-empty reason')
+            condition = None
+            if marker.args:
+                expression = marker.args[0]
+                if not isinstance(expression, str) or not expression.strip():
+                    raise pytest.UsageError(f'{item.nodeid}: disable_test condition must be a non-empty string')
+                from esp_bool_parser import parse_bool_expr
+                from esp_bool_parser.utils import InvalidIfClause
+                from pyparsing import ParseBaseException
+
+                try:
+                    if expression not in conditions:
+                        conditions[expression] = parse_bool_expr(expression)
+                    condition = conditions[expression]
+                except (ParseBaseException, InvalidIfClause) as error:
+                    raise pytest.UsageError(f'{item.nodeid}: disable_test: {error}') from error
+            for key in ('targets', 'configs'):
+                if key in marker.kwargs:
+                    values = marker.kwargs[key]
+                    if not isinstance(values, (list, tuple)) or not values or any(
+                        not isinstance(value, str) or not value for value in values
+                    ):
+                        raise pytest.UsageError(f'{item.nodeid}: disable_test {key} must be a non-empty list of strings')
+            targets, configs = marker.kwargs.get('targets'), marker.kwargs.get('configs')
+            if (condition is None and targets is None and configs is None) or (case and any(
+                (targets is None or app.target in targets) and (configs is None or app.config in configs)
+                and (condition is None or condition.get_value(app.target, app.config))
+                for app in case.apps
+            )):
+                disabled = True
+                logging.info('Deselecting %s: %s', item.nodeid, reason)
+        (deselected if disabled else selected).append(item)
+    items[:] = selected
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+
+
 @pytest.hookimpl(tryfirst=True)  # run early
 def pytest_ignore_collect(collection_path, config):
     ignoring = config.getoption("ignore") or []

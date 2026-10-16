@@ -6,6 +6,10 @@ import glob
 from pathlib import Path
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET == "esp32s3" and CONFIG_NAME == "defaults"',
+    reason='This configuration uses USB Serial/JTAG console, but the generic runner reads UART; disable execution until console routing is configured',
+)
 @pytest.mark.generic
 @pytest.mark.parametrize('config', ['defaults'], indirect=['config'])
 @pytest.mark.parametrize('target', ['esp32s2', 'esp32s3'], indirect=['target'])
