@@ -40,6 +40,8 @@ jobs:
   check:
     name: Check build/test consistency
     runs-on: ubuntu-22.04
+    outputs:
+      report_url: ${{ steps.upload.outputs.artifact-url }}
     container: espressif/idf:${{ inputs.idf_version }}
     steps:
       - uses: actions/checkout@v5
@@ -75,10 +77,6 @@ jobs:
           name: build_test_consistency_${{ inputs.pipeline_id || inputs.idf_version }}
           path: build-test-consistency.html
           if-no-files-found: error
-      - name: Link consistency report
-        env:
-          REPORT_URL: ${{ steps.upload.outputs.artifact-url }}
-        run: echo "[Download build/test consistency report]($REPORT_URL)" >> "$GITHUB_STEP_SUMMARY"
 
   generate:
     name: Discover build candidates
@@ -151,6 +149,8 @@ jobs:
 
   build-report:
     name: Build report
+    outputs:
+      report_url: ${{ steps.upload.outputs.artifact-url }}
     needs: [generate, build]
     # Also report failed and build-only runs; never turn missing data into success.
     if: always() && needs.generate.result == 'success'
@@ -182,13 +182,6 @@ jobs:
           name: build_report_${{ inputs.pipeline_id || inputs.idf_version }}
           path: build-report.html
           if-no-files-found: error
-      - name: Link report in job summary
-        if: always() && steps.upload.outcome == 'success'
-        env:
-          REPORT_URL: ${{ steps.upload.outputs.artifact-url }}
-          IDF_VERSION: ${{ inputs.idf_version }}
-        run: |
-          printf '### Build report — %s\n\n[Download HTML report](%s)\n\nExtract and open `build-report.html` locally.\n' "$IDF_VERSION" "$REPORT_URL" >> "$GITHUB_STEP_SUMMARY"
 
   plan-tests:
     name: Plan tests from build results
@@ -322,21 +315,26 @@ jobs:
             test-context.json
           if-no-files-found: warn
 
-  test-report:
-    name: Test report
-    needs: [plan-tests, test]
-    # Report failed/cancelled test jobs too, but do not create empty report jobs.
-    if: always() && inputs.run_tests && needs.plan-tests.result == 'success' && needs.plan-tests.outputs.has_tests == 'true'
+  version-report:
+    name: Results (${{ inputs.idf_version }})
+    needs: [check, generate, build, build-report, plan-tests, test]
+    # One summary after all stages, including build-only and failed pipelines.
+    if: always()
     runs-on: ubuntu-22.04
+    env:
+      REPORT_TESTS: ${{ inputs.run_tests && needs.plan-tests.result == 'success' && needs.plan-tests.outputs.has_tests == 'true' }}
     steps:
       - *checkout-ci-helpers
       - name: Download this version's test results
+        if: env.REPORT_TESTS == 'true'
         uses: actions/download-artifact@v7
         continue-on-error: true
         with:
           pattern: test_results_${{ inputs.pipeline_id || inputs.idf_version }}_*
           path: ci-test-results
       - name: Generate HTML report
+        if: env.REPORT_TESTS == 'true'
+        id: render
         env:
           IDF_VERSION: ${{ inputs.idf_version }}
           TEST_RESULT: ${{ needs.test.result }}
@@ -350,10 +348,32 @@ jobs:
           name: test_report_${{ inputs.pipeline_id || inputs.idf_version }}
           path: test-report.html
           if-no-files-found: error
-      - name: Link test report
-        if: always() && steps.upload.outcome == 'success'
+      - name: Summarize this IDF version
+        if: always()
         env:
-          REPORT_URL: ${{ steps.upload.outputs.artifact-url }}
           IDF_VERSION: ${{ inputs.idf_version }}
+          CHECK_RESULT: ${{ needs.check.result }}
+          DISCOVERY_RESULT: ${{ needs.generate.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          BUILD_REPORT_RESULT: ${{ needs.build-report.result }}
+          PLAN_RESULT: ${{ needs.plan-tests.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          TEST_REPORT_RESULT: ${{ steps.render.outcome == 'success' && steps.upload.outcome || steps.render.outcome }}
+          CONSISTENCY_URL: ${{ needs.check.outputs.report_url }}
+          BUILD_URL: ${{ needs.build-report.outputs.report_url }}
+          TEST_URL: ${{ steps.upload.outputs.artifact-url }}
         run: |
-          printf '### Test report — %s\n\n[Download HTML report](%s)\n' "$IDF_VERSION" "$REPORT_URL" >> "$GITHUB_STEP_SUMMARY"
+          {
+            printf '## ESP-IDF %s\n\n' "$IDF_VERSION"
+            printf '| Stage | Status |\n| --- | --- |\n'
+            printf '| Build/test consistency | %s |\n' "$CHECK_RESULT"
+            printf '| Build discovery | %s |\n' "$DISCOVERY_RESULT"
+            printf '| Builds | %s |\n' "$BUILD_RESULT"
+            printf '| Build report | %s |\n' "$BUILD_REPORT_RESULT"
+            printf '| Test planning | %s |\n' "$PLAN_RESULT"
+            printf '| Tests | %s |\n' "$TEST_RESULT"
+            printf '| Test report | %s |\n\n' "$TEST_REPORT_RESULT"
+            if [ -n "$CONSISTENCY_URL" ]; then printf -- '- [Build/test consistency](%s)\n' "$CONSISTENCY_URL"; fi
+            if [ -n "$BUILD_URL" ]; then printf -- '- [Build report](%s)\n' "$BUILD_URL"; fi
+            if [ -n "$TEST_URL" ]; then printf -- '- [Test report](%s)\n' "$TEST_URL"; fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -128,6 +128,10 @@ cases are never invented as passed or skipped. Manifest-disabled/unbuilt cases
 appear in planning logs. Diagnostics stay separate from aggregation to avoid
 counting nested Unity XML twice; pytest failures retain their exit status.
 
+Each IDF version has one workflow summary after its build and test jobs finish.
+It combines stage statuses and links to the consistency, build and test reports.
+Build-only and failed runs also receive a summary; unavailable reports are omitted.
+
 Require `CI Gate` for branch protection: failed/cancelled dependencies fail it,
 intentional skips do not. `PR: build only` disables tests; `PR: test all apps`
 and global CI/config changes request full builds. Fork/Dependabot runs retain
