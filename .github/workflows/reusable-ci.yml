@@ -42,14 +42,14 @@ jobs:
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ inputs.idf_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: 'true'
       # Fetch helpers from this workflow's revision, not the caller's checkout.
       # Remote action staging follows dangling submodule symlinks in this repo.
       - &checkout-ci-helpers
         name: Checkout shared CI helpers
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -70,7 +70,7 @@ jobs:
           idf-ci build collect --format html --output build-test-consistency.html
       - name: Upload consistency report
         id: upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build_test_consistency_${{ inputs.pipeline_id || inputs.idf_version }}
           path: build-test-consistency.html
@@ -89,7 +89,7 @@ jobs:
       build_matrix: ${{ steps.gen.outputs.build_matrix }}
       has_builds: ${{ steps.gen.outputs.has_builds }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: 'true'
       - *checkout-ci-helpers
@@ -110,7 +110,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: espressif/idf:${{ inputs.idf_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: 'true'
       - *checkout-ci-helpers
@@ -131,7 +131,7 @@ jobs:
           python3 "$IDF_CI_TOOLS_PATH/run_build.py" --target "$IDF_TARGET_NAME" --parallel-index ${{ matrix.parallel_index }} --parallel-count ${{ matrix.parallel_count }} --build-info build_info_${{ matrix.idf_target }}_${{ matrix.parallel_index }}.json
       - name: Upload build results
         if: always() && hashFiles(format('build_info_{0}_{1}.json', matrix.idf_target, matrix.parallel_index)) != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build_info_${{ inputs.pipeline_id || inputs.idf_version }}_${{ matrix.idf_target }}_${{ matrix.parallel_index }}
           path: build_info_${{ matrix.idf_target }}_${{ matrix.parallel_index }}.json
@@ -142,7 +142,7 @@ jobs:
         run: |
           . "${IDF_PATH}/export.sh"
           python3 "$IDF_CI_TOOLS_PATH/package_binaries.py" build_info_${{ matrix.idf_target }}_${{ matrix.parallel_index }}.json app_binaries_${{ matrix.idf_target }}_${{ matrix.parallel_index }}.tar
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: inputs.run_tests && steps.package.outputs.has_binaries == 'true'
         with:
           name: app_binaries_${{ inputs.pipeline_id || inputs.idf_version }}_${{ matrix.idf_target }}_${{ matrix.parallel_index }}
@@ -156,13 +156,13 @@ jobs:
     if: always() && needs.generate.result == 'success'
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - *checkout-ci-helpers
       - name: Download build results
         if: needs.generate.outputs.has_builds == 'true'
         # Render the missing-shard diagnostics even if the download fails.
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: build_info_${{ inputs.pipeline_id || inputs.idf_version }}_*
           path: ci-build-results
@@ -177,7 +177,7 @@ jobs:
       - name: Upload HTML report
         id: upload
         if: always() && hashFiles('build-report.html') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build_report_${{ inputs.pipeline_id || inputs.idf_version }}
           path: build-report.html
@@ -200,13 +200,13 @@ jobs:
       test_matrix: ${{ steps.gen.outputs.test_matrix }}
       has_tests: ${{ steps.gen.outputs.has_tests }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: 'true'
       - *checkout-ci-helpers
       - *install-collection-tools
       - name: Download build results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: build_info_${{ inputs.pipeline_id || inputs.idf_version }}_*
           path: ci-build-results
@@ -219,7 +219,7 @@ jobs:
           . "${IDF_PATH}/export.sh"
           python3 "$IDF_CI_TOOLS_PATH/generate_test_matrix.py" ci-build-results
       - name: Upload test selection
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test_selection_${{ inputs.pipeline_id || inputs.idf_version }}
           path: test-selection.json
@@ -245,9 +245,9 @@ jobs:
             apt-get update
             apt-get install -y --no-install-recommends git
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - *checkout-ci-helpers
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: app_binaries_${{ inputs.pipeline_id || inputs.idf_version }}_${{ matrix.idf_target }}_*
           merge-multiple: true
@@ -305,7 +305,7 @@ jobs:
           Path('test-context.json').write_text(json.dumps(context))
           PY
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: ${{ env.TEST_RESULT_NAME }}
@@ -313,7 +313,7 @@ jobs:
             ${{ env.TEST_RESULT_FILE }}
             test-context.json
       - name: Upload test diagnostics
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always() && steps.run_apps.outcome == 'failure'
         with:
           name: test_diagnostics_${{ inputs.pipeline_id || inputs.idf_version }}_${{ matrix.idf_target }}_${{ matrix.id }}
@@ -331,7 +331,7 @@ jobs:
     steps:
       - *checkout-ci-helpers
       - name: Download this version's test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         continue-on-error: true
         with:
           pattern: test_results_${{ inputs.pipeline_id || inputs.idf_version }}_*
@@ -345,7 +345,7 @@ jobs:
       - name: Upload HTML report
         id: upload
         if: always() && hashFiles('test-report.html') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test_report_${{ inputs.pipeline_id || inputs.idf_version }}
           path: test-report.html

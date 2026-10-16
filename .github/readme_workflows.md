@@ -69,7 +69,7 @@ Explicit pytest targets can expose previously undiscovered tests: validate new c
 target, environment and runner tags. The GitHub adapter adds `self-hosted`,
 `linux`, `docker`, retains custom requirements, and maps ESP32 Ethernet to
 `ESP32-ETHERNET-KIT`. QEMU uses Docker runners without physical target labels;
-Linux uses `ubuntu-latest`. Their embedded services are `idf,qemu` and `idf`.
+Linux uses `ubuntu-24.04`. Their embedded services are `idf,qemu` and `idf`.
 Multi-DUT and QEMU targets other than S3/C3 fail planning.
 
 Declare valid target/environment pairs in pytest, as in `esp_encrypted_img`:

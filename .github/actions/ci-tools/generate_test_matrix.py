@@ -51,7 +51,7 @@ def resolve_runner(target, markers, runner_tags):
         tags -= {target, 'qemu'}
         pytest_args = '--embedded-services idf,qemu'
     elif target == 'linux':
-        labels = ['ubuntu-latest']
+        labels = ['ubuntu-24.04']
         tags.discard(target)
         pytest_args = '--embedded-services idf'
     elif target == 'esp32':

@@ -65,7 +65,7 @@ class TestMatrixTests(unittest.TestCase):
             hardware, = self.matrix(case(target=target))
             self.assertEqual(hardware['pytest_args'], '')
         linux, = self.matrix(case(target='linux', markers=[], host=True))
-        self.assertEqual(linux['runner_labels'], ['ubuntu-latest'])
+        self.assertEqual(linux['runner_labels'], ['ubuntu-24.04'])
         self.assertEqual(linux['pytest_args'], '--embedded-services idf')
         self.assertEqual(linux['markers'], ['host_test'])
         self.assertFalse(linux['setup_qemu'])
