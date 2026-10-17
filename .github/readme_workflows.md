@@ -142,6 +142,10 @@ build-only declaration. Several tests can cover the same build. Disabled nodes
 are retained only for this audit, including their reasons; runtime discovery
 still excludes them. The audit checks definitions, not successful compilation
 or hardware execution. An unnamed build configuration matches pytest's `default`.
+Tests for an existing app on targets absent from the selected SDK are listed as
+`unsupported`, rather than missing build definitions. The SDK's preview targets
+and Linux remain in scope. Missing app paths and missing configurations on known
+targets still fail, with the exact app, target, config and test IDs in the log.
 
 For applications intentionally built without tests, an optional
 `.github/build-only-apps.json` records the reason. Entries match an exact app

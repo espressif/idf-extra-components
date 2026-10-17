@@ -12,9 +12,18 @@ def app_key(path, target, config):
     return str(Path(path).resolve()), target, config or 'default'
 
 
-def classify(projects, buildable, build_only):
+def report_errors(errors):
+    for error in errors:
+        message = (f'{error["app"]} (target={error["target"]}, config={error["config"]}): '
+                   f'no build definition for {", ".join(error["tests"])}')
+        # Escape workflow-command data so paths and node IDs remain literal.
+        message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+        print(f'::error title=Tests without build definitions::{message}')
+
+
+def classify(projects, buildable, build_only, sdk_targets):
     """Several cases may cover one variant; disabled cases also explain coverage."""
-    result = {key: [] for key in ('tested', 'disabled', 'build_only', 'warnings', 'errors')}
+    result = {key: [] for key in ('tested', 'disabled', 'build_only', 'unsupported', 'warnings', 'errors')}
     for path, project in projects.items():
         for app in project['apps']:
             key = app_key(path, app['target'], app['config'])
@@ -33,8 +42,14 @@ def classify(projects, buildable, build_only):
         for app in project['missing_apps']:
             cases = [case for case in app['test_cases'] if not case.get('disabled', False)]
             if cases:
-                result['errors'].append(dict(app=path, target=app['target'], config=app['config'],
-                                             tests=[case['caseid'] for case in cases]))
+                row = dict(app=path, target=app['target'], config=app['config'] or 'default',
+                           tests=[case['caseid'] for case in cases])
+                if app['target'] not in sdk_targets and project['apps']:
+                    # A real app may declare tests for a target introduced in a
+                    # newer SDK. Discovery cannot define that variant here.
+                    result['unsupported'].append({**row, 'reason': 'Target is not available in this ESP-IDF SDK'})
+                else:
+                    result['errors'].append(row)
     return result
 
 
@@ -106,6 +121,7 @@ def collect_inventory():
 
 
 def main():
+    from idf_build_apps.constants import ALL_TARGETS
     from idf_ci.build_collect.scripts import format_as_html
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -113,18 +129,25 @@ def main():
     parser.add_argument('--build-only', type=Path, default=Path('.github/build-only-apps.json'))
     args = parser.parse_args()
     inventory, buildable, known_apps = collect_inventory()
-    audit = classify(inventory.model_dump()['projects'], buildable, read_build_only(args.build_only, known_apps))
+    # Include preview targets and Linux: missing configs on those must still fail.
+    audit = classify(inventory.model_dump()['projects'], buildable, read_build_only(args.build_only, known_apps),
+                     set(ALL_TARGETS) | {'linux'})
     summary = ', '.join(f'{name}: {len(rows)}' for name, rows in audit.items())
     report = format_as_html(inventory)
     details = '<section><h2>Build/test coverage</h2><p>' + html.escape(summary) + '</p>'
     details += '<p>Coverage is checked per application, target and configuration. Disabled nodes retain their reasons. Full audit details are in the accompanying JSON file.</p></section>'
+    if audit['unsupported']:
+        details += '<details><summary>Tests outside this SDK\'s target list</summary><ul>'
+        for row in audit['unsupported']:
+            details += '<li>' + html.escape(f'{row["app"]} ({row["target"]}, {row["config"]}): {row["reason"]}') + '</li>'
+        details += '</ul></details>'
     args.output.write_text(report.replace('<body>', '<body>' + details, 1))
     args.output.with_suffix('.json').write_text(json.dumps(audit, indent=2) + '\n')
     print(summary)
     if audit['warnings']:
         print(f'::warning title=Unexplained build-only variants::{len(audit["warnings"])} build variants have no enabled/disabled tests or explicit build-only declaration. See the coverage report.')
     if audit['errors']:
-        print(f'::error title=Tests without build definitions::{len(audit["errors"])} app/target/config combinations referenced by enabled tests have no build definition. See the coverage report.')
+        report_errors(audit['errors'])
         raise SystemExit(1)
 
 
