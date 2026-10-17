@@ -14,7 +14,8 @@
 #if CLARKE_PARK_WITH_CORDIC
 #include "driver/cordic.h"
 
-#define CLARKE_PARK_CORDIC_ITERATIONS 6
+#define CLARKE_PARK_CORDIC_ITERATIONS 24
+
 /* round(2^32 / π). θ_q15 * this >> 32 is (θ/π) in Q15. */
 #define CLARKE_PARK_CORDIC_INV_PI_Q32 INT64_C(1367130551)
 
@@ -61,12 +62,7 @@ void clarke_park_cordic_sincos_q15(_iq15 theta_rad, _iq15 *sin_theta, _iq15 *cos
         /* HAL already leaves a 16-bit Q15 in each word; int16_t sign-extends it into IQmath's int32 Q15. */
         *cos_theta = (int16_t)res_cos;
         *sin_theta = (int16_t)res_sin;
-        return;
     }
-
-    /* Fall back if the hardware calculation fails. */
-    *sin_theta = CLARKE_PARK_IQ_SIN(15, theta_rad);
-    *cos_theta = CLARKE_PARK_IQ_COS(15, theta_rad);
 }
 
 esp_err_t clarke_park_enable_cordic(void)

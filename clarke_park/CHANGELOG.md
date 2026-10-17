@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the Q15 CORDIC backend against the ESP-IDF master CORDIC driver, which
+  now takes `cordic_calculate_config_t::iteration_count` as the iteration count
+  itself and only accepts 4, 8, 12, 16, 20 or 24. The old value of 6 was rejected
+  with `ESP_ERR_INVALID_ARG`, which silently sent every Park transform back to
+  the IQmath tables. It is now 24: the same number of iterations the hardware
+  actually ran before the driver fix (6 landed on `CORDIC_PRES` 5), so the
+  accuracy is unchanged.
+- Removed the IQmath fallback from the Q15 CORDIC sin/cos path. After
+  `clarke_park_enable_cordic()`, a failed `cordic_calculate_polling()` leaves
+  sin/cos unwritten instead of hiding the error behind the software tables.
+
 ## 0.3.0
 
 - Added `clarke_park_enable_cordic()` and `clarke_park_disable_cordic()`: the application decides at run time

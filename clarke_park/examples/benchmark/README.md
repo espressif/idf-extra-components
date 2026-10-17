@@ -77,7 +77,7 @@ Each row is one transform. Each column is a backend. `cyc` is the average CPU cy
 - **park / ipark (IQmath)** — fastest here: table sin/cos, no peripheral setup.
 - **park / ipark (CORDIC)** — between float and IQmath. The hardware Cos is cheap, but each call still does angle conversion, driver setup, polling and unpack. For one transform per call that overhead wins over IQmath.
 
-The check table is CORDIC minus IQmath in LSB. A wrap or sign-extend bug is thousands of LSB and panics. A few LSB is expected (6 CORDIC iterations).
+The check table is CORDIC minus IQmath in LSB. A wrap or sign-extend bug is thousands of LSB and panics. A few LSB is expected.
 
 ## Troubleshooting
 
