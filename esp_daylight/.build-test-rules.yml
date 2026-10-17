@@ -1,2 +1,9 @@
-# Build and test rules for esp_daylight component
-# This file can be empty - the component will be built with default rules
+esp_daylight/test_apps:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"
+
+esp_daylight/examples/get_started:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"

@@ -17,6 +17,14 @@ DATA_PORT = '/dev/serial_ports/ttyUSB-esp32'
 HOST_TOOL = Path(__file__).resolve().parent / 'tools' / 'xmodem_tool.py'
 
 
+@pytest.mark.disable_test(
+    'CONFIG_NAME == "echo"',
+    reason='USB Serial/JTAG host-tool tests were not enabled in the previous CI matrix; enable after runner validation',
+)
+@pytest.mark.disable_test(
+    'IDF_TARGET not in ["esp32s3", "esp32p4"]',
+    reason='Host-tool pytest uses USB Serial/JTAG console; retain build coverage for other UART targets',
+)
 @pytest.mark.usb_serial_jtag
 @pytest.mark.parametrize(
     'port, flash_port, config',

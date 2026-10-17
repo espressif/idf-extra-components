@@ -1,0 +1,4 @@
+esp_serial_slave_link/test_apps:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"

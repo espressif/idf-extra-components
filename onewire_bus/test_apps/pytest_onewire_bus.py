@@ -3,8 +3,13 @@
 import pytest
 from pytest_embedded import Dut
 
+@pytest.mark.disable_test(
+    'IDF_TARGET not in ["esp32", "esp32s2", "esp32s3"]',
+    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
+)
 @pytest.mark.generic
 @pytest.mark.parametrize('config', ['rmt', 'uart'], indirect=True)
+@pytest.mark.parametrize('target', ['esp32', 'esp32c2', 'esp32c3', 'esp32c5', 'esp32c6', 'esp32c61', 'esp32h2', 'esp32p4', 'esp32s2', 'esp32s3'], indirect=['target'])
 def test_onewire_bus(dut: Dut, config: str) -> None:
     if config == 'rmt':
         dut.expect_exact('test-app: 1-Wire bus installed on GPIO0 by RMT backend')

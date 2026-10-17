@@ -1,4 +1,6 @@
 recursive = true
+# Include host builds in the same discovery pass; manifests define app support.
+additional_build_targets = ["linux"]
 exclude = [
     ".github",
 ]
@@ -10,6 +12,7 @@ manifest_file = [
     "catch2/.build-test-rules.yml",
     "ccomp_timer/.build-test-rules.yml",
     "clarke_park/.build-test-rules.yml",
+    "coap/.build-test-rules.yml",
     "coremark/.build-test-rules.yml",
     "eigen/.build-test-rules.yml",
     "esp_daylight/.build-test-rules.yml",
@@ -28,6 +31,7 @@ manifest_file = [
     "esp_sysview/.build-test-rules.yml",
     "expat/.build-test-rules.yml",
     "fmt/.build-test-rules.yml",
+    "freetype/.build-test-rules.yml",
     "iqmath/.build-test-rules.yml",
     "esp_isotp/.build-test-rules.yml",
     "jsmn/.build-test-rules.yml",

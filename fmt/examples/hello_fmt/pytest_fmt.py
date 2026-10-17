@@ -5,6 +5,14 @@ import pytest
 from pytest_embedded import Dut
 
 
+pytestmark = [
+    pytest.mark.disable_test(
+        'IDF_TARGET == "esp32c5"',
+        reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
+    ),
+]
+
+
 def _expect_fmt_output(dut: Dut) -> None:
     dut.expect_exact('Hello, fmt!')
     dut.expect_exact('The answer is 42 and pi is approximately 3.142')

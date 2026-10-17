@@ -1,0 +1,9 @@
+coap/examples/coap_client:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"
+
+coap/examples/coap_server:
+  disable:
+    - if: IDF_TARGET == "linux"
+      reason: "Linux builds are not enabled; preserve existing CI coverage"
