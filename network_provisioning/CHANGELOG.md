@@ -1,3 +1,6 @@
+# 1.3.2 (20-October-2026)
+- Updates teardown behaviour to stop transport before protocomm state.
+
 # 1.3.1 (1-October-2026)
 
 - Depend on `json_generator` 2.0.0, which replaces 1.3.0 under a new major
