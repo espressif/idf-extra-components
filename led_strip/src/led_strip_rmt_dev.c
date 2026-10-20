@@ -8,6 +8,7 @@
 #include <sys/cdefs.h>
 #include "esp_log.h"
 #include "esp_check.h"
+#include "esp_idf_version.h"
 #include "driver/rmt_tx.h"
 #include "led_strip.h"
 #include "led_strip_interface.h"
@@ -182,6 +183,13 @@ err:
 
 static esp_err_t led_strip_rmt_switch_gpio(led_strip_t *strip, gpio_num_t new_gpio_num, bool invert_output)
 {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 4, 2)
+    (void)strip;
+    (void)new_gpio_num;
+    (void)invert_output;
+    ESP_LOGE(TAG, "switch GPIO requires ESP-IDF >= 5.4.2");
+    return ESP_ERR_NOT_SUPPORTED;
+#else
     esp_err_t ret = ESP_OK;
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     ESP_RETURN_ON_FALSE(led_strip_trans_state_try_set(&rmt_strip->trans_state, LED_STRIP_TRANS_IDLE, LED_STRIP_TRANS_LOCKED),
@@ -189,6 +197,7 @@ static esp_err_t led_strip_rmt_switch_gpio(led_strip_t *strip, gpio_num_t new_gp
     ret = rmt_tx_switch_gpio(rmt_strip->rmt_chan, new_gpio_num, invert_output);
     atomic_store(&rmt_strip->trans_state, LED_STRIP_TRANS_IDLE);
     return ret;
+#endif
 }
 
 static esp_err_t led_strip_get_timings(led_model_t led_model, const led_strip_timings_t *custom_timings, led_strip_timings_t *timings)

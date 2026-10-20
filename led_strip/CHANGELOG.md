@@ -1,3 +1,7 @@
+## 3.1.1
+
+- RMT runtime GPIO switching calls `rmt_tx_switch_gpio()` only on ESP-IDF v5.4.2 and later. Others still build, and `led_strip_switch_gpio()` returns `ESP_ERR_NOT_SUPPORTED`. (espressif/idf-extra-components#881)
+
 ## 3.1.0
 
 - Add async refresh API: `led_strip_refresh_async()` and `led_strip_refresh_async_done()`. Note that the driver has no double buffer yet, so the pixel buffer still has to be swapped manually between frames; the async API mainly allows the wait to be deferred.

@@ -110,7 +110,7 @@ struct led_strip_t {
      * @param new_gpio_num: new GPIO number
      * @param invert_output: invert output
      *
-     * @note Only support RMT backend now
+     * @note Only the RMT backend supports this, and only on ESP-IDF >= 5.4.2
      *
      * @return
      *      - ESP_OK: Switch GPIO successfully
