@@ -1,3 +1,11 @@
+# 2.1.0
+
+## Features
+
+- New `json_gen_escape_string()`: escapes a string on its own, without
+  quotes, so `"hello\n"` becomes `"hello\\n"`. Pass a NULL buffer to only
+  measure it.
+
 # 2.0.0
 
 Same code as 1.3.0, which shipped these breaking changes as a minor

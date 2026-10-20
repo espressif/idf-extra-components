@@ -54,6 +54,10 @@ Include the C and H files in your project's build system and that should be enou
   write_document(&jstr);
   json_gen_str_end(&jstr);
   ```
+- **Escape only** — `json_gen_escape_string()` escapes a string on its own,
+  without quotes and without a `json_gen_str_t`. It returns the escaped
+  length, or a negative `JSON_GEN_ERR_*` code. A NULL output buffer only
+  measures.
 - **Pre-formatted input** — `json_gen_push_object_str()` and
   `json_gen_push_array_str()` copy their argument verbatim. The caller must
   guarantee it is valid JSON.

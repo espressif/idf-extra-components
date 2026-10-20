@@ -580,3 +580,21 @@ int json_gen_arr_set_null(json_gen_str_t *jstr)
     json_gen_handle_comma(jstr);
     return json_gen_set_null(jstr);
 }
+
+int json_gen_escape_string(const char *in, size_t in_len, char *out, size_t out_size)
+{
+    json_gen_str_t jstr;
+    if (!out) {
+        json_gen_str_start_measure(&jstr);
+    } else if (out_size == 0) {
+        return JSON_GEN_ERR_INVALID_ARG;
+    } else {
+        json_gen_str_start(&jstr, out, out_size > INT_MAX ? INT_MAX : (int)out_size, NULL, NULL);
+    }
+    json_gen_add_escaped_len(&jstr, in, in_len);
+    if (jstr.utf8_need) {
+        json_gen_fail(&jstr, JSON_GEN_ERR_INVALID_UTF8);
+    }
+    int ret = json_gen_str_end(&jstr);
+    return ret < 0 ? ret : ret - 1;
+}

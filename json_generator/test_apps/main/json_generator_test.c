@@ -380,6 +380,22 @@ TEST_CASE("embedded NUL through the length variants", "[json_generator]")
     END_EXPECT("{\"k\":\"a\\u0000b\",\"arr\":[\"\\u0000\",\"not\",\"x\\u0000y\"]}");
 }
 
+TEST_CASE("string escaped on its own, without quotes", "[json_generator]")
+{
+    TEST_ASSERT_EQUAL_INT(7, json_gen_escape_string("hello\n", 6, NULL, 0));
+    TEST_ASSERT_EQUAL_INT(7, json_gen_escape_string("hello\n", 6, buf, sizeof(buf)));
+    TEST_ASSERT_EQUAL_STRING("hello\\n", buf);
+    TEST_ASSERT_EQUAL_INT(8, json_gen_escape_string("a\0b", 3, buf, sizeof(buf)));
+    TEST_ASSERT_EQUAL_STRING("a\\u0000b", buf);
+    TEST_ASSERT_EQUAL_INT(0, json_gen_escape_string(NULL, 0, buf, sizeof(buf)));
+    TEST_ASSERT_EQUAL_STRING("", buf);
+    /* "\\n" and its terminator need 3 bytes */
+    TEST_ASSERT_EQUAL_INT(JSON_GEN_ERR_BUF_FULL, json_gen_escape_string("\n", 1, buf, 2));
+    TEST_ASSERT_EQUAL_INT(JSON_GEN_ERR_INVALID_UTF8, json_gen_escape_string("\xc3", 1, buf, sizeof(buf)));
+    TEST_ASSERT_EQUAL_INT(JSON_GEN_ERR_INVALID_ARG, json_gen_escape_string("a", 1, buf, 0));
+    TEST_ASSERT_EQUAL_INT(JSON_GEN_ERR_INVALID_ARG, json_gen_escape_string(NULL, 1, buf, sizeof(buf)));
+}
+
 /* End the current document and print it, or the error that stopped it */
 static void emit_corpus_doc(void)
 {
