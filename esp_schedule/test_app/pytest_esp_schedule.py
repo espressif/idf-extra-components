@@ -13,6 +13,10 @@ from pytest_embedded_idf.utils import idf_parametrize
 # The `generic` marker is what selects this case on CI: the run-target job filters
 # with `-m <runner marker>`, so an unmarked test is deselected everywhere and the
 # app would only ever be built, never run.
+@pytest.mark.disable_test(
+    'IDF_TARGET != "esp32"',
+    reason='Preserve existing ESP32 runtime coverage for the date/time tests; other targets retain build coverage',
+)
 @pytest.mark.generic
 @pytest.mark.skipif(
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),

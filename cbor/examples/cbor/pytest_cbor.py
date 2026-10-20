@@ -6,6 +6,10 @@ import pytest
 from pytest_embedded import Dut
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET == "esp32c3"',
+    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
+)
 @pytest.mark.generic
 @pytest.mark.parametrize('target', ['esp32c3', 'esp32s3'], indirect=['target'])
 def test_examples_cbor(dut: Dut) -> None:

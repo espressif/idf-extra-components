@@ -109,6 +109,10 @@ def verify_qoi_against_golden(actual_path: Path, golden_path: Path) -> None:
     )
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET == "esp32c3"',
+    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
+)
 @pytest.mark.generic
 @pytest.mark.parametrize('target', ['esp32', 'esp32s3', 'esp32c3'], indirect=['target'])
 def test_qoi_encode_example_generic(dut: Dut) -> None:

@@ -7,6 +7,10 @@ import pytest
 from pytest_embedded_idf.utils import idf_parametrize
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET != "esp32"',
+    reason='Test requires the spi_nand_flash runner, which is available only for esp32',
+)
 @pytest.mark.spi_nand_flash
 @pytest.mark.skipif(
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),

@@ -5,6 +5,10 @@ import pytest
 from pytest_embedded import Dut
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET in ["esp32c3", "esp32c5"]',
+    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
+)
 @pytest.mark.generic
 @pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32c5'], indirect=['target'])
 def test_lz4(dut: Dut) -> None:

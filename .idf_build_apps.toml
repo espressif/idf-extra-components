@@ -1,4 +1,6 @@
 recursive = true
+# Host builds are opt-in per app: manifests enable IDF_TARGET == "linux"
+# explicitly, matching the previous dedicated build-linux job.
 exclude = [
     ".github",
 ]

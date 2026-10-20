@@ -5,7 +5,12 @@ import pytest
 from pytest_embedded import Dut
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET != "esp32"',
+    reason='Test requires the Ethernet runner (ESP32-ETHERNET-KIT), which is esp32-based',
+)
 @pytest.mark.ethernet
+@pytest.mark.parametrize('target', ['esp32'], indirect=['target'])
 def test_coap_example(dut: Dut) -> None:
     dut.expect('Loaded app from partition at offset', timeout=30)
     try:

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP-IDF · Test report</title><style>
+/* REPORT_CSS */
+
+.metrics{grid-template-columns:repeat(5,1fr)}.toolbar{grid-template-columns:minmax(180px,1fr) repeat(3,160px)}
+.status.passed{background:var(--ok-bg);color:var(--ok)}.status.error,.status.failed{background:var(--bad-bg);color:var(--bad)}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;background:var(--bg);padding:12px;border-radius:6px;font-size:12px}
+.test-name{font-weight:600;overflow-wrap:anywhere}.subtle{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.duration{white-space:nowrap;font-variant-numeric:tabular-nums}
+.section-gap{margin-top:26px}td:first-child{width:40%}td:last-child{width:auto;min-width:70px}.summary-table td:first-child{width:40%}
+#jobs{margin:18px 0}#jobs li{margin:6px 0}.table-wrap{margin-top:12px}
+@media(max-width:800px){.toolbar{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:650px){.metrics{grid-template-columns:repeat(2,1fr)}td:first-child,td:last-child{width:auto}td:nth-child(2)::before{content:"SDK / Target"}td:nth-child(3)::before{content:"Environment"}td:nth-child(4)::before{content:"Status"}td:nth-child(5)::before{content:"Duration";display:block;color:var(--muted);font-size:11px}.summary-table td:nth-child(2)::before{content:"Passed"}.summary-table td:nth-child(3)::before{content:"Failed"}.summary-table td:nth-child(4)::before{content:"Errors"}.summary-table td:nth-child(5)::before{content:"Skipped"}.summary-table td:last-child{grid-column:auto}}
+</style></head><body><main>
+<header><p class="eyebrow">ESP-IDF / CI results</p><div class="heading"><h1>Test report</h1><span class="version">All SDK versions</span></div><p id="context"></p>
+<div class="meta"><span>Pipeline: <strong id="pipeline"></strong></span><span id="sources"></span><span id="run"></span><span id="generated"></span></div></header>
+<section class="metrics" aria-label="Recorded test outcomes">
+<div class="metric ok"><span class="label">Passed</span><strong class="value" id="passed-count">0</strong></div>
+<div class="metric bad"><span class="label">Failed</span><strong class="value" id="failed-count">0</strong></div>
+<div class="metric bad"><span class="label">Errors</span><strong class="value" id="error-count">0</strong></div>
+<div class="metric skipped"><span class="label">Skipped</span><strong class="value" id="skipped-count">0</strong></div>
+<div class="metric"><span class="label">Recorded cases</span><strong class="value" id="total-count">0</strong><span class="hint" id="duration"></span></div>
+</section>
+<section class="warning" id="warning" hidden><strong>Check report coverage and job outcomes</strong><ul id="issues"></ul></section>
+<details id="jobs"><summary id="jobs-title">Result files and job outcomes</summary><ul id="job-list"></ul></details>
+<div class="toolbar">
+<label>Find application, test or environment<input id="search" type="search" placeholder="e.g. esp_encrypted_img, decryption, qemu"></label>
+<label>ESP-IDF<select id="version"><option value="">All versions</option></select></label>
+<label>Target<select id="target"><option value="">All targets</option></select></label>
+<label>Status<select id="status"><option value="">All statuses</option><option value="passed">Passed</option><option value="failed">Failed</option><option value="error">Error</option><option value="skipped">Skipped</option></select></label>
+</div>
+<section aria-label="Application summaries"><div class="list-title"><h2>Applications &amp; environments</h2><span id="app-count"></span></div>
+<div class="table-wrap"><table class="summary-table"><thead><tr><th scope="col">Application / SDK / target / environment</th><th scope="col">Passed</th><th scope="col">Failed</th><th scope="col">Errors</th><th scope="col">Skipped</th></tr></thead><tbody id="apps"></tbody></table></div></section>
+<section aria-label="Individual test results"><div class="list-title"><h2>Test cases</h2><span id="visible-count" aria-live="polite"></span></div>
+<div class="table-wrap"><table><thead><tr><th scope="col">Test / application</th><th scope="col">SDK / target</th><th scope="col">Environment</th><th scope="col">Status</th><th scope="col">Duration</th></tr></thead><tbody id="rows"></tbody></table><p class="empty" id="empty" hidden>No matching recorded test cases.</p></div></section>
+<footer>Source: JUnit XML from pytest and embedded Unity tests. Outcomes come from XML result elements, not words in console logs. Counts include Unity cases and pytest cases as recorded; they are not counts of Python test functions. Missing results and jobs that never started are not counted as passed or skipped. Durations are summed case times, not pipeline wall time. This report works offline.</footer>
+<noscript>Enable JavaScript to display the embedded results. No network access is needed.</noscript>
+</main><script type="application/json" id="test-data"><!-- TEST_REPORT_DATA --></script>
+<script>
+(() => {
+  const report=JSON.parse(document.getElementById('test-data').textContent), rows=report.records;
+  const get=id=>document.getElementById(id), text=(id,value)=>{get(id).textContent=value;};
+  const labels={passed:'Passed',failed:'Failed',error:'Error',skipped:'Skipped'}, rank={error:0,failed:1,skipped:2,passed:3};
+  const element=(tag,value,cls)=>{const node=document.createElement(tag);if(value!==undefined)node.textContent=value;if(cls)node.className=cls;return node;};
+  const cell=(tr,value,cls)=>{const td=element('td',value,cls);tr.append(td);return td;};
+  text('context',[report.repository,report.commit && report.commit.slice(0,12)].filter(Boolean).join(' · ') || 'JUnit results');
+  text('pipeline',report.pipeline_result);text('sources',`${report.xml_files} XML result files`);
+  text('run',report.run_id ? `Run ${report.run_id}` : 'Local report');text('generated',`Generated ${report.generated_at}`);
+  for(const status of Object.keys(labels))text(`${status}-count`,rows.filter(r=>r.status===status).length);
+  text('total-count',rows.length);text('duration',`${rows.reduce((n,r)=>n+r.duration,0).toFixed(2)} s recorded case time`);
+  const issues=[...report.issues];
+  if(['failure','cancelled'].includes(report.pipeline_result))issues.unshift('The pipeline did not fully succeed. Passing cases here do not override failed jobs.');
+  for(const group of report.groups){
+    const description=`${group.idf_version} · ${group.target} · ${group.marker} — ${group.count} cases · job: ${group.job_result}, execution step: ${group.run_result} · ${group.source}`;
+    get('job-list').append(element('li',description));
+    if(['failure','cancelled'].includes(group.job_result))issues.push(description);
+  }
+  text('jobs-title',`Result files and job outcomes (${report.groups.length})`);
+  if(issues.length){get('warning').hidden=false;for(const issue of issues)get('issues').append(element('li',issue));}
+  for(const [id,key] of [['version','idf_version'],['target','target']])for(const value of [...new Set(rows.map(r=>r[key]))].sort())get(id).add(new Option(value,value));
+  function draw(){
+    const query=get('search').value.trim().toLowerCase();
+    const selected=rows.filter(r=>(!get('version').value||r.idf_version===get('version').value)&&(!get('target').value||r.target===get('target').value)&&(!get('status').value||r.status===get('status').value)&&`${r.app} ${r.name} ${r.classname} ${r.marker}`.toLowerCase().includes(query));
+    const summaries=new Map();
+    for(const row of selected){const key=JSON.stringify([row.app,row.idf_version,row.target,row.marker]);if(!summaries.has(key))summaries.set(key,{...row,passed:0,failed:0,error:0,skipped:0});summaries.get(key)[row.status]++;}
+    const apps=document.createDocumentFragment();
+    for(const group of [...summaries.values()].sort((a,b)=>a.app.localeCompare(b.app)||a.idf_version.localeCompare(b.idf_version)||a.target.localeCompare(b.target))){
+      const tr=element('tr'), app=cell(tr,'');app.append(element('div',group.app,'test-name'),element('div',`${group.idf_version} · ${group.target} · ${group.marker}`,'subtle'));
+      for(const status of Object.keys(labels))cell(tr,group[status]);apps.append(tr);
+    }
+    get('apps').replaceChildren(apps);text('app-count',`${summaries.size} groups in current filter`);
+    const fragment=document.createDocumentFragment();
+    for(const row of [...selected].sort((a,b)=>rank[a.status]-rank[b.status]||a.app.localeCompare(b.app)||a.name.localeCompare(b.name))){
+      const tr=element('tr'), test=cell(tr,'');test.append(element('div',row.name,'test-name'),element('div',row.app,'subtle'));
+      const details=element('details');details.append(element('summary',`${row.kind} details & logs`));
+      details.append(element('div',`${row.classname || row.suite} · ${row.file}${row.line ? ':'+row.line : ''}`,'subtle'),element('div',`XML: ${row.source}`,'subtle'));
+      for(const [title,value] of [['Result details',row.message],['Standard output',row.stdout],['Standard error',row.stderr]])if(value){details.append(element('p',title),element('pre',value));}
+      if(!row.message&&!row.stdout&&!row.stderr)details.append(element('p','No log output recorded in XML.'));
+      test.append(details);const context=cell(tr,'');context.append(element('div',row.idf_version),element('div',row.target,'subtle'));
+      cell(tr,row.marker);cell(tr,'').append(element('span',labels[row.status],`status ${row.status}`));cell(tr,`${row.duration.toFixed(3)} s`,'duration');fragment.append(tr);
+    }
+    get('rows').replaceChildren(fragment);get('empty').hidden=selected.length>0;text('visible-count',`${selected.length} of ${rows.length} recorded cases · problems first`);
+  }
+  get('search').addEventListener('input',draw);for(const id of ['version','target','status'])get(id).addEventListener('change',draw);draw();
+})();
+</script></body></html>
