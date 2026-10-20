@@ -626,6 +626,22 @@ int json_gen_add_to_long_string_len(json_gen_str_t *jstr, const char *val, size_
  * \return Negative JSON_GEN_ERR_* code on failure, see \ref json_gen_errors
  */
 int json_gen_end_long_string(json_gen_str_t *jstr);
+
+/** Escape a string as the content of a JSON string, without quotes: "a\nb" becomes "a\\nb"
+ *
+ * \note A U+0000 byte in the input becomes \u0000.
+ *
+ * \param[in] in Bytes to escape. Can be NULL if in_len is 0
+ * \param[in] in_len Number of bytes of in to escape
+ * \param[out] out Buffer for the escaped string, or NULL to only measure it
+ * \param[in] out_size Size of out, including the NUL terminator
+ *
+ * \return Length of the escaped string, without the NUL terminator
+ * \return JSON_GEN_ERR_BUF_FULL if out is too small; its contents are then unspecified
+ * \return JSON_GEN_ERR_INVALID_UTF8 if in is not well-formed UTF-8
+ * \return JSON_GEN_ERR_INVALID_ARG if out is not NULL and out_size is 0, or in is NULL with a non-zero in_len
+ */
+int json_gen_escape_string(const char *in, size_t in_len, char *out, size_t out_size);
 #ifdef __cplusplus
 }
 #endif
