@@ -5,6 +5,10 @@ import glob
 from pathlib import Path
 
 
+@pytest.mark.disable_test(
+    'IDF_TARGET != "linux"',
+    reason='Only the Linux host test was enabled in the previous CI matrix; retain hardware build coverage',
+)
 @pytest.mark.host_test
 @pytest.mark.skipif(
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),

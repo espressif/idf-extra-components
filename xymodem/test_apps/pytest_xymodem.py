@@ -5,6 +5,10 @@ from pytest_embedded_idf.utils import idf_parametrize
 
 UART_PORT = '/dev/ttyUSB*'
 
+@pytest.mark.disable_test(
+    'IDF_TARGET == "esp32p4"',
+    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
+)
 @pytest.mark.generic
 @pytest.mark.parametrize('port', [pytest.param(UART_PORT, id='uart')], indirect=True)
 @idf_parametrize('target', ['esp32s3', 'esp32p4'], indirect=['target'])
