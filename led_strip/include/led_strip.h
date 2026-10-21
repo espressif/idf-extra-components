@@ -156,7 +156,7 @@ esp_err_t led_strip_clear(led_strip_handle_t strip);
  *      - ESP_OK: Switch GPIO successfully
  *      - ESP_ERR_INVALID_ARG: Switch GPIO failed because of an invalid argument
  *      - ESP_ERR_INVALID_STATE: Switch GPIO failed because a transaction is in progress
- *      - ESP_ERR_NOT_SUPPORTED: Switch GPIO is not supported by this backend
+ *      - ESP_ERR_NOT_SUPPORTED: Switch GPIO is not supported by this backend or ESP-IDF version
  *      - ESP_FAIL: Switch GPIO failed because some other error occurred
  */
 esp_err_t led_strip_switch_gpio(led_strip_handle_t strip, gpio_num_t new_gpio_num, bool invert_output);
