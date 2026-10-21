@@ -1,0 +1,7 @@
+version: "1.0.0"
+dependencies:
+  espressif/qrcode:
+      version: "^0.1.0"
+  espressif/network_provisioning:
+      version: "*"
+      override_path: '../../../'
