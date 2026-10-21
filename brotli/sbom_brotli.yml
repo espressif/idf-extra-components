@@ -1,8 +1,8 @@
 name: brotli
-version: 1.2.0
+version: 1.2.1
 cpe:
  - cpe:2.3:a:google:brotli:{}:*:*:*:*:*:*:*
 supplier: 'Organization: Google <https://github.com/google/brotli>'
 description: Brotli is a generic-purpose lossless compression algorithm
 url: https://github.com/google/brotli
-hash: 028fb5a23661f123017c060daa546b55cf4bde29
+hash: db24a98aed38a16de78cc05ca15cdd8dc2a0d92d

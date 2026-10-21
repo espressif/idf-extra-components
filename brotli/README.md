@@ -19,7 +19,7 @@ Add `espressif/brotli` to the `dependencies` of your project:
 
 ```yaml
 dependencies:
-  espressif/brotli: "^1.2.0"
+  espressif/brotli: "^1.2.1"
 ```
 
 Include the Brotli headers and use the API as usual:
