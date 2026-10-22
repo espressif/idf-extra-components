@@ -1,4 +1,4 @@
-version: "1.6.58~2"
+version: "1.6.59"
 description: libpng — the official PNG reference library, packaged for ESP-IDF
 url: https://github.com/espressif/idf-extra-components/tree/master/libpng
 repository: "https://github.com/espressif/idf-extra-components.git"
