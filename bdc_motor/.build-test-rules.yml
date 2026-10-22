@@ -1,4 +1,4 @@
-bdc_motor/test_apps:
-  disable:
-    - if: SOC_MCPWM_SUPPORTED != 1
-      reason: Only MCPWM backend is implemented
+bdc_motor/examples/get_started:
+  enable:
+    - if: IDF_TARGET in ["esp32", "esp32s3", "esp32c5"]
+      reason: MCPWM is required; test on representative ESP targets only
