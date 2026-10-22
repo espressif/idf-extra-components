@@ -177,7 +177,7 @@ def assert_image_matches_golden(result_image: RgbImage, golden_path: Path) -> No
 
 
 @pytest.mark.generic
-@idf_parametrize('target', ['esp32', 'esp32c5'], indirect=['target'])
+@idf_parametrize('target', ['esp32', 'esp32p4'], indirect=['target'])
 def test_lvgl_screenshot_example_generic(dut: Dut) -> None:
     dut.expect(rf'Screenshot panel created \(\d+x\d+, {EXPECTED_FOURCC}, virtual only\)')
     dut.expect(r'PNG file size: \d+ bytes')

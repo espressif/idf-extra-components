@@ -7,5 +7,5 @@ iqmath/host_test:
 
 iqmath/examples/get_started:
   enable:
-    - if: IDF_TARGET in ["esp32", "esp32s3", "esp32c3", "esp32c5"]
+    - if: IDF_TARGET in ["esp32", "esp32s3", "esp32c3", "esp32c6"]
       reason: "Sufficient to test on representative Xtensa and RISC-V targets"

@@ -7,8 +7,13 @@ from pytest_embedded import Dut
 
 @pytest.mark.generic
 @pytest.mark.parametrize(
+    'port, flash_port',
+    [pytest.param('/dev/ttyUSB0', '/dev/ttyUSB0', id='ttyUSB')],
+    indirect=True,
+)
+@pytest.mark.parametrize(
     'target',
-    ['esp32', 'esp32s3', 'esp32c3', 'esp32c5'],
+    ['esp32', 'esp32s3', 'esp32c3', 'esp32c6'],
     indirect=['target'],
 )
 def test_led_strip_rmt_ws2812(dut: Dut) -> None:
