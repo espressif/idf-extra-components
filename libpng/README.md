@@ -21,14 +21,14 @@ Use it to decode a PNG into RGBA pixels you can push to a display, or to encode 
 From the project directory:
 
 ```bash
-idf.py add-dependency "espressif/libpng^1.6.58"
+idf.py add-dependency "espressif/libpng^1.6.59"
 ```
 
 Or list it in your component manifest (`main/idf_component.yml`):
 
 ```yaml
 dependencies:
-  espressif/libpng: "^1.6.58"
+  espressif/libpng: "^1.6.59"
 ```
 
 Then include the upstream header and call the libpng API:
