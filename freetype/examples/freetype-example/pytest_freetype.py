@@ -8,12 +8,8 @@ import pytest
 from pytest_embedded import Dut
 
 
-@pytest.mark.disable_test(
-    'IDF_TARGET not in ["esp32", "esp32s2", "esp32s3"]',
-    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
-)
 @pytest.mark.generic
-@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32', 'esp32s3', 'esp32c5'], indirect=['target'])
 def test_freetype_example(dut: Dut) -> None:
     dut.expect_exact('FreeType library initialized')
     dut.expect_exact('Font loaded')

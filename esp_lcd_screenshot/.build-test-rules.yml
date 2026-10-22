@@ -1,6 +1,6 @@
 esp_lcd_screenshot/examples/lvgl_screenshot:
   enable:
-    - if: IDF_TARGET in ["esp32", "esp32p4"]
+    - if: IDF_TARGET in ["esp32", "esp32c5"]
       reason: "Sufficient to test on representative Xtensa and RISC-V targets"
   disable:
     - if: IDF_VERSION_MAJOR < 6

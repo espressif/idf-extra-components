@@ -1,15 +1,11 @@
-# SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Unlicense OR CC0-1.0
 import pytest
 from pytest_embedded import Dut
 
-@pytest.mark.disable_test(
-    'IDF_TARGET not in ["esp32", "esp32s2", "esp32s3"]',
-    reason='Preserve the previous CI runtime coverage; enable additional hardware targets after runner validation',
-)
 @pytest.mark.generic
 @pytest.mark.parametrize('config', ['rmt', 'uart'], indirect=True)
-@pytest.mark.parametrize('target', ['esp32', 'esp32s2', 'esp32s3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32c5', 'esp32s3'], indirect=['target'])
 def test_onewire_bus(dut: Dut, config: str) -> None:
     if config == 'rmt':
         dut.expect_exact('test-app: 1-Wire bus installed on GPIO0 by RMT backend')
