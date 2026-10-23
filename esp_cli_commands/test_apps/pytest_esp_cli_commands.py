@@ -5,15 +5,21 @@ import glob
 from pathlib import Path
 
 
-@pytest.mark.disable_test(
-    'IDF_TARGET != "linux"',
-    reason='Only the Linux host test was enabled in the previous CI matrix; retain hardware build coverage',
-)
 @pytest.mark.host_test
 @pytest.mark.skipif(
     not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
     reason="Skip the idf version that did not build"
 )
-@idf_parametrize('target', ['linux', 'esp32'], indirect=['target'])
-def test_esp_cli_commands(dut) -> None:
+@idf_parametrize('target', ['linux'], indirect=['target'])
+def test_esp_cli_commands_host(dut: Dut) -> None:
+    dut.run_all_single_board_cases()
+
+
+@pytest.mark.generic
+@pytest.mark.skipif(
+    not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
+    reason="Skip the idf version that did not build"
+)
+@idf_parametrize('target', ['esp32'], indirect=['target'])
+def test_esp_cli_commands(dut: Dut) -> None:
     dut.run_all_single_board_cases()
