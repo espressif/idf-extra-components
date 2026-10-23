@@ -1,0 +1,23 @@
+menu "zlib Configurations"
+    config ZLIB_PREFER_PSRAM
+        bool "Prefer PSRAM for zlib's own allocations"
+        depends on SPIRAM
+        default y
+        help
+            Route the memory zlib allocates for a deflate/inflate stream
+            through heap_caps, so its large working buffers can live in PSRAM.
+            Internal 8-bit RAM is used as a fallback when PSRAM is not
+            initialized or cannot satisfy an allocation. Requests below 16 KiB
+            keep preferring internal RAM.
+
+            The gzip file APIs (gzopen, gzread, gzwrite) still use malloc()
+            for their own state and I/O buffers.
+
+            Only the allocator a z_stream uses for its own state and buffers
+            is affected. The compression and decompression buffers an
+            application passes in are its own, and are allocated by the
+            application.
+
+            A custom allocator installed in z_stream.zalloc/zfree always wins
+            over this option, as zlib documents.
+endmenu
