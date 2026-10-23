@@ -281,6 +281,7 @@ TEST_CASE("Test JPEG decompression library: No Huffman tables", "[esp_jpeg]")
 
 #endif
 
+#if !CONFIG_JD_USE_ROM
 /**
  * @brief Invalid JPEG marker test
  *
@@ -289,6 +290,9 @@ TEST_CASE("Test JPEG decompression library: No Huffman tables", "[esp_jpeg]")
  * The test uses a known JPEG image (camera_2_jpg) that contains this invalid
  * marker. The test checks whether the library can handle the invalid marker
  * gracefully and still decode the image correctly.
+ *
+ * The ROM TJpgDec does not include this workaround; the test app therefore
+ * builds the component decoder (CONFIG_JD_USE_ROM=n).
  */
 TEST_CASE("Test JPEG invalid marker 0xFFFF", "[esp_jpeg]")
 {
@@ -316,11 +320,12 @@ TEST_CASE("Test JPEG invalid marker 0xFFFF", "[esp_jpeg]")
     };
     esp_jpeg_image_output_t outimg;
     esp_err_t err = esp_jpeg_decode(&jpeg_cfg, &outimg);
-    TEST_ASSERT_EQUAL(ESP_OK, err);
-
-    /* Decoded image size */
-    TEST_ASSERT_EQUAL(160, outimg.width);
-    TEST_ASSERT_EQUAL(120, outimg.height);
-
+    const int width = outimg.width;
+    const int height = outimg.height;
     free(decoded);
+
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+    TEST_ASSERT_EQUAL(160, width);
+    TEST_ASSERT_EQUAL(120, height);
 }
+#endif

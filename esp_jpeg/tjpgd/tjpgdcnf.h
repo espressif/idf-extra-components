@@ -46,3 +46,12 @@
 #else
 #define JD_DEFAULT_HUFFMAN 0
 #endif
+
+/*
+ * ESP32-C6/C5/C61 ROM linker scripts assign jd_prepare/jd_decomp
+ * absolutely (not PROVIDE). The linker would still call ROM even when
+ * this component's tjpgd.c is compiled, mixing the old ROM JDEC layout
+ * with the R0.03 callback and crashing in jpeg_decode_in_cb.
+ */
+#define jd_prepare esp_jpeg_jd_prepare
+#define jd_decomp  esp_jpeg_jd_decomp
