@@ -71,7 +71,10 @@ jobs:
         run: |
           git fetch --recurse-submodules=no origin ${{ github.base_ref }}:base_ref
           git fetch --recurse-submodules=no origin pull/${{ github.event.pull_request.number }}/head:pr_ref
-          git diff --name-only -r base_ref pr_ref > changed_files.txt
+          # Three-dot diff: count only the PR's own changes; a two-dot diff
+          # also lists base-branch commits absent from un-rebased forks.
+          git diff --name-only -r base_ref...pr_ref > changed_files.txt
+          echo "Changed files:" && cat changed_files.txt
           python3 .github/get_ci_changes.py changed_files.txt
 
   # Each matrix entry invokes the same complete pipeline for one IDF version.

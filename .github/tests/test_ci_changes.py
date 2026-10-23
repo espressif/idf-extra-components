@@ -50,5 +50,21 @@ class ChangeSelectionTests(unittest.TestCase):
         self.assertEqual(result['has_changes'], 'true')
 
 
+class WorkflowDiffSyntaxTests(unittest.TestCase):
+    """The change list must come from a three-dot (merge-base) diff.
+
+    A two-dot diff against the moving base branch lists commits the PR does
+    not contain (un-rebased forks), which can flip the pipeline into a full
+    run via CI-infra files. See PR #884 fallout.
+    """
+
+    WORKFLOW = Path(__file__).resolve().parents[1] / 'workflows' / 'build_and_run_apps.yml'
+
+    def test_find_changes_diffs_against_merge_base(self):
+        content = self.WORKFLOW.read_text()
+        self.assertIn('git diff --name-only -r base_ref...pr_ref', content)
+        self.assertNotIn('git diff --name-only -r base_ref pr_ref', content)
+
+
 if __name__ == '__main__':
     unittest.main()
