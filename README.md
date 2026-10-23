@@ -1,6 +1,7 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![Build and Run Apps](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_apps.yml/badge.svg?branch=master)](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_apps.yml)
 [![Clang-Tidy](https://github.com/espressif/idf-extra-components/actions/workflows/clang-tidy.yml/badge.svg?branch=master)](https://github.com/espressif/idf-extra-components/security/code-scanning?query=is%3Aopen+branch%3Amaster)
+[![Build and Run Apps](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_apps.yml/badge.svg?branch=master)](https://github.com/espressif/idf-extra-components/actions/workflows/build_and_run_apps.yml)
+[![Build and Deploy Programming Guides](https://github.com/espressif/idf-extra-components/actions/workflows/deploy_gh_pages.yml/badge.svg?branch=master)](https://github.com/espressif/idf-extra-components/actions/workflows/deploy_gh_pages.yml)
 
 # ESP-IDF Extra Components
 
