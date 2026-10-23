@@ -9,7 +9,12 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
-@pytest.mark.parametrize('target', ['esp32', 'esp32s3', 'esp32c5'], indirect=['target'])
+@pytest.mark.parametrize(
+    'port, flash_port',
+    [pytest.param('/dev/ttyUSB0', '/dev/ttyUSB0', id='ttyUSB')],
+    indirect=True,
+)
+@pytest.mark.parametrize('target', ['esp32', 'esp32s3', 'esp32c6'], indirect=['target'])
 def test_freetype_example(dut: Dut) -> None:
     dut.expect_exact('FreeType library initialized')
     dut.expect_exact('Font loaded')

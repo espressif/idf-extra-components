@@ -8,7 +8,7 @@ The application creates a motor handle, enables it, sets a 50% duty cycle, then 
 
 ### Hardware Required
 
-* A development board with an Espressif SoC that has MCPWM (for example ESP32, ESP32-S3, or ESP32-C5)
+* A development board with an Espressif SoC that has MCPWM (for example ESP32, ESP32-S3, or ESP32-C6)
 * A USB cable for power supply and programming
 * An H-bridge motor driver (for example DRV8871 or L298N)
 * A brushed DC motor

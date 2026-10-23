@@ -6,7 +6,12 @@ from pytest_embedded import Dut
 
 
 @pytest.mark.generic
-@pytest.mark.parametrize('target', ['esp32', 'esp32s3', 'esp32c5'], indirect=['target'])
+@pytest.mark.parametrize(
+    'port, flash_port',
+    [pytest.param('/dev/ttyUSB0', '/dev/ttyUSB0', id='ttyUSB')],
+    indirect=True,
+)
+@pytest.mark.parametrize('target', ['esp32', 'esp32s3', 'esp32c6'], indirect=['target'])
 def test_color_emoji_example(dut: Dut) -> None:
     dut.expect(r'Loaded U\+1F642 as \d+x\d+ BGRA bitmap')
     dut.expect(r'FreeType decoded embedded PNG data using libpng; bitmap FNV-1a: [0-9a-f]{8}')

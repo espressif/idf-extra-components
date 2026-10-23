@@ -4,8 +4,13 @@ import pytest
 from pytest_embedded import Dut
 
 @pytest.mark.generic
+@pytest.mark.parametrize(
+    'port, flash_port',
+    [pytest.param('/dev/ttyUSB0', '/dev/ttyUSB0', id='ttyUSB')],
+    indirect=True,
+)
 @pytest.mark.parametrize('config', ['rmt', 'uart'], indirect=True)
-@pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32c5', 'esp32s3'], indirect=['target'])
+@pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32s3', 'esp32c6'], indirect=['target'])
 def test_onewire_bus(dut: Dut, config: str) -> None:
     if config == 'rmt':
         dut.expect_exact('test-app: 1-Wire bus installed on GPIO0 by RMT backend')

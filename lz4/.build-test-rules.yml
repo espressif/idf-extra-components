@@ -1,6 +1,6 @@
 lz4/test_apps/test_lz4: &lz4-test-rules
   enable:
-    - if: IDF_TARGET in ["esp32", "esp32c3", "esp32c5"]
+    - if: IDF_TARGET in ["esp32", "esp32c3", "esp32c6"]
       reason: "Sufficient to test on representative Xtensa and RISC-V targets"
 
 lz4/examples/pcm_lz4: *lz4-test-rules

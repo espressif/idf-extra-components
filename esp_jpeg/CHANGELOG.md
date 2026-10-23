@@ -1,3 +1,7 @@
+## 1.3.2
+
+- Fixed a crash on ESP32-C6/C5/C61 when `CONFIG_JD_USE_ROM` is disabled: those targets bind `jd_prepare`/`jd_decomp` as absolute ROM symbols, so the component decoder never ran
+
 ## 1.3.1
 
 - Fixed the format of Kconfig file
