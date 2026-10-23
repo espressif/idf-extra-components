@@ -5,18 +5,6 @@ from pytest_embedded import Dut
 from pytest_embedded_idf.utils import idf_parametrize
 
 
-pytestmark = [
-    pytest.mark.disable_test(
-        'IDF_TARGET == "esp32c3" and IDF_VERSION_MAJOR == 6 and IDF_VERSION_MINOR == 0',
-        reason='ESP32-C3 QEMU BDL basic operations fails on IDF 6.0 (CI run 38376778030), with master execution unconfirmed; retain builds pending diagnosis',
-    ),
-    pytest.mark.disable_test(
-        'IDF_TARGET == "linux" and IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR == 2',
-        reason='Preserve the Linux Unity execution exclusion documented in CI commit 11749ba; keep build coverage',
-    ),
-]
-
-
 @pytest.mark.host_test
 @idf_parametrize('target', ['linux'], indirect=['target'])
 def test_esp_ext_part_tables(dut: Dut) -> None:
