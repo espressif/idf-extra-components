@@ -74,6 +74,24 @@ void app_main(void)
     ESP_ERROR_CHECK(onewire_del_device_iter(iter));
     ESP_LOGI(TAG, "Searching done, %d device(s) found", onewire_device_found);
 
+    // search only for the devices of one family (DS18B20)
+    int onewire_family_device_found = 0;
+    ESP_ERROR_CHECK(onewire_new_device_iter_family(bus, 0x28, &iter));
+    ESP_LOGI(TAG, "Family device iterator created, start searching...");
+    do {
+        search_result = onewire_device_iter_get_next(iter, &next_onewire_device);
+        if (search_result == ESP_OK) {
+            ESP_LOGI(TAG, "Found a new family device, address: %016llX", next_onewire_device.address);
+            onewire_family_device_found++;
+            if (onewire_family_device_found >= EXAMPLE_ONEWIRE_MAX_DEVICES) {
+                ESP_LOGI(TAG, "Max device number reached, stop searching...");
+                break;
+            }
+        }
+    } while (search_result != ESP_ERR_NOT_FOUND);
+    ESP_ERROR_CHECK(onewire_del_device_iter(iter));
+    ESP_LOGI(TAG, "Family searching done, %d device(s) found", onewire_family_device_found);
+
     // delete the bus
     ESP_LOGI(TAG, "Deleting bus...");
     ESP_ERROR_CHECK(onewire_bus_del(bus));
