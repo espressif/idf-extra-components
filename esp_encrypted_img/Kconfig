@@ -27,7 +27,7 @@ menu "Pre Encrypted OTA Configuration"
         depends on PRE_ENCRYPTED_OTA_USE_RSA
         depends on SOC_DIG_SIGN_SUPPORTED
         select MBEDTLS_HARDWARE_RSA_DS_PERIPHERAL
-        bool "Use DS Peripheral"
+        bool "Use RSA_DS Peripheral for decryption"
         help
             Use DS Peripheral for RSA OTA Encryption Scheme. The DS peripheral is used
             for decrypting the AES-GCM key
