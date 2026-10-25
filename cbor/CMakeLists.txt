@@ -13,11 +13,19 @@ set(BUILD_EXAMPLES OFF)
 set(BUILD_TOOLS OFF)
 set(BUILD_TESTING OFF)
 
-# check_symbol_exists() cannot see that ESP-IDF 5.x newlib only declares
-# open_memstream(). Seed the probe so upstream selects the funopen() fallback.
-if(NOT ${target} STREQUAL "linux" AND "${IDF_VERSION_MAJOR}" VERSION_LESS "6")
-    set(HAVE_OPEN_MEMSTREAM FALSE CACHE INTERNAL "ESP-IDF 5.x newlib has no open_memstream()" FORCE)
-    set(HAVE_OPEN_FUNOPEN TRUE CACHE INTERNAL "ESP-IDF 5.x newlib provides funopen()" FORCE)
+# Upstream's check_symbol_exists() / check_c_source_compiles() run in a
+# standalone try_compile: no IDF _GNU_SOURCE, no esp_libc wrapper headers.
+# Seed the results rather than trying to reconstruct that environment.
+if(NOT ${target} STREQUAL "linux")
+    if("${IDF_VERSION_MAJOR}" VERSION_LESS "6")
+        # 5.x newlib only declares open_memstream() without implementation
+        set(HAVE_OPEN_MEMSTREAM FALSE CACHE INTERNAL "ESP-IDF 5.x newlib has no open_memstream()" FORCE)
+        set(HAVE_OPEN_FUNOPEN TRUE CACHE INTERNAL "ESP-IDF 5.x newlib provides funopen()" FORCE)
+        set(HAVE_OPEN_FUNOPEN_SSIZE FALSE CACHE INTERNAL "ESP-IDF 5.x funopen is BSD, not picolibc" FORCE)
+    else()
+        # 6+ ships open_memstream()
+        set(HAVE_OPEN_MEMSTREAM TRUE CACHE INTERNAL "ESP-IDF 6+ provides open_memstream()" FORCE)
+    endif()
 endif()
 
 # tinycbor has no install-off switch. Skip its install() rules so they do not
@@ -25,14 +33,8 @@ endif()
 # see IDF interface libraries inherited through link_libraries().
 set(_cbor_skip_install "${CMAKE_SKIP_INSTALL_RULES}")
 set(CMAKE_SKIP_INSTALL_RULES ON)
-add_subdirectory(tinycbor)
+add_subdirectory(tinycbor EXCLUDE_FROM_ALL)
 set(CMAKE_SKIP_INSTALL_RULES "${_cbor_skip_install}")
 unset(_cbor_skip_install)
-
-# Host gcc with -std=gnu23 gives strchr() the const of its argument.
-# Upstream stores the result in a char * in cbortojson.c.
-if(${target} STREQUAL "linux")
-    target_compile_options(tinycbor PRIVATE -Wno-error=discarded-qualifiers)
-endif()
 
 target_link_libraries(${COMPONENT_LIB} INTERFACE tinycbor)
