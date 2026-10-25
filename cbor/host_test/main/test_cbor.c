@@ -147,3 +147,14 @@ TEST_CASE("cbor: to_json reports truncated input", "[cbor]")
     TEST_ASSERT_NOT_EQUAL(CborNoError, to_json(broken, sizeof(broken), json, sizeof(json),
                                                CborConvertDefaultFlags));
 }
+
+/* v7.1 honors the documented UTF-8 check that v7.0 skipped. */
+TEST_CASE("cbor: to_json rejects invalid UTF-8 text", "[cbor]")
+{
+    static const uint8_t invalid[] = {0x61, 0xff}; /* text(1), 0xFF */
+    char json[64] = {};
+
+    TEST_ASSERT_EQUAL(CborErrorInvalidUtf8TextString,
+                      to_json(invalid, sizeof(invalid), json, sizeof(json),
+                              CborConvertDefaultFlags));
+}

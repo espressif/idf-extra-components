@@ -11,7 +11,7 @@ This component packages the upstream [TinyCBOR](https://github.com/intel/tinycbo
 Add the component to your project:
 
 ```bash
-idf.py add-dependency "espressif/cbor^7.0.0"
+idf.py add-dependency "espressif/cbor^7.1.0"
 ```
 
 Then include the header and call the upstream API:
