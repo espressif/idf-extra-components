@@ -46,8 +46,8 @@ jobs:
     steps:
       - &checkout-sources
         uses: actions/checkout@v5
-        with:
-          submodules: 'true'
+        # Only build jobs compile submodule sources; they initialize them in a
+        # separate step (anchor defined in the build job below).
       # Fetch helpers from this workflow's revision, not the caller's checkout.
       # Remote action staging follows dangling submodule symlinks in this repo.
       - &save-ci-helpers
@@ -127,6 +127,54 @@ jobs:
     container: espressif/idf:${{ inputs.idf_version }}
     steps:
       - *checkout-sources
+      - &submodule-cache-key
+        name: Compute submodule cache key
+        id: submodule-key
+        # Key on all submodule pointers (gitlinks); changes only when a
+        # submodule is bumped. Never use restore-keys: a partial hit would
+        # silently mix submodule versions. The caller's 'submodules' job
+        # populates this cache once per run; shards restore only.
+        run: |
+          export GIT_CONFIG_PARAMETERS="'safe.directory=*'"
+          echo "key=$(git ls-tree -r HEAD | awk '$2 == "commit"' | sha1sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - &restore-submodule-cache
+        name: Restore submodule cache
+        id: submodules-cache
+        # .git/modules holds the shallow submodule clones; the update step
+        # materializes working trees from it without network access.
+        uses: actions/cache/restore@v5
+        with:
+          path: .git/modules
+          key: submodules-${{ steps.submodule-key.outputs.key }}
+      - &init-submodules
+        name: Init submodules (shallow, with retry)
+        # Mirrors checkout's submodules: 'true' (fetch-depth 1) plus:
+        # - retries: a single transient network failure used to fail the shard
+        # - --jobs 8: checkout fetches submodules sequentially, dominated by
+        #   the slowest host
+        # On repeated failure, each submodule is retried individually so the
+        # log names the exact one and its error.
+        run: |
+          echo "git version: $(git --version)"
+          # Container jobs run git as a different user than the workspace owner.
+          # actions/checkout writes its safe.directory exception to a temporary
+          # global config that later steps don't see, so add our own.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          for attempt in 1 2 3; do
+            if git -c protocol.version=2 submodule update --init --force --depth 1 --jobs 8; then
+              exit 0
+            fi
+            echo "::warning::parallel submodule update failed (attempt ${attempt})"
+            sleep 10
+          done
+          echo "::error::parallel updates failed 3 times; diagnosing per-submodule"
+          failed=0
+          while read -r _ path; do
+            echo "--- submodule: ${path}"
+            git -c protocol.version=2 submodule update --init --force --depth 1 "${path}" || failed=1
+          done < <(git config --file .gitmodules --get-regexp '^submodule\..*\.path$')
+          git submodule status
+          exit ${failed}
       - *restore-ci-helpers
       - *checkout-ci-helpers
       - name: Install ESP-IDF Python environment

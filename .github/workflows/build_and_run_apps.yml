@@ -30,8 +30,9 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          submodules: 'true'
+        # No submodules here: unit tests and change detection need metadata
+        # only. The 'submodules' job below populates the shared cache once
+        # for the whole run.
       - name: Test CI helpers
         run: python3 -m unittest discover -s .github/tests -p 'test_*.py'
       - name: Fix git repo permissions
@@ -74,10 +75,54 @@ jobs:
           git diff --name-only -r base_ref pr_ref > changed_files.txt
           python3 .github/get_ci_changes.py changed_files.txt
 
+  submodules:
+    name: Populate submodule cache
+    # Single writer for the whole run: the submodule content depends only on
+    # the gitlink hashes, not on the IDF version, so one populate serves all
+    # matrix invocations of the reusable workflow. Build shards restore only.
+    needs: prepare
+    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compute submodule cache key
+        id: submodule-key
+        # Key on all submodule pointers (gitlinks); changes only when a
+        # submodule is bumped. Never use restore-keys: a partial hit would
+        # silently mix submodule versions.
+        run: echo "key=$(git ls-tree -r HEAD | awk '$2 == "commit"' | sha1sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: Restore submodule cache
+        id: submodules-cache
+        # .git/modules holds the shallow submodule clones; consumers
+        # materialize working trees from it without network access.
+        uses: actions/cache/restore@v5
+        with:
+          path: .git/modules
+          key: submodules-${{ steps.submodule-key.outputs.key }}
+      - name: Fetch submodules (cache miss)
+        if: steps.submodules-cache.outputs.cache-hit != 'true'
+        run: |
+          for attempt in 1 2 3; do
+            git -c protocol.version=2 submodule update --init --force --depth 1 --jobs 8 && exit 0
+            echo "Submodule fetch attempt ${attempt} failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Submodule fetch failed after 3 attempts" >&2
+          exit 1
+      - name: Save submodule cache
+        # Best-effort: another concurrent run may legitimately populate the
+        # same key; the content is identical either way.
+        if: steps.submodules-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v5
+        with:
+          path: .git/modules
+          key: submodules-${{ steps.submodule-key.outputs.key }}
+
   # Each matrix entry invokes the same complete pipeline for one IDF version.
   ci:
     name: CI (${{ matrix.idf_version }})
-    needs: prepare
+    needs: [prepare, submodules]
     if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true'
     strategy:
       fail-fast: false
