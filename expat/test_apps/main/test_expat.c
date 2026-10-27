@@ -1,12 +1,15 @@
 /*
- * SPDX-FileCopyrightText: 2018-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2018-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <expat.h>
+#include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
+
 #include "unity.h"
+#include "expat.h"
 
 typedef struct {
     int depth;
@@ -18,12 +21,12 @@ static void insert_space(user_data_t *user_data)
 {
     const char align_str[] = "    ";
 
-    TEST_ASSERT(sizeof(user_data->output) >= user_data->output_off);
+    TEST_ASSERT(sizeof(user_data->output) > user_data->output_off);
     user_data->output[user_data->output_off++] = '\n';
 
     for (int i = 0; i < user_data->depth; i++) {
         for (int j = 0; j < strlen(align_str); ++j) {
-            TEST_ASSERT(sizeof(user_data->output) >= user_data->output_off);
+            TEST_ASSERT(sizeof(user_data->output) > user_data->output_off);
             user_data->output[user_data->output_off++] = align_str[j];
         }
     }
@@ -64,7 +67,7 @@ static void data_handler(void *userData, const XML_Char *s, int len)
 
     // s is not zero-terminated
     char tmp_str[len + 1];
-    strlcpy(tmp_str, s, len + 1);
+    snprintf(tmp_str, sizeof(tmp_str), "%.*s", len, s);
 
     int ret = snprintf(user_data->output + user_data->output_off, sizeof(user_data->output) - user_data->output_off,
                        "%s", tmp_str);
@@ -105,6 +108,7 @@ TEST_CASE("Expat parses XML", "[expat]")
     };
 
     XML_Parser parser = XML_ParserCreate(NULL);
+    TEST_ASSERT_NOT_NULL(parser);
     XML_SetUserData(parser, &user_data);
     XML_SetElementHandler(parser, start_element, end_element);
     XML_SetCharacterDataHandler(parser, data_handler);
@@ -116,4 +120,55 @@ TEST_CASE("Expat parses XML", "[expat]")
 
     TEST_ASSERT_EQUAL(strlen(test_expected), strlen(user_data.output));
     TEST_ASSERT_EQUAL_STRING(test_expected, user_data.output);
+}
+
+/* The library and this test are compiled from one expat.h: if the component
+ * failed to pass XML_DTD / XML_GE on to its consumers, the prototypes below
+ * would be missing and the build would fail here rather than at runtime. */
+TEST_CASE("Expat feature macros reach the consumer", "[expat]")
+{
+    const XML_Feature *features = XML_GetFeatureList();
+    bool dtd_reported = false;
+    bool ge_reported = false;
+
+    for (const XML_Feature *f = features; f->feature != XML_FEATURE_END; f++) {
+        if (f->feature == XML_FEATURE_DTD) {
+            dtd_reported = true;
+        }
+        if (f->feature == XML_FEATURE_GE) {
+            ge_reported = true;
+        }
+    }
+
+#if defined(XML_DTD)
+    TEST_ASSERT_TRUE(dtd_reported);
+#else
+    TEST_ASSERT_FALSE(dtd_reported);
+#endif
+
+#if defined(XML_GE) && XML_GE == 1
+    TEST_ASSERT_TRUE(ge_reported);
+    /* These four are only declared when the header sees XML_GE == 1. */
+    XML_Parser parser = XML_ParserCreate(NULL);
+    TEST_ASSERT_NOT_NULL(parser);
+    TEST_ASSERT_TRUE(XML_SetBillionLaughsAttackProtectionMaximumAmplification(parser, 20.0f));
+    TEST_ASSERT_TRUE(XML_SetBillionLaughsAttackProtectionActivationThreshold(parser, 1024));
+    TEST_ASSERT_TRUE(XML_SetAllocTrackerMaximumAmplification(parser, 20.0f));
+    TEST_ASSERT_TRUE(XML_SetAllocTrackerActivationThreshold(parser, 1024));
+    XML_ParserFree(parser);
+#else
+    TEST_ASSERT_FALSE(ge_reported);
+#endif
+}
+
+TEST_CASE("Expat rejects malformed XML", "[expat]")
+{
+    const char test_in[] = "<html><body></html>";
+    XML_Parser parser = XML_ParserCreate(NULL);
+    TEST_ASSERT_NOT_NULL(parser);
+
+    TEST_ASSERT_EQUAL(XML_STATUS_ERROR, XML_Parse(parser, test_in, strlen(test_in), 1));
+    TEST_ASSERT_EQUAL(XML_ERROR_TAG_MISMATCH, XML_GetErrorCode(parser));
+    TEST_ASSERT_NOT_NULL(XML_ErrorString(XML_GetErrorCode(parser)));
+    XML_ParserFree(parser);
 }

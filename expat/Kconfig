@@ -1,0 +1,23 @@
+menu "expat"
+
+    config EXPAT_XML_GE
+        bool "Enable XML general entity expansion"
+        default y
+        help
+            Compile in general entity expansion plus the billion-laughs and
+            allocation-tracker protection that goes with it. Disable it for a
+            smaller parser: only the five predefined entities (amp, lt, gt,
+            apos, quot) still expand; other &name; stay as that text, and
+            external general entities are not loaded.
+
+    config EXPAT_XML_DTD
+        bool "Enable XML DTD support"
+        default y
+        depends on EXPAT_XML_GE
+        help
+            Compile in external DTD subsets, parameter entities, conditional
+            sections, and default attributes from an external subset. Turning
+            it off shrinks the library: no external subset is fetched and
+            those DTD features are not applied. Requires general entities.
+
+endmenu
