@@ -1,8 +1,11 @@
 # ESP-IDF component CI
 
-[build_and_run_apps.yml](workflows/build_and_run_apps.yml) owns events, PR labels,
-changed-component selection, SDK versions and the final `CI Gate`.
-[reusable-ci.yml](workflows/reusable-ci.yml) runs this pipeline for each SDK:
+[build_and_run_apps.yml](workflows/build_and_run_apps.yml) owns events and
+concurrency, and calls the shared pipeline in
+[esp-idf-projects-ci-action](https://github.com/espressif/esp-idf-projects-ci-action):
+`build_and_run_apps.yml` there runs PR labels, changed-component selection,
+SDK versions, reports and the `CI Gate`, and its `reusable-ci.yml` runs this
+pipeline for each SDK:
 
 ```mermaid
 flowchart LR
@@ -107,7 +110,7 @@ jobs:
       fail-fast: false
       matrix:
         idf_version: [release-v5.4, release-v6.0]
-    uses: espressif/idf-extra-components/.github/workflows/reusable-ci.yml@YOUR_CI_COMMIT_SHA
+    uses: espressif/esp-idf-projects-ci-action/.github/workflows/reusable-ci.yml@YOUR_CI_COMMIT_SHA
     with:
       idf_version: ${{ matrix.idf_version }}
       run_tests: true
@@ -126,19 +129,21 @@ Empty change arrays request a full build. Build-only runs retain reports and
 metadata but omit runtime binaries and tests. Tools are pinned; build setup
 preserves the SDK's component-manager constraints and compiler warning flags.
 
-Submodules are fetched once per run, not per shard: the caller workflow runs
-a `submodules` job that populates a run-wide cache through
-[espressif/esp-idf-projects-ci-action](https://github.com/espressif/esp-idf-projects-ci-action)
-(`save-cache: 'true'`, `materialize: 'false'`), and build shards restore it
-via the same action. The cache key hashes the tree's gitlinks, so one
-populate serves every SDK matrix entry. Callers reusing `reusable-ci.yml`
-wire the same populate job into the called workflow's `needs`.
+Submodules are fetched once per run, not per shard: the shared
+`build_and_run_apps.yml` runs a `submodules` job that populates a run-wide
+cache through the
+[esp-idf-projects-ci-action](https://github.com/espressif/esp-idf-projects-ci-action)
+composite action (`save-cache: 'true'`, `materialize: 'false'`), and build
+shards restore it via the same action. The cache key hashes the tree's
+gitlinks, so one populate serves every SDK matrix entry. Callers reusing
+`reusable-ci.yml` directly wire the same populate job into the called
+workflow's `needs`.
 
 Reserve `.github/ci-source`: helpers are sparsely checked out from the called
-workflow's exact `job.workflow_repository` and `job.workflow_sha` (GitHub.com).
-This avoids remote action staging following dangling submodule symlinks.
-Archives preserve relative paths and executable bits; missing runtime binaries
-fail packaging.
+workflow's exact `job.workflow_repository` and `job.workflow_sha`
+(esp-idf-projects-ci-action). This avoids remote action staging following
+dangling submodule symlinks in this repository. Archives preserve relative
+paths and executable bits; missing runtime binaries fail packaging.
 
 Configure pytest to locate builds: this repo uses `build_@t_@w`,
 the local `build_dir` fixture's skip-on-missing behavior, and `idf-ci`'s `config`.
@@ -241,12 +246,13 @@ selection instead of re-evaluating them without an SDK.
 
 ```sh
 python3 -m unittest discover -s .github/tests -p 'test_*.py'
-actionlint -ignore '^property "workflow_(repository|sha)" is not defined in object type'
 ```
 
-The narrow Actionlint exclusion supports versions missing GitHub's workflow
-identity fields. In an ESP-IDF environment, install
-`actions/ci-tools/requirements.txt`, run `idf-ci test collect -m ''`, and inspect
+This covers the local `conftest.py` hook test; the CI helper unit tests live
+with the helpers in esp-idf-projects-ci-action. In an ESP-IDF environment,
+install the ci-tools `requirements.txt` from
+[esp-idf-projects-ci-action](https://github.com/espressif/esp-idf-projects-ci-action)
+(`.github/actions/ci-tools`), run `idf-ci test collect -m ''`, and inspect
 shards with `generate_build_matrix.py`. Reproduce planning with
 `generate_test_matrix.py` and downloaded `build_info_*.json`, the original
 `BUILD_MATRIX` and a writable `GITHUB_OUTPUT`. Hardware tests require boards.

@@ -15,191 +15,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prepare:
-    name: Prepare pipeline
-    runs-on: ubuntu-22.04
+  # The pipeline lives in espressif/esp-idf-projects-ci-action so every
+  # ESP-IDF component project runs the same revisioned CI. This caller owns
+  # only triggers and concurrency; the permission block is the superset the
+  # called jobs narrow individually.
+  pipeline:
+    name: CI pipeline
     permissions:
       contents: read
-      pull-requests: read
-    outputs:
-      test_all_apps: ${{ steps.get_labels.outputs.test_all_apps }}
-      build_only: ${{ steps.get_labels.outputs.build_only }}
-      has_changes: ${{ steps.find_changes.outputs.has_changes }}
-      modified_files: ${{ steps.find_changes.outputs.modified_files }}
-      modified_components: ${{ steps.find_changes.outputs.modified_components }}
-      matrix: ${{ steps.matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v5
-        # No submodules here: unit tests and change detection need metadata
-        # only. The 'submodules' job below populates the shared cache once
-        # for the whole run.
-      - name: Test CI helpers
-        run: python3 -m unittest discover -s .github/tests -p 'test_*.py'
-      - name: Fix git repo permissions
-        # Needed by the next git diff step.
-        # See https://github.com/actions/runner/issues/2033
-        if: github.event_name == 'pull_request'
-        run: |
-          build_dir=$PWD
-          cd /
-          git config --global --add safe.directory $build_dir
-          cd -
-      - name: Read caller version matrix
-        id: matrix
-        run: echo "matrix=$(jq -c . .github/ci-matrix.json)" >> "$GITHUB_OUTPUT"
-      - name: Get labels
-        id: get_labels
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        # Check for labels
-        # "PR: test all apps"
-        # "PR: build only"
-        run: |
-          gh api --jq '.labels.[].name' /repos/{owner}/{repo}/pulls/${{ github.event.number }} > labels.txt
-          test_all_apps=$(grep -c 'PR: test all apps' labels.txt || true)
-          build_only=$(grep -c 'PR: build only' labels.txt || true)
-          echo "test_all_apps=$test_all_apps" >> $GITHUB_OUTPUT
-          echo "build_only=$build_only" >> $GITHUB_OUTPUT
-          echo "test_all_apps=$test_all_apps"
-          echo "build_only=$build_only"
-
-      - name: Find changed files and components
-        id: find_changes
-        if: github.event_name == 'pull_request' && steps.get_labels.outputs.test_all_apps == '0'
-        # - based on the files list, determine which components have changed
-        # - pass structured selection data to the reusable workflow
-        run: |
-          git fetch --recurse-submodules=no origin ${{ github.base_ref }}:base_ref
-          git fetch --recurse-submodules=no origin pull/${{ github.event.pull_request.number }}/head:pr_ref
-          # Three-dot diff: count only the PR's own changes; a two-dot diff
-          # also lists base-branch commits absent from un-rebased forks.
-          git diff --name-only -r base_ref...pr_ref > changed_files.txt
-          echo "Changed files:" && cat changed_files.txt
-          python3 .github/get_ci_changes.py changed_files.txt
-
-  submodules:
-    name: Populate submodule cache
-    # Single writer for the whole run: the submodule content depends only on
-    # the gitlink hashes, not on the IDF version, so one populate serves all
-    # matrix invocations of the reusable workflow. Build shards restore only.
-    needs: prepare
-    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true'
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v5
-      - name: Populate submodule cache
-        # Cache key, shallow fetch with retries and save live in the shared action.
-        uses: espressif/esp-idf-projects-ci-action@feat/build-test-pipeline
-        with:
-          save-cache: 'true'
-          materialize: 'false'
-
-  # Each matrix entry invokes the same complete pipeline for one IDF version.
-  ci:
-    name: CI (${{ matrix.idf_version }})
-    needs: [prepare, submodules]
-    if: github.event_name != 'pull_request' || needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true'
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
-    uses: ./.github/workflows/reusable-ci.yml
-    with:
-      idf_version: ${{ matrix.idf_version }}
-      run_tests: ${{ github.repository_owner == 'espressif' && needs.prepare.outputs.build_only != '1' }}
-      modified_files: ${{ needs.prepare.outputs.modified_files || '[]' }}
-      modified_components: ${{ needs.prepare.outputs.modified_components || '[]' }}
-
-  test-report:
-    name: Aggregate test report
-    needs: [prepare, ci]
-    if: always() && github.repository_owner == 'espressif' && needs.prepare.result == 'success' && needs.prepare.outputs.build_only != '1' && needs.ci.result != 'skipped'
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          sparse-checkout: /.github/actions/ci-tools/
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-      - name: Download test results
-        uses: actions/download-artifact@v7
-        continue-on-error: true
-        with:
-          pattern: test_results_*
-          path: ci-test-results
-      - name: Generate aggregate HTML
-        env:
-          PIPELINE_RESULT: ${{ needs.ci.result }}
-        run: |
-          python3 .github/actions/ci-tools/generate_test_report.py ci-test-results test-report.html \
-            --pipeline-result "$PIPELINE_RESULT" --markdown test-summary.md
-      - name: Upload test report
-        id: upload
-        if: always() && hashFiles('test-report.html') != ''
-        uses: actions/upload-artifact@v6
-        with:
-          name: test_report
-          path: test-report.html
-      - name: Link test report
-        if: steps.upload.outcome == 'success'
-        env:
-          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
-        run: echo "[Download aggregated HTML test report]($ARTIFACT_URL)" >> "$GITHUB_STEP_SUMMARY"
-      - name: Append test summary
-        # Show failures across all IDF versions directly in the job summary.
-        if: always() && hashFiles('test-summary.md') != ''
-        run: cat test-summary.md >> "$GITHUB_STEP_SUMMARY"
-
-  publish-results:
-    name: Publish Test results
-    needs:
-      - prepare
-      - ci
-    if: github.repository_owner == 'espressif' && always() && github.event_name == 'pull_request' && needs.prepare.outputs.build_only == '0' && (needs.prepare.outputs.test_all_apps == '1' || needs.prepare.outputs.has_changes == 'true')
-    runs-on: ubuntu-22.04
-    permissions:
-      checks: write
       pull-requests: write
-    steps:
-      - name: Download Test results
-        uses: actions/download-artifact@v7
-        with:
-          pattern: test_results_*
-          path: test_results
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: test_results/**/*.xml
-          # Fork and Dependabot PRs have read-only tokens; keep their job summary.
-          check_run: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
-          comment_mode: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && 'always' || 'off' }}
+      checks: write
+      actions: read
+    uses: espressif/esp-idf-projects-ci-action/.github/workflows/build_and_run_apps.yml@feat/build-test-pipeline
 
-  # Single stable status check intended for branch protection: it always
-  # runs, and fails when any job failed or was cancelled. Skipped jobs
-  # (e.g. the version pipelines on CI-only PRs) count as success.
-  # Require ONLY this check in branch protection - matrix job names change
-  # whenever the matrix changes and must not be required directly.
+  # Single stable status check intended for branch protection. The called
+  # workflow's own gate reports as 'CI pipeline / CI Gate'; this wrapper
+  # keeps the exact 'CI Gate' check name that branch protection requires.
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [prepare, ci, test-report, publish-results]
+    needs: pipeline
     runs-on: ubuntu-22.04
     steps:
-      - name: Check job results
-        env:
-          NEEDS: ${{ toJSON(needs) }}
+      - name: Check pipeline result
         run: |
-          python3 - <<'EOF'
-          import json
-          import os
-
-          results = {name: job['result'] for name, job in json.loads(os.environ['NEEDS']).items()}
-          for name, result in sorted(results.items()):
-              print(f'{name}: {result}')
-          failed = {name: result for name, result in results.items() if result in ('failure', 'cancelled')}
-          if failed:
-              raise SystemExit(f'Failed jobs: {failed}')
-          EOF
+          test "${{ needs.pipeline.result }}" != "failure" && test "${{ needs.pipeline.result }}" != "cancelled"

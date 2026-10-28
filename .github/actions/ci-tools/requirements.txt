@@ -1,6 +1,0 @@
-# Shared CI tooling. Installed in every collection/build/test job; the pip
-# cache key in reusable-ci.yml hashes this file.
-idf-ci
-idf-build-apps
-pytest-custom_exit_code
-cryptography
