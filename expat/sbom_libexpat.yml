@@ -6,7 +6,11 @@ description: Fast streaming XML parser written in C99
 url: https://github.com/libexpat/libexpat/
 hash: a76b1174c1ea52abb639a4c69d52b630a8a106a2
 cve-exclude-list:
-  - cve: CVE-2026-76956
-    reason: Resolved in version 2.8.4 with commit 40daa9996d616e66a75dea41ed2b18f2c3901b9f
-  - cve: CVE-2026-76957
-    reason: Resolved in version 2.8.4 with commit 127b7d4beb8fe7e5ce5cb021c2e56379c95863d0
+  - cve: CVE-2026-102633
+    reason: Resolved in version 2.9.0 with commit 209801d7fbaf07ab74bae8cb32dd2ab9e5846118
+  - cve: CVE-2026-113351
+    reason: Resolved in version 2.9.0. Check https://github.com/libexpat/libexpat/pull/1431
+  - cve: CVE-2026-77214
+    reason: Resolved in version 2.9.0 with commit 4d9b1c499ecb66323260a7274edcf86c5eab0517
+  - cve: CVE-2026-115506
+    reason: Resolved in version 2.9.0. Check https://github.com/libexpat/libexpat/pull/1433
