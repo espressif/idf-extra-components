@@ -126,6 +126,14 @@ Empty change arrays request a full build. Build-only runs retain reports and
 metadata but omit runtime binaries and tests. Tools are pinned; build setup
 preserves the SDK's component-manager constraints and compiler warning flags.
 
+Submodules are fetched once per run, not per shard: the caller workflow runs
+a `submodules` job that populates a run-wide cache through
+[espressif/esp-idf-projects-ci-action](https://github.com/espressif/esp-idf-projects-ci-action)
+(`save-cache: 'true'`, `materialize: 'false'`), and build shards restore it
+via the same action. The cache key hashes the tree's gitlinks, so one
+populate serves every SDK matrix entry. Callers reusing `reusable-ci.yml`
+wire the same populate job into the called workflow's `needs`.
+
 Reserve `.github/ci-source`: helpers are sparsely checked out from the called
 workflow's exact `job.workflow_repository` and `job.workflow_sha` (GitHub.com).
 This avoids remote action staging following dangling submodule symlinks.
