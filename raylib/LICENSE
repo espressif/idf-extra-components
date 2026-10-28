@@ -1,3 +1,15 @@
+This directory contains two separately licensed parts.
+
+ESP-IDF packaging, the platform port (src/, include/) are
+Copyright 2026 Espressif Systems (Shanghai) CO LTD,
+licensed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+Upstream raylib (subdirectory raylib/) remains zlib.
+That notice follows and must not be removed or altered.
+
+-----------------------------------------------------------------------------
+
 Copyright (c) 2013-2026 Ramon Santamaria (@raysan5)
 
 This software is provided "as-is", without any express or implied warranty. In no event

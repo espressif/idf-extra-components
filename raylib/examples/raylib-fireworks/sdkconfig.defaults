@@ -1,0 +1,8 @@
+# The software renderer needs the framebuffer(s) in PSRAM to leave internal RAM for
+# the rest of the application.
+CONFIG_SPIRAM=y
+CONFIG_RAYLIB_USE_PSRAM=y
+CONFIG_FREERTOS_HZ=1000
+
+# Framebuffer format for the software renderer
+CONFIG_RAYLIB_FRAMEBUFFER_FORMAT_RGB565=y
