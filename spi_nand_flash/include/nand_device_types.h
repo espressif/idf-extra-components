@@ -30,6 +30,7 @@ typedef enum {
     NAND_ECC_MAX_BITS_CORRECTED = NAND_ECC_4_TO_6_BITS_CORRECTED,
     NAND_ECC_7_8_BITS_CORRECTED = 5,       /*!< 7-8 bits corrected */
     NAND_ECC_1_TO_4_BITS_CORRECTED,        /*!< 1-4 bits corrected */
+    NAND_ECC_1_TO_7_BITS_CORRECTED,        /*!< 1-7 bits corrected */
     NAND_ECC_1_BIT_CORRECTED,              /*!< exactly 1 bit corrected */
     NAND_ECC_2_BITS_CORRECTED,             /*!< exactly 2 bits corrected */
     NAND_ECC_3_BITS_CORRECTED,             /*!< exactly 3 bits corrected */

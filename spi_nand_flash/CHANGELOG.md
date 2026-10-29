@@ -8,11 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- New `nand_ecc_status_t` values: `NAND_ECC_1_TO_4_BITS_CORRECTED`, exact counts `NAND_ECC_1_BIT_CORRECTED` ... `NAND_ECC_8_BITS_CORRECTED`, and `NAND_ECC_INVALID` for an ECC status that cannot be determined
+- New `nand_ecc_status_t` values: `NAND_ECC_1_TO_4_BITS_CORRECTED`, `NAND_ECC_1_TO_7_BITS_CORRECTED`, exact counts `NAND_ECC_1_BIT_CORRECTED` ... `NAND_ECC_8_BITS_CORRECTED`, and `NAND_ECC_INVALID` for an ECC status that cannot be determined
+- W25N01GWxxxG/T listed as supported (already handled by the driver)
+
+### Changed
+
+- ECC status is decoded per chip family, so some chips now report different `nand_ecc_status_t` values than before. Code that compares against a single exact value (e.g. `== NAND_ECC_4_TO_6_BITS_CORRECTED`) should be reviewed; checking `NAND_ECC_NOT_CORRECTED` / `NAND_ECC_INVALID` for failures is unaffected:
+  - Winbond KV (W25N02KV, W25N04KV) and Macronix (MX35LF2GE4AD, MX35LF4GE4AD): exact corrected bit count, read from the chip's extra ECC register
+  - Winbond 1-bit ECC parts (W25N512G, W25N01G, W25N01JW): `NAND_ECC_1_BIT_CORRECTED`
+  - Alliance and Zetta: values matching each chip's ECC strength (`1_TO_3` / `4_BITS` or `1_TO_7` / `8_BITS`)
+  - XTX XT26G08D: a correction is reported as `NAND_ECC_8_BITS_CORRECTED`
+- Winbond: the driver now switches the chip to Buffer Read mode (BUF=1) at init if it powered up with BUF=0. On KV parts BUF=0 also disables internal ECC.
+- Winbond 1-bit ECC parts: data refresh threshold set to 1, so any corrected bit triggers a refresh
 
 ### Fixed
 
 - feat: map ECC status correctly on GigaDevice chips using the ECCSE bits (status register F0h)
+- Winbond 1-bit ECC parts: ECC field value `11b` is now reported as `NAND_ECC_NOT_CORRECTED` instead of `NAND_ECC_4_TO_6_BITS_CORRECTED`
 
 ### Deprecated
 
