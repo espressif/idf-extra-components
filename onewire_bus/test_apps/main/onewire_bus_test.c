@@ -24,6 +24,28 @@ static const char *TAG = "test-app";
 #define EXAMPLE_ONEWIRE_BUS_GPIO     CONFIG_EXAMPLE_ONEWIRE_BUS_GPIO
 #define EXAMPLE_ONEWIRE_MAX_DEVICES  CONFIG_EXAMPLE_ONEWIRE_MAX_DEVICES
 
+// search the bus with the given iterator and delete it, return the number of devices found
+static int search_devices(onewire_device_iter_handle_t iter)
+{
+    int device_found = 0;
+    onewire_device_t next_onewire_device;
+    esp_err_t search_result;
+    while ((search_result = onewire_device_iter_get_next(iter, &next_onewire_device)) == ESP_OK) {
+        ESP_LOGI(TAG, "Found a new device, address: %016llX", next_onewire_device.address);
+        device_found++;
+        if (device_found >= EXAMPLE_ONEWIRE_MAX_DEVICES) {
+            ESP_LOGI(TAG, "Max device number reached, stop searching...");
+            break;
+        }
+    }
+    ESP_ERROR_CHECK(onewire_del_device_iter(iter));
+    // ESP_ERR_NOT_FOUND marks the end of the search, any other error is a bus failure
+    if (search_result != ESP_ERR_NOT_FOUND) {
+        ESP_ERROR_CHECK(search_result);
+    }
+    return device_found;
+}
+
 void app_main(void)
 {
     // install new 1-wire bus
@@ -51,28 +73,19 @@ void app_main(void)
 #error "No 1-Wire backend selected in menuconfig"
 #endif
 
-    int onewire_device_found = 0;
     onewire_device_iter_handle_t iter = NULL;
-    onewire_device_t next_onewire_device;
-    esp_err_t search_result = ESP_OK;
 
     // create 1-wire device iterator, which is used for device search
     ESP_ERROR_CHECK(onewire_new_device_iter(bus, &iter));
     ESP_LOGI(TAG, "Device iterator created, start searching...");
-    do {
-        search_result = onewire_device_iter_get_next(iter, &next_onewire_device);
-        // found a new device
-        if (search_result == ESP_OK) {
-            ESP_LOGI(TAG, "Found a new device, address: %016llX", next_onewire_device.address);
-            onewire_device_found++;
-            if (onewire_device_found >= EXAMPLE_ONEWIRE_MAX_DEVICES) {
-                ESP_LOGI(TAG, "Max device number reached, stop searching...");
-                break;
-            }
-        }
-    } while (search_result != ESP_ERR_NOT_FOUND);
-    ESP_ERROR_CHECK(onewire_del_device_iter(iter));
+    int onewire_device_found = search_devices(iter);
     ESP_LOGI(TAG, "Searching done, %d device(s) found", onewire_device_found);
+
+    // search only for the devices of one family (DS18B20)
+    ESP_ERROR_CHECK(onewire_new_device_iter_family(bus, 0x28, &iter));
+    ESP_LOGI(TAG, "Family device iterator created, start searching...");
+    int onewire_family_device_found = search_devices(iter);
+    ESP_LOGI(TAG, "Family searching done, %d device(s) found", onewire_family_device_found);
 
     // delete the bus
     ESP_LOGI(TAG, "Deleting bus...");
