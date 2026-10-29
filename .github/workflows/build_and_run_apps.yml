@@ -17,8 +17,10 @@ concurrency:
 jobs:
   # The pipeline lives in espressif/esp-idf-projects-ci-action so every
   # ESP-IDF component project runs the same revisioned CI. This caller owns
-  # only triggers and concurrency; the permission block is the superset the
-  # called jobs narrow individually.
+  # only triggers, concurrency and the SDK version list; the permission
+  # block is the superset the called jobs narrow individually. Branch
+  # protection requires the called workflow's stable gate, reported with
+  # this job's name as prefix: 'CI pipeline / CI Gate'.
   pipeline:
     name: CI pipeline
     permissions:
@@ -27,16 +29,5 @@ jobs:
       checks: write
       actions: read
     uses: espressif/esp-idf-projects-ci-action/.github/workflows/build_and_run_apps.yml@feat/build-test-pipeline
-
-  # Single stable status check intended for branch protection. The called
-  # workflow's own gate reports as 'CI pipeline / CI Gate'; this wrapper
-  # keeps the exact 'CI Gate' check name that branch protection requires.
-  ci-gate:
-    name: CI Gate
-    if: always()
-    needs: pipeline
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Check pipeline result
-        run: |
-          test "${{ needs.pipeline.result }}" != "failure" && test "${{ needs.pipeline.result }}" != "cancelled"
+    with:
+      idf_versions: '["release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "release-v6.1", "latest"]'

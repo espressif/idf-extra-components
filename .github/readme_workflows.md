@@ -43,7 +43,8 @@ the test parameters supply the actual target, and the job supplies its services.
 
 ## Adding versions, apps and tests
 
-1. Add an SDK Docker tag to [ci-matrix.json](ci-matrix.json).
+1. Add an SDK Docker tag to the `idf_versions` input in
+   [build_and_run_apps.yml](workflows/build_and_run_apps.yml).
 2. Add the app and configurations: `sdkconfig.ci` for `default`,
    `sdkconfig.ci.<name>` for named variants. Adding a default can expand coverage;
    do not add one merely to satisfy the `check_test_scripts_build_test_rules` report.
@@ -200,10 +201,12 @@ test exclusions:
 Without a declaration, a build without tests produces a warning. A declaration
 never hides an enabled test referencing a missing build configuration.
 
-Require `CI Gate` for branch protection: failed/cancelled dependencies fail it,
-intentional skips do not. `PR: build only` disables tests; `PR: test all apps`
-and global CI/config changes request full builds. Fork/Dependabot runs retain
-summaries without attempting privileged result publishing.
+Require `CI pipeline / CI Gate` for branch protection (called jobs report
+with the caller job's name as prefix): failed/cancelled dependencies fail
+it, intentional skips do not. `PR: build only` disables tests;
+`PR: test all apps` and global CI/config changes request full builds.
+Fork/Dependabot runs retain summaries without attempting privileged result
+publishing.
 
 ## Local validation
 
