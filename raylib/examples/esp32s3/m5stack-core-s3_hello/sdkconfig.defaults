@@ -1,0 +1,9 @@
+# ESP-IDF Configuration
+# Target is determined by the board selection
+
+CONFIG_IDF_TARGET=esp32s3
+
+# PSRAM Configuration for boards that support it
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=32768

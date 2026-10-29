@@ -1,0 +1,42 @@
+# Wokwi Configuration File
+# Reference: https://docs.wokwi.com/vscode/project-config
+# Author: Juraj Michalek <juraj.michalek@espressif.com>
+# Editor: esp-generate
+
+[wokwi]
+version = 1
+
+//IF option("esp32_s3_box_3")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("esp32_s3_lcd_ev_board")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("esp32s3_korvo_2")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("esp32_s3_box")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("esp_vocat")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("esp32_s3_eye")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("m5stack_core_s3")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("m5stack_atom_s3")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("m5stack_atom_s3r")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32s3_hello.elf'
+//ELIF option("m5stack_core_2")
+firmware = 'build/flasher_args.json'
+elf = 'build/esp32_hello.elf'
+//ELSE
+firmware = 'build/flasher_args.json'
+elf = 'build/hello.elf'
+//ENDIF
