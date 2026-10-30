@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #pragma once
@@ -71,6 +71,9 @@ esp_err_t spi_nand_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t
 esp_err_t spi_nand_program_execute(spi_nand_flash_device_t *handle, uint32_t page);
 esp_err_t spi_nand_program_load(spi_nand_flash_device_t *handle, const uint8_t *data, uint16_t column, uint16_t length);
 esp_err_t spi_nand_erase_block(spi_nand_flash_device_t *handle, uint32_t page);
+
+/** Single-I/O cache read (used for ONFI probe and generic chips). */
+esp_err_t spi_nand_read_sio(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length);
 
 #ifdef __cplusplus
 }

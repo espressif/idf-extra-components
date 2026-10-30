@@ -7,6 +7,7 @@
  */
 
 #include <string.h>
+#include "sdkconfig.h"
 #include "esp_check.h"
 #include "spi_nand_flash.h"
 #include "nand.h"

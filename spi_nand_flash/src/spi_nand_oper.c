@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * SPDX-FileContributor: 2015-2023 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileContributor: 2015-2026 Espressif Systems (Shanghai) CO LTD
  */
 
 #include <string.h>
@@ -365,6 +365,11 @@ static esp_err_t spi_nand_fast_read(spi_nand_flash_device_t *handle, uint8_t *da
 
 fail:
     return ret;
+}
+
+esp_err_t spi_nand_read_sio(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)
+{
+    return spi_nand_fast_read(handle, data, column, length);
 }
 
 esp_err_t spi_nand_read(spi_nand_flash_device_t *handle, uint8_t *data, uint16_t column, uint16_t length)

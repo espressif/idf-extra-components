@@ -6,6 +6,7 @@
 
 #include <inttypes.h>
 #include <string.h>
+#include "sdkconfig.h"
 #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -182,6 +183,9 @@ static esp_err_t nand_flash_blockdev_ioctl(esp_blockdev_handle_t handle, const u
     }
 
     case ESP_BLOCKDEV_CMD_MARK_BAD_BLOCK: {
+        if (handle->device_flags.read_only) {
+            return ESP_ERR_NOT_SUPPORTED;
+        }
         uint32_t *block = (uint32_t *) args;
         esp_err_t ret = nand_mark_bad(dev, *block);
         return ret;
@@ -234,14 +238,41 @@ static esp_err_t nand_flash_blockdev_ioctl(esp_blockdev_handle_t handle, const u
     }
 
     case ESP_BLOCKDEV_CMD_COPY_PAGE: {
+        if (handle->device_flags.read_only) {
+            return ESP_ERR_NOT_SUPPORTED;
+        }
         esp_blockdev_cmd_arg_copy_page_t *copy_cmd = (esp_blockdev_cmd_arg_copy_page_t *)args;
         esp_err_t ret = nand_copy(dev, copy_cmd->src_page, copy_cmd->dst_page);
         return ret;
     }
 
+    case ESP_BLOCKDEV_CMD_GET_CHIP_SOURCE: {
+        spi_nand_chip_source_t *source = (spi_nand_chip_source_t *)args;
+        *source = dev->chip_source;
+        return ESP_OK;
+    }
+
+    case ESP_BLOCKDEV_CMD_GET_GENERIC_PROBE_REPORT: {
+#if !CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION
+        ESP_LOGW(TAG, "GET_GENERIC_PROBE_REPORT: generic chip detection not enabled");
+        return ESP_ERR_NOT_SUPPORTED;
+#else
+        /* With generic detection on, a live Flash BDL always has ONFI/KCONFIG source. */
+        memcpy(args, &dev->generic_report, sizeof(spi_nand_generic_probe_report_t));
+        return ESP_OK;
+#endif /* CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION */
+    }
+
     /* Full device scan for diagnostics; can be slow on large devices. Intended for debug/health checks only. */
     case ESP_BLOCKDEV_CMD_GET_ECC_STATS: {
         esp_blockdev_cmd_arg_ecc_stats_t *ecc_stats = (esp_blockdev_cmd_arg_ecc_stats_t *)args;
+
+        /* Generic path installs nand_ecc_decode_unknown; every page would look like an ECC
+         * error. Refuse rather than return a false-positive health report. */
+        if (spi_nand_chip_source_is_generic(dev->chip_source)) {
+            ESP_LOGW(TAG, "GET_ECC_STATS not supported on generic chip detection (ECC STATUS unknown)");
+            return ESP_ERR_NOT_SUPPORTED;
+        }
 
         if (handle->geometry.write_size == 0) {
             return ESP_ERR_NOT_SUPPORTED;
@@ -340,6 +371,10 @@ esp_err_t nand_flash_get_blockdev(spi_nand_flash_config_t *config, esp_blockdev_
     blockdev->ops = &nand_flash_blockdev_ops;
 
     blockdev->device_flags.read_only = 0;
+#if CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION && !CONFIG_NAND_FLASH_GENERIC_WRITE_ERASE_ENABLE
+    /* Generic path is read-only unless WRITE_ERASE is explicitly enabled. */
+    blockdev->device_flags.read_only = spi_nand_chip_source_is_generic(handle->chip_source);
+#endif /* CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION && !CONFIG_NAND_FLASH_GENERIC_WRITE_ERASE_ENABLE */
     blockdev->device_flags.encrypted = 0;
     blockdev->device_flags.erase_before_write = 1;
     blockdev->device_flags.and_type_write = 1;
