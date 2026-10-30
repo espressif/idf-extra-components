@@ -50,3 +50,11 @@ esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
     *out = s_ecc_3bit_status_map[PACK_3BITS_STATUS(status_c0, STAT_ECC2, STAT_ECC1, STAT_ECC0)];
     return ESP_OK;
 }
+
+esp_err_t nand_ecc_decode_unknown(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+{
+    (void)dev;
+    (void)status_c0;
+    *out = NAND_ECC_UNKNOWN;
+    return ESP_OK;
+}

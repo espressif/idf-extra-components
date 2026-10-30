@@ -32,4 +32,89 @@ menu "SPI NAND Flash configuration"
         help
             This option enables gathering host test statistics and SPI NAND flash wear levelling simulation.
 
+    config NAND_FLASH_GENERIC_CHIP_DETECTION
+        bool "Enable generic SPI NAND chip detection"
+        depends on NAND_FLASH_ENABLE_BDL && !IDF_TARGET_LINUX
+        default n
+        help
+            When enabled, chip init bypasses the vendor database (including known JEDEC IDs)
+            and uses ONFI parameter page geometry, falling back to
+            NAND_FLASH_GENERIC_GEOMETRY_* when the parameter page is invalid.
+            Access is via Flash BDL (nand_flash_get_blockdev) only: read-only by default,
+            no Dhara/wear-leveling. Not for production FatFS mounts.
+            When disabled, init is database-only (smaller binary).
+
+    if NAND_FLASH_GENERIC_CHIP_DETECTION
+
+        config NAND_FLASH_GENERIC_GEOMETRY_PAGE_SIZE
+            int "Generic geometry fallback: page size in bytes"
+            default 0
+            range 0 8192
+            help
+                Used only when ONFI parameter page is missing or invalid.
+                Data bytes per page from the datasheet. 0 means unset (parameter page required).
+                When non-zero must be a power of two in 512..8192.
+
+        config NAND_FLASH_GENERIC_GEOMETRY_PAGES_PER_BLOCK
+            int "Generic geometry fallback: pages per block"
+            default 0
+            range 0 256
+            help
+                Used only when ONFI parameter page fails. 0 means unset.
+                When non-zero must be a power of two in 32..256.
+
+        config NAND_FLASH_GENERIC_GEOMETRY_NUM_BLOCKS
+            int "Generic geometry fallback: number of blocks"
+            default 0
+            range 0 65536
+            help
+                Used only when ONFI parameter page fails. 0 means unset. Must be > 0 when used.
+
+        config NAND_FLASH_GENERIC_NUM_PLANES
+            int "Generic: number of planes"
+            default 1
+            range 1 4
+            help
+                Plane count for the generic path (ONFI or Kconfig geometry).
+                Default 1 (single-plane). When > 1, program/read plane-select
+                column addressing is enabled automatically. Set from the
+                datasheet; incorrect values corrupt column addressing.
+
+        config NAND_FLASH_GENERIC_T_R_US
+            int "Generic: page read time (us)"
+            default 100
+            range 1 100000
+            help
+                Page read busy time (t_R). Used for Kconfig geometry, and when a
+                CRC-valid ONFI page leaves tR at 0. A non-zero ONFI tR is kept.
+                nand_wait_for_ready() times out at 10x this value. Prefer datasheet max.
+
+        config NAND_FLASH_GENERIC_T_PROG_US
+            int "Generic: page program time (us)"
+            default 1000
+            range 1 100000
+            help
+                Page program busy time (t_PROG). Used for Kconfig geometry, and when
+                a CRC-valid ONFI page leaves tPROG at 0. A non-zero ONFI tPROG is kept.
+                nand_wait_for_ready() times out at 10x this value. Prefer datasheet max.
+
+        config NAND_FLASH_GENERIC_T_BERS_US
+            int "Generic: block erase time (us)"
+            default 10000
+            range 1 1000000
+            help
+                Block erase busy time (t_BERS). Used for Kconfig geometry, and when
+                a CRC-valid ONFI page leaves tBERS at 0. A non-zero ONFI tBERS is kept.
+                nand_wait_for_ready() times out at 10x this value. Prefer datasheet max.
+
+        config NAND_FLASH_GENERIC_WRITE_ERASE_ENABLE
+            bool "Allow program/erase on generic chip path"
+            default n
+            help
+                By default generic detection yields a read-only Flash BDL.
+                Enable only for lab/bring-up on a disposable region; flash contents
+                may change. Still does not enable wear-leveling or FatFS.
+
+    endif
+
 endmenu

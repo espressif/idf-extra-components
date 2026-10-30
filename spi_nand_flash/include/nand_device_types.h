@@ -40,7 +40,9 @@ typedef enum {
     NAND_ECC_8_BITS_CORRECTED,             /*!< exactly 8 bits corrected */
     NAND_ECC_INVALID,                      /*!< Status could not be determined: the chip reported a reserved
                                                 pattern, or decoding it failed. Treat as not corrected. */
-    NAND_ECC_MAX                           /*!< One past the highest value (not a count: 4 is unused); not a status */
+    NAND_ECC_UNKNOWN,                      /*!< STATUS ECC not decoded (e.g. generic chip path);
+                                                SPI success does not imply ECC-clean */
+    NAND_ECC_MAX                           /*!< One past the last sequential status; not a status */
 } nand_ecc_status_t;
 
 /** @brief NAND Flash ECC configuration and status */
@@ -72,11 +74,14 @@ typedef struct {
 #endif
 } nand_flash_geometry_t;
 
+/* ONFI needs 34: manufacturer(12) + ' ' + model(20) + NUL. 40 leaves small headroom. */
+#define NAND_CHIP_NAME_MAX_LEN  40
+
 /** @brief NAND Flash device identification information */
 typedef struct {
     uint8_t manufacturer_id;                /*!< Manufacturer ID */
     uint16_t device_id;                     /*!< Device ID */
-    char chip_name[32];                     /*!< Chip name string */
+    char chip_name[NAND_CHIP_NAME_MAX_LEN]; /*!< Chip name string */
 } nand_device_info_t;
 
 #ifdef __cplusplus

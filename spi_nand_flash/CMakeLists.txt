@@ -20,27 +20,38 @@ endif()
 if(${target} STREQUAL "linux")
     list(APPEND srcs "src/nand_impl_linux.c"
                      "src/nand_linux_mmap_emul.c"
+                     "src/nand_onfi_crc.c"
                      "src/spi_nand_flash_test_helpers.c")
 else()
-    list(APPEND srcs "src/devices/nand_winbond.c"
-                     "src/devices/nand_gigadevice.c"
-                     "src/devices/nand_alliance.c"
-                     "src/devices/nand_micron.c"
-                     "src/devices/nand_zetta.c"
-                     "src/devices/nand_xtx.c"
-                     "src/devices/nand_fm.c"
-                     "src/devices/nand_macronix.c"
-                     "src/nand_impl.c"
+    list(APPEND srcs "src/nand_impl.c"
                      "src/nand_diag_api.c"
                      "src/spi_nand_flash_test_helpers.c"
-                     "src/spi_nand_oper.c")
-    
+                     "src/spi_nand_oper.c"
+                     "src/nand_onfi_crc.c")
+
     set(priv_reqs esp_mm)
-    
+
     if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER "5.3")
         list(APPEND reqs esp_driver_spi)
     else()
         list(APPEND reqs driver)
+    endif()
+
+    if(CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION)
+        # Generic path bypasses the vendor database; omit device tables from the binary.
+        list(APPEND srcs "src/nand_onfi_read.c"
+                         "src/nand_onfi.c"
+                         "src/nand_generic_geometry.c"
+                         "src/nand_generic_detect.c")
+    else()
+        list(APPEND srcs "src/devices/nand_winbond.c"
+                         "src/devices/nand_gigadevice.c"
+                         "src/devices/nand_alliance.c"
+                         "src/devices/nand_micron.c"
+                         "src/devices/nand_zetta.c"
+                         "src/devices/nand_xtx.c"
+                         "src/devices/nand_fm.c"
+                         "src/devices/nand_macronix.c")
     endif()
 endif()
 
