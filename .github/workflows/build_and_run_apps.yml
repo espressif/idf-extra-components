@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The pipeline lives in espressif/esp-idf-projects-ci-action so every
+  # The pipeline lives in espressif/esp-idf-projects-ci-workflow so every
   # ESP-IDF component project runs the same revisioned CI. This caller owns
   # only triggers, concurrency and the SDK version list; the permission
   # block is the superset the called jobs narrow individually. Branch
@@ -28,6 +28,6 @@ jobs:
       pull-requests: write
       checks: write
       actions: read
-    uses: espressif/esp-idf-projects-ci-action/.github/workflows/build_and_run_apps.yml@feat/build-test-pipeline
+    uses: espressif/esp-idf-projects-ci-workflow/.github/workflows/build_and_run_apps.yml@main
     with:
       idf_versions: '["release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "release-v6.1", "latest"]'
