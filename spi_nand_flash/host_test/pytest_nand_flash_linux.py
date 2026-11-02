@@ -15,3 +15,23 @@ from pathlib import Path
 @idf_parametrize('target', ['linux'], indirect=['target'])
 def test_nand_flash_linux(dut: Dut) -> None:
     dut.expect_exact('All tests passed', timeout=120)
+
+
+@pytest.mark.host_test
+@pytest.mark.skipif(
+    not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
+    reason="Skip the idf version that not build"
+)
+@idf_parametrize('target', ['linux'], indirect=['target'])
+def test_nand_onfi_crc_linux(dut: Dut) -> None:
+    dut.expect_exact('All tests passed', timeout=120)
+
+
+@pytest.mark.host_test
+@pytest.mark.skipif(
+    not bool(glob.glob(f'{Path(__file__).parent.absolute()}/build*/')),
+    reason="Skip the idf version that not build"
+)
+@idf_parametrize('target', ['linux'], indirect=['target'])
+def test_nand_linux_emulator_generic_unavailable(dut: Dut) -> None:
+    dut.expect_exact('All tests passed', timeout=120)
