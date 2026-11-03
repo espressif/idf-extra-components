@@ -105,6 +105,9 @@ extern "C" {
  * may run long enough to risk the task watchdog; call from a suitable task
  * context or adjust WDT settings if needed.
  *
+ * Not supported on the generic chip detection path (`ESP_ERR_NOT_SUPPORTED`):
+ * ECC STATUS is not decoded there, so aggregate counts would be meaningless.
+ *
  * @code{c}
  * esp_blockdev_cmd_arg_ecc_stats_t ecc_stats;
  * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_GET_ECC_STATS, &ecc_stats);
@@ -135,6 +138,28 @@ extern "C" {
  * @endcode
  */
 #define ESP_BLOCKDEV_CMD_COPY_PAGE                  (ESP_BLOCKDEV_CMD_NAND_BASE + 7)
+
+/** @brief Get generic chip detection probe report
+ *
+ * args points to spi_nand_generic_probe_report_t.
+ * Returns ESP_OK when CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION is enabled
+ * (init always uses ONFI or Kconfig on that path). Returns ESP_ERR_NOT_SUPPORTED
+ * when the option is off.
+ *
+ * @code{c}
+ * spi_nand_generic_probe_report_t report;
+ * esp_err_t ret = flash_bdl->ops->ioctl(flash_bdl, ESP_BLOCKDEV_CMD_GET_GENERIC_PROBE_REPORT, &report);
+ * @endcode
+ */
+#define ESP_BLOCKDEV_CMD_GET_GENERIC_PROBE_REPORT   (ESP_BLOCKDEV_CMD_NAND_BASE + 8)
+
+/** @brief Get chip geometry source (DATABASE, ONFI, or KCONFIG)
+ *
+ * Call on the flash block device from nand_flash_get_blockdev().
+ * The wear-leveling block device returns ESP_ERR_NOT_SUPPORTED for this ioctl.
+ * args points to spi_nand_chip_source_t.
+ */
+#define ESP_BLOCKDEV_CMD_GET_CHIP_SOURCE            (ESP_BLOCKDEV_CMD_NAND_BASE + 9)
 
 /** @} */
 

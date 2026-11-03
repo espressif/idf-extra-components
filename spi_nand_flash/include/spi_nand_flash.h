@@ -9,6 +9,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "esp_err.h"
 #include "nand_device_types.h"
 #ifndef CONFIG_IDF_TARGET_LINUX
@@ -25,6 +26,41 @@ extern "C" {
 #endif
 
 typedef struct spi_nand_flash_device_t spi_nand_flash_device_t;
+
+/** @brief How the attached NAND chip was identified at init */
+typedef enum {
+    SPI_NAND_CHIP_SOURCE_DATABASE = 0,  /*!< Vendor device table */
+    SPI_NAND_CHIP_SOURCE_ONFI,          /*!< Geometry parsed from the ONFI parameter page */
+    SPI_NAND_CHIP_SOURCE_KCONFIG,       /*!< Geometry supplied via Kconfig fallback */
+} spi_nand_chip_source_t;
+
+/** True when init used the generic detection path (ONFI or Kconfig), not the vendor DB. */
+static inline bool spi_nand_chip_source_is_generic(spi_nand_chip_source_t source)
+{
+    return source == SPI_NAND_CHIP_SOURCE_ONFI || source == SPI_NAND_CHIP_SOURCE_KCONFIG;
+}
+
+/**
+ * @brief Probe / bring-up report for the generic chip detection path.
+ *
+ * Always declared so apps can call ESP_BLOCKDEV_CMD_GET_GENERIC_PROBE_REPORT
+ * without a Kconfig compile guard. Filled when
+ * CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION is enabled (that path always uses
+ * ONFI or Kconfig); otherwise the ioctl returns ESP_ERR_NOT_SUPPORTED.
+ * param_page_valid distinguishes ONFI vs Kconfig geometry origin.
+ */
+typedef struct {
+    nand_device_info_t device_info;      /*!< JEDEC IDs and chip name from init */
+    bool param_page_valid;              /*!< True if ONFI parameter page signature+CRC passed */
+    bool page0_read_ok;                 /*!< Non-destructive page 0 read probe */
+    bool write_erase_enabled;           /*!< CONFIG_NAND_FLASH_GENERIC_WRITE_ERASE_ENABLE */
+    bool on_die_ecc_enabled;            /*!< CFG bit 4 after init: read-only path reports power-up;
+                                         *   WRITE_ERASE path sets the bit then re-reads */
+    uint32_t page_size;
+    uint32_t pages_per_block;
+    uint32_t num_blocks;
+    uint8_t num_planes;                 /*!< Plane count (CONFIG_NAND_FLASH_GENERIC_NUM_PLANES) */
+} spi_nand_generic_probe_report_t;
 
 #ifdef CONFIG_IDF_TARGET_LINUX
 #include "nand_linux_mmap_emul.h"

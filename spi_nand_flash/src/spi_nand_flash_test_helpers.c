@@ -5,6 +5,7 @@
  */
 
 #include "spi_nand_flash_test_helpers.h"
+#include "nand_onfi_crc.h"
 
 #define SPI_NAND_FLASH_PATTERN_SEED  0x12345678U
 
@@ -44,4 +45,14 @@ int spi_nand_flash_check_buffer_seeded(const uint8_t *src, size_t count, uint32_
         }
     }
     return 0;
+}
+
+uint16_t spi_nand_test_onfi_param_page_crc16(const uint8_t *data, size_t length)
+{
+    return nand_onfi_param_page_crc16(data, length);
+}
+
+bool spi_nand_test_onfi_param_page_crc_valid(const uint8_t *page_data, size_t page_size)
+{
+    return nand_onfi_param_page_crc_valid(page_data, page_size);
 }

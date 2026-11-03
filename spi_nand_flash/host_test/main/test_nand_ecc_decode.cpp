@@ -41,6 +41,14 @@ TEST_CASE("2-bit ECCS field decodes into nand_ecc_status_t", "[spi_nand_flash][e
     REQUIRE(decode_2bit(k_ecc_11) == NAND_ECC_4_TO_6_BITS_CORRECTED);
 }
 
+TEST_CASE("unknown decoder ignores C0h and reports NAND_ECC_UNKNOWN", "[spi_nand_flash][ecc]")
+{
+    nand_ecc_status_t st = NAND_ECC_OK;
+    REQUIRE(nand_ecc_decode_unknown(NULL, k_ecc_10, &st) == ESP_OK);
+    REQUIRE(st == NAND_ECC_UNKNOWN);
+    REQUIRE(nand_ecc_max_bits_corrected(NAND_ECC_UNKNOWN) == NAND_ECC_BITS_UNKNOWN);
+}
+
 TEST_CASE("3-bit ECCS field decodes into nand_ecc_status_t", "[spi_nand_flash][ecc]")
 {
     REQUIRE(decode_3bit(k_ecc_00) == NAND_ECC_OK);

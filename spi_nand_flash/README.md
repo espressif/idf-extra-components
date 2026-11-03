@@ -90,6 +90,12 @@ Before calling **`spi_nand_flash_init_device()`** (legacy) or **`spi_nand_flash_
 
 See `spi_nand_flash_config_t` in [`include/spi_nand_flash.h`](include/spi_nand_flash.h). End-to-end SPI + config setup is shown in the FatFS example READMEs below.
 
+## Generic chip detection (opt-in, BDL only)
+
+Optional bring-up path for unknown parts / lab override. **Disabled by default**; requires BDL. Not for production FatFS / wear-leveling — keep the vendor database path for shipping.
+
+Details (init flow, Kconfig, ioctls, limitations): [Generic Chip Detection](generic_chip_detection.md).
+
 ## FATFS Integration
 
 Use the separate [`spi_nand_flash_fatfs`](../spi_nand_flash_fatfs) component for filesystem examples and helpers:

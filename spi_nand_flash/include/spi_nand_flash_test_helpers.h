@@ -6,8 +6,12 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+/** ONFI parameter page size (bytes) used by host CRC golden-vector tests. */
+#define SPI_NAND_TEST_ONFI_PARAM_PAGE_SIZE 256
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +43,12 @@ int spi_nand_flash_check_buffer(const uint8_t *src, size_t count);
  * @return 0 on match, 1-based index of first mismatch on failure.
  */
 int spi_nand_flash_check_buffer_seeded(const uint8_t *src, size_t count, uint32_t seed);
+
+/** ONFI parameter page CRC-16 (polynomial 0x8005, init 0x4F4E) over @p data[0..length-1]. */
+uint16_t spi_nand_test_onfi_param_page_crc16(const uint8_t *data, size_t length);
+
+/** Validate bytes 0-253 against CRC in bytes 254-255 (little-endian). */
+bool spi_nand_test_onfi_param_page_crc_valid(const uint8_t *page_data, size_t page_size);
 
 #ifdef __cplusplus
 }
