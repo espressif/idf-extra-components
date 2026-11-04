@@ -813,7 +813,8 @@ esp_err_t network_prov_mgr_reset_wifi_sm_state_on_failure(void);
  * @return
  *  - ESP_OK      : Reset provisioning state machine successfully
  *  - ESP_FAIL    : Failed to reset provisioning state machine
- *  - ESP_ERR_INVALID_STATE : Manager not initialized
+ *  - ESP_ERR_INVALID_STATE : Manager not initialized, provisioning service
+ *                            not running, or auto-stop not disabled
  */
 esp_err_t network_prov_mgr_reset_wifi_sm_state_for_reprovision(void);
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
@@ -904,7 +905,8 @@ esp_err_t network_prov_mgr_reset_thread_sm_state_on_failure(void);
  * @return
  *  - ESP_OK      : Reset provisioning state machine successfully
  *  - ESP_FAIL    : Failed to reset provisioning state machine
- *  - ESP_ERR_INVALID_STATE : Manager not initialized
+ *  - ESP_ERR_INVALID_STATE : Manager not initialized, provisioning service
+ *                            not running, or auto-stop not disabled
  */
 esp_err_t network_prov_mgr_reset_thread_sm_state_for_reprovision(void);
 
