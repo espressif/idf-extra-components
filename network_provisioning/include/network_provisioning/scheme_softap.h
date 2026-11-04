@@ -31,11 +31,12 @@ extern const network_prov_scheme_t network_prov_scheme_softap;
  *
  * @note This API should be called before network_prov_mgr_start_provisioning()
  *
- * @note The pointer is kept and dereferenced at every provisioning start and
- *       stop until network_prov_mgr_deinit(), so the httpd_handle_t variable
- *       must stay valid until then. When provisioning stops, the scheme
- *       removes its URIs from the server, so the server must still be
- *       running or `*handle` must have been set to NULL after it was stopped.
+ * @note The pointer is kept until this function is called again and is
+ *       dereferenced at every provisioning start and stop, so the
+ *       httpd_handle_t variable must stay valid as long as it is set here.
+ *       When provisioning stops, the scheme removes its URIs from the server,
+ *       so the server must still be running or `*handle` must have been set
+ *       to NULL after it was stopped.
  *
  * @param[in] handle Pointer to the httpd_handle_t of the running server
  */

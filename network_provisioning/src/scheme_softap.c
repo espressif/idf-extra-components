@@ -93,8 +93,11 @@ static void remove_uris_from_app_server(void)
         return;
     }
     for (size_t i = 0; i < sizeof(builtin_uris) / sizeof(builtin_uris[0]); i++) {
+        esp_err_t err = httpd_unregister_uri_handler(server, builtin_uris[i], HTTP_POST);
         /* ESP_ERR_NOT_FOUND is fine: after a failed start or a SESSION_ONLY stop not every URI is still registered */
-        httpd_unregister_uri_handler(server, builtin_uris[i], HTTP_POST);
+        if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) {
+            ESP_LOGW(TAG, "Failed to unregister %s (%s)", builtin_uris[i], esp_err_to_name(err));
+        }
     }
 }
 
