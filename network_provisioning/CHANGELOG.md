@@ -8,12 +8,10 @@
   `network_prov_mgr_reset_thread_sm_state_for_reprovision()` now return
   `ESP_ERR_INVALID_STATE` unless the provisioning service is running, so a
   client request can no longer restart the state machine during a stop.
-- Known limitation: with an application-owned HTTP server
-  (`network_prov_scheme_softap_set_httpd_handle()`), the provisioning URIs are
-  unregistered at stop only on ESP-IDF versions that include the matching
-  `protocomm` fix. Without it they stay registered, so a later start fails
-  and a request to them can crash; stop the application's server too in that
-  case.
+- With an application-owned HTTP server
+  (`network_prov_scheme_softap_set_httpd_handle()`), the softAP scheme now
+  removes the provisioning URIs from the server when provisioning stops.
+  Before, they stayed registered, so a later start failed.
 
 # 1.4.0 (14-October-2026)
 

@@ -9,6 +9,7 @@
 #include <esp_log.h>
 #include <esp_err.h>
 #include <esp_wifi.h>
+#include <esp_http_server.h>
 
 #include <protocomm.h>
 #include <protocomm_httpd.h>
@@ -26,6 +27,21 @@ static const char *TAG = "network_prov_scheme_softap";
 
 extern const network_prov_scheme_t network_prov_scheme_softap;
 static void *scheme_softap_prov_httpd_handle;
+/* Pointer to the application's httpd_handle_t the transport was started on,
+ * NULL when the server is manager-owned. The handle is read at stop, as
+ * protocomm does, so an application that stopped its server meanwhile can
+ * set its handle variable to NULL. */
+static httpd_handle_t *app_server_ptr;
+
+/* URIs the manager registers on the transport ("/" + endpoint name) */
+static const char *const builtin_uris[] = {
+    "/prov-session",
+    "/proto-ver",
+    "/prov-config",
+    "/prov-scan",
+    "/prov-ctrl",
+};
+
 static esp_err_t start_wifi_ap(const char *ssid, const char *pass)
 {
     /* Build Wi-Fi configuration for AP mode */
@@ -64,6 +80,38 @@ static esp_err_t start_wifi_ap(const char *ssid, const char *pass)
     return ESP_OK;
 }
 
+/* protocomm_httpd_stop() neither stops an application-owned server nor
+ * unregisters from it, so the provisioning URIs would stay registered and
+ * the next start would fail. Remove them before the transport stop, while a
+ * request still in flight finds the transport state it needs. */
+static void remove_uris_from_app_server(void)
+{
+    httpd_handle_t server = *app_server_ptr;
+    app_server_ptr = NULL;
+    if (!server) {
+        /* The application stopped its server already */
+        return;
+    }
+    for (size_t i = 0; i < sizeof(builtin_uris) / sizeof(builtin_uris[0]); i++) {
+        /* ESP_ERR_NOT_FOUND is fine: after a failed start or a SESSION_ONLY stop not every URI is still registered */
+        httpd_unregister_uri_handler(server, builtin_uris[i], HTTP_POST);
+    }
+}
+
+static esp_err_t prov_stop(protocomm_t *pc)
+{
+    if (app_server_ptr) {
+        remove_uris_from_app_server();
+    }
+
+    esp_err_t err = protocomm_httpd_stop(pc);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Error occurred while stopping protocomm_httpd");
+    }
+
+    return err;
+}
+
 static esp_err_t prov_start(protocomm_t *pc, void *config)
 {
     if (!pc) {
@@ -91,26 +139,19 @@ static esp_err_t prov_start(protocomm_t *pc, void *config)
         ESP_LOGE(TAG, "Failed to start protocomm HTTP server");
         return err;
     }
+    if (httpd_config->ext_handle_provided) {
+        app_server_ptr = (httpd_handle_t *) httpd_config->data.handle;
+    }
 
     /* Start Wi-Fi softAP with specified ssid and password */
     err = start_wifi_ap(softap_config->ssid, softap_config->password);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start Wi-Fi AP");
-        protocomm_httpd_stop(pc);
+        prov_stop(pc);
         return err;
     }
 
     return ESP_OK;
-}
-
-static esp_err_t prov_stop(protocomm_t *pc)
-{
-    esp_err_t err = protocomm_httpd_stop(pc);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Error occurred while stopping protocomm_httpd");
-    }
-
-    return err;
 }
 
 static void *new_config(void)

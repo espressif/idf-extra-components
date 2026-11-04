@@ -26,7 +26,7 @@ if(CONFIG_BT_ENABLED)
     endif()
 endif()
 
-set(priv_requires protobuf-c bt esp_timer esp_wifi openthread)
+set(priv_requires protobuf-c bt esp_timer esp_wifi esp_http_server openthread)
 
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS include
