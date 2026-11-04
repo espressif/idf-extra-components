@@ -228,7 +228,9 @@ static bool keep_transport_on_stop(bool blocking)
 
 /* Free the security parameters owned by the manager (the internal copy of
  * the PoP for security 1). Must only be called once the transport that uses
- * them has been stopped. prov_ctx_lock must be held. */
+ * them has been stopped and the security unset. The caller must either hold
+ * prov_ctx_lock or have prov_state STOPPING; both keep
+ * network_prov_mgr_start_provisioning() from rewriting the parameters. */
 static void free_sec_params(void)
 {
     if (!prov_ctx->protocomm_sec_params) {
@@ -873,6 +875,10 @@ static void prov_stop_and_notify(bool is_async)
 
         /* Delete protocomm instance */
         protocomm_delete(prov_ctx->pc);
+
+        /* The security handler that used the PoP is gone now. In
+         * SESSION_ONLY mode it stays active and deinit() frees the PoP. */
+        free_sec_params();
     }
     prov_ctx->pc = NULL;
 
@@ -988,14 +994,6 @@ static bool network_prov_mgr_stop_service(bool blocking)
 
     ESP_LOGD(TAG, "Stopping provisioning");
     prov_ctx->prov_state = NETWORK_PROV_STATE_STOPPING;
-
-    /* Free proof of possession, unless the transport is kept alive: the
-     * security handler then stays active so that clients can establish fresh
-     * sessions, and freeing the PoP would leave a dangling pointer inside the
-     * security1 context. deinit() frees it in that case. */
-    if (!keep_transport_on_stop(blocking)) {
-        free_sec_params();
-    }
 
     if (prov_ctx->prov_endpoints_enabled) {
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI

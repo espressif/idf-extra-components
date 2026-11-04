@@ -12,6 +12,10 @@
   (`network_prov_scheme_softap_set_httpd_handle()`), the softAP scheme now
   removes the provisioning URIs from the server when provisioning stops.
   Before, they stayed registered, so a later start failed.
+- The internal copy of the security 1 proof of possession is now freed only
+  after the transport has stopped and the security has been unset. Before, it
+  was freed at the start of the stop, while protocomm still pointed at it, so
+  a session handshake during the cleanup delay read freed memory.
 
 # 1.4.0 (14-October-2026)
 
