@@ -1,3 +1,16 @@
+# 1.4.1 (4-November-2026)
+
+- Fix a deadlock when provisioning stops while a client request is being
+  handled: the stop waited for the transport task while holding the manager
+  lock that the request handlers take. The stop now runs without the lock, as
+  the blocking stop from `network_prov_mgr_deinit()` already did.
+- Known limitation: with an application-owned HTTP server
+  (`network_prov_scheme_softap_set_httpd_handle()`), the provisioning URIs are
+  unregistered at stop only on ESP-IDF versions that include the matching
+  `protocomm` fix. Without it they stay registered, so a later start fails
+  and a request to them can crash; stop the application's server too in that
+  case.
+
 # 1.4.0 (14-October-2026)
 
 - Add `NETWORK_PROV_MODE_SESSION_ONLY`, selected through the new `mode` field

@@ -219,7 +219,8 @@ static struct network_prov_mgr_ctx *prov_ctx;
  * network_prov_mgr_done(), network_prov_mgr_stop_provisioning()) keeps the
  * transport and the protocomm session alive for the application. Only the
  * blocking stop issued by network_prov_mgr_deinit() tears it down. This is
- * the single predicate for that decision. prov_ctx_lock must be held. */
+ * the single predicate for that decision. The mode is fixed at init, so no
+ * lock is needed. */
 static bool keep_transport_on_stop(bool blocking)
 {
     return (prov_ctx->mgr_config.mode == NETWORK_PROV_MODE_SESSION_ONLY) && !blocking;
@@ -807,6 +808,10 @@ void network_prov_mgr_endpoint_unregister(const char *ep_name)
     RELEASE_LOCK(prov_ctx_lock);
 }
 
+/* Tears down the transport and the protocomm instance, or keeps them in
+ * SESSION_ONLY mode. Must be called without prov_ctx_lock held: stopping the
+ * transport waits for its task, whose request handlers take that lock.
+ * prov_state must be STOPPING. */
 static void prov_stop_and_notify(bool is_async)
 {
     esp_event_handler_unregister(NETWORK_PROV_MGR_PVT_EVENT, NETWORK_PROV_MGR_STOP,
@@ -894,9 +899,10 @@ static void prov_stop_and_notify(bool is_async)
     ESP_LOGI(TAG, "Provisioning stopped");
 
     if (is_async) {
-        /* NOTE: While calling this API in an async fashion,
-         * the context lock prov_ctx_lock has already been taken
-         */
+        /* The teardown above ran without prov_ctx_lock; take it for the
+         * state change as the blocking path does. The callbacks run under
+         * it as they did before. */
+        ACQUIRE_LOCK(prov_ctx_lock);
         prov_ctx->prov_state = NETWORK_PROV_STATE_IDLE;
 
         ESP_LOGD(TAG, "execute_event_cb : %d", NETWORK_PROV_END);
@@ -909,6 +915,7 @@ static void prov_stop_and_notify(bool is_async)
         if (esp_event_post(NETWORK_PROV_EVENT, NETWORK_PROV_END, NULL, 0, portMAX_DELAY) != ESP_OK) {
             ESP_LOGE(TAG, "Failed to post event THREAD_PROV_END");
         }
+        RELEASE_LOCK(prov_ctx_lock);
     }
 }
 
@@ -2141,7 +2148,13 @@ static void network_prov_mgr_event_handler_internal(
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     if (event_base == NETWORK_PROV_MGR_PVT_EVENT && event_id == NETWORK_PROV_MGR_STOP) {
+        /* Stopping the transport waits for its task, whose request handlers
+         * take prov_ctx_lock, so run the stop without the lock as the blocking
+         * path does. prov_state is STOPPING, which fences concurrent stop and
+         * deinit calls meanwhile. */
+        RELEASE_LOCK(prov_ctx_lock);
         prov_stop_and_notify(true);
+        return;
     }
 
     RELEASE_LOCK(prov_ctx_lock);
