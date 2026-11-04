@@ -2753,6 +2753,16 @@ esp_err_t network_prov_mgr_reset_wifi_sm_state_for_reprovision(void)
     wifi_config_t wifi_cfg_empty = {0};
     uint8_t restore_wifi_flag = 0;
 
+    /* Reachable from a client request; only valid while the service runs,
+     * as the teardown relies on STOPPING not being overwritten */
+    if (!prov_ctx ||
+            prov_ctx->prov_state <= NETWORK_PROV_STATE_STARTING ||
+            prov_ctx->prov_state >= NETWORK_PROV_STATE_STOPPING) {
+        ESP_LOGE(TAG, "Provisioning service not running");
+        ret = ESP_ERR_INVALID_STATE;
+        goto exit;
+    }
+
     if (!prov_ctx->mgr_info.capabilities.no_auto_stop) {
         ESP_LOGE(TAG, "Execute network_prov_mgr_disable_auto_stop() before calling this API");
         ret = ESP_ERR_INVALID_STATE;
@@ -2869,6 +2879,16 @@ esp_err_t network_prov_mgr_reset_thread_sm_state_for_reprovision(void)
     otInstance *instance = esp_openthread_get_instance();
 
     esp_openthread_lock_acquire(portMAX_DELAY);
+    /* Reachable from a client request; only valid while the service runs,
+     * as the teardown relies on STOPPING not being overwritten */
+    if (!prov_ctx ||
+            prov_ctx->prov_state <= NETWORK_PROV_STATE_STARTING ||
+            prov_ctx->prov_state >= NETWORK_PROV_STATE_STOPPING) {
+        ESP_LOGE(TAG, "Provisioning service not running");
+        ret = ESP_ERR_INVALID_STATE;
+        goto exit;
+    }
+
     if (!prov_ctx->mgr_info.capabilities.no_auto_stop) {
         ESP_LOGE(TAG, "Execute network_prov_mgr_disable_auto_stop() before calling this API");
         ret = ESP_ERR_INVALID_STATE;

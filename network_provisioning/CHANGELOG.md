@@ -4,6 +4,10 @@
   handled: the stop waited for the transport task while holding the manager
   lock that the request handlers take. The stop now runs without the lock, as
   the blocking stop from `network_prov_mgr_deinit()` already did.
+- `network_prov_mgr_reset_wifi_sm_state_for_reprovision()` and
+  `network_prov_mgr_reset_thread_sm_state_for_reprovision()` now return
+  `ESP_ERR_INVALID_STATE` unless the provisioning service is running, so a
+  client request can no longer restart the state machine during a stop.
 - Known limitation: with an application-owned HTTP server
   (`network_prov_scheme_softap_set_httpd_handle()`), the provisioning URIs are
   unregistered at stop only on ESP-IDF versions that include the matching
