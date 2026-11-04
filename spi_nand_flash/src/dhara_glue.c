@@ -184,22 +184,19 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
                     uint8_t *data, dhara_error_t *err)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    spi_nand_flash_device_t *dev_handle = NULL;
     esp_err_t ret = ESP_OK;
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
     assert(dhara_priv_data->bdl_handle != NULL);
     esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
-    dev_handle = (spi_nand_flash_device_t *)bdl_handle->ctx;
     ret = bdl_handle->ops->read(bdl_handle, data, length,
                                 (p * bdl_handle->geometry.read_size) + offset, length);
 #else
-    dev_handle = dhara_priv_data->parent_handle;
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
     ret = nand_read(dev_handle, p, offset, length, data);
 #endif
     if (ret != ESP_OK) {
-        if (dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
-            dhara_set_error(err, DHARA_E_ECC);
-        }
+        // Dhara has no generic I/O error, E_ECC is the only read failure it knows
+        dhara_set_error(err, DHARA_E_ECC);
         return -1;
     }
     return 0;
@@ -219,9 +216,7 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
     ret = nand_prog(dev_handle, p, data);
 #endif
     if (ret) {
-        if (ret == ESP_ERR_NOT_FINISHED) {
-            dhara_set_error(err, DHARA_E_BAD_BLOCK);
-        }
+        dhara_set_error(err, DHARA_E_BAD_BLOCK);
         return -1;
     }
     return 0;
@@ -241,9 +236,7 @@ int dhara_nand_erase(const struct dhara_nand *n, dhara_block_t b, dhara_error_t 
     ret = nand_erase_block(dev_handle, b);
 #endif
     if (ret) {
-        if (ret == ESP_ERR_NOT_FINISHED) {
-            dhara_set_error(err, DHARA_E_BAD_BLOCK);
-        }
+        dhara_set_error(err, DHARA_E_BAD_BLOCK);
         return -1;
     }
     return 0;
@@ -330,10 +323,10 @@ int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t d
     ret = nand_copy(dev_handle, src, dst);
 #endif
     if (ret) {
-        if (dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
+        // ESP_FAIL with NOT_CORRECTED is an uncorrectable src read; nothing was programmed
+        if (ret == ESP_FAIL && dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
             dhara_set_error(err, DHARA_E_ECC);
-        }
-        if (ret == ESP_ERR_NOT_FINISHED) {
+        } else {
             dhara_set_error(err, DHARA_E_BAD_BLOCK);
         }
         return -1;
