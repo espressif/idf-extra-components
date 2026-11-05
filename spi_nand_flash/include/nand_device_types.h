@@ -70,7 +70,7 @@ typedef struct {
     uint32_t emulated_page_size;            /*!< Emulated page size for Linux */
     uint32_t emulated_page_oob;             /*!< Emulated OOB size for Linux */
 #endif
-    uint32_t num_dies;                      /*!< Number of dies (LUNs), blocks split evenly; 0 or 1: a single die */
+    uint32_t num_dies;                      /*!< Number of dies (LUNs), blocks split evenly between them; default 1 */
 } nand_flash_geometry_t;
 
 /** @brief NAND Flash device identification information */

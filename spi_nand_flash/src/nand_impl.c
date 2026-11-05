@@ -113,9 +113,12 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
     (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
     (*handle)->chip.num_planes = 1;
+    (*handle)->chip.num_dies = 1;
     (*handle)->chip.flags = 0;
 
     ESP_GOTO_ON_ERROR(detect_chip(*handle), fail, TAG, "Failed to detect nand chip");
+    ESP_GOTO_ON_FALSE((*handle)->chip.num_dies != 0 && (*handle)->chip.num_blocks % (*handle)->chip.num_dies == 0,
+                      ESP_ERR_INVALID_STATE, fail, TAG, "num_blocks not divisible by num_dies");
     ESP_GOTO_ON_ERROR(unprotect_chip(*handle), fail, TAG, "Failed to clear protection register");
 
     if (((*handle)->config.io_mode ==  SPI_NAND_IO_MODE_QOUT || (*handle)->config.io_mode ==  SPI_NAND_IO_MODE_QIO)
