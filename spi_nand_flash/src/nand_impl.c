@@ -205,11 +205,17 @@ static esp_err_t read_page_and_wait(spi_nand_flash_device_t *dev, uint32_t page,
     return wait_for_ready(dev, dev->chip.read_page_delay_us, status_out);
 }
 
-static esp_err_t program_execute_and_wait(spi_nand_flash_device_t *dev, uint32_t page, uint8_t *status_out)
+/* Once Program Execute is issued the page may be programmed, so any failure from then on
+ * is reported as ESP_ERR_NOT_FINISHED and the page must not be programmed again. */
+static esp_err_t program_execute_and_wait(spi_nand_flash_device_t *dev, uint32_t page)
 {
-    ESP_RETURN_ON_ERROR(spi_nand_program_execute(dev, page), TAG, "");
-
-    return wait_for_ready(dev, dev->chip.program_page_delay_us, status_out);
+    uint8_t status;
+    ESP_RETURN_ON_FALSE(spi_nand_program_execute(dev, page) == ESP_OK, ESP_ERR_NOT_FINISHED, TAG, "");
+    ESP_RETURN_ON_FALSE(wait_for_ready(dev, dev->chip.program_page_delay_us, &status) == ESP_OK,
+                        ESP_ERR_NOT_FINISHED, TAG, "");
+    ESP_RETURN_ON_FALSE((status & STAT_PROGRAM_FAILED) == 0, ESP_ERR_NOT_FINISHED, TAG,
+                        "prog failed, page=%"PRIu32", status=0x%02x", page, status);
+    return ESP_OK;
 }
 
 static uint16_t get_column_address(spi_nand_flash_device_t *handle, uint32_t block, uint32_t offset)
@@ -282,7 +288,7 @@ esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t block)
     // Write 4 bytes: bad block marker (0x0000) + page used marker (0xFFFF)
     ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (const uint8_t *) &markers,
                                             column_addr, 4), fail, TAG, "");
-    ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, first_block_page, NULL), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, first_block_page), fail, TAG, "");
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
     // nand_is_bad() reloads the page and checks the bad block marker; the other bytes do not matter for a bad block
@@ -354,17 +360,6 @@ esp_err_t nand_erase_chip(spi_nand_flash_device_t *handle)
     return ret;
 }
 
-/* Once Program Execute is issued the page may be programmed, so any failure from then on
- * is reported as ESP_ERR_NOT_FINISHED and the page must not be programmed again. */
-static esp_err_t program_execute_checked(spi_nand_flash_device_t *dev, uint32_t page)
-{
-    uint8_t status;
-    ESP_RETURN_ON_FALSE(program_execute_and_wait(dev, page, &status) == ESP_OK, ESP_ERR_NOT_FINISHED, TAG, "");
-    ESP_RETURN_ON_FALSE((status & STAT_PROGRAM_FAILED) == 0, ESP_ERR_NOT_FINISHED, TAG,
-                        "prog failed, page=%"PRIu32", status=0x%02x", page, status);
-    return ESP_OK;
-}
-
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
 static esp_err_t check_ecc_status(spi_nand_flash_device_t *dev, uint8_t status);
 
@@ -418,7 +413,7 @@ esp_err_t nand_prog(spi_nand_flash_device_t *handle, uint32_t page, const uint8_
     ESP_GOTO_ON_ERROR(spi_nand_program_load(handle, (uint8_t *)&markers,
                                             column_addr + handle->chip.page_size, 4), fail, TAG, "");
 
-    ESP_GOTO_ON_ERROR(program_execute_checked(handle, page), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, page), fail, TAG, "");
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
     ESP_GOTO_ON_ERROR(s_verify_page(handle, page, column_addr, data, markers, verify_buf), fail, TAG,
@@ -588,7 +583,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
                           fail, TAG, "");
     }
 
-    ESP_GOTO_ON_ERROR(program_execute_checked(handle, dst), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, dst), fail, TAG, "");
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
     ESP_GOTO_ON_ERROR(s_verify_page(handle, dst, dst_column_addr, copy_buf, markers, verify_buf), fail, TAG,
