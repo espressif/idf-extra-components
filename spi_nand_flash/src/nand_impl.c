@@ -459,7 +459,8 @@ fail:
 
 /* Decode the ECC status for the page just read and record it.
  * Returns ESP_OK if the data is usable, ESP_FAIL on an uncorrectable/invalid ECC status,
- * or the decoder's error (e.g. a failed status-extension register read) unchanged. */
+ * or the decoder's error (e.g. a failed status-extension register read) unchanged.
+ * dhara_glue.c relies on ESP_FAIL from nand_read()/nand_copy() meaning exactly this ECC verdict. */
 static esp_err_t check_ecc_status(spi_nand_flash_device_t *dev, uint8_t status)
 {
     assert(dev->ecc_status_decoder);
