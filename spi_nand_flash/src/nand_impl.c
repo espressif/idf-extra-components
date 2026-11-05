@@ -156,28 +156,6 @@ fail:
 
 /***************************************************************************************/
 
-#if CONFIG_NAND_FLASH_VERIFY_WRITE
-static esp_err_t s_verify_write(spi_nand_flash_device_t *handle, const uint8_t *expected_buffer, uint16_t offset, uint16_t length)
-{
-    uint8_t *temp_buf = NULL;
-    temp_buf = heap_caps_malloc(length, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(temp_buf != NULL, ESP_ERR_NO_MEM, TAG, "nomem");
-    if (spi_nand_read(handle, temp_buf, offset, length)) {
-        ESP_LOGE(TAG, "%s: Failed to read nand flash to verify previous write", __func__);
-        free(temp_buf);
-        return ESP_FAIL;
-    }
-
-    if (memcmp(temp_buf, expected_buffer, length)) {
-        ESP_LOGE(TAG, "%s: Data mismatch detected. The previously written buffer does not match the read buffer.", __func__);
-        free(temp_buf);
-        return ESP_FAIL;
-    }
-    free(temp_buf);
-    return ESP_OK;
-}
-#endif //CONFIG_NAND_FLASH_VERIFY_WRITE
-
 static esp_err_t wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_operation_time_us, uint8_t *status_out)
 {
     if (expected_operation_time_us < ROM_WAIT_THRESHOLD_US) {
@@ -307,14 +285,10 @@ esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t block)
     ESP_GOTO_ON_ERROR(program_execute_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
-    // Reload the just-programmed page into cache before reading it back: spi_nand_read()
-    // only reads from cache, and the cache is not guaranteed to still hold the programmed
-    // data straight after program_execute on all chips.
-    ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
-    ret = s_verify_write(handle, (uint8_t *)&markers, column_addr, 4);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "%s: mark_bad write verification failed for block=%"PRIu32" and page=%"PRIu32"", __func__, block, first_block_page);
-    }
+    // nand_is_bad() reloads the page and checks the bad block marker; the other bytes do not matter for a bad block
+    bool is_bad = false;
+    ESP_GOTO_ON_ERROR(nand_is_bad(handle, block, &is_bad), fail, TAG, "");
+    ESP_GOTO_ON_FALSE(is_bad, ESP_FAIL, fail, TAG, "mark_bad verification failed, block=%"PRIu32, block);
 #endif //CONFIG_NAND_FLASH_VERIFY_WRITE
     return ret;
 fail:
