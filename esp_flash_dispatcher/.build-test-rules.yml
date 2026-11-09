@@ -1,6 +1,4 @@
 esp_flash_dispatcher/test_apps:
-  disable:
-    - if: SOC_SPIRAM_XIP_SUPPORTED != 1
-      reason: "This feature is only necessary on chips which have PSRAM, and can XIP from PSRAM"
-    - if: IDF_VERSION_MAJOR <= 5 and IDF_VERSION_MINOR < 2
-      reason: IDF version below v5.2 is not supported
+  enable:
+    - if: ((IDF_VERSION_MAJOR == 5 and IDF_VERSION_MINOR >= 5) or (IDF_VERSION_MAJOR > 5)) and IDF_TARGET in ["esp32", "esp32s3", "esp32p4"]
+      reason: "IDF v5.5 or newer, on representative Xtensa and RISC-V targets"
