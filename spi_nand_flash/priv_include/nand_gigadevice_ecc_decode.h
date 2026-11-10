@@ -35,7 +35,7 @@ bool nand_gd_ecc_needs_status_ext(uint8_t status_c0);
  * @param raw_status_f0  Raw F0h status byte (don't-care unless ECCS is 01b).
  * @return Decoded ECC status.
  */
-nand_ecc_status_t nand_gd_ecc_decode_8bit_strength(uint8_t raw_status_c0, uint8_t raw_status_f0);
+nand_ecc_status_t nand_gd_ecc_decode_t8(uint8_t raw_status_c0, uint8_t raw_status_f0);
 
 /**
  * @brief GigaDevice ECCS+ECCSE decode for chips with 4-bit/528B internal ECC strength.
@@ -47,7 +47,7 @@ nand_ecc_status_t nand_gd_ecc_decode_8bit_strength(uint8_t raw_status_c0, uint8_
  * @param raw_status_f0  Raw F0h status byte (don't-care unless ECCS is 01b).
  * @return Decoded ECC status.
  */
-nand_ecc_status_t nand_gd_ecc_decode_4bit_strength(uint8_t raw_status_c0, uint8_t raw_status_f0);
+nand_ecc_status_t nand_gd_ecc_decode_t4(uint8_t raw_status_c0, uint8_t raw_status_f0);
 
 #ifdef __cplusplus
 }

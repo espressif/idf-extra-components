@@ -54,23 +54,13 @@ typedef struct {
     esp_err_t (*gc)(spi_nand_flash_device_t *handle);
 } spi_nand_ops;
 
-/**
- * @brief Per-chip ECC status decoder, installed as spi_nand_flash_device_t::ecc_status_decoder.
- *
- * @param dev        Device handle, for decoders that need extra register reads.
- * @param status_c0  Raw C0h status byte read after the page load.
- * @param[out] out   Decoded ECC status; valid only when ESP_OK is returned.
- * @return ESP_OK on success; any other value means the status could not be determined.
- */
-typedef esp_err_t (*nand_ecc_decode_fn)(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
-
 struct spi_nand_flash_device_t {
     spi_nand_flash_config_t config;
     spi_nand_chip_t chip;                  // Geometry (legacy typedef for nand_flash_geometry_t)
     nand_device_info_t device_info;        // Device identification (manufacturer, device ID, chip name)
     const spi_nand_ops *ops;
     void *ops_priv_data;
-    nand_ecc_decode_fn ecc_status_decoder;  // Per-chip C0h ECC status decoder; never NULL after init
+    const nand_ecc_decoder_t *ecc_decoder;  // Per-chip ECC status decoder; never NULL after init
     uint8_t *work_buffer;
     uint8_t *read_buffer;
     uint8_t *temp_buffer;

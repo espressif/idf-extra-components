@@ -101,7 +101,7 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
 
     (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
     (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
-    (*handle)->ecc_status_decoder = nand_ecc_decode_2bit;
+    (*handle)->ecc_decoder = &nand_ecc_decoder_2bit_default;
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
     (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
     (*handle)->chip.num_planes = 1;
@@ -449,14 +449,18 @@ fail:
  * or the decoder's error (e.g. a failed status-extension register read) unchanged. */
 static esp_err_t check_ecc_status(spi_nand_flash_device_t *dev, uint8_t status)
 {
-    assert(dev->ecc_status_decoder);
-    nand_ecc_status_t bits_corrected_status = NAND_ECC_INVALID;
-    esp_err_t ret = dev->ecc_status_decoder(dev, status, &bits_corrected_status);
-    if (ret != ESP_OK) {
-        /* Status unknown: not an ECC verdict, so don't report NOT_CORRECTED. */
-        dev->chip.ecc_data.ecc_corrected_bits_status = NAND_ECC_INVALID;
-        return ret;
+    const nand_ecc_decoder_t *decoder = dev->ecc_decoder;
+    assert(decoder && decoder->decode);
+    uint8_t extra = 0;
+    if (decoder->read_extra && (!decoder->needs_extra_read || decoder->needs_extra_read(status))) {
+        esp_err_t ret = decoder->read_extra(dev, &extra);
+        if (ret != ESP_OK) {
+            /* Status unknown: not an ECC verdict, so don't report NOT_CORRECTED. */
+            dev->chip.ecc_data.ecc_corrected_bits_status = NAND_ECC_INVALID;
+            return ret;
+        }
     }
+    nand_ecc_status_t bits_corrected_status = decoder->decode(status, extra);
     dev->chip.ecc_data.ecc_corrected_bits_status = bits_corrected_status;
     /* NAND_ECC_MAX is not a status; a decoder returning it is a bug, so fail safe. */
     if (bits_corrected_status == NAND_ECC_NOT_CORRECTED || bits_corrected_status == NAND_ECC_INVALID ||

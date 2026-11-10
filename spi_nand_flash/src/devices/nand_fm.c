@@ -28,12 +28,12 @@ esp_err_t spi_nand_fm_init(spi_nand_flash_device_t *dev)
     dev->chip.has_quad_enable_bit = 1;
     dev->chip.quad_enable_bit_pos = 0;
     dev->chip.ecc_data.ecc_status_reg_len_in_bits = 3;
-    dev->ecc_status_decoder = nand_ecc_decode_3bit;
+    dev->ecc_decoder = &nand_ecc_decoder_3bit;
     dev->chip.erase_block_delay_us = 4000;
     dev->chip.program_page_delay_us = 400;
     dev->chip.read_page_delay_us = 105;
     switch (device_id) {
-    case FM_DI_D5: //FM25S005BI3
+    case FM_DI_D5: // FM25S005BI3 (3.3 V) - 8 bits/528B ECC strength
         dev->chip.num_blocks = 512;
         dev->chip.log2_ppb = 6;        // 64 pages per block
         dev->chip.log2_page_size = 11; // 2048 bytes per page
