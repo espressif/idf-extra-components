@@ -1,0 +1,33 @@
+name: esp_suit_ota tools
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'esp_suit_ota/tools/**'
+      - 'esp_suit_ota/test_apps/main/vectors/**'
+      - '.github/workflows/esp_suit_ota_tools.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: esp-suit tool tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: pip install -e 'esp_suit_ota/tools[test]'
+      - name: Test
+        working-directory: esp_suit_ota/tools
+        run: python -m pytest
+      - name: The test app vectors match their generator
+        run: python esp_suit_ota/test_apps/main/vectors/gen_vectors.py --check

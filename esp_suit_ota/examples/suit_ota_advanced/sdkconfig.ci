@@ -1,0 +1,7 @@
+# CI: the test writes the manifest URL on the console and serves the release over plain HTTP.
+# SUIT authenticates the manifest and every payload, so transport security is not what keeps the
+# device safe here. A product keeps HTTPS.
+CONFIG_EXAMPLE_MANIFEST_URL="FROM_STDIN"
+CONFIG_ESP_SUIT_OTA_HTTPS_ALLOW_HTTP=y
+CONFIG_EXAMPLE_ENABLE_BLE=n
+CONFIG_EXAMPLE_WIFI_SSID_PWD_FROM_STDIN=y
