@@ -124,6 +124,7 @@ esp_decrypt_handle_t esp_encrypted_img_decrypt_start(const esp_decrypt_cfg_t *cf
 * @return
 *    - ESP_FAIL                         On failure
 *    - ESP_ERR_INVALID_ARG              Invalid arguments
+*    - ESP_ERR_NO_MEM                   Not enough memory. args->data_out does not change. The caller must free it.
 *    - ESP_ERR_NOT_FINISHED             Decryption is in process
 *    - ESP_OK                           Success
 */
