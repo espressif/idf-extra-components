@@ -1,3 +1,22 @@
+# 1.4.1 (4-November-2026)
+
+- Fix a deadlock when provisioning stops while a client request is being
+  handled: the stop waited for the transport task while holding the manager
+  lock that the request handlers take. The stop now runs without the lock, as
+  the blocking stop from `network_prov_mgr_deinit()` already did.
+- `network_prov_mgr_reset_wifi_sm_state_for_reprovision()` and
+  `network_prov_mgr_reset_thread_sm_state_for_reprovision()` now return
+  `ESP_ERR_INVALID_STATE` unless the provisioning service is running, so a
+  client request can no longer restart the state machine during a stop.
+- With an application-owned HTTP server
+  (`network_prov_scheme_softap_set_httpd_handle()`), the softAP scheme now
+  removes the provisioning URIs from the server when provisioning stops.
+  Before, they stayed registered, so a later start failed.
+- The internal copy of the security 1 proof of possession is now freed only
+  after the transport has stopped and the security has been unset. Before, it
+  was freed at the start of the stop, while protocomm still pointed at it, so
+  a session handshake during the cleanup delay read freed memory.
+
 # 1.4.0 (14-October-2026)
 
 - Add `NETWORK_PROV_MODE_SESSION_ONLY`, selected through the new `mode` field
