@@ -173,6 +173,7 @@ ESP_ERROR_CHECK(onewire_del_device_iter(iter));
 - The device address contains the family code (first byte), serial number (middle 6 bytes), and CRC (last byte)
 - After you have copied the addresses you need, call [onewire_del_device_iter](api.md#function-onewire_del_device_iter). Later [ONEWIRE_CMD_MATCH_ROM](api.md#define-onewire_cmd_match_rom) / read / write only need the bus handle and the saved address
 - To re-scan the bus, create a new iterator with [onewire_new_device_iter](api.md#function-onewire_new_device_iter). An exhausted iterator cannot be restarted
+- To find only the devices of one family, create the iterator with [onewire_new_device_iter_family](api.md#function-onewire_new_device_iter_family). The search then skips devices of other families
 
 ## Communicate with Devices
 
