@@ -7,6 +7,7 @@
  */
 
 #include <string.h>
+#include <inttypes.h>
 #include <sys/lock.h>
 #include "dhara/nand.h"
 #include "dhara/map.h"
@@ -23,6 +24,8 @@
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
 #include "esp_nand_blockdev.h"
 #endif
+
+static const char *TAG = "dhara_glue";
 
 typedef struct {
     struct dhara_nand dhara_nand;
@@ -184,21 +187,29 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
                     uint8_t *data, dhara_error_t *err)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    spi_nand_flash_device_t *dev_handle = NULL;
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
     esp_err_t ret = ESP_OK;
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
     assert(dhara_priv_data->bdl_handle != NULL);
     esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
-    dev_handle = (spi_nand_flash_device_t *)bdl_handle->ctx;
     ret = bdl_handle->ops->read(bdl_handle, data, length,
                                 (p * bdl_handle->geometry.read_size) + offset, length);
 #else
-    dev_handle = dhara_priv_data->parent_handle;
     ret = nand_read(dev_handle, p, offset, length, data);
 #endif
     if (ret != ESP_OK) {
-        if (dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
+        // Only ESP_FAIL is an ECC verdict; after any other error ecc_corrected_bits_status is stale
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "read page=%"PRIu32" failed: ecc=%d", p, dev_handle->chip.ecc_data.ecc_corrected_bits_status);
+        } else {
+            ESP_LOGE(TAG, "read page=%"PRIu32" failed: %s", p, esp_err_to_name(ret));
+        }
+        // Only an uncorrectable ECC verdict is E_ECC; anything else could be a host-side or transient failure
+        if (ret == ESP_FAIL &&
+                dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
             dhara_set_error(err, DHARA_E_ECC);
+        } else {
+            dhara_set_error(err, DHARA_E_NONE);
         }
         return -1;
     }
@@ -219,9 +230,9 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
     ret = nand_prog(dev_handle, p, data);
 #endif
     if (ret) {
-        if (ret == ESP_ERR_NOT_FINISHED) {
-            dhara_set_error(err, DHARA_E_BAD_BLOCK);
-        }
+        ESP_LOGE(TAG, "prog page=%"PRIu32" failed: %s", p, esp_err_to_name(ret));
+        // Only after Program Execute (ESP_ERR_NOT_FINISHED) the page may be programmed and the block is marked bad
+        dhara_set_error(err, ret == ESP_ERR_NOT_FINISHED ? DHARA_E_BAD_BLOCK : DHARA_E_NONE);
         return -1;
     }
     return 0;
@@ -241,9 +252,9 @@ int dhara_nand_erase(const struct dhara_nand *n, dhara_block_t b, dhara_error_t 
     ret = nand_erase_block(dev_handle, b);
 #endif
     if (ret) {
-        if (ret == ESP_ERR_NOT_FINISHED) {
-            dhara_set_error(err, DHARA_E_BAD_BLOCK);
-        }
+        ESP_LOGE(TAG, "erase block=%"PRIu32" failed: %s", b, esp_err_to_name(ret));
+        // Only the chip's erase-failed status (ESP_ERR_NOT_FINISHED) retires the block
+        dhara_set_error(err, ret == ESP_ERR_NOT_FINISHED ? DHARA_E_BAD_BLOCK : DHARA_E_NONE);
         return -1;
     }
     return 0;
@@ -313,28 +324,38 @@ int dhara_nand_is_free(const struct dhara_nand *n, dhara_page_t p)
 int dhara_nand_copy(const struct dhara_nand *n, dhara_page_t src, dhara_page_t dst, dhara_error_t *err)
 {
     spi_nand_flash_dhara_priv_data_t *dhara_priv_data = __containerof(n, spi_nand_flash_dhara_priv_data_t, dhara_nand);
-    spi_nand_flash_device_t *dev_handle = NULL;
+    spi_nand_flash_device_t *dev_handle = dhara_priv_data->parent_handle;
     esp_err_t ret = ESP_OK;
 
 #ifdef CONFIG_NAND_FLASH_ENABLE_BDL
     assert(dhara_priv_data->bdl_handle != NULL);
     esp_blockdev_handle_t bdl_handle = dhara_priv_data->bdl_handle;
-    dev_handle = (spi_nand_flash_device_t *)bdl_handle->ctx;
     esp_blockdev_cmd_arg_copy_page_t copy_arg = {
         .src_page = src,
         .dst_page = dst
     };
     ret = dhara_priv_data->bdl_handle->ops->ioctl(bdl_handle, ESP_BLOCKDEV_CMD_COPY_PAGE, &copy_arg);
 #else
-    dev_handle = dhara_priv_data->parent_handle;
     ret = nand_copy(dev_handle, src, dst);
 #endif
     if (ret) {
-        if (dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
-            dhara_set_error(err, DHARA_E_ECC);
+        // Only ESP_FAIL is an ECC verdict (src read, nothing programmed); after any other error
+        // ecc_corrected_bits_status is stale
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "copy src=%"PRIu32" dst=%"PRIu32" failed: ecc=%d", src, dst,
+                     dev_handle->chip.ecc_data.ecc_corrected_bits_status);
+        } else {
+            ESP_LOGE(TAG, "copy src=%"PRIu32" dst=%"PRIu32" failed: %s", src, dst, esp_err_to_name(ret));
         }
-        if (ret == ESP_ERR_NOT_FINISHED) {
+        if (ret == ESP_FAIL &&
+                dev_handle->chip.ecc_data.ecc_corrected_bits_status == NAND_ECC_NOT_CORRECTED) {
+            dhara_set_error(err, DHARA_E_ECC);
+        } else if (ret == ESP_ERR_NOT_FINISHED) {
+            // dst may have been programmed: the block goes, the same page is never retried
             dhara_set_error(err, DHARA_E_BAD_BLOCK);
+        } else {
+            // host-side or transient failure (no memory, SPI): fail without retiring the block
+            dhara_set_error(err, DHARA_E_NONE);
         }
         return -1;
     }

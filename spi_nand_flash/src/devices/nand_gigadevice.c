@@ -128,9 +128,10 @@ esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev)
         dev->ecc_status_decoder = gd_ecc_decode_8bit_strength;
         break;
     case GIGADEVICE_DI_99: // GD5F8GM8UExxG - 8 bits/528B ECC strength
-        // single-plane; IDM requires same odd/even block parity
+        // two LUNs of 2048 blocks (CASN page); IDM requires same parity within one LUN
         dev->chip.log2_page_size = 12; // 4096 bytes per page
         dev->chip.num_blocks = 4096;
+        dev->chip.num_luns_per_target = 2;
         dev->chip.flags = NAND_FLAG_IDM_SAME_PARITY_REQUIRED;
         dev->ecc_status_decoder = gd_ecc_decode_8bit_strength;
         break;

@@ -13,6 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - feat: map ECC status correctly on GigaDevice chips using the ECCSE bits (status register F0h)
+- fix: `nand_prog()` with `CONFIG_NAND_FLASH_VERIFY_WRITE` ignored a data mismatch when the page markers were intact, and did not check the ECC status of the verify read
+- fix: `nand_copy()` with `CONFIG_NAND_FLASH_VERIFY_WRITE` read the reference data from the cache after Program Execute, where it is no longer valid, causing false verify failures
+- fix: `nand_copy()` via RAM issued Program Execute twice (the second one without Write Enable) and leaked the copy buffer on error paths
+- fix: `nand_prog()` and `nand_copy()` return `ESP_ERR_NOT_FINISHED` for every failure after Program Execute (including verify failures), so the page is never programmed again
+- fix: allocate the verify and copy buffers before Program Execute, and from non-DMA memory on IDF >= 5.2
+- fix: `nand_copy()` no longer uses Internal Data Move across LUNs (each LUN has its own cache, so the destination received stale data from the other LUN's cache); GD5F8GM8UExxG is described as one target with two LUNs of 2048 blocks (new `nand_flash_geometry_t::num_luns_per_target`)
+- fix: Dhara glue always sets the error code, as required by the Dhara NAND contract: `DHARA_E_BAD_BLOCK` only when the chip may have been programmed or erased (`ESP_ERR_NOT_FINISHED`), `DHARA_E_ECC` for an uncorrectable ECC failure (`ESP_FAIL` with ECC status `NAND_ECC_NOT_CORRECTED` on read or copy source), `DHARA_E_NONE` for host-side or transient failures, which no longer retire the block; previously Dhara could program the same page twice after a failure
 
 ### Deprecated
 
