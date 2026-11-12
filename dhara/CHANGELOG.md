@@ -7,6 +7,19 @@ and this component adheres to [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-12
+
+### Fixed
+
+- Local patch to upstream `journal.c`: `push_meta()` now retries a failed
+  metadata page write in place instead of leaving the journal head on an
+  already-programmed user page, which caused that page to be programmed a
+  second time on the next write. Errors other than `DHARA_E_BAD_BLOCK` are
+  retried up to `DHARA_MAX_RETRIES` times, then handled as a bad block.
+  Retiring a possibly good block is preferred over programming a page twice.
+  Relies on the `spi_nand_flash` glue reporting `DHARA_E_BAD_BLOCK` only when
+  the page may have been programmed.
+
 ## [1.1.0] - 2026-09-22
 
 ### Added
