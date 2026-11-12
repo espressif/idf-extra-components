@@ -58,6 +58,8 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         return spi_nand_micron_init(dev);
     case SPI_NAND_FLASH_ZETTA_MI: // Zetta
         return spi_nand_zetta_init(dev);
+    case SPI_NAND_FLASH_ZBIT_MI: // Zbit
+        return spi_nand_zbit_init(dev);
     case SPI_NAND_FLASH_XTX_MI: // XTX
         return spi_nand_xtx_init(dev);
     case SPI_NAND_FLASH_FM_MI: // FM
@@ -120,6 +122,7 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
     (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
     (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
     (*handle)->ecc_status_decoder = nand_ecc_decode_2bit;
+    (*handle)->qio_dummy_cycles = 4;
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
     (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
     (*handle)->chip.num_planes = 1;
@@ -303,7 +306,8 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
 
     memcpy(&markers, handle->read_buffer, sizeof(markers));
     ESP_LOGV(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
-    *is_bad_status = (markers[0] != 0xFF || markers[1] != 0xFF);
+    bool first_byte_only = handle->chip.flags & NAND_FLAG_BBM_FIRST_BYTE_ONLY;
+    *is_bad_status = markers[0] != 0xFF || (!first_byte_only && markers[1] != 0xFF);
     return ret;
 
 fail:
