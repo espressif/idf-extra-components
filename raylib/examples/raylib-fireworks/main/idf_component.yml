@@ -1,0 +1,4 @@
+dependencies:
+  espressif/raylib:
+    version: "*"
+    override_path: "../../.."

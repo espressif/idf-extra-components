@@ -1,0 +1,17 @@
+version: "6.2.0"
+description: Raylib, a simple 2D game programming library, running on ESP-IDF with its software renderer
+url: https://github.com/espressif/idf-extra-components/tree/master/raylib
+repository: https://github.com/espressif/idf-extra-components.git
+documentation: https://www.raylib.com/
+issues: https://github.com/espressif/idf-extra-components/issues
+dependencies:
+  idf: ">=5.3"
+files:
+  exclude:
+    - "raylib/examples/**/*"
+    - "raylib/tools/**/*"
+    - "raylib/projects/**/*"
+sbom:
+  manifests:
+    - path: sbom_raylib.yml
+      dest: raylib

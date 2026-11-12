@@ -1,0 +1,108 @@
+menu "Raylib"
+
+    config RAYLIB_USE_PSRAM
+        bool "Place large raylib buffers in PSRAM"
+        depends on SPIRAM
+        default y
+        help
+            Let the software renderer allocate big blocks from PSRAM instead of internal RAM.
+
+            Blocks of 32 KiB and above go to PSRAM first and fall back to internal RAM.
+            Smaller blocks, which the renderer walks constantly, stay in internal RAM.
+
+    choice RAYLIB_FRAMEBUFFER_FORMAT
+        prompt "Framebuffer pixel format"
+        default RAYLIB_FRAMEBUFFER_FORMAT_RGB565
+        help
+            The renderer draws into one buffer of this format; every frame is
+            that buffer, converted, going out to the panel. Pick the format
+            your panel and your RAM budget want.
+
+        config RAYLIB_FRAMEBUFFER_FORMAT_RGB565
+            bool "RGB565, 16 bpp"
+            help
+                Two bytes, R in bits 15:11, G in 10:5, B in 4:0.
+
+        config RAYLIB_FRAMEBUFFER_FORMAT_RGB888
+            bool "RGB888, 24 bpp"
+            help
+                Three bytes, R then G then B.
+
+        config RAYLIB_FRAMEBUFFER_FORMAT_RGBA8888
+            bool "RGBA8888, 32 bpp"
+            help
+                Four bytes, R then G then B then A.
+
+        config RAYLIB_FRAMEBUFFER_FORMAT_RGB332
+            bool "RGB332, 8 bpp"
+            help
+                One byte, R in bits 7:5, G in 4:2, B in 1:0.
+    endchoice
+
+    config RAYLIB_FRAMEBUFFER_COLOR_TYPE
+        string
+        default "R5G6B5" if RAYLIB_FRAMEBUFFER_FORMAT_RGB565
+        default "R8G8B8" if RAYLIB_FRAMEBUFFER_FORMAT_RGB888
+        default "R8G8B8A8" if RAYLIB_FRAMEBUFFER_FORMAT_RGBA8888
+        default "R3G3B2" if RAYLIB_FRAMEBUFFER_FORMAT_RGB332
+
+    menu "Resource loaders"
+
+        config RAYLIB_FILEFORMAT_QOI
+            bool "QOI image"
+            default n
+            help
+                The cheapest loader that covers a typical game asset.
+
+        config RAYLIB_FILEFORMAT_PNG
+            bool "PNG image"
+            default n
+            help
+                raylib carries its own PNG decoder, so this does not need
+                zlib. It is worth a couple of kilobytes of flash.
+
+        config RAYLIB_FILEFORMAT_BMP
+            bool "BMP image"
+            default n
+            help
+                Uncompressed pixels: the decoder is tiny, the files are not.
+
+        config RAYLIB_FILEFORMAT_TGA
+            bool "TGA image"
+            default n
+            help
+                Uncompressed pixels via stb_image: a small decoder for a
+                format art tools export without options to get wrong.
+
+        config RAYLIB_FILEFORMAT_JPG
+            bool "JPG image"
+            default n
+            help
+                stb_image's JPEG decoder, worth a few kilobytes of flash:
+                the format to reach for when the asset is a photograph.
+
+        config RAYLIB_FILEFORMAT_GIF
+            bool "GIF image"
+            default n
+            help
+                Palette-based and at most 8 bits per pixel, but the only
+                loader here that also reads animations (LoadImageAnim).
+
+        config RAYLIB_FILEFORMAT_TTF
+            bool "TTF font"
+            default n
+            help
+                TrueType fonts for LoadFontEx(), rasterised into a texture
+                atlas at load time through stb_truetype.
+
+        config RAYLIB_FILEFORMAT_FNT
+            bool "FNT font"
+            default n
+            help
+                BMFont (.fnt) fonts for LoadFont(): glyphs come pre-rasterised
+                in an atlas image, so no runtime rasteriser is needed. The
+                atlas still loads through an image loader, so enable one
+                (usually PNG) alongside.
+    endmenu
+
+endmenu
