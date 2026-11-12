@@ -177,7 +177,11 @@ fail:
     return 0;
 }
 
-/* Detach the Ethernet receive path and release port resources. */
+/* Detach the Ethernet receive path and release port resources.
+   Must be called after the Ethernet driver is stopped or otherwise guaranteed
+   idle from the application side, because esp_eth_update_input_path() only swaps
+   the callback pointer without synchronizing with a callback already dispatched
+   in the Ethernet Rx task. */
 int ecx_closenic(ecx_portt *port)
 {
     if (port == NULL) {
@@ -188,6 +192,16 @@ int ecx_closenic(ecx_portt *port)
         (void)esp_eth_update_input_path(
             (esp_eth_handle_t)port->eth_handle, NULL, NULL);
         port->eth_handle = NULL; /* The Ethernet driver remains owned by the application. */
+    }
+
+    /* Drain an in-flight Rx callback: the callback holds rx_mutex from its
+       slot-state check until after it gives rx_sem. Once lock/unlock completes,
+       no callback can still touch rx_sem. The esp_eth Rx task dispatches
+       callbacks sequentially, so no new callback can start after the input
+       path was detached above. */
+    if (port->rx_mutex != NULL) {
+        osal_mutex_lock(port->rx_mutex);
+        osal_mutex_unlock(port->rx_mutex);
     }
 
     if (port->rx_sem != NULL) {
@@ -271,18 +285,25 @@ static esp_err_t ecx_esp_eth_rx(esp_eth_handle_t hdl, uint8_t *buffer, uint32_t 
         goto unlock;
     }
 
-    /* Ignore Ethernet frame whose total length(besides CRC field) is shorter or longer than it was transmitted before.
-       `length` is provided by emac_esp_dma_receive_frame()'s return, exclude CRC, include padding if exists.
-       However, `.txbuflength[]` is the total length(exclude CRC) asked by SOEM for Tx, exclude padding if need. */
+    /* Ignore Ethernet frames shorter than the transmitted frame.
+       An EtherCAT slave returns the frame unchanged in length on the wire,
+       so the response carries at least the transmitted datagram bytes. */
     len_tx = (uint32_t)port->txbuflength[idxf];
     if (len_tx < (ETH_MIN_PACKET_SIZE - ETH_CRC_LEN)) {
         len_tx = ETH_MIN_PACKET_SIZE - ETH_CRC_LEN;
     }
-    if (length != len_tx) {
+    /* Require at least the transmitted bytes, but do not require equality:
+       `length` is reported by the esp_eth MAC driver and its CRC and padding
+       handling differs between drivers (f.e. the internal EMAC excludes CRC,
+       other MACs may include it). Accepting longer frames is safe, only the
+       transmitted SOEM payload is copied below. */
+    if (length < len_tx) {
         goto unlock;
     }
 
-    /* Ignore Ethernet frame whose elength bit-field in ECAT header is not same as it was transmitted before.*/
+    /* Ignore Ethernet frame whose elength bit-field in ECAT header is not same as it was transmitted before.
+       Unlike the total frame length, the elength field is part of the EtherCAT frame
+       content itself, independent from the MAC driver's length reporting. */
     rx_elength = (uint16)(buffer[ETH_HEADERSIZE] + ((uint16)(buffer[ETH_HEADERSIZE + 1] & 0x0f) << 8));
     tx_elength = (uint16)(port->txbuf[idxf][ETH_HEADERSIZE] + ((uint16)(port->txbuf[idxf][ETH_HEADERSIZE + 1] & 0x0f) << 8));
     if (rx_elength != tx_elength) {
@@ -297,6 +318,8 @@ static esp_err_t ecx_esp_eth_rx(esp_eth_handle_t hdl, uint8_t *buffer, uint32_t 
 
     /* Change the RX buffer slot status to RCVD, waiting for SOEM core to read. */
     port->rxbufstat[idxf] = EC_BUF_RCVD;
+
+    port->stack.rxcnt++;
 
     /* Wake the task to consume the received frame. */
     if (port->rx_sem != NULL) {

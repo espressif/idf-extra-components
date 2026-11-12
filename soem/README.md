@@ -51,6 +51,10 @@ The precision of SOEM timeouts and OSAL sleeps depends on `CONFIG_FREERTOS_HZ`. 
 
 `CONFIG_SOEM_EC_MAXSLAVE` controls the upstream `EC_MAXSLAVE` limit and defaults to 32 (range 2–200). Index 0 in SOEM's slave list is reserved for broadcast, so the minimum usable value is 2 (one real slave). Lower this on memory-constrained targets; the SOEM context is allocated on the heap.
 
+With the default configuration the heap allocation is large: `sizeof(ecx_contextt)` is roughly 124 KB, dominated by the mailbox pool (`EC_MBXPOOLSIZE` x `EC_MAXMBX`), the port frame buffers (`EC_MAXBUF` x `EC_BUFSIZE`) and the slave list. Verify the target has enough contiguous internal RAM, or shrink the resource limits.
+
+CoE enumeration structures are likewise oversized for task stacks: `ec_ODlistt` is about 48 KB at the default `CONFIG_SOEM_EC_MAXODLIST`. Allocate `ec_ODlistt`/`ec_OElistt` statically or on the heap, never as a local variable, or the task stack overflows.
+
 Concurrent mapping is intentionally disabled (`EC_MAX_MAPT` is fixed to `1`) following [upstream SOEM maintainer guidance](https://github.com/OpenEtherCATsociety/SOEM/issues/535), because values greater than 1 have known race conditions.
 
 ## Scope and limitations
