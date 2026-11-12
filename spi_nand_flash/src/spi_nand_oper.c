@@ -257,7 +257,7 @@ static esp_err_t spi_nand_quad_read(spi_nand_flash_device_t *handle, uint8_t *da
     if (handle->config.io_mode == SPI_NAND_IO_MODE_QIO) {
         spi_flags |= SPI_TRANS_MULTILINE_ADDR;
         cmd = CMD_READ_QIO;
-        dummy_bits = 4;
+        dummy_bits = handle->qio_dummy_cycles;
     }
 
     spi_nand_transaction_t t = {
