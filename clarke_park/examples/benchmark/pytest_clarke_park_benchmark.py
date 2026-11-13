@@ -6,11 +6,12 @@ from pytest_embedded import Dut
 from pytest_embedded_idf.utils import idf_parametrize
 
 
-@pytest.mark.disable_test(
-    'IDF_TARGET == "esp32s31"',
-    reason='Temporarily disable while waiting for an available ESP32-S31 self-hosted runner',
-)
 @pytest.mark.generic
+@pytest.mark.parametrize(
+    'port, flash_port',
+    [pytest.param('/dev/ttyUSB0', '/dev/ttyUSB0', id='ttyUSB')],
+    indirect=True,
+)
 @idf_parametrize('target', ['esp32s31'], indirect=['target'])
 def test_clarke_park_benchmark(dut: Dut) -> None:
     dut.expect_exact('clarke_park benchmark finished', timeout=60)
