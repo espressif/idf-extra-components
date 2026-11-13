@@ -18,7 +18,7 @@ Add `espressif/freetype` to the `dependencies` of your project:
 
 ```yaml
 dependencies:
-  espressif/freetype: "^2.14.3"
+  espressif/freetype: "^2.15.0"
 ```
 
 Include the FreeType header and use the API as usual:
@@ -36,8 +36,8 @@ To use the IDF zlib component, add the following to your **project-level** `idf_
 
 ```yaml
 dependencies:
-  espressif/freetype: "^2.14.3"
-  espressif/zlib: "^1.3.2"
+  espressif/freetype: "^2.15.0"
+  espressif/zlib: "^1.4"
 ```
 
 Users can provide another zlib implementation by setting both `ZLIB_LIBRARY` and `ZLIB_INCLUDE_DIR` at project level. These settings take precedence over the IDF zlib shim.
@@ -50,13 +50,13 @@ To enable PNG support, add `espressif/libpng` to the same project-level manifest
 
 ```yaml
 dependencies:
-  espressif/freetype: "^2.14.3"
+  espressif/freetype: "^2.15.0"
   espressif/libpng: "^1.6.58"
 ```
 
 ### Other optional dependencies
 
-The remaining optional dependencies (HarfBuzz, BZIP2, and Brotli) are disabled by default to keep the binary size small. Note that the **WOFF2** font format relies on Brotli decompression and is therefore **not supported** in this configuration. Please use TTF/OTF instead.
+The remaining optional dependencies (HarfBuzz, BZIP2, Brotli, and Apple HVF) are disabled by default to keep the binary size small. Note that the **WOFF2** font format relies on Brotli decompression and is therefore **not supported** in this configuration. Please use TTF/OTF instead.
 
 ## Examples
 
