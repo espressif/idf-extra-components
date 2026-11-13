@@ -1,5 +1,13 @@
+idf_build_get_property(target IDF_TARGET)
+
+set(priv_requires heap)
+if(NOT target STREQUAL "linux")
+    # esp_psram is not registered on the POSIX/Linux simulator.
+    list(APPEND priv_requires esp_psram)
+endif()
+
 idf_component_register(SRCS "zlib_memory.c"
-                       PRIV_REQUIRES heap esp_psram)
+                       PRIV_REQUIRES ${priv_requires})
 
 # Static only: the shared library carries the version script, while tests,
 # contrib and install rules are of no use inside ESP-IDF.

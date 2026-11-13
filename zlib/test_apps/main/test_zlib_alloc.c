@@ -12,7 +12,9 @@
 
 #include "sdkconfig.h"
 #include "unity.h"
+#if CONFIG_ZLIB_PREFER_PSRAM
 #include "esp_memory_utils.h"
+#endif
 #include "zlib.h"
 #include "deflate.h"
 #include "inftrees.h"
