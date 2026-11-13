@@ -43,8 +43,11 @@ TEST_CASE("load a png image", "[libpng]")
 
     FILE *expected = fmemopen((void *)out_pgm_start, out_pgm_end - out_pgm_start, "r");
     TEST_ASSERT_NOT_NULL(expected);
-    // skip the header
-    fscanf(expected, "P5\n%*d %*d\n%*d\n");
+    int pgm_width, pgm_height, pgm_maxval;
+    TEST_ASSERT_EQUAL(3, fscanf(expected, "P5\n%d %d\n%d\n",
+                                &pgm_width, &pgm_height, &pgm_maxval));
+    TEST_ASSERT_EQUAL(expected_width, pgm_width);
+    TEST_ASSERT_EQUAL(expected_height, pgm_height);
     // check the binary data
     for (int i = 0; i < buf_size; i++) {
         uint8_t expected_byte;

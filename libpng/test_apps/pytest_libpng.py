@@ -14,3 +14,10 @@ from pytest_embedded import Dut
 @pytest.mark.parametrize('target', ['esp32', 'esp32c3', 'esp32c6'], indirect=['target'])
 def test_libpng(dut: Dut) -> None:
     dut.run_all_single_board_cases()
+
+
+@pytest.mark.host_test
+@pytest.mark.parametrize('target', ['linux'], indirect=['target'])
+def test_libpng_host(dut: Dut) -> None:
+    """The same suite on the host: the codec is portable C, no serial involved."""
+    dut.run_all_single_board_cases()
