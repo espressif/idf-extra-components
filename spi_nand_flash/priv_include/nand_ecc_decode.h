@@ -59,6 +59,7 @@ static inline uint8_t nand_ecc_max_bits_corrected(nand_ecc_status_t status)
     case NAND_ECC_OK:
         return 0;
     case NAND_ECC_NOT_CORRECTED:
+    case NAND_ECC_UNKNOWN:
     case NAND_ECC_INVALID:
     case NAND_ECC_MAX:
         return NAND_ECC_BITS_UNKNOWN;
@@ -70,7 +71,7 @@ static inline uint8_t nand_ecc_max_bits_corrected(nand_ecc_status_t status)
 /**
  * @brief Check whether the last read's corrected-bit count calls for a data refresh.
  *
- * Statuses without a bit count (not corrected, invalid) never exceed the threshold.
+ * Statuses without a bit count (not corrected, invalid, unknown) never exceed the threshold.
  *
  * @param ecc  ECC data holding the last status and the refresh threshold.
  * @return true if the corrected-bit count meets or exceeds the threshold.
@@ -102,6 +103,19 @@ esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
  * @return ESP_OK always; no extra register reads are needed.
  */
 esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+
+/**
+ * @brief Do not interpret C0h ECC bits (generic / unknown chip path).
+ *
+ * Always reports NAND_ECC_UNKNOWN. Used when STATUS encodings are not trusted;
+ * a successful page read means the SPI path completed, not that data is ECC-clean.
+ *
+ * @param dev        Device handle (unused; present to match nand_ecc_decode_fn).
+ * @param status_c0  Raw C0h status byte (ignored).
+ * @param[out] out   Set to NAND_ECC_UNKNOWN.
+ * @return ESP_OK always.
+ */
+esp_err_t nand_ecc_decode_unknown(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
 
 #ifdef __cplusplus
 }

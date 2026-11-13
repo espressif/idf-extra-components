@@ -41,6 +41,20 @@ extern "C" {
 esp_err_t nand_init_device(spi_nand_flash_config_t *config,
                            spi_nand_flash_device_t **handle);
 
+/**
+ * Poll STATUS until the device clears BUSY (internal use only).
+ *
+ * @param expected_operation_time_us  Typical operation time; drives initial delay and poll pacing.
+ *                                    Hang bound is 10× this value, ceiled to FreeRTOS ticks, plus one tick.
+ *
+ * @return
+ *         - ESP_OK: BUSY cleared
+ *         - ESP_ERR_TIMEOUT: BUSY remained set past the wait budget (missing chip / hung op)
+ *         - other: SPI/register read failure
+ */
+esp_err_t nand_wait_for_ready(spi_nand_flash_device_t *dev, uint32_t expected_operation_time_us,
+                              uint8_t *status_out);
+
 esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t b, bool *is_bad_status);
 esp_err_t nand_mark_bad(spi_nand_flash_device_t *handle, uint32_t b);
 esp_err_t nand_erase_chip(spi_nand_flash_device_t *handle);
