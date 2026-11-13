@@ -56,6 +56,8 @@ static inline uint8_t nand_ecc_max_bits_corrected(nand_ecc_status_t status)
         return 7;
     case NAND_ECC_8_BITS_CORRECTED:
         return 8;
+    case NAND_ECC_5_TO_8_BITS_CORRECTED:
+        return 8;
     case NAND_ECC_OK:
         return 0;
     case NAND_ECC_NOT_CORRECTED:
@@ -102,6 +104,13 @@ esp_err_t nand_ecc_decode_2bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
  * @return ESP_OK always; no extra register reads are needed.
  */
 esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
+
+/**
+ * @brief Decode ZB35Q01CYIG ECCS (C0h bits [5:4]): 00=OK, 01=1-4, 10=uncorrectable, 11=5-8.
+ *
+ * No extra register reads are needed; dev is unused and ESP_OK is always returned.
+ */
+esp_err_t nand_ecc_decode_zbit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out);
 
 #ifdef __cplusplus
 }

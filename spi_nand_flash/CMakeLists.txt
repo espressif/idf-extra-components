@@ -27,6 +27,7 @@ else()
                      "src/devices/nand_alliance.c"
                      "src/devices/nand_micron.c"
                      "src/devices/nand_zetta.c"
+                     "src/devices/nand_zbit.c"
                      "src/devices/nand_xtx.c"
                      "src/devices/nand_fm.c"
                      "src/devices/nand_macronix.c"

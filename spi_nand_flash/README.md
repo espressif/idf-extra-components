@@ -71,6 +71,7 @@ At present, `spi_nand_flash` component is compatible with the chips produced by 
 * Alliance - AS5F31G04SND-08LIN, AS5F32G04SND-08LIN, AS5F12G04SND-10LIN, AS5F34G04SND-08LIN, AS5F14G04SND-10LIN, AS5F38G04SND-08LIN, AS5F18G04SND-10LIN
 * Micron - MT29F4G01ABAFDWB, MT29F1G01ABAFDSF-AAT:F, MT29F2G01ABAGDWB-IT:G
 * Zetta - ZD35Q1GC
+* Zbit - ZB35Q01CYIG
 * XTX - XT26G08D
 * Fudan Microelectronics (FMSH) - FM25S005BI3
 * Macronix - MX35LF2GE4AD, MX35LF4GE4AD
@@ -89,6 +90,8 @@ Before calling **`spi_nand_flash_init_device()`** (legacy) or **`spi_nand_flash_
 | `gc_factor` | Optional wear-leveling GC tuning; `0` uses the driver default |
 
 See `spi_nand_flash_config_t` in [`include/spi_nand_flash.h`](include/spi_nand_flash.h). End-to-end SPI + config setup is shown in the FatFS example READMEs below.
+
+For Zbit, keep WP#/IO2 and HOLD#/IO3 high during initialization (`data_io_default_level = true` where available).
 
 ## FATFS Integration
 

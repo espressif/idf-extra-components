@@ -51,6 +51,8 @@ static esp_err_t detect_chip(spi_nand_flash_device_t *dev)
         return spi_nand_micron_init(dev);
     case SPI_NAND_FLASH_ZETTA_MI: // Zetta
         return spi_nand_zetta_init(dev);
+    case SPI_NAND_FLASH_ZBIT_MI: // Zbit
+        return spi_nand_zbit_init(dev);
     case SPI_NAND_FLASH_XTX_MI: // XTX
         return spi_nand_xtx_init(dev);
     case SPI_NAND_FLASH_FM_MI: // FM
@@ -110,6 +112,7 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
     (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
     (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
     (*handle)->ecc_status_decoder = nand_ecc_decode_2bit;
+    (*handle)->qio_dummy_cycles = 4;
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
     (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
     (*handle)->chip.num_planes = 1;
@@ -245,6 +248,21 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
     // Markers layout: [bad_block_marker (bytes 0-1)][page_used_marker (bytes 2-3)]
     uint8_t markers[4];
     esp_err_t ret = ESP_OK;
+    bool raw_first_byte = handle->chip.flags & NAND_FLAG_BBM_RAW_FIRST_BYTE;
+    uint8_t saved_config = 0;
+    bool restore_config = false;
+    bool is_bad = false;
+
+    if (raw_first_byte) {
+        // The factory marker must not be changed by on-die ECC correction.
+        ESP_GOTO_ON_ERROR(spi_nand_read_register(handle, REG_CONFIG, &saved_config), fail, TAG, "");
+        if (saved_config & CFG_ECC_ENABLE) {
+            // Also restore if the write fails: it may already have reached the chip.
+            restore_config = true;
+            ESP_GOTO_ON_ERROR(spi_nand_write_register(handle, REG_CONFIG, saved_config & ~CFG_ECC_ENABLE),
+                              fail, TAG, "");
+        }
+    }
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, first_block_page, NULL), fail, TAG, "");
 
@@ -255,12 +273,24 @@ esp_err_t nand_is_bad(spi_nand_flash_device_t *handle, uint32_t block, bool *is_
                       fail, TAG, "");
 
     memcpy(&markers, handle->read_buffer, sizeof(markers));
-    ESP_LOGV(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
-    *is_bad_status = (markers[0] != 0xFF || markers[1] != 0xFF);
-    return ret;
+    is_bad = markers[0] != 0xFF || (!raw_first_byte && markers[1] != 0xFF);
 
 fail:
-    ESP_LOGE(TAG, "Error in nand_is_bad %d", ret);
+    if (restore_config) {
+        esp_err_t restore_ret = spi_nand_write_register(handle, REG_CONFIG, saved_config);
+        if (restore_ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to restore configuration after reading bad-block marker: %d", restore_ret);
+            if (ret == ESP_OK) {
+                ret = restore_ret;
+            }
+        }
+    }
+    if (ret == ESP_OK) {
+        ESP_LOGV(TAG, "is_bad, block=%"PRIu32", page=%"PRIu32",indicator = %02x,%02x", block, first_block_page, markers[0], markers[1]);
+        *is_bad_status = is_bad;
+    } else {
+        ESP_LOGE(TAG, "Error in nand_is_bad %d", ret);
+    }
     return ret;
 }
 

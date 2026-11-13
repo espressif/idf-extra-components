@@ -23,6 +23,7 @@ extern "C" {
 #define SPI_NAND_FLASH_WINBOND_MI     0xEF
 #define SPI_NAND_FLASH_MICRON_MI      0x2C
 #define SPI_NAND_FLASH_ZETTA_MI       0xBA
+#define SPI_NAND_FLASH_ZBIT_MI        0x5E
 #define SPI_NAND_FLASH_XTX_MI         0x0B
 #define SPI_NAND_FLASH_FM_MI          0xA1  // Fudan Microelectronics
 #define SPI_NAND_FLASH_MACRONIX_MI    0xC2
@@ -80,6 +81,9 @@ extern "C" {
 // Zetta
 #define ZETTA_DI_71                   0x71
 
+// Zbit
+#define ZBIT_DI_C1                    0xC1   // ZB35Q01CYIG
+
 // XTX
 #define XTX_DI_37                     0x37
 
@@ -118,6 +122,11 @@ esp_err_t spi_nand_micron_init(spi_nand_flash_device_t *dev);
  * @brief Initialize Zetta NAND flash
  */
 esp_err_t spi_nand_zetta_init(spi_nand_flash_device_t *dev);
+
+/**
+ * @brief Initialize Zbit NAND flash
+ */
+esp_err_t spi_nand_zbit_init(spi_nand_flash_device_t *dev);
 
 /**
  * @brief Initialize XTX NAND flash

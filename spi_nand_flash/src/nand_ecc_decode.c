@@ -25,6 +25,13 @@ static const nand_ecc_status_t s_ecc_2bit_status_map[4] = {
     [3] = NAND_ECC_4_TO_6_BITS_CORRECTED,
 };
 
+static const nand_ecc_status_t s_ecc_zbit_status_map[4] = {
+    [0] = NAND_ECC_OK,
+    [1] = NAND_ECC_1_TO_4_BITS_CORRECTED,
+    [2] = NAND_ECC_NOT_CORRECTED,
+    [3] = NAND_ECC_5_TO_8_BITS_CORRECTED,
+};
+
 /* Raw 3-bit ECCS -> driver status. Reserved combinations (4, 6, 7) are invalid. */
 static const nand_ecc_status_t s_ecc_3bit_status_map[8] = {
     [0] = NAND_ECC_OK,
@@ -48,5 +55,12 @@ esp_err_t nand_ecc_decode_3bit(spi_nand_flash_device_t *dev, uint8_t status_c0, 
 {
     (void)dev;
     *out = s_ecc_3bit_status_map[PACK_3BITS_STATUS(status_c0, STAT_ECC2, STAT_ECC1, STAT_ECC0)];
+    return ESP_OK;
+}
+
+esp_err_t nand_ecc_decode_zbit(spi_nand_flash_device_t *dev, uint8_t status_c0, nand_ecc_status_t *out)
+{
+    (void)dev;
+    *out = s_ecc_zbit_status_map[PACK_2BITS_STATUS(status_c0, STAT_ECC1, STAT_ECC0)];
     return ESP_OK;
 }
