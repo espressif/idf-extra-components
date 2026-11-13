@@ -97,3 +97,7 @@
 [submodule "raylib/raylib"]
 	path = raylib/raylib
 	url = https://github.com/raysan5/raylib.git
+
+[submodule "soem/soem"]
+	path = soem/soem
+	url = https://github.com/OpenEtherCATsociety/SOEM.git

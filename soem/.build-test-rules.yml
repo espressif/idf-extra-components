@@ -1,0 +1,4 @@
+soem/examples/ecat_io:
+  enable:
+    - if: (IDF_VERSION_MAJOR >= 6) and (IDF_TARGET == "esp32p4")
+      reason: "The example requires ESP-IDF 6.0 or later and uses the ESP32-P4 internal EMAC."

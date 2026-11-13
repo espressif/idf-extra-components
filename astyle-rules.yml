@@ -32,6 +32,7 @@ submodules:
   - "/qrcode/qrcodegen*"
   - "/quirc/quirc/"
   - "/raylib/raylib/"
+  - "/soem/soem/"
   - "/supertinycron/supertinycron/"
   - "/thorvg/thorvg/"
   - "/zlib/zlib/"
