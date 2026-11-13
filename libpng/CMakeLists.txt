@@ -1,7 +1,15 @@
 # Reuse upstream CMake instead of re-listing the sources.
 
+idf_build_get_property(target IDF_TARGET)
+
+set(priv_requires heap)
+if(NOT target STREQUAL "linux")
+    # esp_psram is not registered on the POSIX/Linux simulator.
+    list(APPEND priv_requires esp_psram)
+endif()
+
 idf_component_register(SRCS "png_memory_esp.c"
-                       PRIV_REQUIRES heap esp_psram)
+                       PRIV_REQUIRES ${priv_requires})
 
 # Only the static library and its public headers are needed;
 # the shared library, tests, tools and demos are switched off.

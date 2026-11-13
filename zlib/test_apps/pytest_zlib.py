@@ -16,3 +16,10 @@ def test_zlib(dut: Dut) -> None:
     """Run the Unity suite: codec round trips, and PSRAM placement when enabled."""
     dut.expect_exact('Running zlib component tests')
     dut.run_all_single_board_cases(timeout=60)
+
+
+@pytest.mark.host_test
+@pytest.mark.parametrize('target', ['linux'], indirect=['target'])
+def test_zlib_host(dut: Dut) -> None:
+    """The same suite on the host: the codec is portable C, no serial involved."""
+    dut.run_all_single_board_cases(timeout=60)

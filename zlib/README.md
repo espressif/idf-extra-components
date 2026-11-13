@@ -18,10 +18,10 @@ Add this component to your project with the [IDF Component Manager](https://docs
 
 ```yaml
 dependencies:
-  espressif/zlib: "^1.3.2"
+  espressif/zlib: "^1.4"
 ```
 
-or run `idf.py add-dependency "espressif/zlib^1.3.2"` in your project. Then include the upstream header:
+or run `idf.py add-dependency "espressif/zlib^1.4"` in your project. Then include the upstream header:
 
 ```c
 #include "zlib.h"

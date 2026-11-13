@@ -1,10 +1,7 @@
 name: freetype
-version: 2.14.3
+version: 2.15.0
 cpe: cpe:2.3:a:freetype:freetype:{}:*:*:*:*:*:*:*
 supplier: 'Organization: freetype <https://www.freetype.org>'
 description: FreeType is a software font engine
 url: https://github.com/freetype/freetype
-hash: 0a0221a1347e2f1e07c395263540026e9a0aa7c7
-cve-exclude-list:
-  - cve: CVE-2026-23865
-    reason: Fixed in version 2.14.2 with commit https://github.com/freetype/freetype/commit/fc85a255849229c024c8e65f536fe1875d84841c
+hash: 37515cf56ba3349656049edbed89ffc6f6466f2d
