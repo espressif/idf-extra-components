@@ -1,0 +1,82 @@
+menu "ESP SUIT OTA"
+
+    config ESP_SUIT_OTA_ENVELOPE_BUF
+        int "Envelope arena size (bytes)"
+        default 4096
+        range 1024 65536
+        help
+            Memory kept for the authentication wrapper, the manifest and any severed
+            install or payload-fetch section. An envelope whose header does not fit
+            is rejected before anything is buffered.
+
+    config ESP_SUIT_OTA_AUTH_MAX
+        int "Largest accepted authentication wrapper (bytes)"
+        default 512
+        range 128 4096
+
+    config ESP_SUIT_OTA_MAX_COMPONENTS
+        int "Largest accepted component count per manifest"
+        default 8
+        range 1 16
+
+    config ESP_SUIT_OTA_MAX_NESTING
+        int "Deepest try-each or run-sequence nesting"
+        default 4
+        range 1 8
+
+    config ESP_SUIT_OTA_REQUIRE_ID_CHECKS
+        bool "Require vendor and class identifier checks in the shared sequence"
+        default y
+        help
+            The standard only recommends the checks (draft-ietf-suit-manifest section
+            6.2). With this option a manifest without them is rejected.
+
+    config ESP_SUIT_OTA_SKIP_IF_INSTALLED
+        bool "Skip components whose live partition already matches the manifest digest"
+        default y
+
+    config ESP_SUIT_OTA_JOURNAL_KB
+        int "Journal the write position every N KB"
+        default 64
+        range 4 1024
+
+    config ESP_SUIT_OTA_INITIAL_SEQ
+        int "Sequence number floor baked into this firmware"
+        default 0
+        help
+            Manifests with a sequence number below this value are rejected even when
+            the installed record was erased. Set it to the number of the release that
+            carries this firmware. The manifest generator reads it from sdkconfig.
+
+    config ESP_SUIT_OTA_TEXT_LANG
+        string "Language tag of the update description to keep"
+        default "en"
+
+    config ESP_SUIT_OTA_TEXT_CAP
+        int "Largest kept update description (bytes)"
+        default 256
+        range 32 1024
+
+    config ESP_SUIT_OTA_URI_MAX
+        int "Largest accepted component URI (bytes)"
+        default 192
+        range 64 512
+
+    config ESP_SUIT_OTA_EVENT_POST_TIMEOUT
+        int "Event post timeout (ms), -1 waits forever"
+        default 2000
+        range -1 60000
+
+    config ESP_SUIT_OTA_HTTPS_ALLOW_HTTP
+        bool "Allow plain HTTP for the manifest and payload downloads"
+        default n
+        help
+            Without this option the HTTPS getter requires server verification
+            (cert_pem, the certificate bundle or the global CA store), the same rule
+            as esp_https_ota.
+
+    config ESP_SUIT_OTA_VERIFY_SPI_MODE
+        bool "Check the SPI flash mode of a new app image against the running one"
+        default y
+
+endmenu

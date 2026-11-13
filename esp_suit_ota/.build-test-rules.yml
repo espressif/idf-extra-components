@@ -1,0 +1,9 @@
+esp_suit_ota/examples:
+  enable:
+    - if: IDF_TARGET in ["esp32c5", "esp32p4"] and IDF_VERSION >= "6.0"
+      reason: Tested on hardware only, esp32c5 and esp32p4 runners
+
+esp_suit_ota/test_apps:
+  enable:
+    - if: IDF_TARGET in ["esp32c5", "esp32p4"] and IDF_VERSION >= "6.0"
+      reason: Compliance tests on hardware only, esp32c5 and esp32p4 runners
