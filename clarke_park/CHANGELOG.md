@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Enabled CORDIC on ESP-IDF v6.1 and later (was gated on v6.2 while waiting for
+  driver fixes to land on release/v6.1).
 - Fixed the Q15 CORDIC backend against the ESP-IDF master CORDIC driver, which
   now takes `cordic_calculate_config_t::iteration_count` as the iteration count
   itself and only accepts 4, 8, 12, 16, 20 or 24. The old value of 6 was rejected
