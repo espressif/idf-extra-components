@@ -800,6 +800,7 @@ static int push_meta(struct dhara_journal *j, const uint8_t *meta,
 {
     const dhara_page_t old_head = j->head;
     dhara_error_t my_err;
+    int i;
     const size_t offset =
         hdr_user_offset(j->head & ((1 << j->log2_ppc) - 1));
 
@@ -828,8 +829,37 @@ static int push_meta(struct dhara_journal *j, const uint8_t *meta,
     hdr_set_bb_current(j->page_buf, j->bb_current);
     hdr_set_bb_last(j->page_buf, j->bb_last);
 
-    if (dhara_nand_prog(j->nand, j->head + 1, j->page_buf, &my_err) < 0) {
-        return recover_from(j, my_err, err);
+    /* The user page at j->head is already programmed, so a failed
+     * metadata write must never leave j->head where it is: the next
+     * enqueue would program that page a second time.
+     *
+     * DHARA_E_BAD_BLOCK means the metadata page may have been
+     * programmed: recover as usual. Any other error means the NAND
+     * layer did not touch the page, so the write can be retried in
+     * place. This is a contract of the NAND glue layer, not of the
+     * dhara_nand API: see dhara_nand_prog() in spi_nand_flash
+     * (src/dhara_glue.c), which reports DHARA_E_BAD_BLOCK only for
+     * ESP_ERR_NOT_FINISHED.
+     *
+     * If the write keeps failing, fall back to bad-block recovery.
+     * This may retire a good block when the error is not caused by
+     * the media (e.g. a persistent bus error). That is deliberate:
+     * losing a block costs capacity, while programming a page twice
+     * can silently corrupt data that is already stored.
+     */
+    for (i = 0; i < DHARA_MAX_RETRIES; i++) {
+        if (!dhara_nand_prog(j->nand, j->head + 1, j->page_buf,
+                             &my_err)) {
+            break;
+        }
+
+        if (my_err == DHARA_E_BAD_BLOCK) {
+            return recover_from(j, my_err, err);
+        }
+    }
+
+    if (i == DHARA_MAX_RETRIES) {
+        return recover_from(j, DHARA_E_BAD_BLOCK, err);
     }
 
     j->flags &= ~DHARA_JOURNAL_F_DIRTY;
