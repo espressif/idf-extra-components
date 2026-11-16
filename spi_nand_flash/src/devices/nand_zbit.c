@@ -13,6 +13,21 @@
 
 static const char *TAG = "nand_zbit";
 
+/* ECCS (C0h [5:4]): 00 OK, 01 1-4 corrected, 10 not corrected, 11 5-8 corrected */
+static const nand_ecc_status_t s_zbit_ecc_map[4] = {
+    [0] = NAND_ECC_OK,
+    [1] = NAND_ECC_1_TO_4_BITS_CORRECTED,
+    [2] = NAND_ECC_NOT_CORRECTED,
+    [3] = NAND_ECC_5_TO_8_BITS_CORRECTED,
+};
+
+static nand_ecc_status_t zbit_ecc_decode(uint8_t status_c0)
+{
+    return s_zbit_ecc_map[NAND_ECC_2BIT_FIELD(status_c0)];
+}
+
+static const nand_ecc_decoder_t s_zbit_ecc_decoder = { .decode = zbit_ecc_decode };
+
 esp_err_t spi_nand_zbit_init(spi_nand_flash_device_t *dev)
 {
     uint8_t device_id = 0;
@@ -36,7 +51,7 @@ esp_err_t spi_nand_zbit_init(spi_nand_flash_device_t *dev)
     dev->chip.read_page_delay_us = 250;
     dev->chip.program_page_delay_us = 400;
     dev->chip.erase_block_delay_us = 3000;
-    dev->ecc_status_decoder = nand_ecc_decode_zbit;
+    dev->ecc_decoder = &s_zbit_ecc_decoder;
     // Refresh only when ECCS reports 5-8 corrected bits.
     dev->chip.ecc_data.ecc_data_refresh_threshold = 5;
     return ESP_OK;

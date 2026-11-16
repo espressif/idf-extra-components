@@ -557,6 +557,62 @@ TEST_CASE("Flash BDL GET_PAGE_ECC_STATUS ioctl", "[spi_nand_flash][bdl]")
         .ecc_status = 0xFF,
     };
     TEST_ESP_OK(bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_PAGE_ECC_STATUS, &page_ecc_status));
+    /* Freshly written with ECC on: every chip's decoder must report a clean page. */
+    TEST_ASSERT_EQUAL(NAND_ECC_OK, page_ecc_status.ecc_status);
+
+    deinit_nand_flash(spi, bdl);
+}
+
+/*
+ * Read-only: decode the ECC status of page 0 of blocks spread over the chip, whatever they
+ * hold. Checks that the installed decoder (and any vendor register it reads) handles real
+ * status values; it cannot check correction counts, since a healthy chip reports none.
+ */
+#define ECC_SCAN_BLOCKS  8
+
+TEST_CASE("Flash BDL page ECC status decodes on a read-only scan", "[spi_nand_flash][bdl]")
+{
+    spi_device_handle_t spi;
+    spi_nand_test_setup_chip(&spi, SPI_DEVICE_HALFDUPLEX);
+
+    spi_nand_flash_config_t nand_flash_config = {
+        .device_handle = spi,
+        .flags = SPI_DEVICE_HALFDUPLEX,
+        .io_mode = SPI_NAND_IO_MODE_SIO,
+    };
+    esp_blockdev_handle_t bdl = NULL;
+    TEST_ESP_OK(nand_flash_get_blockdev(&nand_flash_config, &bdl));
+    TEST_ASSERT_NOT_NULL(bdl);
+
+    esp_blockdev_cmd_arg_nand_flash_info_t flash_info = {0};
+    TEST_ESP_OK(bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_NAND_FLASH_INFO, &flash_info));
+    const uint32_t num_blocks = flash_info.geometry.num_blocks;
+    const uint32_t pages_per_block = (uint32_t)(bdl->geometry.erase_size / bdl->geometry.write_size);
+
+    for (uint32_t i = 0; i < ECC_SCAN_BLOCKS; i++) {
+        const uint32_t block = i * (num_blocks / ECC_SCAN_BLOCKS);
+        esp_blockdev_cmd_arg_is_bad_block_t bad = {.num = block, .status = false};
+        TEST_ESP_OK(bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_IS_BAD_BLOCK, &bad));
+        if (bad.status) {
+            printf("%s block %" PRIu32 ": bad, skipped\n", flash_info.device_info.chip_name, block);
+            continue;
+        }
+
+        esp_blockdev_cmd_arg_ecc_status_t page_ecc_status = {
+            .page_num = block * pages_per_block,
+            .ecc_status = 0xFF,
+        };
+        /* An uncorrectable page is reported in ecc_status, so an error here is a bus or
+         * vendor register read failure. */
+        TEST_ESP_OK(bdl->ops->ioctl(bdl, ESP_BLOCKDEV_CMD_GET_PAGE_ECC_STATUS, &page_ecc_status));
+        const nand_ecc_status_t status = page_ecc_status.ecc_status;
+        printf("%s block %" PRIu32 ": ecc_status %d%s\n", flash_info.device_info.chip_name, block, (int)status,
+               status == NAND_ECC_NOT_CORRECTED ? " (uncorrectable page, allowed)" : "");
+
+        TEST_ASSERT_LESS_THAN(NAND_ECC_MAX, status);
+        TEST_ASSERT_NOT_EQUAL(NAND_ECC_INVALID, status);    /* decoder hit a pattern it does not know */
+        TEST_ASSERT_NOT_EQUAL(NAND_ECC_UNKNOWN, status);    /* generic decoder on a database chip */
+    }
 
     deinit_nand_flash(spi, bdl);
 }

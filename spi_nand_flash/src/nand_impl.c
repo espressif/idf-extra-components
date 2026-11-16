@@ -121,7 +121,7 @@ esp_err_t nand_init_device(spi_nand_flash_config_t *config, spi_nand_flash_devic
 
     (*handle)->chip.ecc_data.ecc_data_refresh_threshold = 4;
     (*handle)->chip.ecc_data.ecc_status_reg_len_in_bits = 2;
-    (*handle)->ecc_status_decoder = nand_ecc_decode_2bit;
+    (*handle)->ecc_decoder = &nand_ecc_decoder_2bit_default;
     (*handle)->qio_dummy_cycles = 4;
     (*handle)->chip.log2_ppb = 6;         // 64 pages per block is standard
     (*handle)->chip.log2_page_size = 11;  // 2048 bytes per page is fairly standard
@@ -416,8 +416,6 @@ esp_err_t nand_erase_chip(spi_nand_flash_device_t *handle)
 }
 
 #if CONFIG_NAND_FLASH_VERIFY_WRITE
-static esp_err_t check_ecc_status(spi_nand_flash_device_t *dev, uint8_t status);
-
 /* Reloads the programmed page from the array and compares data and markers with what was written.
  * Any failure is ESP_ERR_NOT_FINISHED since the page has been programmed. buf must hold a page. */
 static esp_err_t s_verify_page(spi_nand_flash_device_t *handle, uint32_t page, uint16_t column_addr,
@@ -427,7 +425,7 @@ static esp_err_t s_verify_page(spi_nand_flash_device_t *handle, uint32_t page, u
     uint8_t read_markers[4];
     ESP_RETURN_ON_FALSE(read_page_and_wait(handle, page, &status) == ESP_OK, ESP_ERR_NOT_FINISHED, TAG,
                         "verify: failed to reload page=%"PRIu32, page);
-    ESP_RETURN_ON_FALSE(check_ecc_status(handle, status) == ESP_OK, ESP_ERR_NOT_FINISHED, TAG,
+    ESP_RETURN_ON_FALSE(nand_ecc_check_status(handle, status) == ESP_OK, ESP_ERR_NOT_FINISHED, TAG,
                         "verify: page=%"PRIu32" read, ecc error", page);
     ESP_RETURN_ON_FALSE(spi_nand_read(handle, buf, column_addr, handle->chip.page_size) == ESP_OK,
                         ESP_ERR_NOT_FINISHED, TAG, "verify: failed to read data of page=%"PRIu32, page);
@@ -509,29 +507,6 @@ fail:
     return ret;
 }
 
-/* Decode the ECC status for the page just read and record it.
- * Returns ESP_OK if the data is usable, ESP_FAIL on an uncorrectable/invalid ECC status,
- * or the decoder's error (e.g. a failed status-extension register read) unchanged.
- * dhara_glue.c relies on ESP_FAIL from nand_read()/nand_copy() meaning exactly this ECC verdict. */
-static esp_err_t check_ecc_status(spi_nand_flash_device_t *dev, uint8_t status)
-{
-    assert(dev->ecc_status_decoder);
-    nand_ecc_status_t bits_corrected_status = NAND_ECC_INVALID;
-    esp_err_t ret = dev->ecc_status_decoder(dev, status, &bits_corrected_status);
-    if (ret != ESP_OK) {
-        /* Status unknown: not an ECC verdict, so don't report NOT_CORRECTED. */
-        dev->chip.ecc_data.ecc_corrected_bits_status = NAND_ECC_INVALID;
-        return ret;
-    }
-    dev->chip.ecc_data.ecc_corrected_bits_status = bits_corrected_status;
-    /* NAND_ECC_MAX is not a status; a decoder returning it is a bug, so fail safe. */
-    if (bits_corrected_status == NAND_ECC_NOT_CORRECTED || bits_corrected_status == NAND_ECC_INVALID ||
-            bits_corrected_status >= NAND_ECC_MAX) {
-        return ESP_FAIL;
-    }
-    return ESP_OK;
-}
-
 esp_err_t nand_read(spi_nand_flash_device_t *handle, uint32_t page, size_t offset, size_t length, uint8_t *data)
 {
     ESP_LOGV(TAG, "read, page=%"PRIu32", offset=%d, length=%d", page, offset, length);
@@ -541,7 +516,7 @@ esp_err_t nand_read(spi_nand_flash_device_t *handle, uint32_t page, size_t offse
 
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, &status), fail, TAG, "");
 
-    ret = check_ecc_status(handle, status);
+    ret = nand_ecc_check_status(handle, status);
     if (ret != ESP_OK) {
         ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", page);
         return ret;
@@ -593,7 +568,7 @@ esp_err_t nand_copy(spi_nand_flash_device_t *handle, uint32_t src, uint32_t dst)
     uint8_t status;
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, src, &status), fail, TAG, "");
 
-    ret = check_ecc_status(handle, status);
+    ret = nand_ecc_check_status(handle, status);
     if (ret != ESP_OK) {
         ESP_LOGD(TAG, "copy, ecc error");
         return ret;
@@ -665,7 +640,7 @@ esp_err_t nand_get_ecc_status(spi_nand_flash_device_t *handle, uint32_t page)
     uint8_t status;
     ESP_GOTO_ON_ERROR(read_page_and_wait(handle, page, &status), fail, TAG, "");
 
-    esp_err_t ecc_ret = check_ecc_status(handle, status);
+    esp_err_t ecc_ret = nand_ecc_check_status(handle, status);
     if (ecc_ret == ESP_FAIL) {
         /* ECC verdict is reported via ecc_corrected_bits_status, not the return code. */
         ESP_LOGD(TAG, "read ecc error, page=%"PRIu32"", page);
