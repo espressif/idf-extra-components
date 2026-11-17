@@ -527,6 +527,68 @@ TEST_CASE("Sending incomplete data", "[encrypted_img]")
 #endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA && CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
 }
 
+TEST_CASE("Output buffer is kept when it can not grow", "[encrypted_img]")
+{
+    esp_err_t err;
+#if defined(CONFIG_PRE_ENCRYPTED_OTA_USE_RSA)
+    esp_decrypt_cfg_t cfg = {0};
+#if defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    esp_ds_data_ctx_t *ds_data = esp_secure_cert_get_ds_ctx();
+    if (ds_data == NULL) {
+        printf("Failed to get DS context\n");
+        vTaskDelete(NULL);
+    }
+    cfg.ds_data = ds_data;
+#else
+    cfg.rsa_priv_key = (char *)rsa_private_pem_start;
+    cfg.rsa_priv_key_len = rsa_private_pem_end - rsa_private_pem_start;
+#endif /* CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
+#else
+    esp_decrypt_cfg_t cfg = {0};
+    cfg.hmac_key_id = 2;
+#endif
+    esp_decrypt_handle_t ctx = esp_encrypted_img_decrypt_start(&cfg);
+    TEST_ASSERT_NOT_NULL(ctx);
+
+    pre_enc_decrypt_arg_t *args = calloc(1, sizeof(pre_enc_decrypt_arg_t));
+    TEST_ASSERT_NOT_NULL(args);
+
+    // First call: the image header and more data than the image size field states.
+    // The data is not complete, so the output buffer is allocated. The authentication
+    // tag is checked only by esp_encrypted_img_decrypt_end(), which this test does not call.
+    const size_t header_len = MAGIC_SIZE + ENC_GCM_KEY_SIZE + IV_SIZE + BIN_SIZE_DATA + AUTH_SIZE + RESERVED_HEADER;
+    const size_t first_len = header_len + 64;
+    uint8_t *first_data = calloc(1, first_len);
+    TEST_ASSERT_NOT_NULL(first_data);
+    memcpy(first_data, bin_start, header_len);
+    args->data_in = (char *)first_data;
+    args->data_in_len = first_len;
+    err = esp_encrypted_img_decrypt_data(ctx, args);
+    TEST_ESP_ERR(ESP_ERR_NOT_FINISHED, err);
+    TEST_ASSERT_NOT_NULL(args->data_out);
+    TEST_ASSERT_GREATER_THAN(0, args->data_out_len);
+    char *old_data_out = args->data_out;
+
+    // Second call with the same args: the output buffer must grow to a size that
+    // can not be allocated. The data is not read, because the allocation fails first.
+    args->data_in = (char *)bin_start;
+    args->data_in_len = 0x7fffff00;
+    err = esp_encrypted_img_decrypt_data(ctx, args);
+    TEST_ESP_ERR(ESP_ERR_NO_MEM, err);
+
+    // The caller still owns the buffer from the first call.
+    TEST_ASSERT_EQUAL_PTR(old_data_out, args->data_out);
+
+    err = esp_encrypted_img_decrypt_abort(ctx);
+    TEST_ESP_OK(err);
+    free(args->data_out);
+    free(first_data);
+    free(args);
+#if defined (CONFIG_PRE_ENCRYPTED_OTA_USE_RSA) && defined(CONFIG_PRE_ENCRYPTED_RSA_USE_DS)
+    esp_secure_cert_free_ds_ctx(cfg.ds_data);
+#endif /* CONFIG_PRE_ENCRYPTED_OTA_USE_RSA && CONFIG_PRE_ENCRYPTED_RSA_USE_DS */
+}
+
 TEST_CASE("Test canceling decryption frees memory", "[encrypted_img]")
 {
     esp_err_t err;

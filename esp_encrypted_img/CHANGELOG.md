@@ -1,3 +1,8 @@
+## 2.7.2
+
+### Bugfixes:
+- Fixed a memory leak in `esp_encrypted_img_decrypt_data()`: the output buffer is kept when it cannot grow
+
 ## 2.7.1
 
 ### Enhancements:
