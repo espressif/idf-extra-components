@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Support for Zbit ZB35Q01CYIG
 - New `nand_ecc_status_t` values: `NAND_ECC_1_TO_4_BITS_CORRECTED`, exact counts `NAND_ECC_1_BIT_CORRECTED` ... `NAND_ECC_8_BITS_CORRECTED`, and `NAND_ECC_INVALID` for an ECC status that cannot be determined
 - **Generic chip detection (opt-in, BDL only):** When `CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION=y` (requires BDL), init bypasses the vendor database, uses ONFI parameter page then `GENERIC_GEOMETRY_*` Kconfig fallback, runs non-destructive probes, and exposes a **read-only Flash BDL** by default. Optional `CONFIG_NAND_FLASH_GENERIC_WRITE_ERASE_ENABLE` allows program/erase only after on-die ECC (CFG bit 4) is confirmed. Wear-leveling / FatFS are not supported on this path.
 - Flash BDL ioctls `ESP_BLOCKDEV_CMD_GET_CHIP_SOURCE` (`DATABASE` | `ONFI` | `KCONFIG`) and `ESP_BLOCKDEV_CMD_GET_GENERIC_PROBE_REPORT`. The probe-report ioctl returns `ESP_ERR_NOT_SUPPORTED` when generic detection is off.

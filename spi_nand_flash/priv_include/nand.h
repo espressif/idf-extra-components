@@ -38,6 +38,8 @@ extern "C" {
 // Single-plane devices whose Internal Data Move requires same odd/even block
 // parity (e.g. some GigaDevice parts). nand_copy() uses a RAM path when parity differs.
 #define NAND_FLAG_IDM_SAME_PARITY_REQUIRED    BIT(2)
+// Factory bad-block marker occupies only OOB byte 0 of page 0.
+#define NAND_FLAG_BBM_FIRST_BYTE_ONLY        BIT(3)
 
 /** Floor log2(n) via clz; n must be > 0 (caller validates power-of-two page/ppb). */
 static inline uint8_t nand_log2_u32(uint32_t n)
@@ -84,6 +86,7 @@ struct spi_nand_flash_device_t {
     const spi_nand_ops *ops;
     void *ops_priv_data;
     nand_ecc_decode_fn ecc_status_decoder;  // Per-chip C0h ECC status decoder; never NULL after init
+    uint8_t qio_dummy_cycles;               // Dummy clocks after the EBh column address
     uint8_t *work_buffer;
     uint8_t *read_buffer;
     uint8_t *temp_buffer;
