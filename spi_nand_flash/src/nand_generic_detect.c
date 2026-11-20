@@ -45,7 +45,7 @@ static void nand_generic_apply_profile(spi_nand_flash_device_t *dev)
     dev->chip.quad_enable_bit_pos = 0;
     /* Do not decode STATUS ECC bits on this path (vendor encodings differ).
      * Override the default 2-bit decoder installed in nand_init_device(). */
-    dev->ecc_status_decoder = nand_ecc_decode_unknown;
+    dev->ecc_decoder = &nand_ecc_decoder_unknown;
     dev->chip.ecc_data.ecc_corrected_bits_status = NAND_ECC_UNKNOWN;
     nand_generic_apply_io_limits(dev);
 }

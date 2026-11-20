@@ -267,7 +267,7 @@ static esp_err_t nand_flash_blockdev_ioctl(esp_blockdev_handle_t handle, const u
     case ESP_BLOCKDEV_CMD_GET_ECC_STATS: {
         esp_blockdev_cmd_arg_ecc_stats_t *ecc_stats = (esp_blockdev_cmd_arg_ecc_stats_t *)args;
 
-        /* Generic path installs nand_ecc_decode_unknown; every page would look like an ECC
+        /* Generic path installs nand_ecc_decoder_unknown; every page would look like an ECC
          * error. Refuse rather than return a false-positive health report. */
         if (spi_nand_chip_source_is_generic(dev->chip_source)) {
             ESP_LOGW(TAG, "GET_ECC_STATS not supported on generic chip detection (ECC STATUS unknown)");

@@ -9,9 +9,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - Support for Zbit ZB35Q01CYIG
-- New `nand_ecc_status_t` values: `NAND_ECC_1_TO_4_BITS_CORRECTED`, exact counts `NAND_ECC_1_BIT_CORRECTED` ... `NAND_ECC_8_BITS_CORRECTED`, and `NAND_ECC_INVALID` for an ECC status that cannot be determined
+- New `nand_ecc_status_t` values: `NAND_ECC_1_TO_4_BITS_CORRECTED`, `NAND_ECC_1_TO_7_BITS_CORRECTED`, `NAND_ECC_5_TO_8_BITS_CORRECTED`, exact counts `NAND_ECC_1_BIT_CORRECTED` ... `NAND_ECC_8_BITS_CORRECTED`, and `NAND_ECC_INVALID` for an ECC status that cannot be determined
 - **Generic chip detection (opt-in, BDL only):** When `CONFIG_NAND_FLASH_GENERIC_CHIP_DETECTION=y` (requires BDL), init bypasses the vendor database, uses ONFI parameter page then `GENERIC_GEOMETRY_*` Kconfig fallback, runs non-destructive probes, and exposes a **read-only Flash BDL** by default. Optional `CONFIG_NAND_FLASH_GENERIC_WRITE_ERASE_ENABLE` allows program/erase only after on-die ECC (CFG bit 4) is confirmed. Wear-leveling / FatFS are not supported on this path.
 - Flash BDL ioctls `ESP_BLOCKDEV_CMD_GET_CHIP_SOURCE` (`DATABASE` | `ONFI` | `KCONFIG`) and `ESP_BLOCKDEV_CMD_GET_GENERIC_PROBE_REPORT`. The probe-report ioctl returns `ESP_ERR_NOT_SUPPORTED` when generic detection is off.
+
+### Changed
+
+- ECC status is decoded per chip family, so some chips now report different `nand_ecc_status_t` values than before. Code that compares against a single exact value (e.g. `== NAND_ECC_4_TO_6_BITS_CORRECTED`) should be reviewed; checking `NAND_ECC_NOT_CORRECTED` / `NAND_ECC_INVALID` for failures is unaffected:
+  - Winbond KV (W25N02KV, W25N04KV) and Macronix (MX35LF2GE4AD, MX35LF4GE4AD): exact corrected bit count, read from the chip's extra ECC register
+  - Winbond 1-bit ECC parts (W25N512G, W25N01G, W25N01JW): `NAND_ECC_1_BIT_CORRECTED`
+  - Alliance and Zetta: values matching each chip's ECC strength (`1_TO_3` / `4_BITS` or `1_TO_7` / `8_BITS`)
+  - XTX XT26G08D: a correction is reported as `NAND_ECC_8_BITS_CORRECTED`
+- Winbond: the driver now switches the chip to Buffer Read mode (BUF=1) at init if it powered up with BUF=0. On KV parts BUF=0 also disables internal ECC.
+- Winbond 1-bit ECC parts: data refresh threshold set to 1, so any corrected bit triggers a refresh
 
 ### Fixed
 
@@ -23,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - fix: allocate the verify and copy buffers before Program Execute, and from non-DMA memory on IDF >= 5.2
 - fix: `nand_copy()` no longer uses Internal Data Move across LUNs (each LUN has its own cache, so the destination received stale data from the other LUN's cache); GD5F8GM8UExxG is described as one target with two LUNs of 2048 blocks (new `nand_flash_geometry_t::num_luns_per_target`)
 - fix: Dhara glue always sets the error code, as required by the Dhara NAND contract: `DHARA_E_BAD_BLOCK` only when the chip may have been programmed or erased (`ESP_ERR_NOT_FINISHED`), `DHARA_E_ECC` for an uncorrectable ECC failure (`ESP_FAIL` with ECC status `NAND_ECC_NOT_CORRECTED` on read or copy source), `DHARA_E_NONE` for host-side or transient failures, which no longer retire the block; previously Dhara could program the same page twice after a failure
+- Winbond 1-bit ECC parts: ECC field value `11b` is now reported as `NAND_ECC_NOT_CORRECTED` instead of `NAND_ECC_4_TO_6_BITS_CORRECTED`
 
 ### Deprecated
 

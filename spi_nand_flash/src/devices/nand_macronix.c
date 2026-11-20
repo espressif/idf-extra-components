@@ -9,8 +9,49 @@
 #include "nand.h"
 #include "spi_nand_oper.h"
 #include "nand_flash_devices.h"
+#include "nand_ecc_decode.h"
 
 static const char *TAG = "nand_macronix";
+
+/* Read ECC Status: 7Ch, one dummy byte, then the ECCSR byte. Not a Get Feature register,
+ * so keep it vendor-local. The dummy byte goes out as a 1-byte address, the same shape as
+ * spi_nand_read_register(), so it works in both full- and half-duplex modes. */
+#define MX_CMD_READ_ECCSR  0x7C
+
+/* ECCSR bits [3:0]: error count for the current page. Bits [7:4] accumulate over pages in
+ * continuous read mode, which the driver does not use. */
+#define MX_ECCSR_CURRENT_PAGE(eccsr)  ((eccsr) & 0b1111u)
+
+static esp_err_t mx_read_eccsr(spi_nand_flash_device_t *dev, uint8_t *eccsr)
+{
+    spi_nand_transaction_t t = {
+        .command = MX_CMD_READ_ECCSR,
+        .address_bytes = 1,
+        .address = 0,
+        .miso_len = 1,
+        .miso_data = eccsr,
+        .flags = SPI_TRANS_USE_RXDATA,
+    };
+    return spi_nand_execute_transaction(dev, &t);
+}
+
+static nand_ecc_status_t mx_ecc_decode_eccsr(uint8_t eccsr)
+{
+    return nand_ecc_status_from_count(MX_ECCSR_CURRENT_PAGE(eccsr));
+}
+
+/* ECC_S (C0h bits [5:4]) 01b/11b only differ by the bit flip threshold; the exact count is
+ * read from ECCSR either way. 00b/10b mean the same as in every 2-bit table. */
+static const nand_ecc_ext_reg_ops_t s_mx_ecc_ext_reg_ops = {
+    .needs_read = nand_ecc_2bit_reports_correction,
+    .read = mx_read_eccsr,
+    .decode = mx_ecc_decode_eccsr,
+};
+
+static const nand_ecc_decoder_t s_mx_ecc_decoder = {
+    .decode = nand_ecc_decode_2bit_default,
+    .ext_reg_ops = &s_mx_ecc_ext_reg_ops,
+};
 
 esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev)
 {
@@ -24,8 +65,9 @@ esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev)
 
     dev->chip.has_quad_enable_bit = 1;
     dev->chip.quad_enable_bit_pos = 0;
+    dev->ecc_decoder = &s_mx_ecc_decoder;
     switch (device_id) {
-    case MACRONIX_DI_26: // MX35LF2GE4AD (2Gb)
+    case MACRONIX_DI_26: // MX35LF2GE4AD (2Gb) - 8 bits/544B ECC strength
         dev->chip.num_blocks = 2048;
         dev->chip.log2_page_size = 11;  // 2048 bytes
         dev->chip.log2_ppb = 6;         // 64 pages per block
@@ -33,7 +75,7 @@ esp_err_t spi_nand_macronix_init(spi_nand_flash_device_t *dev)
         dev->chip.erase_block_delay_us = 6000;
         dev->chip.program_page_delay_us = 400;
         break;
-    case MACRONIX_DI_37: // MX35LF4GE4AD (4Gb)
+    case MACRONIX_DI_37: // MX35LF4GE4AD (4Gb) - 8 bits/544B ECC strength
         dev->chip.num_blocks = 2048;
         dev->chip.log2_page_size = 12;  // 4096 bytes
         dev->chip.log2_ppb = 6;         // 64 pages per block

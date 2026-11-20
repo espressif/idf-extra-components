@@ -35,6 +35,8 @@ typedef enum {
     NAND_ECC_MAX_BITS_CORRECTED = NAND_ECC_4_TO_6_BITS_CORRECTED,
     NAND_ECC_7_8_BITS_CORRECTED = 5,       /*!< 7-8 bits corrected */
     NAND_ECC_1_TO_4_BITS_CORRECTED,        /*!< 1-4 bits corrected */
+    NAND_ECC_1_TO_7_BITS_CORRECTED,        /*!< 1-7 bits corrected */
+    NAND_ECC_5_TO_8_BITS_CORRECTED,        /*!< 5-8 bits corrected */
     NAND_ECC_1_BIT_CORRECTED,              /*!< exactly 1 bit corrected */
     NAND_ECC_2_BITS_CORRECTED,             /*!< exactly 2 bits corrected */
     NAND_ECC_3_BITS_CORRECTED,             /*!< exactly 3 bits corrected */
@@ -43,7 +45,6 @@ typedef enum {
     NAND_ECC_6_BITS_CORRECTED,             /*!< exactly 6 bits corrected */
     NAND_ECC_7_BITS_CORRECTED,             /*!< exactly 7 bits corrected */
     NAND_ECC_8_BITS_CORRECTED,             /*!< exactly 8 bits corrected */
-    NAND_ECC_5_TO_8_BITS_CORRECTED,        /*!< 5-8 bits corrected */
     NAND_ECC_INVALID,                      /*!< Status could not be determined: the chip reported a reserved
                                                 pattern, or decoding it failed. Treat as not corrected. */
     NAND_ECC_UNKNOWN,                      /*!< STATUS ECC not decoded (e.g. generic chip path);
