@@ -12,6 +12,7 @@ set(WRAP_FUNCTIONS
     esp_flash_erase_chip
     esp_flash_write_encrypted
     spi_flash_mmap
+    spi_flash_mmap_pages
     spi_flash_munmap)
 
 foreach(wrap ${WRAP_FUNCTIONS})
