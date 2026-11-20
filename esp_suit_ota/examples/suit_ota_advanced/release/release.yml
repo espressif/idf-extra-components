@@ -1,0 +1,10 @@
+sequence_number: 2001
+vendor: espressif.com
+class: suit-ota-example
+text: { en: { update-description: "app v2, f1 v2, cfg v1" } }
+components:
+  - { id: [esp32c5, app], file: ../build_v2/suit_ota_advanced.bin, uri: app.bin, skip_if_installed: true }
+  - { id: [esp32c5, f1],  file: f1_v2.bin,  uri: f1.bin,  skip_if_installed: true }
+  - { id: [esp32c5, cfg], file: cfg_v1.bin, uri: cfg.bin, skip_if_installed: true }
+signing:
+  keys: [../main/keys/manifest_key.pem]

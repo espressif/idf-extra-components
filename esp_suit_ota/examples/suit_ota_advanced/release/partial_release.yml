@@ -1,0 +1,7 @@
+sequence_number: 2003
+vendor: espressif.com
+class: suit-ota-example
+components:
+  - { id: [esp32c5, f1], file: f1_v1.bin, uri: f1.bin }
+signing:
+  keys: [../main/keys/manifest_key.pem]

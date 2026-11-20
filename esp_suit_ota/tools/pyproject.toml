@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "esp-suit-tool"
+version = "0.1.0"
+description = "Make and check SUIT envelopes for the esp_suit_ota ESP-IDF component"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+dependencies = ["cbor2>=5.4", "cryptography>=44", "PyYAML>=5.4"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+esp-suit = "esp_suit_tool.cli:main"
+
+[tool.setuptools]
+packages = ["esp_suit_tool"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
