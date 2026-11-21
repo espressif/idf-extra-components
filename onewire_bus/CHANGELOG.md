@@ -1,3 +1,7 @@
+## 1.2.0
+
+- Add `onewire_new_device_iter_family` to enumerate only the devices of one family, using the AN187 targeted search.
+
 ## 1.1.2
 
 - Fix 1-Wire ROM search using AN187 1-based bit numbering so `LastDiscrepancy == 0` is a sentinel, not ROM bit 0. (https://github.com/espressif/idf-extra-components/issues/298)

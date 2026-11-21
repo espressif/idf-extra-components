@@ -18,6 +18,8 @@ typedef struct onewire_device_iter_t {
     onewire_bus_handle_t bus;
     uint16_t last_discrepancy;
     bool is_last_device;
+    bool has_family_code;
+    uint8_t family_code;
     uint8_t rom_number[sizeof(onewire_device_address_t)];
 } onewire_device_iter_t;
 
@@ -30,6 +32,20 @@ esp_err_t onewire_new_device_iter(onewire_bus_handle_t bus, onewire_device_iter_
 
     iter->bus = bus;
     *ret_iter = iter;
+
+    return ESP_OK;
+}
+
+esp_err_t onewire_new_device_iter_family(onewire_bus_handle_t bus, uint8_t family_code, onewire_device_iter_handle_t *ret_iter)
+{
+    ESP_RETURN_ON_ERROR(onewire_new_device_iter(bus, ret_iter), TAG, "create device iterator failed");
+
+    // AN187 target setup: start from the family code so the search skips straight to the first device of that family
+    onewire_device_iter_t *iter = *ret_iter;
+    iter->has_family_code = true;
+    iter->family_code = family_code;
+    iter->rom_number[0] = family_code;
+    iter->last_discrepancy = sizeof(onewire_device_address_t) * 8;
 
     return ESP_OK;
 }
@@ -116,6 +132,13 @@ esp_err_t onewire_device_iter_get_next(onewire_device_iter_handle_t iter, onewir
 
     // check crc
     ESP_RETURN_ON_FALSE(onewire_crc8(0, iter->rom_number, 7) == iter->rom_number[7], ESP_ERR_INVALID_CRC, TAG, "bad device crc");
+
+    // devices are found in ROM order, so the first one outside the family ends a family search
+    if (iter->has_family_code && iter->rom_number[0] != iter->family_code) {
+        iter->is_last_device = true;
+        ESP_LOGD(TAG, "1-wire rom search finished");
+        return ESP_ERR_NOT_FOUND;
+    }
 
     // save the ROM number as the device address
     memcpy(&dev->address, iter->rom_number, sizeof(onewire_device_address_t));

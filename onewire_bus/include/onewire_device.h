@@ -35,6 +35,22 @@ typedef struct onewire_device_t {
 esp_err_t onewire_new_device_iter(onewire_bus_handle_t bus, onewire_device_iter_handle_t *ret_iter);
 
 /**
+ * @brief Create an iterator to enumerate the 1-Wire devices of one family on the bus
+ *
+ * @note Uses the targeted search of the 1-Wire search algorithm (AN187), so devices of other families are not enumerated.
+ *
+ * @param[in] bus 1-Wire bus handle
+ * @param[in] family_code Family code, the lowest byte of the device address
+ * @param[out] ret_iter Returned created device iterator
+ * @return
+ *      - ESP_OK: Create device iterator successfully
+ *      - ESP_ERR_INVALID_ARG: Invalid argument
+ *      - ESP_ERR_NO_MEM: No memory to create device iterator
+ *      - ESP_FAIL: Other errors
+ */
+esp_err_t onewire_new_device_iter_family(onewire_bus_handle_t bus, uint8_t family_code, onewire_device_iter_handle_t *ret_iter);
+
+/**
  * @brief Delete the device iterator
  *
  * @param[in] iter Device iterator handle
