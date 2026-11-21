@@ -1,3 +1,9 @@
+## 1.0.4
+
+- fix: Fix a deadlock where a Flash write/erase blocked by a `SPI_FLASH_MMAP_FLAG_BLOCKS_WRITE` mapping held the dispatcher, so the `spi_flash_munmap` from another task could never run. Write/erase now waits for such mappings to be unmapped before entering the dispatcher.
+- feat: Added `spi_flash_mmap_pages` to the set of Flash APIs intercepted by the dispatcher.
+- fix: `spi_flash_munmap` wrapper now matches the `void` return type of the original API.
+
 ## 1.0.3
 
 - fix: Bypass the dispatcher and call the real Flash operations directly when the stack resides in internal DRAM. This prevents deadlocks that could arise from nested calls to flash operation interfaces (e.g. specifically, calling a flash operation from within a flash operation already executing under the scheduler) and avoids unnecessary task scheduling overhead.

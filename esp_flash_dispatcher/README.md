@@ -32,4 +32,7 @@ The list of Flash APIs intercepted by the dispatcher is:
 
 - `esp_flash_read`, `esp_flash_write`, `esp_flash_write_encrypted`
 - `esp_flash_erase_region`, `esp_flash_erase_chip`
-- `spi_flash_mmap`, `spi_flash_munmap`
+- `spi_flash_mmap`, `spi_flash_mmap_pages`, `spi_flash_munmap`
+
+Write and erase operations wait for mappings created with
+`SPI_FLASH_MMAP_FLAG_BLOCKS_WRITE` to be unmapped, same as ESP-IDF.
