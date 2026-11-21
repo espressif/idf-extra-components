@@ -21,6 +21,20 @@ extern "C" {
 
 typedef void *esp_delta_ota_handle_t;
 
+typedef struct {
+    const void *data;
+    size_t size;
+} esp_delta_ota_state_t;
+
+typedef struct {
+    size_t patch_offset;
+    size_t output_offset;
+} esp_delta_ota_resume_info_t;
+
+// Callback invoked with a resumable state after a patch chunk was processed successfully.
+// The state data is owned by esp_delta_ota and is only valid for the duration of the callback.
+typedef esp_err_t (*esp_delta_ota_checkpoint_cb_t)(const esp_delta_ota_state_t *state, void *user_data);
+
 // Callback for reading the source data
 typedef esp_err_t (*src_read_cb_t)(uint8_t *buf_p, size_t size, int src_offset);
 typedef esp_err_t (*src_read_cb_with_user_ctx_t)(uint8_t *buf_p, size_t size, int src_offset, void *user_data);
@@ -39,6 +53,7 @@ typedef struct esp_delta_ota_cfg {
         merged_stream_write_cb_with_user_ctx_t write_cb_with_user_data;     /*!< Write Callback with user data */
         merged_stream_write_cb_t write_cb DEPRECATED_ATTRIBUTE;             /*!< Write Callback */
     };
+    esp_delta_ota_checkpoint_cb_t checkpoint_cb; /*!< Optional checkpoint callback */
 } esp_delta_ota_cfg_t;
 
 #undef DEPRECATED_ATTRIBUTE
@@ -51,6 +66,22 @@ typedef struct esp_delta_ota_cfg {
  *         - esp_delta_ota_handle_t handle
  */
 esp_delta_ota_handle_t esp_delta_ota_init(esp_delta_ota_cfg_t *cfg);
+
+/**
+ * @brief Resumes a delta OTA process from a previously saved state.
+ *
+ * The returned offsets identify where the external patch input and merged output
+ * streams have to be resumed by the caller.
+ *
+ * @param[in] cfg          pointer to esp_delta_ota_cfg_t structure.
+ * @param[in] state        previously saved opaque delta OTA state.
+ * @param[out] resume_info restored patch and output offsets.
+ * @return - NULL   On failure
+ *         - esp_delta_ota_handle_t handle
+ */
+esp_delta_ota_handle_t esp_delta_ota_resume(esp_delta_ota_cfg_t *cfg,
+                                             const esp_delta_ota_state_t *state,
+                                             esp_delta_ota_resume_info_t *resume_info);
 
 /**
  * @brief This function performs the patch applying operation on the source data.
