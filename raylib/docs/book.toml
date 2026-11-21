@@ -1,0 +1,14 @@
+[book]
+title = "Raylib ESP-IDF Programming Guide"
+language = "en"
+
+[output.html]
+default-theme = "light"
+git-repository-url = "https://github.com/espressif/idf-extra-components/tree/master/raylib"
+edit-url-template = "https://github.com/espressif/idf-extra-components/edit/master/raylib/docs/{path}"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+[preprocessor]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
