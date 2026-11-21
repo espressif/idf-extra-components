@@ -631,7 +631,7 @@ static uint32_t esp_schedule_get_next_schedule_time_diff(esp_schedule_t *schedul
     localtime_r(&schedule->trigger.next_scheduled_time_utc, &schedule_time);
     memset(time_str, 0, sizeof(time_str));
     strftime(time_str, sizeof(time_str), "%c %z[%Z]", &schedule_time);
-    ESP_SCHEDULE_LOGI(TAG, "Schedule %s will be active on: %s. DST: %s", schedule->name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
+    ESP_SCHEDULE_LOGD(TAG, "Schedule %s will be active on: %s. DST: %s", schedule->name, time_str, schedule_time.tm_isdst ? "Yes" : "No");
 
     /* Clamp before the uint32_t cast: casting a double outside uint32_t range is
      * undefined behavior. */
@@ -704,7 +704,7 @@ static void esp_schedule_start_timer(esp_schedule_t *schedule)
         return;
     }
 
-    ESP_SCHEDULE_LOGI(TAG, "Starting a timer for %"PRIu32" seconds for schedule %s", schedule->next_scheduled_time_diff, schedule->name);
+    ESP_SCHEDULE_LOGD(TAG, "Starting a timer for %"PRIu32" seconds for schedule %s", schedule->next_scheduled_time_diff, schedule->name);
 
     if (schedule->timestamp_cb) {
         schedule->timestamp_cb((esp_schedule_handle_t)schedule, (uint32_t)schedule->trigger.next_scheduled_time_utc, schedule->priv_data);
