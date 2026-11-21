@@ -219,7 +219,8 @@ static struct network_prov_mgr_ctx *prov_ctx;
  * network_prov_mgr_done(), network_prov_mgr_stop_provisioning()) keeps the
  * transport and the protocomm session alive for the application. Only the
  * blocking stop issued by network_prov_mgr_deinit() tears it down. This is
- * the single predicate for that decision. prov_ctx_lock must be held. */
+ * the single predicate for that decision. The mode is fixed at init, so no
+ * lock is needed. */
 static bool keep_transport_on_stop(bool blocking)
 {
     return (prov_ctx->mgr_config.mode == NETWORK_PROV_MODE_SESSION_ONLY) && !blocking;
@@ -227,7 +228,9 @@ static bool keep_transport_on_stop(bool blocking)
 
 /* Free the security parameters owned by the manager (the internal copy of
  * the PoP for security 1). Must only be called once the transport that uses
- * them has been stopped. prov_ctx_lock must be held. */
+ * them has been stopped and the security unset. The caller must either hold
+ * prov_ctx_lock or have prov_state STOPPING; both keep
+ * network_prov_mgr_start_provisioning() from rewriting the parameters. */
 static void free_sec_params(void)
 {
     if (!prov_ctx->protocomm_sec_params) {
@@ -807,6 +810,10 @@ void network_prov_mgr_endpoint_unregister(const char *ep_name)
     RELEASE_LOCK(prov_ctx_lock);
 }
 
+/* Tears down the transport and the protocomm instance, or keeps them in
+ * SESSION_ONLY mode. Must be called without prov_ctx_lock held: stopping the
+ * transport waits for its task, whose request handlers take that lock.
+ * prov_state must be STOPPING. */
 static void prov_stop_and_notify(bool is_async)
 {
     esp_event_handler_unregister(NETWORK_PROV_MGR_PVT_EVENT, NETWORK_PROV_MGR_STOP,
@@ -868,6 +875,10 @@ static void prov_stop_and_notify(bool is_async)
 
         /* Delete protocomm instance */
         protocomm_delete(prov_ctx->pc);
+
+        /* The security handler that used the PoP is gone now. In
+         * SESSION_ONLY mode it stays active and deinit() frees the PoP. */
+        free_sec_params();
     }
     prov_ctx->pc = NULL;
 
@@ -894,9 +905,10 @@ static void prov_stop_and_notify(bool is_async)
     ESP_LOGI(TAG, "Provisioning stopped");
 
     if (is_async) {
-        /* NOTE: While calling this API in an async fashion,
-         * the context lock prov_ctx_lock has already been taken
-         */
+        /* The teardown above ran without prov_ctx_lock; take it for the
+         * state change as the blocking path does. The callbacks run under
+         * it as they did before. */
+        ACQUIRE_LOCK(prov_ctx_lock);
         prov_ctx->prov_state = NETWORK_PROV_STATE_IDLE;
 
         ESP_LOGD(TAG, "execute_event_cb : %d", NETWORK_PROV_END);
@@ -909,6 +921,7 @@ static void prov_stop_and_notify(bool is_async)
         if (esp_event_post(NETWORK_PROV_EVENT, NETWORK_PROV_END, NULL, 0, portMAX_DELAY) != ESP_OK) {
             ESP_LOGE(TAG, "Failed to post event THREAD_PROV_END");
         }
+        RELEASE_LOCK(prov_ctx_lock);
     }
 }
 
@@ -981,14 +994,6 @@ static bool network_prov_mgr_stop_service(bool blocking)
 
     ESP_LOGD(TAG, "Stopping provisioning");
     prov_ctx->prov_state = NETWORK_PROV_STATE_STOPPING;
-
-    /* Free proof of possession, unless the transport is kept alive: the
-     * security handler then stays active so that clients can establish fresh
-     * sessions, and freeing the PoP would leave a dangling pointer inside the
-     * security1 context. deinit() frees it in that case. */
-    if (!keep_transport_on_stop(blocking)) {
-        free_sec_params();
-    }
 
     if (prov_ctx->prov_endpoints_enabled) {
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
@@ -2141,7 +2146,13 @@ static void network_prov_mgr_event_handler_internal(
 #endif // CONFIG_NETWORK_PROV_NETWORK_TYPE_THREAD
 
     if (event_base == NETWORK_PROV_MGR_PVT_EVENT && event_id == NETWORK_PROV_MGR_STOP) {
+        /* Stopping the transport waits for its task, whose request handlers
+         * take prov_ctx_lock, so run the stop without the lock as the blocking
+         * path does. prov_state is STOPPING, which fences concurrent stop and
+         * deinit calls meanwhile. */
+        RELEASE_LOCK(prov_ctx_lock);
         prov_stop_and_notify(true);
+        return;
     }
 
     RELEASE_LOCK(prov_ctx_lock);
@@ -2740,6 +2751,16 @@ esp_err_t network_prov_mgr_reset_wifi_sm_state_for_reprovision(void)
     wifi_config_t wifi_cfg_empty = {0};
     uint8_t restore_wifi_flag = 0;
 
+    /* Reachable from a client request; only valid while the service runs,
+     * as the teardown relies on STOPPING not being overwritten */
+    if (!prov_ctx ||
+            prov_ctx->prov_state <= NETWORK_PROV_STATE_STARTING ||
+            prov_ctx->prov_state >= NETWORK_PROV_STATE_STOPPING) {
+        ESP_LOGE(TAG, "Provisioning service not running");
+        ret = ESP_ERR_INVALID_STATE;
+        goto exit;
+    }
+
     if (!prov_ctx->mgr_info.capabilities.no_auto_stop) {
         ESP_LOGE(TAG, "Execute network_prov_mgr_disable_auto_stop() before calling this API");
         ret = ESP_ERR_INVALID_STATE;
@@ -2856,6 +2877,16 @@ esp_err_t network_prov_mgr_reset_thread_sm_state_for_reprovision(void)
     otInstance *instance = esp_openthread_get_instance();
 
     esp_openthread_lock_acquire(portMAX_DELAY);
+    /* Reachable from a client request; only valid while the service runs,
+     * as the teardown relies on STOPPING not being overwritten */
+    if (!prov_ctx ||
+            prov_ctx->prov_state <= NETWORK_PROV_STATE_STARTING ||
+            prov_ctx->prov_state >= NETWORK_PROV_STATE_STOPPING) {
+        ESP_LOGE(TAG, "Provisioning service not running");
+        ret = ESP_ERR_INVALID_STATE;
+        goto exit;
+    }
+
     if (!prov_ctx->mgr_info.capabilities.no_auto_stop) {
         ESP_LOGE(TAG, "Execute network_prov_mgr_disable_auto_stop() before calling this API");
         ret = ESP_ERR_INVALID_STATE;
