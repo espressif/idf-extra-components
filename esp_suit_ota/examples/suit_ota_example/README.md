@@ -3,7 +3,7 @@
 
 # SUIT OTA: advanced example
 
-One signed release updates an app and two data partitions together, over two transports. The application runs the campaign loop itself, so every step is visible in `main/suit_ota_advanced.c`.
+One signed release updates an app and two data partitions together, over two transports. The application runs the campaign loop itself, so every step is visible in `main/suit_ota_example.c`.
 
 The example shows:
 
@@ -50,7 +50,7 @@ cd release
 esp-suit create release.yml
 mkdir -p www
 cp release.suit www/
-cp ../build_v2/suit_ota_advanced.bin www/app.bin
+cp ../build_v2/suit_ota_example.bin www/app.bin
 cp f1_v2.bin www/f1.bin
 cp cfg_v1.bin www/cfg.bin
 ```
@@ -78,22 +78,22 @@ The peer then writes those bytes of the resource to the data characteristic. The
 ## Expected output
 
 ```
-I (5012) suit_advanced: event: manifest 2001, 3 components, 3 to fetch
-I (5022) suit_advanced: event: fetching esp32c5/app (1601840 bytes) from https://.../app.bin
+I (5012) suit_example: event: manifest 2001, 3 components, 3 to fetch
+I (5022) suit_example: event: fetching esp32c5/app (1601840 bytes) from https://.../app.bin
 I (31002) esp_suit_ota: esp32c5/app staged and verified (1601840 bytes)
 I (31702) esp_suit_ota: esp32c5/f1 staged and verified (6300 bytes)
 I (32352) esp_suit_ota: esp32c5/cfg staged and verified (2055 bytes)
 I (32362) esp_suit_ota: validate sequence passed
 I (32402) esp_suit_ota: esp32c5/cfg: copying cfg_stage to cfg
 I (32652) esp_suit_ota: release 2001 activated, restart to run the new app
-I (32662) suit_advanced: RESULT: app release activated, restarting
+I (32662) suit_example: RESULT: app release activated, restarting
 ```
 
 After the restart, the new app checks `f1` and `cfg` and confirms the release.
 
 ## Test
 
-`pytest_suit_ota_advanced.py` makes two releases from the app that it flashes, serves them from the test machine, and types each URL on the console. It needs a board on a network, so CI skips it. Run it by hand with the CI configuration:
+`pytest_suit_ota_example.py` makes two releases from the app that it flashes, serves them from the test machine, and types each URL on the console. It needs a board on a network, so CI skips it. Run it by hand with the CI configuration:
 
 ```
 idf.py -B build -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ci" build

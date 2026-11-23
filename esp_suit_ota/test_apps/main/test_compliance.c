@@ -14,6 +14,7 @@
 #include "esp_partition.h"
 #include "esp_suit_ota.h"
 #include "esp_ota_slots.h"
+#include "esp_suit_ota_slots.h"
 #include "test_common.h"
 
 static const char *err_name(esp_err_t e)
@@ -134,6 +135,7 @@ static esp_suit_ota_config_t pair_setup(void)
     esp_suit_ota_config_t cfg = g_cfg;
     cfg.map = NULL;
     cfg.map_len = 0;
+    cfg.slots_ops = esp_suit_ota_slots_ops();
     return cfg;
 }
 
@@ -152,7 +154,7 @@ TEST_CASE("setup: rollback protection by sequence number", "[setup]")
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_activate(h, &restart));
     TEST_ASSERT_FALSE(restart);                  /* data only */
     esp_suit_ota_end(h);
-    TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_confirm());
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_confirm());
     /* section 6.1: a lower sequence number is refused before any command runs */
     TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_SEQUENCE, run_pair(&cfg, "sequence_9", NULL));
     /* the same release, its image already in place */
@@ -162,7 +164,7 @@ TEST_CASE("setup: rollback protection by sequence number", "[setup]")
     esp_suit_ota_component_t c;
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_get_component(h, 0, &c));
     TEST_ASSERT_EQUAL(ESP_SUIT_COMP_ALREADY_INSTALLED, c.state);
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }
 
 TEST_CASE("setup: a new campaign waits until the last release is confirmed", "[setup]")
@@ -173,12 +175,12 @@ TEST_CASE("setup: a new campaign waits until the last release is confirmed", "[s
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_activate(h, NULL));
     esp_suit_ota_end(h);
     TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_STATE, esp_suit_ota_begin(&cfg, NULL, &h));
-    TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_confirm());
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_confirm());
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_begin(&cfg, NULL, &h));
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }
 
-TEST_CASE("setup: a reverted release is refused the next time", "[setup]")
+TEST_CASE("setup: a revert settles the record and leaves no memory of the release", "[setup]")
 {
     esp_suit_ota_config_t cfg = pair_setup();
     const suit_cvec_t *v = cvec_find("partition_pair");
@@ -186,24 +188,28 @@ TEST_CASE("setup: a reverted release is refused the next time", "[setup]")
     TEST_ASSERT_EQUAL(ESP_SUIT_OTA_READY, run_campaign_keep(&cfg, cvec_data(v), v->len, 64, false, &h));
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_activate(h, NULL));
     esp_suit_ota_end(h);
-    TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_revert());
-    TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_REJECTED, run_campaign(&cfg, cvec_data(v), v->len, 64, false));
+    /* while the release is pending, a new campaign is refused */
+    TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_STATE, esp_suit_ota_begin(&cfg, NULL, &h));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_revert());
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_revert());   /* nothing is pending now */
+    /* no list of rejected releases, so the same manifest is accepted again */
+    TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_UP_TO_DATE, run_campaign(&cfg, cvec_data(v), v->len, 64, false));
 }
 
-TEST_CASE("setup: a release that changed no partition can still be reverted", "[setup]")
+TEST_CASE("setup: a release that flipped no pair has nothing to revert", "[setup]")
 {
     esp_suit_ota_config_t cfg = pair_setup();
     esp_suit_ota_handle_t h;
     TEST_ASSERT_EQUAL(ESP_SUIT_OTA_READY, run_pair(&cfg, "sequence_10", &h));
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_activate(h, NULL));
     esp_suit_ota_end(h);
-    TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_confirm());
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_confirm());
     /* sequence 11 carries the same image: it activates without flipping anything */
     TEST_ASSERT_EQUAL(ESP_SUIT_OTA_READY, run_pair(&cfg, "sequence_11", &h));
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_activate(h, NULL));
     esp_suit_ota_end(h);
-    TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_revert());
-    TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_REJECTED, run_pair(&cfg, "sequence_11", NULL));
+    /* no pair was flipped, so the slots record stayed CONFIRMED and there is nothing to undo */
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_revert());
 }
 
 TEST_CASE("campaign: the default mapping writes a declared partition pair", "[campaign]")
@@ -222,5 +228,5 @@ TEST_CASE("campaign: the default mapping writes a declared partition pair", "[ca
     esp_suit_ota_component_t c;
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_get_component(h, 0, &c));
     TEST_ASSERT_EQUAL(ESP_SUIT_COMP_ALREADY_INSTALLED, c.state);
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }

@@ -1,0 +1,11 @@
+version: "0.1.0"
+description: Uses esp_ota_slots partition pairs as the A/B slots backend of esp_suit_ota
+url: https://github.com/espressif/idf-extra-components/tree/master/esp_suit_ota_slots
+repository: https://github.com/espressif/idf-extra-components.git
+issues: https://github.com/espressif/idf-extra-components/issues
+dependencies:
+  idf: ">=6.0"
+  espressif/esp_suit_ota:
+    version: "*"
+  espressif/esp_ota_slots:
+    version: "*"

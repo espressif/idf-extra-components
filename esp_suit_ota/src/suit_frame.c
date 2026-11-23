@@ -223,7 +223,7 @@ static esp_err_t on_value_head(struct esp_suit_ota_ctx *ctx, const suit_cbor_hea
                      (unsigned long long)h->val, (unsigned long)c->size);
             return ESP_ERR_SUIT_OTA_SIZE;
         }
-        esp_err_t err = suit_stream_open(ctx, (size_t)ci, 0);
+        esp_err_t err = suit_stream_open(ctx, (size_t)ci);
         if (err != ESP_OK) {
             return err;
         }

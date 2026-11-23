@@ -11,16 +11,11 @@
 
 static const char *TAG = SUIT_TAG;
 
-esp_err_t suit_sink_part_open(suit_component_t *c, size_t resume_offset)
+esp_err_t suit_sink_part_open(suit_component_t *c)
 {
     esp_ota_handle_t h = 0;
-    esp_err_t err;
-    if (resume_offset > 0) {
-        err = esp_ota_resume(c->target.staging, OTA_WITH_SEQUENTIAL_WRITES, resume_offset, &h);
-    } else {
-        size_t erase = c->target.bulk_erase ? c->size : OTA_WITH_SEQUENTIAL_WRITES;
-        err = esp_ota_begin(c->target.staging, erase, &h);
-    }
+    size_t erase = c->target.bulk_erase ? c->size : OTA_WITH_SEQUENTIAL_WRITES;
+    esp_err_t err = esp_ota_begin(c->target.staging, erase, &h);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_ota_begin(%s) failed: %s", c->target.staging->label, esp_err_to_name(err));
         return err == ESP_ERR_OTA_ROLLBACK_INVALID_STATE ? ESP_ERR_SUIT_OTA_STATE : err;

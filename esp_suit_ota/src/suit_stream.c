@@ -15,13 +15,13 @@ static bool needs_header_probe(const suit_component_t *c)
     return c->target.sink == NULL && c->target.verify == ESP_SUIT_VERIFY_APP_IMAGE;
 }
 
-static esp_err_t sink_open(suit_component_t *c, size_t resume_offset)
+static esp_err_t sink_open(suit_component_t *c)
 {
     esp_err_t err;
     if (c->target.sink != NULL) {
         err = c->target.sink->open(c->target.sink->ctx, c->size);
     } else {
-        err = suit_sink_part_open(c, resume_offset);
+        err = suit_sink_part_open(c);
     }
     if (err == ESP_OK) {
         c->sink_open = true;
@@ -60,7 +60,7 @@ static esp_err_t plain_write(struct esp_suit_ota_ctx *ctx, suit_component_t *c, 
         c->header_checked = true;
         c->bytes_written -= c->header_len;
         if (!c->sink_open) {
-            err = sink_open(c, 0);
+            err = sink_open(c);
             if (err != ESP_OK) {
                 return err;
             }
@@ -77,7 +77,7 @@ static esp_err_t plain_write(struct esp_suit_ota_ctx *ctx, suit_component_t *c, 
         }
     }
     if (!c->sink_open) {
-        err = sink_open(c, 0);
+        err = sink_open(c);
         if (err != ESP_OK) {
             return err;
         }
@@ -90,7 +90,7 @@ static esp_err_t plain_write(struct esp_suit_ota_ctx *ctx, suit_component_t *c, 
     return ESP_OK;
 }
 
-esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index, size_t resume_offset)
+esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index)
 {
     suit_component_t *c = &ctx->comp[index];
     esp_err_t err = suit_hash_start(&ctx->stream_hash);
@@ -103,55 +103,7 @@ esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index, size_t re
     c->sink_open = false;
     c->state = SUIT_COMP_WRITING;
     ctx->current = index;
-    if (resume_offset == 0) {
-        return ESP_OK;
-    }
-    /* rebuild the digest state from the bytes already in the staging partition */
-    if (c->target.staging == NULL) {
-        return ESP_OK;                  /* a sink cannot be read back: start over */
-    }
-    uint8_t *buf = malloc(READBACK_CHUNK);
-    if (buf == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-    size_t off = 0;
-    while (off < resume_offset) {
-        size_t n = resume_offset - off < READBACK_CHUNK ? resume_offset - off : READBACK_CHUNK;
-        err = suit_sink_part_read(c->target.staging, off, buf, n);
-        if (err != ESP_OK) {
-            break;
-        }
-        err = suit_hash_update(&ctx->stream_hash, buf, n);
-        if (err != ESP_OK) {
-            break;
-        }
-        if (needs_header_probe(c) && c->header_len < SUIT_HEADER_PROBE_LEN) {
-            size_t take = SUIT_HEADER_PROBE_LEN - c->header_len;
-            if (take > n) {
-                take = n;
-            }
-            memcpy(c->header + c->header_len, buf, take);
-            c->header_len += take;
-        }
-        off += n;
-    }
-    free(buf);
-    if (err != ESP_OK) {
-        return err;
-    }
-    if (needs_header_probe(c)) {
-        err = suit_sink_check_header(c);
-        if (err != ESP_OK) {
-            return err;
-        }
-        c->header_checked = true;
-    }
-    err = sink_open(c, resume_offset);
-    if (err != ESP_OK) {
-        return err;
-    }
-    c->bytes_written = resume_offset;
-    ctx->journal_mark = resume_offset;
+    ctx->progress_mark = 0;
     return ESP_OK;
 }
 
@@ -189,7 +141,7 @@ esp_err_t suit_stream_close(struct esp_suit_ota_ctx *ctx, size_t index)
         }
     } else {
         if (!c->sink_open) {
-            err = sink_open(c, 0);       /* zero-length payload */
+            err = sink_open(c);       /* zero-length payload */
             if (err != ESP_OK) {
                 return err;
             }

@@ -26,13 +26,13 @@
 #include "protocol_examples_utils.h"
 #include "esp_suit_ota.h"
 #include "esp_suit_ota_helpers.h"
-#include "esp_ota_slots.h"
+#include "example_targets.h"
 #include "suit_identity.h"
 #if CONFIG_EXAMPLE_ENABLE_BLE
 #include "ble_payload.h"
 #endif
 
-static const char *TAG = "suit_advanced";
+static const char *TAG = "suit_example";
 
 extern const uint8_t anchor_start[] asm("_binary_anchor_p256_bin_start");
 
@@ -57,22 +57,8 @@ static esp_suit_ota_https_cfg_t s_https = {
     .max_request_size = CONFIG_EXAMPLE_HTTP_REQUEST_SIZE,
 };
 
-/*
- * One row per pair: what it is and which partitions it owns.
- *
- * app and f1 flip together (group "cal"); cfg is a COPY pair written to cfg_stage and copied into
- * cfg at activation. The partition labels are free: nothing is derived from the pair name. The
- * manifest reaches these pairs by name, because the last part of a component identifier names its
- * pair, and it chooses the link by the scheme of each component's URI.
- */
-static const esp_ota_slots_decl_t slots[] = {
-    { .name = "app", .kind = ESP_OTA_SLOTS_APP, .group = "cal" },
-    { .name = "f1",  .kind = ESP_OTA_SLOTS_AB,  .primary = "f1_live", .secondary = "f1_spare", .group = "cal" },
-    { .name = "cfg", .kind = ESP_OTA_SLOTS_COPY, .primary = "cfg",     .secondary = "cfg_stage" },
-};
-
 static const esp_suit_ota_key_t keys[] = { { .point = anchor_start, .point_len = 65 } };
-static const esp_suit_ota_config_t cfg = {
+static esp_suit_ota_config_t cfg = {
     .keys = keys,
     .num_keys = 1,
     .vendor_ids = &vendor_uuid,
@@ -119,9 +105,9 @@ static void suit_event_handler(void *arg, esp_event_base_t base, int32_t id, voi
 static bool data_valid(void)
 {
     uint8_t h[8];
-    esp_partition_read(esp_ota_slots_get_active("f1"), 0, h, sizeof(h));
+    esp_partition_read(example_live_partition("f1"), 0, h, sizeof(h));
     bool f1_ok = memcmp(h, "F1-DATA", 7) == 0 || h[0] == 0xff;
-    esp_partition_read(esp_ota_slots_get_active("cfg"), 0, h, sizeof(h));
+    esp_partition_read(example_live_partition("cfg"), 0, h, sizeof(h));
     bool cfg_ok = memcmp(h, "CFG-", 4) == 0 || h[0] == 0xff;
     return f1_ok && cfg_ok;
 }
@@ -133,13 +119,7 @@ static void after_activation(bool restart)
         vTaskDelay(pdMS_TO_TICKS(500));
         esp_restart();
     }
-    if (data_valid()) {
-        ESP_ERROR_CHECK(esp_suit_ota_confirm());
-        ESP_LOGI(TAG, "RESULT: data release confirmed");
-    } else {
-        ESP_ERROR_CHECK(esp_suit_ota_revert());
-        ESP_LOGW(TAG, "RESULT: data release reverted");
-    }
+    example_settle_data(data_valid());
 }
 
 static void read_url(char *buf, size_t cap)
@@ -221,7 +201,7 @@ static void run_ota(const char *url)
             err = esp_suit_ota_activate(h, &restart);
         }
     }
-    esp_suit_ota_end(h);                /* keeps the journal, so a cut run resumes */
+    esp_suit_ota_end(h);                /* the staged slots stay as they are until the next run */
 
     if (err == ESP_OK) {
         after_activation(restart);
@@ -245,10 +225,9 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(esp_event_handler_register(ESP_SUIT_OTA_EVENT, ESP_EVENT_ANY_ID, suit_event_handler, NULL));
 
-    ESP_ERROR_CHECK(esp_ota_slots_init(slots, sizeof(slots) / sizeof(slots[0])));
-    ESP_ERROR_CHECK(esp_suit_ota_recover());
+    ESP_ERROR_CHECK(example_targets_init(&cfg));
     if (data_valid()) {
-        ESP_ERROR_CHECK(esp_suit_ota_confirm());
+        example_confirm_boot();
     } else {
         ESP_LOGE(TAG, "self-test failed on the new data, rolling back");
         esp_ota_mark_app_invalid_rollback_and_reboot();

@@ -26,7 +26,6 @@ extern "C" {
 #define ESP_ERR_SUIT_OTA_GROUP           (ESP_ERR_SUIT_OTA_BASE + 0x08)   /*!< The manifest updates only part of a declared group */
 #define ESP_ERR_SUIT_OTA_SIZE            (ESP_ERR_SUIT_OTA_BASE + 0x09)   /*!< Size missing, larger than the target, or resource longer than declared */
 #define ESP_ERR_SUIT_OTA_NO_TRANSPORT    (ESP_ERR_SUIT_OTA_BASE + 0x0A)   /*!< URI scheme without a getter, or a URI on a stream */
-#define ESP_ERR_SUIT_OTA_REJECTED        (ESP_ERR_SUIT_OTA_BASE + 0x0B)   /*!< This manifest already failed on this device */
 #define ESP_ERR_SUIT_OTA_SEVERED         (ESP_ERR_SUIT_OTA_BASE + 0x0C)   /*!< A referenced severed section is missing or has a bad digest */
 #define ESP_ERR_SUIT_OTA_UP_TO_DATE      (ESP_ERR_SUIT_OTA_BASE + 0x0D)   /*!< Same sequence number and every component already installed */
 
@@ -38,6 +37,7 @@ extern "C" {
 /* Misuse and getter-only status */
 #define ESP_ERR_SUIT_OTA_STATE           (ESP_ERR_SUIT_OTA_BASE + 0x11)   /*!< Call not allowed in this state */
 #define ESP_ERR_SUIT_OTA_NOT_MODIFIED    (ESP_ERR_SUIT_OTA_BASE + 0x12)   /*!< The server answered 304 for the manifest */
+#define ESP_ERR_SUIT_OTA_SLOTS           (ESP_ERR_SUIT_OTA_BASE + 0x13)   /*!< The slots backend is not usable, so no target can be selected */
 
 /**
  * @brief Name of a component error code, or NULL when the code is not one of ours.

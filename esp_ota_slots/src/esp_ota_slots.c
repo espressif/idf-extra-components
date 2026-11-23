@@ -59,8 +59,6 @@ static pair_t s_pairs[ESP_OTA_SLOTS_MAX_PAIRS];
 static size_t s_num_pairs;
 static record_t s_rec;
 static bool s_inited;
-static bool s_degraded;
-static bool s_degraded_acked;
 
 static uint32_t record_crc(const record_t *r)
 {
@@ -110,7 +108,10 @@ static esp_err_t record_load(void)
     }
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "nvs_open('%s') failed: %s", RECORD_NS, esp_err_to_name(err));
-        return err;                          /* NVS not initialised, or out of pages */
+        if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
+            return err;                      /* the caller reports the missing nvs_flash_init() */
+        }
+        return ESP_ERR_OTA_SLOTS_RECORD;     /* NVS is there but not usable, for example out of pages */
     }
     size_t len = sizeof(s_rec);
     err = nvs_get_blob(h, RECORD_KEY, &s_rec, &len);
@@ -120,19 +121,19 @@ static esp_err_t record_load(void)
     }
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "reading the slots record failed: %s", esp_err_to_name(err));
-        return err;
+        return ESP_ERR_OTA_SLOTS_RECORD;
     }
     if (len != sizeof(s_rec) || s_rec.magic != RECORD_MAGIC) {
         ESP_LOGE(TAG, "the slots record is not a record of this component");
-        return ESP_ERR_INVALID_CRC;
+        return ESP_ERR_OTA_SLOTS_RECORD_FOREIGN;
     }
     if (s_rec.version != RECORD_VERSION) {
         ESP_LOGE(TAG, "slots record layout %u, this build writes %u", s_rec.version, RECORD_VERSION);
-        return ESP_ERR_INVALID_VERSION;
+        return ESP_ERR_OTA_SLOTS_RECORD_VERSION;
     }
     if (s_rec.num > ESP_OTA_SLOTS_MAX_PAIRS || s_rec.crc != record_crc(&s_rec)) {
         ESP_LOGE(TAG, "the slots record is damaged");
-        return ESP_ERR_INVALID_CRC;
+        return ESP_ERR_OTA_SLOTS_RECORD_CORRUPT;
     }
     return ESP_OK;
 }
@@ -280,8 +281,6 @@ esp_err_t esp_ota_slots_init(const esp_ota_slots_decl_t *decls, size_t n)
         return ESP_ERR_INVALID_ARG;
     }
     s_inited = false;
-    s_degraded = false;
-    s_degraded_acked = false;
     s_num_pairs = 0;
     for (size_t i = 0; i < n; i++) {
         if (find_pair(decls[i].name) != NULL) {        /* searches the pairs registered so far */
@@ -303,10 +302,14 @@ esp_err_t esp_ota_slots_init(const esp_ota_slots_decl_t *decls, size_t n)
         ESP_LOGE(TAG, "call nvs_flash_init() before esp_ota_slots_init()");
         return ESP_ERR_OTA_SLOTS_RECORD;
     } else if (err != ESP_OK) {
+        /*
+         * A record exists but cannot be trusted, so the live index of every pair is unknown and
+         * a flip could erase live data. Fail, and stay uninitialized: every other call then
+         * returns ESP_ERR_OTA_SLOTS_STATE. esp_ota_slots_erase_record() is the way back.
+         */
         memset(&s_rec, 0, sizeof(s_rec));
-        s_rec.expected_app_slot = ESP_OTA_SLOTS_APP_SLOT_NONE;
-        s_degraded = true;
-        ESP_LOGE(TAG, "the slots record is unusable; pairs derived at index 0 until acknowledged");
+        ESP_LOGE(TAG, "the slots record is unusable: %s", esp_err_to_name(err));
+        return err;
     }
     /* every declared pair has an entry */
     for (size_t i = 0; i < s_num_pairs; i++) {
@@ -317,18 +320,28 @@ esp_err_t esp_ota_slots_init(const esp_ota_slots_decl_t *decls, size_t n)
         }
     }
     s_inited = true;
-    if (s_rec.state == ESP_OTA_SLOTS_PENDING && s_rec.expected_app_slot != ESP_OTA_SLOTS_APP_SLOT_NONE &&
-            running_app_slot() != s_rec.expected_app_slot) {
+    /*
+     * Two ways a release does not survive to this boot, and both end at the previous indices.
+     * ACTIVATING: power was lost inside the activation, so the flip was recorded but never
+     * finished. PENDING for an app slot that is not running: the bootloader rolled the app back,
+     * so the data that came with it goes back too.
+     */
+    bool undo = (s_rec.state == ESP_OTA_SLOTS_ACTIVATING);
+    if (undo) {
+        ESP_LOGW(TAG, "the activation was interrupted: previous data restored");
+    } else if (s_rec.state == ESP_OTA_SLOTS_PENDING && s_rec.expected_app_slot != ESP_OTA_SLOTS_APP_SLOT_NONE &&
+               running_app_slot() != s_rec.expected_app_slot) {
         ESP_LOGW(TAG, "pending record for app slot %u but slot %u is running: previous data restored",
                  s_rec.expected_app_slot, running_app_slot());
+        undo = true;
+    }
+    if (undo) {
         for (size_t i = 0; i < s_rec.num; i++) {
             s_rec.entry[i].active = s_rec.entry[i].prev;
         }
         s_rec.state = ESP_OTA_SLOTS_CONFIRMED;
         s_rec.expected_app_slot = ESP_OTA_SLOTS_APP_SLOT_NONE;
-        if (!s_degraded) {
-            record_store();
-        }
+        record_store();
     }
     return ESP_OK;
 }
@@ -417,9 +430,6 @@ esp_err_t esp_ota_slots_commit_flip(const char *const *names, const uint8_t *new
     if (!s_inited) {
         return ESP_ERR_OTA_SLOTS_STATE;
     }
-    if (s_degraded && !s_degraded_acked) {
-        return ESP_ERR_OTA_SLOTS_DEGRADED;
-    }
     esp_err_t err = esp_ota_slots_check_group(names, n);
     if (err != ESP_OK) {
         return err;
@@ -443,9 +453,21 @@ esp_err_t esp_ota_slots_commit_flip(const char *const *names, const uint8_t *new
             e->active = new_index[i];
         }
     }
-    s_rec.state = ESP_OTA_SLOTS_PENDING;
+    s_rec.state = ESP_OTA_SLOTS_ACTIVATING;
     s_rec.expected_app_slot = expected_app_slot;
     s_rec.campaign_id = campaign_id;
+    return record_store();
+}
+
+esp_err_t esp_ota_slots_activation_done(void)
+{
+    if (!s_inited) {
+        return ESP_ERR_OTA_SLOTS_STATE;
+    }
+    if (s_rec.state != ESP_OTA_SLOTS_ACTIVATING) {
+        return ESP_ERR_OTA_SLOTS_STATE;
+    }
+    s_rec.state = ESP_OTA_SLOTS_PENDING;
     return record_store();
 }
 
@@ -487,7 +509,8 @@ esp_err_t esp_ota_slots_revert(void)
     if (!s_inited) {
         return ESP_ERR_OTA_SLOTS_STATE;
     }
-    if (s_rec.state != ESP_OTA_SLOTS_PENDING) {
+    /* ACTIVATING too: activate() calls this when the boot selector write fails mid-activation */
+    if (s_rec.state != ESP_OTA_SLOTS_PENDING && s_rec.state != ESP_OTA_SLOTS_ACTIVATING) {
         return ESP_ERR_OTA_SLOTS_STATE;
     }
     for (size_t i = 0; i < s_rec.num; i++) {
@@ -498,16 +521,65 @@ esp_err_t esp_ota_slots_revert(void)
     return record_store();
 }
 
-bool esp_ota_slots_is_degraded(void)
-{
-    return s_degraded && !s_degraded_acked;
-}
-
-esp_err_t esp_ota_slots_ack_degraded(void)
+esp_err_t esp_ota_slots_revert_group(const char *name)
 {
     if (!s_inited) {
         return ESP_ERR_OTA_SLOTS_STATE;
     }
-    s_degraded_acked = true;
+    pair_t *p = find_pair(name);
+    if (p == NULL) {
+        return ESP_ERR_OTA_SLOTS_NOT_FOUND;
+    }
+    if (s_rec.state != ESP_OTA_SLOTS_PENDING) {
+        return ESP_ERR_OTA_SLOTS_STATE;
+    }
+    for (size_t i = 0; i < s_num_pairs; i++) {
+        pair_t *m = &s_pairs[i];
+        /* the pair itself, plus every other member of its group when it has one */
+        bool member = (m == p) || (p->decl.group != NULL && m->decl.group != NULL &&
+                                   strcmp(m->decl.group, p->decl.group) == 0);
+        if (!member) {
+            continue;
+        }
+        record_entry_t *e = find_entry(m->decl.name);
+        if (e != NULL) {
+            e->active = e->prev;
+        }
+        ESP_LOGW(TAG, "pair '%s' reverted to index %u", m->decl.name, e ? e->active : 0);
+    }
+    s_rec.state = ESP_OTA_SLOTS_CONFIRMED;
+    s_rec.expected_app_slot = ESP_OTA_SLOTS_APP_SLOT_NONE;
+    /* every pair that keeps its new index is now the one to go back to */
+    for (size_t i = 0; i < s_rec.num; i++) {
+        s_rec.entry[i].prev = s_rec.entry[i].active;
+    }
     return record_store();
+}
+
+esp_err_t esp_ota_slots_erase_record(void)
+{
+    if (s_inited) {
+        return ESP_ERR_OTA_SLOTS_STATE;      /* a good record is never thrown away by accident */
+    }
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(RECORD_NS, NVS_READWRITE, &h);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return ESP_OK;                       /* no namespace, so nothing to erase */
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_open('%s') failed: %s", RECORD_NS, esp_err_to_name(err));
+        return ESP_ERR_OTA_SLOTS_RECORD;
+    }
+    err = nvs_erase_all(h);                  /* the whole namespace, so a foreign key goes too */
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
+    nvs_close(h);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "erasing the slots record failed: %s", esp_err_to_name(err));
+        return ESP_ERR_OTA_SLOTS_RECORD;
+    }
+    memset(&s_rec, 0, sizeof(s_rec));
+    ESP_LOGW(TAG, "slots record erased: every pair restarts at index 0");
+    return ESP_OK;
 }

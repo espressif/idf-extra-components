@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "esp_suit_ota_err.h"
-#include "esp_ota_slots.h"
 
 const char *esp_suit_ota_err_to_name(esp_err_t err)
 {
@@ -19,7 +18,6 @@ const char *esp_suit_ota_err_to_name(esp_err_t err)
     case ESP_ERR_SUIT_OTA_GROUP: return "ESP_ERR_SUIT_OTA_GROUP";
     case ESP_ERR_SUIT_OTA_SIZE: return "ESP_ERR_SUIT_OTA_SIZE";
     case ESP_ERR_SUIT_OTA_NO_TRANSPORT: return "ESP_ERR_SUIT_OTA_NO_TRANSPORT";
-    case ESP_ERR_SUIT_OTA_REJECTED: return "ESP_ERR_SUIT_OTA_REJECTED";
     case ESP_ERR_SUIT_OTA_SEVERED: return "ESP_ERR_SUIT_OTA_SEVERED";
     case ESP_ERR_SUIT_OTA_UP_TO_DATE: return "ESP_ERR_SUIT_OTA_UP_TO_DATE";
     case ESP_ERR_SUIT_OTA_DIGEST: return "ESP_ERR_SUIT_OTA_DIGEST";
@@ -27,12 +25,7 @@ const char *esp_suit_ota_err_to_name(esp_err_t err)
     case ESP_ERR_SUIT_OTA_INCOMPLETE: return "ESP_ERR_SUIT_OTA_INCOMPLETE";
     case ESP_ERR_SUIT_OTA_STATE: return "ESP_ERR_SUIT_OTA_STATE";
     case ESP_ERR_SUIT_OTA_NOT_MODIFIED: return "ESP_ERR_SUIT_OTA_NOT_MODIFIED";
-    case ESP_ERR_OTA_SLOTS_NOT_POWERSAFE: return "ESP_ERR_OTA_SLOTS_NOT_POWERSAFE";
-    case ESP_ERR_OTA_SLOTS_NOT_FOUND: return "ESP_ERR_OTA_SLOTS_NOT_FOUND";
-    case ESP_ERR_OTA_SLOTS_DEGRADED: return "ESP_ERR_OTA_SLOTS_DEGRADED";
-    case ESP_ERR_OTA_SLOTS_PARTIAL_GROUP: return "ESP_ERR_OTA_SLOTS_PARTIAL_GROUP";
-    case ESP_ERR_OTA_SLOTS_STATE: return "ESP_ERR_OTA_SLOTS_STATE";
-    case ESP_ERR_OTA_SLOTS_RECORD: return "ESP_ERR_OTA_SLOTS_RECORD";
+    case ESP_ERR_SUIT_OTA_SLOTS: return "ESP_ERR_SUIT_OTA_SLOTS";
     default: return NULL;
     }
 }

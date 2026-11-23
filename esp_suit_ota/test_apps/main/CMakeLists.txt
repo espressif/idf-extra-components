@@ -4,5 +4,5 @@ idf_component_register(SRCS "test_main.c" "test_common.c" "test_compliance.c" "t
                        INCLUDE_DIRS "." "vectors"
                        PRIV_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../private_include"
                        EMBED_FILES "vectors/compliance.bin"
-                       PRIV_REQUIRES unity nvs_flash esp_partition esp_event app_update mbedtls
+                       PRIV_REQUIRES unity nvs_flash esp_partition esp_event app_update mbedtls esp_ota_slots esp_suit_ota_slots
                        WHOLE_ARCHIVE)

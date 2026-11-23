@@ -34,10 +34,12 @@ extern "C" {
 #define ESP_ERR_OTA_SLOTS_BASE           0x1F100
 #define ESP_ERR_OTA_SLOTS_NOT_POWERSAFE  (ESP_ERR_OTA_SLOTS_BASE + 0x01)  /*!< A single partition cannot join a group */
 #define ESP_ERR_OTA_SLOTS_NOT_FOUND      (ESP_ERR_OTA_SLOTS_BASE + 0x02)  /*!< No partition with that label, or no pair with that name */
-#define ESP_ERR_OTA_SLOTS_DEGRADED       (ESP_ERR_OTA_SLOTS_BASE + 0x03)  /*!< Both record copies were unreadable */
+#define ESP_ERR_OTA_SLOTS_RECORD_CORRUPT (ESP_ERR_OTA_SLOTS_BASE + 0x03)  /*!< The record is damaged: bad CRC, or too many entries */
 #define ESP_ERR_OTA_SLOTS_PARTIAL_GROUP  (ESP_ERR_OTA_SLOTS_BASE + 0x04)  /*!< A flip names part of a group */
 #define ESP_ERR_OTA_SLOTS_STATE          (ESP_ERR_OTA_SLOTS_BASE + 0x05)  /*!< Record not PENDING, or not initialized */
-#define ESP_ERR_OTA_SLOTS_RECORD         (ESP_ERR_OTA_SLOTS_BASE + 0x06)  /*!< Record partition missing or write failed */
+#define ESP_ERR_OTA_SLOTS_RECORD         (ESP_ERR_OTA_SLOTS_BASE + 0x06)  /*!< The NVS backend failed: open, read or write */
+#define ESP_ERR_OTA_SLOTS_RECORD_FOREIGN (ESP_ERR_OTA_SLOTS_BASE + 0x07)  /*!< The stored blob was not written by this component */
+#define ESP_ERR_OTA_SLOTS_RECORD_VERSION (ESP_ERR_OTA_SLOTS_BASE + 0x08)  /*!< The record has a layout version this build does not write */
 
 #define ESP_OTA_SLOTS_MAX_PAIRS          8
 #define ESP_OTA_SLOTS_NAME_MAX           15   /*!< Longest logical pair name; a name that derives its labels needs room for the suffix */
@@ -51,9 +53,15 @@ typedef enum {
     ESP_OTA_SLOTS_APP,
 } esp_ota_slots_kind_t;
 
+/*
+ * CONFIRMED  the live indices are settled, nothing is outstanding
+ * ACTIVATING the flip is recorded but the activation did not finish; init() undoes it
+ * PENDING    the flip is complete and waits for confirm() or revert()
+ */
 typedef enum {
     ESP_OTA_SLOTS_CONFIRMED = 0,
     ESP_OTA_SLOTS_PENDING = 1,
+    ESP_OTA_SLOTS_ACTIVATING = 2,
 } esp_ota_slots_state_t;
 
 typedef struct {
@@ -73,8 +81,16 @@ typedef struct {
  * names any partition, and when a derived label does not fit 16 characters.
  * Returns ESP_ERR_OTA_SLOTS_NOT_FOUND when a label, given or derived, is not in the partition
  * table, and ESP_ERR_OTA_SLOTS_NOT_POWERSAFE when a SINGLE pair names a group.
- * Returns ESP_OK and marks the record degraded when both record copies are unreadable;
- * esp_ota_slots_ack_degraded() must then be called before any flip.
+ *
+ * A record that exists but cannot be trusted fails the call, because the live index of every
+ * pair is then unknown and a flip can erase live data. The code says what is wrong:
+ * ESP_ERR_OTA_SLOTS_RECORD_CORRUPT for a bad CRC or too many entries,
+ * ESP_ERR_OTA_SLOTS_RECORD_FOREIGN for a blob this component did not write,
+ * ESP_ERR_OTA_SLOTS_RECORD_VERSION for a record of another layout version, and
+ * ESP_ERR_OTA_SLOTS_RECORD when NVS itself fails. The component stays uninitialized after a
+ * failure, so every other call returns ESP_ERR_OTA_SLOTS_STATE. Call
+ * esp_ota_slots_erase_record() to recover from the first three. A first boot, where no record
+ * exists yet, is not a failure.
  */
 esp_err_t esp_ota_slots_init(const esp_ota_slots_decl_t *decls, size_t n);
 
@@ -91,15 +107,21 @@ const esp_partition_t *esp_ota_slots_get_staging(const char *name);
 uint8_t esp_ota_slots_get_active_index(const char *name);
 
 /**
- * @brief Record a flip of the named pairs in one write, state PENDING.
+ * @brief Record a flip of the named pairs in one write, state ACTIVATING.
  *
  * new_index[i] is the slot that becomes active for names[i], and matters for AB pairs only.
  * Pairs not named keep their index. expected_app_slot is the OTA app slot the campaign
  * activates, or ESP_OTA_SLOTS_APP_SLOT_NONE for a data-only campaign. A flip that names part
  * of a declared group is refused.
+ *
+ * The record stays ACTIVATING until esp_ota_slots_activation_done() runs. If power is lost in
+ * between, the next esp_ota_slots_init() restores the previous indices.
  */
 esp_err_t esp_ota_slots_commit_flip(const char *const *names, const uint8_t *new_index, size_t n,
                                     uint8_t expected_app_slot, uint32_t campaign_id);
+
+/** @brief ACTIVATING to PENDING: the activation finished and the release waits for a verdict. */
+esp_err_t esp_ota_slots_activation_done(void);
 
 esp_err_t esp_ota_slots_get_state(esp_ota_slots_state_t *state, uint32_t *campaign_id,
                                   uint8_t *expected_app_slot);
@@ -110,8 +132,29 @@ esp_err_t esp_ota_slots_confirm(void);
 /** @brief PENDING back to the previous indices, then CONFIRMED. Refused when not PENDING. */
 esp_err_t esp_ota_slots_revert(void);
 
-bool esp_ota_slots_is_degraded(void);
-esp_err_t esp_ota_slots_ack_degraded(void);
+/**
+ * @brief Revert one pair and the rest of its group, and leave every other pair where it is.
+ *
+ * Use it when the application finds the new data of one pair bad while the rest of the release
+ * is good. Pairs outside the group keep their new indices, and the record becomes CONFIRMED.
+ * Returns ESP_ERR_OTA_SLOTS_NOT_FOUND for an unknown name and ESP_ERR_OTA_SLOTS_STATE when the
+ * record is not PENDING.
+ */
+esp_err_t esp_ota_slots_revert_group(const char *name);
+
+/**
+ * @brief Erase the slots record, so the next init() starts every pair at index 0.
+ *
+ * Use it only to recover from an init() that failed with a record error. The live index of
+ * every pair is then unknown, so after the erase the component assumes index 0 for all of
+ * them. If the real data is in index 1, that data is no longer reachable and the pair must be
+ * written again by the next release.
+ *
+ * Refused with ESP_ERR_OTA_SLOTS_STATE while the component is initialized, because erasing a
+ * good record would throw away a pending release and its rollback information.
+ * Returns ESP_OK when there is no record to erase, and ESP_ERR_OTA_SLOTS_RECORD when NVS fails.
+ */
+esp_err_t esp_ota_slots_erase_record(void);
 
 /**
  * @brief ESP_OK when every member of every group touched by names[] is listed in names[].

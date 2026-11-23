@@ -35,8 +35,8 @@ menu "ESP SUIT OTA"
         bool "Skip components whose live partition already matches the manifest digest"
         default y
 
-    config ESP_SUIT_OTA_JOURNAL_KB
-        int "Journal the write position every N KB"
+    config ESP_SUIT_OTA_PROGRESS_KB
+        int "Post a progress event every N KB"
         default 64
         range 4 1024
 

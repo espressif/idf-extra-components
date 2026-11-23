@@ -139,7 +139,7 @@ static esp_err_t resolve_uri(struct esp_suit_ota_ctx *ctx, const char *uri, char
     return ESP_OK;
 }
 
-static esp_err_t redirect_to(struct esp_suit_ota_ctx *ctx, size_t index, size_t resume_offset)
+static esp_err_t redirect_to(struct esp_suit_ota_ctx *ctx, size_t index)
 {
     suit_component_t *c = &ctx->comp[index];
     esp_suit_ota_transport_t *t = ctx->t;
@@ -152,20 +152,17 @@ static esp_err_t redirect_to(struct esp_suit_ota_ctx *ctx, size_t index, size_t 
         ESP_LOGE(TAG, "no getter registered for %s", ctx->url_buf);
         return ESP_ERR_SUIT_OTA_NO_TRANSPORT;
     }
-    err = suit_stream_open(ctx, index, resume_offset);
+    err = suit_stream_open(ctx, index);
     if (err != ESP_OK) {
         return err;
-    }
-    if (c->bytes_written != resume_offset) {
-        resume_offset = 0;             /* the stream could not resume, start the resource over */
     }
     if (mode != t->mode) {
         suit_close_getters(t);             /* another link: let the open one go */
         t->mode = mode;
     }
     t->url = ctx->url_buf;
-    t->offset = resume_offset;
-    t->len = c->size - resume_offset;
+    t->offset = 0;
+    t->len = c->size;
     t->fetch_args = c->fetch_args;
     t->fetch_args_len = c->fetch_args_len;
     t->component = index;
@@ -176,8 +173,7 @@ static esp_err_t redirect_to(struct esp_suit_ota_ctx *ctx, size_t index, size_t 
     strlcpy(ev.id, c->id, sizeof(ev.id));
     strlcpy(ev.uri, ctx->url_buf, sizeof(ev.uri));
     suit_post_event(ESP_SUIT_OTA_EVENT_COMPONENT_NEXT, &ev, sizeof(ev));
-    ESP_LOGI(TAG, "fetching %s from %s (%lu bytes, offset %lu)", c->id, ctx->url_buf, (unsigned long)c->size,
-             (unsigned long)resume_offset);
+    ESP_LOGI(TAG, "fetching %s from %s (%lu bytes)", c->id, ctx->url_buf, (unsigned long)c->size);
     return ESP_OK;
 }
 
@@ -189,7 +185,6 @@ static esp_err_t become_ready(struct esp_suit_ota_ctx *ctx)
         ctx->t->done = true;
         ctx->t->len = 0;
     }
-    suit_journal_save(ctx, SUIT_PHASE_READY);
     suit_post_event(ESP_SUIT_OTA_EVENT_READY, NULL, 0);
     ESP_LOGI(TAG, "every component staged and verified, call esp_suit_ota_commit()");
     return ESP_SUIT_OTA_READY;
@@ -221,45 +216,12 @@ esp_err_t suit_after_envelope(struct esp_suit_ota_ctx *ctx)
         if (c->state != SUIT_COMP_PENDING) {
             continue;
         }
-        size_t resume = 0;
-        if (ctx->resumed && ctx->resume_comp == idx && ctx->resume_bytes > 0 && ctx->resume_bytes < c->size) {
-            resume = ctx->resume_bytes;
-            ctx->resume_comp = SIZE_MAX;
-        }
-        return redirect_to(ctx, idx, resume);
+        return redirect_to(ctx, idx);
     }
     return become_ready(ctx);
 }
 
 /* ---------- manifest completion ---------- */
-
-static esp_err_t resume_from_journal(struct esp_suit_ota_ctx *ctx)
-{
-    suit_journal_t *j = &ctx->journal;
-    if (j->magic == 0 || memcmp(j->manifest_digest, ctx->manifest_digest, SUIT_DIGEST_LEN) != 0) {
-        return ESP_OK;
-    }
-    if (j->phase != SUIT_PHASE_STAGING && j->phase != SUIT_PHASE_READY) {
-        return ESP_OK;
-    }
-    ctx->resumed = true;
-    ctx->campaign_id = j->campaign_id;
-    ctx->resume_comp = (j->current < ctx->num_comp) ? j->current : SIZE_MAX;
-    ctx->resume_bytes = j->bytes_written;
-    for (size_t i = 0; i < ctx->num_comp && i < j->num; i++) {
-        suit_component_t *c = &ctx->comp[i];
-        if (c->state != SUIT_COMP_PENDING || j->comp[i].state != SUIT_COMP_STAGED) {
-            continue;
-        }
-        uint8_t d[SUIT_DIGEST_LEN];
-        if (suit_stream_digest_of_target(ctx, i, true, d) == ESP_OK && memcmp(d, c->digest, SUIT_DIGEST_LEN) == 0) {
-            c->state = SUIT_COMP_STAGED;
-            c->bytes_written = c->size;
-            ESP_LOGI(TAG, "%s already staged, resumed", c->id);
-        }
-    }
-    return ESP_OK;
-}
 
 esp_err_t suit_run_plan_if_ready(struct esp_suit_ota_ctx *ctx)
 {
@@ -278,7 +240,6 @@ esp_err_t suit_run_plan_if_ready(struct esp_suit_ota_ctx *ctx)
     if (err != ESP_OK) {
         return err;
     }
-    resume_from_journal(ctx);
     if (ctx->campaign_id == 0) {
         ctx->campaign_id = (uint32_t)ctx->man.sequence_number ^ ((uint32_t)ctx->manifest_digest[0] << 24) ^
                            ((uint32_t)ctx->manifest_digest[1] << 16) ^ 1u;
@@ -303,7 +264,7 @@ esp_err_t suit_run_plan_if_ready(struct esp_suit_ota_ctx *ctx)
         return ESP_ERR_SUIT_OTA_UP_TO_DATE;
     }
     ctx->has_app = false;
-    ctx->app_slot = ESP_OTA_SLOTS_APP_SLOT_NONE;
+    ctx->app_slot = ESP_SUIT_OTA_APP_SLOT_NONE;
     for (size_t i = 0; i < ctx->num_comp; i++) {
         suit_component_t *c = &ctx->comp[i];
         if (c->target.is_app && c->state != SUIT_COMP_INSTALLED) {
@@ -311,7 +272,6 @@ esp_err_t suit_run_plan_if_ready(struct esp_suit_ota_ctx *ctx)
             ctx->app_slot = c->target.slot_index;
         }
     }
-    suit_journal_save(ctx, SUIT_PHASE_STAGING);
     return ESP_OK;
 }
 
@@ -321,10 +281,6 @@ esp_err_t suit_on_manifest_complete(struct esp_suit_ota_ctx *ctx)
                                      ctx->cfg.keys, ctx->cfg.num_keys, ctx->manifest_digest);
     if (err != ESP_OK) {
         return err;
-    }
-    if (suit_persist_is_rejected(ctx->manifest_digest)) {
-        ESP_LOGE(TAG, "this release already failed on this device");
-        return ESP_ERR_SUIT_OTA_REJECTED;
     }
     suit_cbor_head_t h;
     int hl = suit_cbor_head(ctx->manifest_bstr.ptr, ctx->manifest_bstr.len, &h);
@@ -449,9 +405,8 @@ esp_err_t suit_payload_write(struct esp_suit_ota_ctx *ctx, const uint8_t *data, 
         return err;
     }
     suit_component_t *c = &ctx->comp[idx];
-    if (c->bytes_written - ctx->journal_mark >= SUIT_JOURNAL_STEP_BYTES) {
-        suit_journal_save(ctx, SUIT_PHASE_STAGING);
-        ctx->journal_mark = c->bytes_written;
+    if (c->bytes_written - ctx->progress_mark >= SUIT_PROGRESS_STEP_BYTES) {
+        ctx->progress_mark = c->bytes_written;
         esp_suit_ota_event_progress_t ev = { .index = (uint8_t)idx, .bytes_written = c->bytes_written, .size = c->size };
         suit_post_event(ESP_SUIT_OTA_EVENT_PROGRESS, &ev, sizeof(ev));
     }
@@ -465,8 +420,7 @@ esp_err_t suit_payload_boundary(struct esp_suit_ota_ctx *ctx)
     if (err != ESP_OK) {
         return err;
     }
-    ctx->journal_mark = 0;
-    suit_journal_save(ctx, SUIT_PHASE_STAGING);
+    ctx->progress_mark = 0;
     return ESP_OK;
 }
 
@@ -502,9 +456,9 @@ esp_err_t esp_suit_ota_begin(const esp_suit_ota_config_t *cfg, esp_suit_ota_tran
         ESP_LOGE(TAG, "the running app is not confirmed yet");
         return ESP_ERR_SUIT_OTA_STATE;
     }
-    suit_journal_t j;
-    if (suit_persist_journal_read(&j) == ESP_OK && j.phase == SUIT_PHASE_ACTIVATED) {
-        ESP_LOGE(TAG, "a release is activated but not confirmed; call esp_suit_ota_confirm() or esp_suit_ota_revert()");
+    const esp_suit_ota_slots_ops_t *ops = cfg->slots_ops;
+    if (ops != NULL && ops->is_pending != NULL && ops->is_pending(ops->user)) {
+        ESP_LOGE(TAG, "a release is activated but not settled yet; confirm it or revert it first");
         return ESP_ERR_SUIT_OTA_STATE;
     }
     struct esp_suit_ota_ctx *ctx = calloc(1, sizeof(*ctx));
@@ -521,8 +475,6 @@ esp_err_t esp_suit_ota_begin(const esp_suit_ota_config_t *cfg, esp_suit_ota_tran
     ctx->cfg = *cfg;
     ctx->t = t;
     ctx->current = SIZE_MAX;
-    ctx->resume_comp = SIZE_MAX;
-    ctx->journal = j;
     ctx->st = SUIT_ST_FEEDING;
     if (t != NULL) {
         strlcpy(ctx->base_url, t->url, sizeof(ctx->base_url));
@@ -619,26 +571,9 @@ esp_err_t esp_suit_ota_end(esp_suit_ota_handle_t h)
     }
     LOCK(h);
     if (h->current != SIZE_MAX) {
-        suit_journal_save(h, SUIT_PHASE_STAGING);
         suit_stream_abort(h, h->current);
     }
     suit_close_getters(h->t);
-    UNLOCK(h);
-    suit_ctx_free(h);
-    return ESP_OK;
-}
-
-esp_err_t esp_suit_ota_abort(esp_suit_ota_handle_t h)
-{
-    if (h == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    LOCK(h);
-    if (h->current != SIZE_MAX) {
-        suit_stream_abort(h, h->current);
-    }
-    suit_close_getters(h->t);
-    suit_persist_journal_erase();
     UNLOCK(h);
     suit_ctx_free(h);
     return ESP_OK;
@@ -729,44 +664,4 @@ esp_err_t esp_suit_ota_get_installed_info(esp_suit_ota_info_t *info)
     info->num_components = r.num;
     strlcpy(info->description, r.description, sizeof(info->description));
     return ESP_OK;
-}
-
-esp_err_t esp_suit_ota_recover(void)
-{
-    suit_journal_t j;
-    if (suit_persist_journal_read(&j) != ESP_OK) {
-        return ESP_OK;
-    }
-    switch (j.phase) {
-    case SUIT_PHASE_ACTIVATING: {
-        /* The boot switch never happened. If the slots flip did, undo it so that staging and
-         * active are what they were before activate(); the next begin() resumes to READY. */
-        esp_ota_slots_state_t st;
-        uint32_t cid = 0;
-        if (esp_ota_slots_get_state(&st, &cid, NULL) == ESP_OK && st == ESP_OTA_SLOTS_PENDING &&
-                cid == j.campaign_id) {
-            esp_ota_slots_revert();
-        }
-        ESP_LOGW(TAG, "activation was interrupted, the campaign is back to READY");
-        j.phase = SUIT_PHASE_READY;
-        return suit_persist_journal_write(&j);
-    }
-    case SUIT_PHASE_ACTIVATED: {
-        if (j.app_slot != ESP_OTA_SLOTS_APP_SLOT_NONE) {
-            const esp_partition_t *running = esp_ota_get_running_partition();
-            uint8_t running_slot = running ? (uint8_t)(running->subtype - ESP_PARTITION_SUBTYPE_APP_OTA_MIN) : SUIT_APP_SLOT_UNKNOWN;
-            if (running_slot != j.app_slot) {
-                ESP_LOGW(TAG, "release %llu was rolled back, recorded as rejected",
-                         (unsigned long long)j.sequence_number);
-                suit_persist_add_rejected(j.manifest_digest);
-                return suit_persist_journal_erase();
-            }
-        }
-        ESP_LOGI(TAG, "release %llu is active and waits for esp_suit_ota_confirm()",
-                 (unsigned long long)j.sequence_number);
-        return ESP_OK;
-    }
-    default:
-        return ESP_OK;   /* STAGING or READY: begin() with the same manifest resumes */
-    }
 }

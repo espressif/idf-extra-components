@@ -41,6 +41,8 @@ typedef struct {
 #define ESP_SUIT_OTA_ID_MAX         64    /*!< Component identifier as text, parts joined with '/' */
 #define ESP_SUIT_OTA_EVENT_URI_MAX  128   /*!< URI carried in a component event */
 #define ESP_SUIT_OTA_ETAG_MAX       64    /*!< Manifest ETag kept by a getter */
+#define ESP_SUIT_OTA_SLOT_NAME_MAX  15    /*!< Longest target name handed to a slots backend */
+#define ESP_SUIT_OTA_APP_SLOT_NONE  0xFF  /*!< Campaign without an app component */
 
 /** @brief A trusted P-256 public key as an uncompressed point (65 bytes, 0x04 || X || Y). */
 typedef struct {
@@ -83,16 +85,80 @@ typedef struct esp_suit_ota_transport esp_suit_ota_transport_t;
 typedef int (*esp_suit_ota_get_fn)(esp_suit_ota_transport_t *t, void **state, uint8_t *buf, size_t cap);
 typedef void (*esp_suit_ota_close_fn)(void *state);
 
+/* ---------- slots backend ---------- */
+
 /**
- * @brief Binds one component identifier to a target. Exactly one of partition, slots or sink is set.
+ * @brief What a slots backend says about one named target.
+ *
+ * staging is where the new image is written. active is where the installed image is now, and the
+ * core reads it back to decide whether the component is already installed.
+ */
+typedef struct {
+    const esp_partition_t *staging;
+    const esp_partition_t *active;
+    uint8_t slot_index;       /*!< Index the target takes after activation */
+    uint8_t active_index;     /*!< Index the target is at now */
+    bool is_app;              /*!< Verified as an app image and selected by esp_ota_set_boot_partition() */
+    bool copy_to_active;      /*!< Copy staging into active during activate(), then verify the copy */
+} esp_suit_ota_target_t;
+
+/** @brief One line of the flip the core asks the backend to record. */
+typedef struct {
+    const char *name;
+    uint8_t new_index;
+} esp_suit_ota_flip_t;
+
+/**
+ * @brief The backend that owns slot selection, the flip and the rollback.
+ *
+ * The core never reads or writes the backend's own record. It asks resolve() for the partitions
+ * of a named target, and at the end of activate() it asks commit() to record the new indices.
+ * Only resolve() and commit() are required. A configuration without a backend can still name a
+ * fixed partition or a sink in cfg.map, but it has no A/B slots and no rollback.
+ *
+ * A backend that cannot work at all, for example because its own record is unusable, returns
+ * ESP_ERR_INVALID_STATE from resolve(), check_set() or commit(). The core reports that as
+ * ESP_ERR_SUIT_OTA_SLOTS and stops the campaign.
+ */
+typedef struct {
+    /** @brief Partitions of the named target. Return ESP_ERR_NOT_FOUND for an unknown name,
+     *         or ESP_ERR_INVALID_STATE when the backend itself is not usable. */
+    esp_err_t (*resolve)(void *user, const char *name, esp_suit_ota_target_t *out);
+    /** @brief Optional: refuse a release that updates part of a set that must move together. */
+    esp_err_t (*check_set)(void *user, const char *const *names, size_t n);
+    /** @brief Record the flip. app_slot is ESP_SUIT_OTA_APP_SLOT_NONE for a data-only release. */
+    esp_err_t (*commit)(void *user, const esp_suit_ota_flip_t *flips, size_t n,
+                        uint8_t app_slot, uint32_t campaign_id);
+    /** @brief Optional: the activation finished and the release waits for a verdict. */
+    esp_err_t (*activated)(void *user);
+    /** @brief Optional: undo the last commit(). Called when a later step of activate() fails. */
+    esp_err_t (*revert)(void *user);
+    /** @brief Optional: true while a release waits for a verdict. begin() then refuses. */
+    bool (*is_pending)(void *user);
+    void *user;
+} esp_suit_ota_slots_ops_t;
+
+/**
+ * @brief Binds one component identifier to a target.
+ *
+ * Set exactly one of target_partition, slots or sink. The other fields are optional and belong
+ * to target_partition:
+ *
+ *   app, no live_partition      target_partition is the spare OTA slot; otadata switches the app
+ *   data, no live_partition     target_partition is the live partition, written in place
+ *   data, live_partition        target_partition is a staging partition, live_partition is live
+ *   data, live_partition
+ *       plus copy_to_live       the same, and activate() copies staging into live and re-verifies
  */
 typedef struct {
     esp_suit_ota_cid_t id;
     esp_suit_ota_verify_t verify;
-    const esp_partition_t *partition;      /*!< Staging partition written through esp_ota_begin/write/end */
-    const char *slots;                     /*!< Name of an esp_ota_slots pair */
-    const esp_suit_ota_sink_ops_t *sink;   /*!< Custom target */
-    bool bulk_erase;                       /*!< Erase the whole target up front instead of sector by sector */
+    const esp_partition_t *target_partition;  /*!< Bytes are written here */
+    const esp_partition_t *live_partition;    /*!< Optional, data only: where the installed image is now */
+    bool copy_to_live;                        /*!< Copy target_partition into live_partition during activate(); needs live_partition */
+    const char *slots;                        /*!< Target name handed to cfg.slots_ops->resolve() */
+    const esp_suit_ota_sink_ops_t *sink;      /*!< Custom target */
+    bool bulk_erase;                          /*!< Erase the whole target up front instead of sector by sector */
 } esp_suit_ota_map_entry_t;
 
 typedef struct {
@@ -105,8 +171,9 @@ typedef struct {
     const uint8_t (*class_ids)[ESP_SUIT_OTA_UUID_LEN];
     size_t num_class_ids;
     const uint8_t *device_id;              /*!< Optional 16-byte device identifier */
-    const esp_suit_ota_map_entry_t *map;   /*!< NULL: ['<anything>', name] maps to the pair declared as name, 'app' to the app pair */
+    const esp_suit_ota_map_entry_t *map;   /*!< NULL: ['<anything>', name] is resolved by slots_ops as the target name */
     size_t map_len;
+    const esp_suit_ota_slots_ops_t *slots_ops;  /*!< Slot selection, the flip and the rollback; NULL for none */
     const char *text_lang;                 /*!< Language tag of the kept update description, NULL for the Kconfig default */
 } esp_suit_ota_config_t;
 
@@ -187,9 +254,10 @@ typedef struct esp_suit_ota_ctx *esp_suit_ota_handle_t;
 /**
  * @brief Start a campaign. t may be NULL for a stream the transport's own engine delivers.
  *
- * Resumes from the journal when one exists for the manifest that is fed next.
- * Refuses with ESP_ERR_SUIT_OTA_STATE while the running app is PENDING_VERIFY, or while an
- * activated release waits for esp_suit_ota_confirm() or esp_suit_ota_revert().
+ * A campaign always starts from the first byte. Nothing is kept across a power cut, and a
+ * campaign that is cut short leaves the live partitions untouched.
+ * Refuses with ESP_ERR_SUIT_OTA_STATE while the running app is PENDING_VERIFY, or while the
+ * slots backend reports that an activated release still waits for a verdict.
  */
 esp_err_t esp_suit_ota_begin(const esp_suit_ota_config_t *cfg, esp_suit_ota_transport_t *t,
                              esp_suit_ota_handle_t *out);
@@ -207,11 +275,13 @@ esp_err_t esp_suit_ota_feed(esp_suit_ota_handle_t h, const void *data, size_t le
 /** @brief The gate: runs the validate sequence over the staged targets. Activates nothing. */
 esp_err_t esp_suit_ota_commit(esp_suit_ota_handle_t h);
 
-/** @brief Pause: close getters, keep the journal, free the handle. begin() resumes later. */
+/**
+ * @brief Close the getters and free the handle. Call it after activate(), and after a failure.
+ *
+ * Staged partitions keep whatever was written to them. They are inert until the next campaign
+ * stages them again, so there is nothing to clean up.
+ */
 esp_err_t esp_suit_ota_end(esp_suit_ota_handle_t h);
-
-/** @brief Discard the campaign, its journal and the handle. */
-esp_err_t esp_suit_ota_abort(esp_suit_ota_handle_t h);
 
 esp_err_t esp_suit_ota_get_info(esp_suit_ota_handle_t h, esp_suit_ota_info_t *info);
 esp_err_t esp_suit_ota_get_component(esp_suit_ota_handle_t h, size_t index, esp_suit_ota_component_t *out);
@@ -225,24 +295,20 @@ esp_err_t esp_suit_ota_get_app_desc(esp_suit_ota_handle_t h, size_t index, esp_a
  * Call after commit() returned ESP_OK. restart_needed is true when the campaign had an app
  * component, and the caller restarts the device; a data-only campaign is live at once. The handle
  * stays open: release it with esp_suit_ota_end().
+ * If any step fails, the flip is undone before this call returns, so the device keeps running
+ * what it ran before.
  */
 esp_err_t esp_suit_ota_activate(esp_suit_ota_handle_t h, bool *restart_needed);
 
-/** @brief After the self-test: cancel rollback and settle the slots record. */
-esp_err_t esp_suit_ota_confirm(void);
-
-/**
- * @brief Data-only release whose new data failed validation: flip back what it flipped, and record
- *        the release as rejected so it is not installed again. Needs esp_ota_slots_init() first.
+/*
+ * After activate(), the verdict belongs to the application and to the slots backend.
+ * The application cancels the app rollback with esp_ota_mark_app_valid_cancel_rollback(), and
+ * settles or undoes the data with the backend's own calls.
  */
-esp_err_t esp_suit_ota_revert(void);
 
 /* ---------- boot time ---------- */
 
 esp_err_t esp_suit_ota_get_installed_info(esp_suit_ota_info_t *info);
-
-/** @brief Settle a campaign cut by power loss from its journal. Call once at boot after esp_ota_slots_init(). */
-esp_err_t esp_suit_ota_recover(void);
 
 /* ---------- events ---------- */
 

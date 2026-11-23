@@ -80,9 +80,9 @@ def host_ip_towards(ip: str) -> str:
 @pytest.mark.generic
 @pytest.mark.parametrize('target', ['esp32c5', 'esp32p4'], indirect=['target'])
 @pytest.mark.parametrize('config', ['default'], indirect=['config'])
-def test_suit_ota_advanced(dut: Dut, tmp_path) -> None:
+def test_suit_ota_example(dut: Dut, tmp_path) -> None:
     work = str(tmp_path)
-    app = os.path.join(dut.app.binary_path, 'suit_ota_advanced.bin')
+    app = os.path.join(dut.app.binary_path, 'suit_ota_example.bin')
     make_release(work, 'partial_release', 2003, [('f1', os.path.join(RELEASE, 'f1_v1.bin'), False)])
     make_release(work, 'release', 2001, [('app', app, True),
                                          ('f1', os.path.join(RELEASE, 'f1_v2.bin'), True),

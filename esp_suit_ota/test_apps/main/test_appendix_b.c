@@ -122,7 +122,7 @@ static esp_err_t run_example(int i, size_t chunk, esp_suit_ota_transport_t *t, e
     if (out != NULL && err == ESP_OK) {
         *out = h;
     } else {
-        esp_suit_ota_abort(h);
+        esp_suit_ota_end(h);
     }
     return err;
 }
@@ -151,7 +151,7 @@ TEST_CASE("appendix B: Example 1 redirects the transport to file.bin", "[appendi
     size_t used = 0;
     TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_DIGEST, esp_suit_ota_feed(h, junk, 34768, &used));
     free(junk);
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }
 
 TEST_CASE("appendix B: Example 1 gives the same result at every chunk size", "[appendix_b]")
@@ -162,7 +162,7 @@ TEST_CASE("appendix B: Example 1 gives the same result at every chunk size", "[a
         TEST_ASSERT_EQUAL_MESSAGE(ESP_OK, run_example(1, chunk, &t, &h), "chunked feed");
         TEST_ASSERT_EQUAL_STRING("http://example.com/file.bin", t.url);
         TEST_ASSERT_EQUAL(34768, t.len);
-        esp_suit_ota_abort(h);
+        esp_suit_ota_end(h);
     }
 }
 
@@ -174,7 +174,7 @@ TEST_CASE("appendix B: Example 2 severed install and text", "[appendix_b]")
     TEST_ASSERT_NOT_NULL(strstr(t.url, "http://example.com/"));
     TEST_ASSERT_NOT_NULL(strstr(t.url, "/file.bin"));
     TEST_ASSERT_EQUAL(34768, t.len);
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }
 
 TEST_CASE("appendix B: Example 3 try-each picks the slot 0 branch", "[appendix_b]")
@@ -183,7 +183,7 @@ TEST_CASE("appendix B: Example 3 try-each picks the slot 0 branch", "[appendix_b
     esp_suit_ota_handle_t h;
     TEST_ASSERT_EQUAL(ESP_OK, run_example(3, 4096, &t, &h));
     TEST_ASSERT_NOT_NULL(strstr(t.url, "example.com"));
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }
 
 TEST_CASE("appendix B: Example 4 fetches without an image size, outside this profile", "[appendix_b]")
@@ -202,7 +202,7 @@ TEST_CASE("appendix B: Example 5 fetches two components in order", "[appendix_b]
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_get_info(h, &info));
     TEST_ASSERT_EQUAL(2, info.num_components);
     TEST_ASSERT_EQUAL(2, info.num_pending);
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }
 
 TEST_CASE("appendix B: a URI component on a stream has no transport", "[appendix_b]")
@@ -211,5 +211,5 @@ TEST_CASE("appendix B: a URI component on a stream has no transport", "[appendix
     esp_suit_ota_handle_t h;
     TEST_ASSERT_EQUAL(ESP_OK, esp_suit_ota_begin(&g_cfg, NULL, &h));
     TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_NO_TRANSPORT, feed_all(h, suit_vectors[1].data, suit_vectors[1].len, 4096));
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
 }

@@ -12,7 +12,6 @@ set(srcs
     "src/suit_persist.c"
     "src/esp_suit_ota.c"
     "src/esp_suit_ota_err.c"
-    "src/slots/esp_ota_slots.c"
     "helpers/esp_suit_ota_activate.c"
     "helpers/esp_suit_ota_https.c")
 
@@ -24,5 +23,5 @@ idf_component_register(SRCS ${srcs}
                                      esp_image_verify efuse esp_bootloader_format)
 
 if(COMMAND idf_define_esp_err_codes)
-    idf_define_esp_err_codes(HEADERS include/esp_suit_ota_err.h include/esp_ota_slots.h)
+    idf_define_esp_err_codes(HEADERS include/esp_suit_ota_err.h)
 endif()

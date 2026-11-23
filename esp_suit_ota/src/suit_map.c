@@ -38,24 +38,35 @@ void suit_cid_to_string(const esp_suit_ota_span_t *parts, size_t n, char *out, s
     out[pos] = '\0';
 }
 
-static esp_err_t resolve_slots(suit_target_t *tg, const char *name)
+/* the slots backend owns slot selection; without one, only cfg.map can name a target */
+static esp_err_t resolve_slots(struct esp_suit_ota_ctx *ctx, suit_target_t *tg, const char *name)
 {
-    esp_ota_slots_kind_t kind = esp_ota_slots_get_kind(name);
-    if (kind == ESP_OTA_SLOTS_NONE) {
-        ESP_LOGE(TAG, "no declared pair named '%s'", name);
+    const esp_suit_ota_slots_ops_t *ops = ctx->cfg.slots_ops;
+    if (ops == NULL || ops->resolve == NULL) {
+        ESP_LOGE(TAG, "'%s' needs a slots backend: set cfg.slots_ops, or name a partition in cfg.map", name);
         return ESP_ERR_SUIT_OTA_MAP;
     }
-    tg->staging = esp_ota_slots_get_staging(name);
-    tg->active = esp_ota_slots_get_active(name);
-    if (tg->staging == NULL || tg->active == NULL) {
+    esp_suit_ota_target_t t;
+    memset(&t, 0, sizeof(t));
+    esp_err_t err = ops->resolve(ops->user, name, &t);
+    if (err == ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "the slots backend is not usable, so '%s' cannot be resolved", name);
+        return ESP_ERR_SUIT_OTA_SLOTS;
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "the slots backend knows no target named '%s'", name);
         return ESP_ERR_SUIT_OTA_MAP;
     }
-    tg->is_app = (kind == ESP_OTA_SLOTS_APP);
-    if (tg->is_app) {
-        tg->slot_index = (uint8_t)(tg->staging->subtype - ESP_PARTITION_SUBTYPE_APP_OTA_MIN);
-    } else {
-        tg->slot_index = (kind == ESP_OTA_SLOTS_AB) ? (uint8_t)(1 - esp_ota_slots_get_active_index(name)) : 0;
+    if (t.staging == NULL || t.active == NULL) {
+        ESP_LOGE(TAG, "the slots backend gave no partitions for '%s'", name);
+        return ESP_ERR_SUIT_OTA_MAP;
     }
+    tg->staging = t.staging;
+    tg->active = t.active;
+    tg->is_app = t.is_app;
+    tg->slot_index = t.slot_index;
+    tg->active_index = t.active_index;
+    tg->copy_to_active = t.copy_to_active;
     strlcpy(tg->slots, name, sizeof(tg->slots));
     return ESP_OK;
 }
@@ -86,16 +97,32 @@ esp_err_t suit_map_resolve(struct esp_suit_ota_ctx *ctx, size_t index)
             return ESP_OK;
         }
         if (e->slots != NULL) {
-            err = resolve_slots(tg, e->slots);
+            err = resolve_slots(ctx, tg, e->slots);
             if (err != ESP_OK) {
                 return err;
             }
-        } else if (e->partition != NULL) {
-            tg->staging = e->partition;
-            tg->is_app = (e->partition->type == ESP_PARTITION_TYPE_APP);
+        } else if (e->target_partition != NULL) {
+            tg->staging = e->target_partition;
+            tg->is_app = (e->target_partition->type == ESP_PARTITION_TYPE_APP);
             if (tg->is_app) {
-                tg->slot_index = (uint8_t)(e->partition->subtype - ESP_PARTITION_SUBTYPE_APP_OTA_MIN);
+                if (e->live_partition != NULL || e->copy_to_live) {
+                    ESP_LOGE(TAG, "%s: live_partition and copy_to_live are for data targets", c->id);
+                    return ESP_ERR_SUIT_OTA_MAP;
+                }
+                tg->slot_index = (uint8_t)(e->target_partition->subtype - ESP_PARTITION_SUBTYPE_APP_OTA_MIN);
                 tg->active = esp_ota_get_running_partition();
+            } else if (e->live_partition != NULL) {
+                if (e->copy_to_live && e->live_partition == e->target_partition) {
+                    ESP_LOGE(TAG, "%s: copy_to_live needs two different partitions", c->id);
+                    return ESP_ERR_SUIT_OTA_MAP;
+                }
+                tg->active = e->live_partition;      /* a separate partition holds the installed image */
+                tg->copy_to_active = e->copy_to_live;
+            } else if (e->copy_to_live) {
+                ESP_LOGE(TAG, "%s: copy_to_live needs live_partition", c->id);
+                return ESP_ERR_SUIT_OTA_MAP;
+            } else {
+                tg->active = e->target_partition;    /* written in place: the live image is the staged one */
             }
         } else {
             ESP_LOGE(TAG, "map entry for %s names no target", c->id);
@@ -109,9 +136,9 @@ esp_err_t suit_map_resolve(struct esp_suit_ota_ctx *ctx, size_t index)
 
     /* default mapping: the last identifier part names the pair */
     const esp_suit_ota_span_t *last = &parts[nparts - 1];
-    char name[ESP_OTA_SLOTS_NAME_MAX + 1];
-    if (last->len == 0 || last->len > ESP_OTA_SLOTS_NAME_MAX) {
-        ESP_LOGE(TAG, "component %s has no map entry and its name does not fit a pair name", c->id);
+    char name[ESP_SUIT_OTA_SLOT_NAME_MAX + 1];
+    if (last->len == 0 || last->len > ESP_SUIT_OTA_SLOT_NAME_MAX) {
+        ESP_LOGE(TAG, "component %s has no map entry and its name does not fit a target name", c->id);
         return ESP_ERR_SUIT_OTA_MAP;
     }
     memcpy(name, last->ptr, last->len);
@@ -120,7 +147,7 @@ esp_err_t suit_map_resolve(struct esp_suit_ota_ctx *ctx, size_t index)
         ESP_LOGE(TAG, "the component name 'bootloader' is reserved");
         return ESP_ERR_SUIT_OTA_MAP;
     }
-    err = resolve_slots(tg, name);
+    err = resolve_slots(ctx, tg, name);
     if (err != ESP_OK) {
         return err;
     }
@@ -130,6 +157,10 @@ esp_err_t suit_map_resolve(struct esp_suit_ota_ctx *ctx, size_t index)
 
 esp_err_t suit_map_check_groups(struct esp_suit_ota_ctx *ctx)
 {
+    const esp_suit_ota_slots_ops_t *ops = ctx->cfg.slots_ops;
+    if (ops == NULL || ops->check_set == NULL) {
+        return ESP_OK;                       /* no backend, or a backend without sets */
+    }
     const char *names[SUIT_MAX_COMP];
     size_t n = 0;
     for (size_t i = 0; i < ctx->num_comp; i++) {
@@ -140,6 +171,10 @@ esp_err_t suit_map_check_groups(struct esp_suit_ota_ctx *ctx)
     if (n == 0) {
         return ESP_OK;
     }
-    esp_err_t err = esp_ota_slots_check_group(names, n);
+    esp_err_t err = ops->check_set(ops->user, names, n);
+    if (err == ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "the slots backend is not usable, so the group check cannot run");
+        return ESP_ERR_SUIT_OTA_SLOTS;
+    }
     return err == ESP_OK ? ESP_OK : ESP_ERR_SUIT_OTA_GROUP;
 }

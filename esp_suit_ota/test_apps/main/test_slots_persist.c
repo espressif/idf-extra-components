@@ -56,10 +56,18 @@ TEST_CASE("slots: AB pair flips, survives re-init, confirms and reverts", "[slot
     esp_ota_slots_state_t st;
     uint32_t cid;
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_get_state(&st, &cid, NULL));
-    TEST_ASSERT_EQUAL(ESP_OTA_SLOTS_PENDING, st);
+    TEST_ASSERT_EQUAL(ESP_OTA_SLOTS_ACTIVATING, st);   /* the activation did not finish yet */
     TEST_ASSERT_EQUAL(7, cid);
 
-    /* a data-only pending record survives a re-init (reboot) */
+    /* power lost inside the activation: the next init() puts the previous slots back */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 2));
+    TEST_ASSERT_EQUAL_STRING("f1_0", esp_ota_slots_get_active("f1")->label);
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_get_state(&st, NULL, NULL));
+    TEST_ASSERT_EQUAL(ESP_OTA_SLOTS_CONFIRMED, st);
+
+    /* a finished activation survives a re-init (reboot) and waits for a verdict */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_commit_flip(both, idx, 2, ESP_OTA_SLOTS_APP_SLOT_NONE, 7));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_activation_done());
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 2));
     TEST_ASSERT_EQUAL_STRING("f1_1", esp_ota_slots_get_active("f1")->label);
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_get_state(&st, NULL, NULL));
@@ -68,26 +76,64 @@ TEST_CASE("slots: AB pair flips, survives re-init, confirms and reverts", "[slot
     TEST_ASSERT_EQUAL_STRING("f1_0", esp_ota_slots_get_active("f1")->label);
 
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_commit_flip(both, idx, 2, ESP_OTA_SLOTS_APP_SLOT_NONE, 8));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_activation_done());
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_confirm());
     TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_revert());
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 2));
     TEST_ASSERT_EQUAL_STRING("f1_1", esp_ota_slots_get_active("f1")->label);
 
-    /* a damaged record is reported, and the pairs fall back to index 0 until acknowledged */
+    /* a damaged record fails init(), and leaves the component unusable until it is erased */
     slots_record_damage();
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_RECORD_FOREIGN, esp_ota_slots_init(decls, 2));
+    TEST_ASSERT_NULL(esp_ota_slots_get_active("f1"));
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_commit_flip(both, idx, 2, 0xFF, 9));
+
+    /* erasing is the way back, and every pair restarts at index 0 */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_erase_record());
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 2));
-    TEST_ASSERT_TRUE(esp_ota_slots_is_degraded());
     TEST_ASSERT_EQUAL_STRING("f1_0", esp_ota_slots_get_active("f1")->label);
-    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_DEGRADED, esp_ota_slots_commit_flip(both, idx, 2, 0xFF, 9));
-    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_ack_degraded());
-    TEST_ASSERT_FALSE(esp_ota_slots_is_degraded());
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_erase_record());
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_commit_flip(both, idx, 2, 0xFF, 9));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_activation_done());
 
     /* with the record gone it is a first boot, not a damaged one */
     slots_record_erase();
     TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 2));
-    TEST_ASSERT_FALSE(esp_ota_slots_is_degraded());
     TEST_ASSERT_EQUAL_STRING("f1_0", esp_ota_slots_get_active("f1")->label);
+}
+
+TEST_CASE("slots: one pair reverts and the others stay live", "[slots]")
+{
+    slots_record_erase();
+    /* no group this time: each pair stands on its own */
+    static const esp_ota_slots_decl_t decls[] = {
+        { .name = "f1",  .kind = ESP_OTA_SLOTS_AB, .primary = "f1_0", .secondary = "f1_1" },
+        { .name = "cfg", .kind = ESP_OTA_SLOTS_AB, .primary = "cfg",  .secondary = "cfg_staging" },
+    };
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 2));
+    const char *both[] = { "f1", "cfg" };
+    uint8_t idx[] = { 1, 1 };
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_commit_flip(both, idx, 2, ESP_OTA_SLOTS_APP_SLOT_NONE, 11));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_activation_done());
+    TEST_ASSERT_EQUAL_STRING("f1_1", esp_ota_slots_get_active("f1")->label);
+    TEST_ASSERT_EQUAL_STRING("cfg_staging", esp_ota_slots_get_active("cfg")->label);
+
+    /* only f1 goes back */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_revert_group("f1"));
+    TEST_ASSERT_EQUAL_STRING("f1_0", esp_ota_slots_get_active("f1")->label);
+    TEST_ASSERT_EQUAL_STRING("cfg_staging", esp_ota_slots_get_active("cfg")->label);
+    esp_ota_slots_state_t st;
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_get_state(&st, NULL, NULL));
+    TEST_ASSERT_EQUAL(ESP_OTA_SLOTS_CONFIRMED, st);
+
+    /* the kept index is the new starting point, and a reboot changes nothing */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 2));
+    TEST_ASSERT_EQUAL_STRING("f1_0", esp_ota_slots_get_active("f1")->label);
+    TEST_ASSERT_EQUAL_STRING("cfg_staging", esp_ota_slots_get_active("cfg")->label);
+
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_revert_group("cfg"));   /* nothing pending */
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_NOT_FOUND, esp_ota_slots_revert_group("nope"));
+    slots_record_erase();
 }
 
 TEST_CASE("slots: declarations are complete or refused", "[slots]")
@@ -162,30 +208,4 @@ TEST_CASE("slots: a pair that names no partition derives its labels", "[slots]")
     /* a name too long for the derived label, which a named pair would accept */
     static const esp_ota_slots_decl_t too_long[] = { { .name = "configuration", .kind = ESP_OTA_SLOTS_COPY } };
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ota_slots_init(too_long, 1));
-}
-
-TEST_CASE("persist: journal and rejected ring", "[persist]")
-{
-    suit_journal_t j;
-    memset(&j, 0, sizeof(j));
-    j.magic = 0x4A535355u;
-    j.phase = SUIT_PHASE_STAGING;
-    j.bytes_written = 12345;
-    j.manifest_digest[0] = 0xAB;
-    TEST_ASSERT_EQUAL(ESP_OK, suit_persist_journal_write(&j));
-    suit_journal_t r;
-    TEST_ASSERT_EQUAL(ESP_OK, suit_persist_journal_read(&r));
-    TEST_ASSERT_EQUAL(12345, r.bytes_written);
-    TEST_ASSERT_EQUAL(ESP_OK, suit_persist_journal_erase());
-    TEST_ASSERT_EQUAL(ESP_ERR_NOT_FOUND, suit_persist_journal_read(&r));
-
-    uint8_t d[32] = { 1 };
-    TEST_ASSERT_FALSE(suit_persist_is_rejected(d));
-    TEST_ASSERT_EQUAL(ESP_OK, suit_persist_add_rejected(d));
-    TEST_ASSERT_TRUE(suit_persist_is_rejected(d));
-    for (int i = 0; i < 9; i++) {
-        uint8_t e[32] = { 0x10 + i };
-        suit_persist_add_rejected(e);
-    }
-    TEST_ASSERT_FALSE(suit_persist_is_rejected(d));   /* pushed out of the ring of 8 */
 }

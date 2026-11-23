@@ -15,7 +15,6 @@
 #include "freertos/semphr.h"
 #include "psa/crypto.h"
 #include "esp_suit_ota.h"
-#include "esp_ota_slots.h"
 #include "suit_cbor.h"
 
 #ifdef __cplusplus
@@ -38,8 +37,9 @@ extern "C" {
 #define SUIT_INSTALLED_ID_MAX   32     /* component identifier kept in the installed record (NVS) */
 #define SUIT_INTEGRATED_KEY_MAX 64     /* text key of an integrated payload in the envelope */
 #define SUIT_COMPONENT_NONE     0xFF   /* no component is current */
+#define SUIT_ABORT_PHASE_ACTIVATE 0xF0 /* abort event phase: the failure happened inside activate() */
 #define SUIT_APP_SLOT_UNKNOWN   0xFE   /* the running app is not in an OTA slot */
-#define SUIT_JOURNAL_STEP_BYTES ((uint32_t)CONFIG_ESP_SUIT_OTA_JOURNAL_KB * 1024)
+#define SUIT_PROGRESS_STEP_BYTES ((uint32_t)CONFIG_ESP_SUIT_OTA_PROGRESS_KB * 1024)
 #define SUIT_URI_MAX            CONFIG_ESP_SUIT_OTA_URI_MAX
 #define SUIT_MANIFEST_VERSION   1
 #define SUIT_ENVELOPE_TAG       107
@@ -190,14 +190,16 @@ typedef enum {
 } suit_comp_state_t;
 
 typedef struct {
-    const esp_suit_ota_map_entry_t *entry;   /* NULL for default mapping through slots */
-    char slots[ESP_OTA_SLOTS_NAME_MAX + 1]; /* pair name when mapped through esp_ota_slots */
+    const esp_suit_ota_map_entry_t *entry;   /* NULL for the default mapping through the backend */
+    char slots[ESP_SUIT_OTA_SLOT_NAME_MAX + 1]; /* target name when a slots backend resolved it */
     const esp_partition_t *staging;          /* partition written now */
     const esp_partition_t *active;           /* partition that holds the installed version */
     const esp_suit_ota_sink_ops_t *sink;
     esp_suit_ota_verify_t verify;
     uint8_t slot_index;                      /* index the component occupies after activation */
+    uint8_t active_index;                    /* index the target is at now */
     bool is_app;
+    bool copy_to_active;                     /* staging is copied into active during activate() */
     bool bulk_erase;
 } suit_target_t;
 
@@ -241,7 +243,7 @@ esp_err_t suit_map_check_groups(struct esp_suit_ota_ctx *ctx);
 
 /* ---------- stream and sinks ---------- */
 
-esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index, size_t resume_offset);
+esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index);
 esp_err_t suit_stream_write(struct esp_suit_ota_ctx *ctx, size_t index, const uint8_t *data, size_t len);
 esp_err_t suit_stream_close(struct esp_suit_ota_ctx *ctx, size_t index);
 esp_err_t suit_stream_abort(struct esp_suit_ota_ctx *ctx, size_t index);
@@ -249,7 +251,7 @@ esp_err_t suit_stream_digest_of_target(struct esp_suit_ota_ctx *ctx, size_t inde
                                        uint8_t out[SUIT_DIGEST_LEN]);
 
 /* partition sink: the staging partition written through esp_ota_begin/write/end */
-esp_err_t suit_sink_part_open(suit_component_t *c, size_t resume_offset);
+esp_err_t suit_sink_part_open(suit_component_t *c);
 esp_err_t suit_sink_part_write(suit_component_t *c, const uint8_t *data, size_t len);
 esp_err_t suit_sink_part_close(suit_component_t *c);
 esp_err_t suit_sink_part_abort(suit_component_t *c);
@@ -258,37 +260,6 @@ esp_err_t suit_sink_check_header(suit_component_t *c);
 esp_err_t suit_sink_copy_partition(const esp_partition_t *dst, const esp_partition_t *src, size_t len);
 
 /* ---------- persistence ---------- */
-
-typedef enum {
-    SUIT_PHASE_NONE = 0,
-    SUIT_PHASE_STAGING,
-    SUIT_PHASE_READY,
-    SUIT_PHASE_ACTIVATING,
-    SUIT_PHASE_ACTIVATED,
-} suit_phase_t;
-
-typedef struct {
-    char slots[ESP_OTA_SLOTS_NAME_MAX + 1];
-    uint8_t kind;              /* esp_ota_slots_kind_t, 0 for a custom sink or a plain partition */
-    uint8_t new_index;
-    uint8_t state;             /* suit_comp_state_t */
-    uint8_t is_app;
-    uint32_t size;
-    uint8_t digest[SUIT_DIGEST_LEN];
-} suit_journal_comp_t;
-
-typedef struct {
-    uint32_t magic;
-    uint8_t phase;
-    uint8_t num;
-    uint8_t current;           /* component being written */
-    uint8_t app_slot;          /* ESP_OTA_SLOTS_APP_SLOT_NONE when no app component */
-    uint32_t campaign_id;
-    uint32_t bytes_written;
-    uint64_t sequence_number;
-    uint8_t manifest_digest[SUIT_DIGEST_LEN];
-    suit_journal_comp_t comp[SUIT_MAX_COMP];
-} suit_journal_t;
 
 typedef struct {
     uint32_t magic;
@@ -301,13 +272,8 @@ typedef struct {
     } comp[SUIT_MAX_COMP];
 } suit_installed_t;
 
-esp_err_t suit_persist_journal_read(suit_journal_t *j);
-esp_err_t suit_persist_journal_write(const suit_journal_t *j);
-esp_err_t suit_persist_journal_erase(void);
 esp_err_t suit_persist_installed_read(suit_installed_t *r);
 esp_err_t suit_persist_installed_write(const suit_installed_t *r);
-bool suit_persist_is_rejected(const uint8_t digest[SUIT_DIGEST_LEN]);
-esp_err_t suit_persist_add_rejected(const uint8_t digest[SUIT_DIGEST_LEN]);
 esp_err_t suit_persist_etag_read(char *out, size_t cap);
 esp_err_t suit_persist_etag_write(const char *etag);
 uint64_t suit_persist_installed_sequence(void);
@@ -391,12 +357,8 @@ struct esp_suit_ota_ctx {
     char url_buf[SUIT_URI_MAX];    /* storage for t->url */
     char base_url[SUIT_URI_MAX];   /* URL the manifest was fetched from */
 
-    suit_journal_t journal;
-    bool resumed;
-    size_t resume_comp;            /* component the loaded journal was writing, SIZE_MAX if none */
-    uint32_t resume_bytes;
     uint32_t campaign_id;
-    uint32_t journal_mark;         /* bytes written when the journal was last saved */
+    uint32_t progress_mark;        /* bytes written when the last progress event was posted */
     bool has_app;
     uint8_t app_slot;
 };
@@ -413,7 +375,6 @@ int suit_find_integrated_component(struct esp_suit_ota_ctx *ctx, const char *nam
 esp_err_t suit_after_envelope(struct esp_suit_ota_ctx *ctx);
 esp_err_t suit_payload_write(struct esp_suit_ota_ctx *ctx, const uint8_t *data, size_t len);
 esp_err_t suit_payload_boundary(struct esp_suit_ota_ctx *ctx);
-esp_err_t suit_journal_save(struct esp_suit_ota_ctx *ctx, suit_phase_t phase);
 void suit_cid_to_string(const esp_suit_ota_span_t *parts, size_t n, char *out, size_t cap);
 void suit_ctx_free(struct esp_suit_ota_ctx *ctx);
 void suit_close_getters(esp_suit_ota_transport_t *t);

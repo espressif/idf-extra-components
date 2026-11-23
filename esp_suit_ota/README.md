@@ -8,6 +8,12 @@ The component implements [draft-ietf-suit-manifest-38](https://datatracker.ietf.
 
 Supported: ESP-IDF 6.0 and later. Tested on ESP32-C5 and ESP32-P4.
 
+The component owns the manifest, the verification, the downloads and the digests. It does not own
+the partition layout. Where each component is written, and how a bad release goes back, come from a
+slots backend that you supply. [esp_ota_slots](../esp_ota_slots) with
+[esp_suit_ota_slots](../esp_suit_ota_slots) is the ready-made one, and this component does not
+depend on either of them.
+
 ## How a release works
 
 ```
@@ -59,20 +65,28 @@ The `esp-suit` tool needs Python 3.9 or later, with `cbor2`, `cryptography` 44 o
 3. Add the boot code. It must run before any other code reads the data partitions.
 
    ```c
+   #include "esp_ota_slots.h"
+   #include "esp_suit_ota_slots.h"
+
    static const esp_ota_slots_decl_t slots[] = {
        { .name = "app", .kind = ESP_OTA_SLOTS_APP },
        { .name = "f1",  .kind = ESP_OTA_SLOTS_AB },     /* f1_0 and f1_1 */
    };
    nvs_flash_init();
-   esp_ota_slots_init(slots, 2);
-   esp_suit_ota_recover();                       /* settle a campaign cut by power loss */
+   esp_ota_slots_init(slots, 2);                 /* also settles a release cut by power loss */
+   cfg.slots_ops = esp_suit_ota_slots_ops();     /* the backend esp_suit_ota asks about targets */
    if (self_test_ok()) {
-       esp_suit_ota_confirm();                   /* cancel rollback, settle the slots record */
+       esp_ota_mark_app_valid_cancel_rollback(); /* keep the new app */
+       esp_ota_slots_confirm();                  /* keep the new data */
    } else {
        esp_ota_mark_app_invalid_rollback_and_reboot();
    }
    const esp_partition_t *f1 = esp_ota_slots_get_active("f1");
    ```
+
+   Add `espressif/esp_ota_slots` and `espressif/esp_suit_ota_slots` to `idf_component.yml`. Without
+   a backend, `cfg.slots_ops` stays `NULL`, every component needs a map entry that names a fixed
+   partition or a sink, and there are no A/B slots and no rollback for data.
 
    Set `CONFIG_BOOTLOADER_APP_ROLLBACK_CONFIRM_BY_APP=y`. In the default mode, the bootloader confirms the new app before `app_main()` runs, and your self-test cannot stop a bad app.
 
@@ -122,7 +136,7 @@ The `esp-suit` tool needs Python 3.9 or later, with `cbor2`, `cryptography` 44 o
                err = esp_suit_ota_activate(h, restart);
            }
        }
-       esp_suit_ota_end(h);                      /* keeps the journal, so a cut run resumes */
+       esp_suit_ota_end(h);                      /* close the getters and free the handle */
        return err;
    }
    ```
@@ -172,7 +186,7 @@ For a stream that another engine delivers, for example a UART or a Matter BDX tr
 
 ## Slot pairs
 
-Every pair declares its kind:
+Pairs come from the `esp_ota_slots` component. Its README has the full reference. The short form:
 
 - `AB` keeps two slots. The slots record says which slot is live.
 - `COPY` writes the new data to a staging partition and verifies it there. Activation copies it into the live partition and verifies the copy, so the live address never moves.
@@ -200,11 +214,13 @@ Name both partitions or name neither. A pair that names only one is refused with
 
 Pairs that share a `group` flip together or not at all. A release that updates only part of a group is refused with `ESP_ERR_SUIT_OTA_GROUP`.
 
-The slots record, the journal, the installed record and the list of rejected releases are in NVS. `nvs_flash_erase()` deletes them. After that, every pair starts at its first slot and the device accepts any sequence number at or above `CONFIG_ESP_SUIT_OTA_INITIAL_SEQ`.
+The installed record is in NVS under the namespace `esp_suit`, and the slots record is under `ota_slots`. `nvs_flash_erase()` deletes both. After that, every pair starts at its first slot and the device accepts any sequence number at or above `CONFIG_ESP_SUIT_OTA_INITIAL_SEQ`.
+
+Only an `AB` pair is power safe from end to end. A `SINGLE` pair is written in place and cannot go back. A `COPY` pair is written to its staging partition first, but the copy into the live partition happens during activation, so a power cut in that window leaves the live partition part written.
 
 ## Mapping components to targets
 
-If `cfg.map` is `NULL`, the last part of the component identifier selects a declared pair. For example, `[board, f1]` selects the pair `f1`, and `[board, app]` selects the app pair. An explicit map can change the verification rule, name a fixed partition, or add a custom sink:
+If `cfg.map` is `NULL`, the last part of the component identifier is handed to the slots backend as a target name. For example, `[board, f1]` selects the pair `f1`, and `[board, app]` selects the app pair. An explicit map can change the verification rule, name fixed partitions, or add a custom sink:
 
 ```c
 static const esp_suit_ota_span_t cid_dsp[] = { ESP_SUIT_OTA_SPAN("esp32p4"), ESP_SUIT_OTA_SPAN("dsp") };
@@ -214,6 +230,15 @@ esp_suit_ota_map_entry_t map[] = {
 };
 ```
 
+Each entry names a target in one of three ways: `slots`, which hands the name to the backend, `sink`, or `target_partition`. A `target_partition` entry has three forms. For an app, it is the spare OTA slot, and `otadata` switches the app. For data on its own, it is the live partition, written in place. With `live_partition` beside it, it is a staging partition, and `live_partition` is where the installed image is now, which is what makes `skip_if_installed` work. Add `copy_to_live` and `esp_suit_ota_activate()` copies the staged bytes into the live partition and hashes the copy back, which is a COPY pair without any backend:
+
+```c
+{ .id = { cid_cfg, 2 }, .verify = ESP_SUIT_VERIFY_DIGEST,
+  .target_partition = cfg_stage, .live_partition = cfg, .copy_to_live = true },
+```
+
+An A/B pair needs a backend, because it needs a record of which slot is live that survives a reboot.
+
 A sink is five functions (`open`, `write`, `read`, `close`, `abort`) for a target that is not a flash partition. The core computes the digest over the bytes that it writes, so a sink cannot misreport what it received. The device cannot read an installed image back from a sink, so a sink component is always fetched.
 
 ## Behavior
@@ -221,8 +246,9 @@ A sink is five functions (`open`, `write`, `read`, `close`, `abort`) for a targe
 - Sequence number: a manifest below the installed number is refused with `ESP_ERR_SUIT_OTA_SEQUENCE`. An equal number is accepted. If every component is already installed, the run ends with `ESP_ERR_SUIT_OTA_UP_TO_DATE` and nothing is fetched.
 - Signatures: the authentication wrapper can carry one COSE_Sign1 block per signer. One block that verifies with a trusted key is enough. ES256 (-7) and ESP256 (-9) are accepted. The wrapper must be well formed in full.
 - Skip if installed: a component whose installed image matches the manifest digest is not fetched. The device hashes the live partition to decide.
-- Power loss: the write position goes to an NVS journal every `CONFIG_ESP_SUIT_OTA_JOURNAL_KB`. The next run with the same manifest resumes with a Range request. A release that fails its self-test and rolls back is recorded as rejected and is not installed again.
-- Activation order: COPY pairs are copied and verified, the slots record is written as pending, the installed record is saved, and then `esp_ota_set_boot_partition()` runs.
+- Power loss: a campaign keeps no state across a reset, and the next run starts at the first byte again. A campaign that is cut short writes only staging partitions, so the device keeps running what it ran before.
+- Activation order: COPY pairs are copied and verified, the slots record is written as activating, the installed record is saved, `esp_ota_set_boot_partition()` runs, and the record moves to pending. If power is lost inside that window, the next `esp_ota_slots_init()` puts every pair back. If the bootloader rolls the new app back, `esp_ota_slots_init()` puts the data that came with it back too.
+- One bad pair: `esp_suit_ota_revert_pair("f1")` sends `f1` and the rest of its group back to the previous slot, and leaves every other pair live.
 - Order of calls: `esp_suit_ota_begin()` refuses with `ESP_ERR_SUIT_OTA_STATE` while the running app waits for confirmation, or while an activated release waits for `esp_suit_ota_confirm()` or `esp_suit_ota_revert()`.
 
 ## Conformance
@@ -261,9 +287,8 @@ A post-fetch image match inside try-each is accepted only in the last branch. Th
 
 ## API
 
-- `include/esp_suit_ota.h`: the campaign, the transport struct, the map and the events.
+- `include/esp_suit_ota.h`: the campaign, the transport struct, the map, the slots backend and the events.
 - `include/esp_suit_ota_helpers.h`: the built-in HTTPS getter.
-- `include/esp_ota_slots.h`: the partition pairs and the slots record.
 - `include/esp_suit_ota_err.h`: the error codes, and `esp_suit_ota_err_to_name()`.
 
 The component posts events on the default event loop under `ESP_SUIT_OTA_EVENT`. The events are `MANIFEST_VERIFIED`, `COMPONENT_NEXT`, `COMPONENT_SKIPPED`, `COMPONENT_HEADER`, `PROGRESS`, `COMPONENT_STAGED`, `READY`, `ACTIVATED`, `ABORTED` and `CONNECTED`. `COMPONENT_HEADER` carries the chip ID, the chip revision and the app descriptor of a new app image.
@@ -272,7 +297,7 @@ The task that calls `esp_suit_ota_feed()` needs about 8 KB of stack.
 
 ## Example
 
-[examples/suit_ota_advanced](examples/suit_ota_advanced) updates an app and two data pairs in one release over two transports, HTTPS and BLE. It shows a group, a COPY pair and the self-test.
+[examples/suit_ota_example](examples/suit_ota_example) updates an app and two data pairs in one release over two transports, HTTPS and BLE. It shows a group, a COPY pair and the self-test.
 
 ## Tests
 

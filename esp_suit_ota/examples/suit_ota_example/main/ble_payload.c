@@ -12,7 +12,7 @@
  * resource into the data characteristic, and the getter hands them back to esp_suit_ota_feed().
  *
  * The request is one line of text: "GET <uri> <offset> <length>". The offset is not always zero,
- * because a campaign that was cut by a reset resumes in the middle of a component.
+ * because a campaign always starts at the first byte of a component.
  */
 #include "sdkconfig.h"
 #include "ble_payload.h"

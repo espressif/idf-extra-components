@@ -257,7 +257,7 @@ esp_err_t run_campaign_keep(const esp_suit_ota_config_t *cfg, const uint8_t *env
         *out = h;
         return err;
     }
-    esp_suit_ota_abort(h);
+    esp_suit_ota_end(h);
     return err;
 }
 

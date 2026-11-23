@@ -1,5 +1,17 @@
 menu "Example Configuration"
 
+    config EXAMPLE_USE_OTA_SLOTS
+        bool "Use esp_ota_slots for A/B targets"
+        default y
+        help
+            With this option every target has two slots. The download goes to the spare slot and
+            activation flips the slots record, so a bad release goes back to the previous data.
+
+            Without it, the example installs no slots backend. An explicit map names one live
+            partition per component and the download is written straight into it. The app still
+            rolls back, because the bootloader owns that decision, but the data partitions have
+            no previous copy to return to. This shows what esp_suit_ota does on its own.
+
     config EXAMPLE_MANIFEST_URL
         string "Manifest URL"
         default "FROM_STDIN"
