@@ -212,6 +212,24 @@ TEST_CASE("setup: a release that flipped no pair has nothing to revert", "[setup
     TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_revert());
 }
 
+/*
+ * esp_ota_slots_init() fails when its record cannot be trusted, and leaves the component
+ * uninitialized. The adapter reports that as ESP_ERR_INVALID_STATE and the core turns it into
+ * ESP_ERR_SUIT_OTA_SLOTS, so the log names the backend instead of a missing target. A failed
+ * init is used here because it leaves the same state as a damaged record, without touching NVS.
+ */
+TEST_CASE("campaign: a slots backend that is not usable stops the campaign", "[campaign]")
+{
+    esp_suit_ota_config_t cfg = pair_setup();
+    static const esp_ota_slots_decl_t missing[] = {
+        { .name = "gone", .kind = ESP_OTA_SLOTS_AB, .primary = "no_such_0", .secondary = "no_such_1" },
+    };
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_NOT_FOUND, esp_ota_slots_init(missing, 1));
+    const suit_cvec_t *v = cvec_find("partition_pair");
+    TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_SLOTS, run_campaign(&cfg, cvec_data(v), v->len, 64, false));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(s_blob_decl, 1));     /* leave it usable again */
+}
+
 TEST_CASE("campaign: the default mapping writes a declared partition pair", "[campaign]")
 {
     esp_suit_ota_config_t cfg = pair_setup();

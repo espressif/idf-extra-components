@@ -32,6 +32,34 @@ static void slots_record_damage(void)
     nvs_close(h);
 }
 
+/*
+ * The record itself is private to esp_ota_slots, so these two treat it as bytes. The layout the
+ * offsets below rely on is the head of the record: a four byte magic value, then the one byte
+ * layout version. The CRC is the last four bytes and covers everything before it.
+ */
+#define REC_OFF_MAGIC    0
+#define REC_OFF_VERSION  4
+
+static size_t slots_record_read(uint8_t *buf, size_t cap)
+{
+    nvs_handle_t h;
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_open("ota_slots", NVS_READONLY, &h));
+    size_t len = cap;
+    esp_err_t err = nvs_get_blob(h, "rec", buf, &len);
+    nvs_close(h);
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+    return len;
+}
+
+static void slots_record_write(const uint8_t *buf, size_t len)
+{
+    nvs_handle_t h;
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_open("ota_slots", NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_set_blob(h, "rec", buf, len));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_commit(h));
+    nvs_close(h);
+}
+
 TEST_CASE("slots: AB pair flips, survives re-init, confirms and reverts", "[slots]")
 {
     slots_record_erase();
@@ -208,4 +236,64 @@ TEST_CASE("slots: a pair that names no partition derives its labels", "[slots]")
     /* a name too long for the derived label, which a named pair would accept */
     static const esp_ota_slots_decl_t too_long[] = { { .name = "configuration", .kind = ESP_OTA_SLOTS_COPY } };
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, esp_ota_slots_init(too_long, 1));
+}
+
+/*
+ * Every way the record can be unusable has its own code, and each one fails init() instead of
+ * falling back to index 0. A guessed index could erase live data, so the component stays
+ * uninitialized until the record is erased.
+ */
+TEST_CASE("slots: a record that cannot be trusted fails init with its own code", "[slots]")
+{
+    slots_record_erase();
+    static const esp_ota_slots_decl_t decls[] = {
+        { .name = "f1", .kind = ESP_OTA_SLOTS_AB, .primary = "f1_0", .secondary = "f1_1" },
+    };
+    /* a first boot has no record, which is not a failure */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 1));
+    const char *names[] = { "f1" };
+    uint8_t idx[] = { 1 };
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_commit_flip(names, idx, 1, ESP_OTA_SLOTS_APP_SLOT_NONE, 5));
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_activation_done());
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_confirm());
+    TEST_ASSERT_EQUAL_STRING("f1_1", esp_ota_slots_get_active("f1")->label);
+
+    uint8_t good[256];
+    uint8_t bad[256];
+    size_t len = slots_record_read(good, sizeof(good));
+    TEST_ASSERT_GREATER_THAN(16, len);
+
+    /* a blob of another length was written by something else */
+    slots_record_damage();
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_RECORD_FOREIGN, esp_ota_slots_init(decls, 1));
+    TEST_ASSERT_NULL(esp_ota_slots_get_active("f1"));                      /* not initialized */
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_commit_flip(names, idx, 1, 0xFF, 6));
+
+    /* the right length, but not this component's magic value */
+    memcpy(bad, good, len);
+    bad[REC_OFF_MAGIC] ^= 0xff;
+    slots_record_write(bad, len);
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_RECORD_FOREIGN, esp_ota_slots_init(decls, 1));
+
+    /* a record of a layout version this build does not write */
+    memcpy(bad, good, len);
+    bad[REC_OFF_VERSION] = 0xfe;
+    slots_record_write(bad, len);
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_RECORD_VERSION, esp_ota_slots_init(decls, 1));
+
+    /* this component's record, but the CRC no longer matches the body */
+    memcpy(bad, good, len);
+    bad[len - 1] ^= 0x01;
+    slots_record_write(bad, len);
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_RECORD_CORRUPT, esp_ota_slots_init(decls, 1));
+
+    /* erasing is the way back, and it costs the knowledge of which slot was live */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_erase_record());
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_erase_record());               /* nothing left to erase */
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_init(decls, 1));
+    TEST_ASSERT_EQUAL_STRING("f1_0", esp_ota_slots_get_active("f1")->label);
+    TEST_ASSERT_EQUAL(ESP_OK, esp_ota_slots_commit_flip(names, idx, 1, ESP_OTA_SLOTS_APP_SLOT_NONE, 7));
+
+    /* a good record is never thrown away by accident */
+    TEST_ASSERT_EQUAL(ESP_ERR_OTA_SLOTS_STATE, esp_ota_slots_erase_record());
 }
