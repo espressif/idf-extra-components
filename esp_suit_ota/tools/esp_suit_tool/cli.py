@@ -8,6 +8,12 @@
   esp-suit create  release.yml                             signed envelope from a release description
   esp-suit verify  release.suit --key anchor_p256.bin      check it the way the device will
   esp-suit inspect release.suit                            print it with every field named
+
+An encrypted release needs a second key pair, the device's own. Make it with keygen as well,
+name its public half under "encryption.recipient" in the release description, and build the
+private half into the firmware:
+
+  esp-suit keygen  device.pem --anchor device_pub.bin      the device's payload decryption key
 """
 import argparse
 import json
@@ -33,6 +39,11 @@ def cmd_keygen(a):
     if a.anchor:
         open(a.anchor, 'wb').write(keys.anchor(k.public_key()))
         print(f'wrote {a.anchor} (65-byte trust anchor for the device)')
+    if a.scalar:
+        fd = os.open(a.scalar, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'wb') as f:
+            f.write(keys.scalar(k))
+        print(f'wrote {a.scalar} (32-byte private scalar; only ever embed a decryption key)')
     return 0
 
 
@@ -94,7 +105,8 @@ def cmd_verify(a):
         payloads[uri] = open(path, 'rb').read()
     vendor = ids.vendor_uuid(a.vendor).bytes if a.vendor else None
     klass = ids.class_uuid(ids.vendor_uuid(a.vendor), a.klass).bytes if a.vendor and a.klass else None
-    report = verify(open(a.envelope, 'rb').read(), pubs, payloads, vendor, klass)
+    recipient = keys.load_private(a.recipient_key) if a.recipient_key else None
+    report = verify(open(a.envelope, 'rb').read(), pubs, payloads, vendor, klass, recipient)
     print(report)
     if report.sequence_number is not None:
         print(f'sequence {report.sequence_number}, {len(report.components)} components')
@@ -122,6 +134,8 @@ def parser():
     p = sub.add_parser('keygen', help='create a P-256 signing key')
     p.add_argument('key', help='private key PEM to write')
     p.add_argument('--anchor', metavar='FILE', help='also write the 65-byte trust anchor')
+    p.add_argument('--scalar', metavar='FILE',
+                   help='also write the 32-byte private scalar, to embed as a payload decryption key')
     p.add_argument('--force', action='store_true', help='replace an existing key file')
     p.set_defaults(func=cmd_keygen)
 
@@ -156,6 +170,8 @@ def parser():
     p.add_argument('--payload', action='append', metavar='URI=FILE', help='check a payload the device will fetch')
     p.add_argument('--vendor', help='expected vendor domain')
     p.add_argument('--class', dest='klass', help='expected class name (needs --vendor)')
+    p.add_argument('--recipient-key', metavar='PEM',
+                   help='device private key, to decrypt an encrypted payload and check its digest')
     p.set_defaults(func=cmd_verify)
 
     p = sub.add_parser('inspect', help='print an envelope with every field named')

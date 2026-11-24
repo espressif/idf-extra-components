@@ -62,6 +62,15 @@ def anchor(public_key):
     return public_key.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
 
 
+def scalar(private_key):
+    """The 32-byte private scalar, big endian, which is what a device embeds to decrypt a payload.
+
+    Only a payload decryption key is ever embedded this way, never a signing key: a signing key
+    belongs on the build machine. Anyone who can read the firmware can read a key embedded in it.
+    """
+    return private_key.private_numbers().private_value.to_bytes(32, 'big')
+
+
 def c_array(name, data, per_line=13):
     rows = [', '.join(f'0x{b:02x}' for b in data[i:i + per_line]) for i in range(0, len(data), per_line)]
     return f'static const uint8_t {name}[{len(data)}] = {{\n' + ''.join(f'    {r},\n' for r in rows) + '};\n'

@@ -27,6 +27,10 @@ from esp_suit_tool.envelope import Signer, authentication, bstr_digest, digest, 
 
 SPEC_KEY = keys.load_private(os.path.join(HERE, 'spec_private.pem'))
 OTHER_KEY = ec.derive_private_key(0x5EED0F7E57DA7A5EED0F7E57DA7A5EED0F7E57DA7A5EED0F7E57DA7A5EED0F7, ec.SECP256R1())
+# the device's payload decryption key, and the ephemeral key of the encrypted vectors.
+# Both are fixed so the vectors are reproducible. test_common.c holds the same device scalar.
+DEVICE_KEY = ec.derive_private_key(0xD3F1CE00D3F1CE00D3F1CE00D3F1CE00D3F1CE00D3F1CE00D3F1CE00D3F1CE, ec.SECP256R1())
+EPHEMERAL = ec.derive_private_key(0x0E9E3A1B0E9E3A1B0E9E3A1B0E9E3A1B0E9E3A1B0E9E3A1B0E9E3A1B0E9E3A, ec.SECP256R1())
 VENDOR = bytes.fromhex('fa6b4a53d5ad5fdfbe9de663e4d41ffe')     # Appendix B: UUIDv5(DNS, "arm.com")
 CLASS = bytes.fromhex('1492af1425695e48bf429b2d51f2ab45')      # Appendix B class
 DEVICE = bytes(range(0x10, 0x20))
@@ -384,8 +388,54 @@ def manual():
         vec(f'sequence_{seq}', '6.1: rollback protection', 'READY', make(m, integrated={'#p0': blob}), F_MANUAL)
 
 
+def encrypted():
+    """draft-ietf-suit-firmware-encryption, the two ES-DH profiles the component implements.
+
+    Every value here is fixed so the output is reproducible: the device key, the ephemeral key,
+    the content key and the IV. A real release generates all four fresh for every build.
+    """
+    from esp_suit_tool.encrypt import encrypt_payload                      # noqa: E402
+
+    def enc(data, alg, cek, iv, salt=None):
+        return encrypt_payload(data, DEVICE_KEY.public_key(), alg, C.A128KW, None, iv, cek,
+                               EPHEMERAL, salt)
+
+    def one(name, rule, expect, alg, cek, iv, damage=None, info_swap=None, salt=None):
+        out = enc(P[0], alg, cek, iv, salt)
+        ct = bytearray(out.ciphertext)
+        if damage is not None:
+            ct[damage] ^= 0x01
+        info = info_swap if info_swap is not None else out.info
+        m = manifest(install_seq=[C.OVERRIDE, {C.P_URI: '#p0', C.P_ENCRYPTION_INFO: info},
+                                  C.FETCH, C.REP_FAIL, C.COND_IMAGE_MATCH, C.REP_ALL],
+                     shared_seq=shared(1, [ident(0) | {C.P_SIZE: len(ct)}]))
+        vec(name, rule, expect, make(m, integrated={'#p0': bytes(ct)}))
+
+    gcm_cek = bytes.fromhex('261DE6165070FB8951EC5D7B92A065FE')
+    gcm_iv = bytes.fromhex('F14AAB9D81D51F7AD943FE87')
+    ctr_cek = bytes.fromhex('00112233445566778899AABBCCDDEEFF')
+    ctr_iv = bytes.fromhex('DAE613B2E0DC55F4322BE38BDBA9DC68')
+
+    one('good_encrypted_gcm', '5.2: ES-DH recipient, A128GCM content', 'READY', C.A128GCM, gcm_cek, gcm_iv)
+    one('good_encrypted_ctr', '6.2: ES-DH recipient, A128CTR content', 'READY', C.A128CTR, ctr_cek, ctr_iv)
+    one('encrypted_gcm_tag_changed', '11: an AEAD tag that does not match', 'DECRYPT',
+        C.A128GCM, gcm_cek, gcm_iv, damage=-1)
+    one('encrypted_gcm_body_changed', '11: a ciphertext byte changed under the tag', 'DECRYPT',
+        C.A128GCM, gcm_cek, gcm_iv, damage=0)
+    one('encrypted_ctr_body_changed', '8: AES-CTR has no tag, so the image digest catches it', 'DIGEST',
+        C.A128CTR, ctr_cek, ctr_iv, damage=0)
+
+    one('good_encrypted_salted_kdf', '5.2.4: a salt in the recipient header is passed to the KDF',
+        'READY', C.A128GCM, gcm_cek, gcm_iv, salt=bytes.fromhex('0F1E2D3C4B5A69788796A5B4C3D2E1F0'))
+
+    other = ec.derive_private_key(0x51F3E5D0C9B7A5931F3E5D0C9B7A5931F3E5D0C9B7A5931F3E5D0C9B7A59, ec.SECP256R1())
+    away = encrypt_payload(P[0], other.public_key(), C.A128GCM, C.A128KW, None, gcm_iv, gcm_cek, EPHEMERAL)
+    one('encrypted_for_another_device', '5.2: no recipient wraps a key for this device', 'DECRYPT',
+        C.A128GCM, gcm_cek, gcm_iv, info_swap=away.info)
+
+
 def generate():
-    for part in (good, conformance, unsupported, setup, envelope_rules, cbor_profile, manual):
+    for part in (good, conformance, unsupported, setup, envelope_rules, cbor_profile, encrypted, manual):
         part()
     names = [v[0] for v in VECTORS]
     assert len(names) == len(set(names)), 'duplicate vector name'

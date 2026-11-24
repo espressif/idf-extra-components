@@ -266,11 +266,12 @@ Not supported. Each of these makes the manifest fail and is never ignored, as se
 - The directives `write`, `copy`, `swap` and `invoke`, and the condition `check-content`.
 - Custom commands and custom parameters.
 - `dependencies` in the common block, and the trust-domain members 15 and 18.
-- Encrypted payloads (draft-ietf-suit-firmware-encryption).
 
 An updater does not run the `load` and `invoke` procedures. The device parses them for shape only. The members `reference-uri`, `component-id`, `coswid` and `uninstall` are metadata for the updater, and the device skips them. Unknown envelope members are envelope extensions, and the device skips them. Unknown manifest members make the manifest fail.
 
-Algorithms: SHA-256 for every digest, and ES256 or ESP256 for signatures. This is the signature part of the `suit-sha256-esp256-ecdh-a128ctr` profile of draft-ietf-suit-mti. The component has no payload encryption, so it does not claim a complete profile.
+Algorithms: SHA-256 for every digest, and ES256 or ESP256 for signatures. With `CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD`, payloads may also be encrypted, with ECDH-ES and AES key wrap for the content key and AES-CTR or AES-GCM for the payload. That completes two profiles of draft-ietf-suit-mti: `suit-sha256-esp256-ecdh-a128ctr` and `suit-sha256-esp256-ecdh-a128gcm`. The EdDSA, HMAC and HSS-LMS profiles are not implemented. A recipient may choose which profile it implements, so this is a conformant choice.
+
+Encrypted payloads: the manifest carries `suit-parameter-encryption-info` (19), which holds `#6.96(COSE_Encrypt)` with a detached ciphertext. A fresh content key is wrapped for the device with ECDH-ES, and the device unwraps it with its own P-256 private key before a byte is fetched. The image digest covers the plaintext, and the image size covers the fetched resource, so for AES-GCM it includes the 16-byte tag. Set `esp_suit_ota_config_t.decrypt_key` to the raw scalar, or `decrypt_agree` to keep the key in eFuse or in the Key Manager. `content_algs` and `kex_algs` pin the algorithms the device accepts, which section 11 of the encryption draft requires.
 
 Encoding: every item must be deterministic CBOR (RFC 8949 section 4.2.1). Lengths are definite, integers and lengths take their shortest form, map keys are in canonical order and never repeat, and there are no floats. The envelope key of an integrated payload must equal the URI of its component byte for byte.
 

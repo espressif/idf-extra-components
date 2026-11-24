@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 
 from . import codes, ids, keys
 from .cbor import dumps
+from .encrypt import encrypt_payload
 from .envelope import Signer, authentication, bstr_digest, digest, entry_offsets, envelope
 
 MAX_COMPONENTS = 16
@@ -39,11 +40,18 @@ class ReleaseError(Exception):
 @dataclass
 class Component:
     id: list                            # list of bytes
-    data: bytes
+    data: bytes                         # what the device fetches: the ciphertext when encrypted
     uri: str
     skip_if_installed: bool = False
     fetch_args: bytes | None = None
     enclose: bool = False               # carry the payload in the envelope under its URI
+    plain: bytes | None = None          # what lands in the slot; the digest covers this
+    encryption_info: bytes | None = None   # SUIT_Encryption_Info when the payload is encrypted
+
+    @property
+    def image(self):
+        """The bytes the device ends up with, which is what suit-parameter-image-digest covers."""
+        return self.data if self.plain is None else self.plain
 
 
 @dataclass
@@ -79,6 +87,36 @@ def _part(p):
     return p.encode() if isinstance(p, str) else bytes(p)
 
 
+def _encryption(block, path):
+    """The encryption settings of a release, or None when payloads travel in the clear.
+
+    encryption:
+      recipient: keys/device_pub.pem   # the device's public key, PEM or a 65-byte point
+      content: A128GCM                 # or A128CTR, A256GCM, A256CTR
+      key_wrap: A128KW                 # or A256KW
+      kid: device-01                   # optional, identifies the recipient key
+      salt: 16                         # optional, bytes of random HKDF salt to send
+    """
+    if not block:
+        return None
+    if 'recipient' not in block:
+        raise ReleaseError('the encryption block needs "recipient", the public key of the device')
+    content_name = block.get('content', 'A128GCM')
+    kw_name = block.get('key_wrap', 'A128KW')
+    if content_name not in codes.CONTENT_ALGS:
+        raise ReleaseError(f'encryption.content must be one of {", ".join(codes.CONTENT_ALGS)}')
+    if kw_name not in codes.KW_ALGS:
+        raise ReleaseError(f'encryption.key_wrap must be one of {", ".join(codes.KW_ALGS)}')
+    salt_len = int(block.get('salt', 0))
+    if salt_len < 0 or salt_len > 64:
+        raise ReleaseError('encryption.salt is a byte count between 0 and 64')
+    return {'recipient': keys.load_public(path(block['recipient'])),
+            'content_alg': codes.CONTENT_ALGS[content_name],
+            'kw_alg': codes.KW_ALGS[kw_name],
+            'kid': block.get('kid'),
+            'salt_len': salt_len}
+
+
 def from_spec(spec, base_dir='.', key_paths=None, alg=None, min_seq=0):
     """A Release from a parsed release.yml. Relative paths resolve against base_dir."""
     def path(p):
@@ -105,16 +143,26 @@ def from_spec(spec, base_dir='.', key_paths=None, alg=None, min_seq=0):
     else:
         vendor = ids.vendor_uuid(spec['vendor']).bytes
         klass = ids.class_uuid(ids.vendor_uuid(spec['vendor']), spec['class'])
+    enc = _encryption(spec.get('encryption'), path)
     components = []
     for c in comps:
         uri = c['uri']
+        plain = open(path(c['file']), 'rb').read()
+        data, info = plain, None
+        if enc is not None and c.get('encrypt', True):
+            salt = os.urandom(enc['salt_len']) if enc['salt_len'] else None
+            out = encrypt_payload(plain, enc['recipient'], enc['content_alg'], enc['kw_alg'],
+                                  enc['kid'], salt=salt)
+            data, info = out.ciphertext, out.info
         components.append(Component(
             id=[_part(p) for p in c['id']],
-            data=open(path(c['file']), 'rb').read(),
+            data=data,
             uri=uri,
             skip_if_installed=bool(c.get('skip_if_installed', False)),
             fetch_args=_part(c['fetch_args']) if 'fetch_args' in c else None,
-            enclose=uri.startswith('#') or bool(c.get('prefetch', False))))
+            enclose=uri.startswith('#') or bool(c.get('prefetch', False)),
+            plain=plain if info is not None else None,
+            encryption_info=info))
     seen = set()
     for c in components:
         if tuple(c.id) in seen:
@@ -163,7 +211,7 @@ def sequences(r):
         if multi:
             shared += [codes.SET_INDEX, i]
         shared += [codes.OVERRIDE, {codes.P_VENDOR: r.vendor, codes.P_CLASS: r.class_id,
-                                    codes.P_DIGEST: dumps(digest(c.data)), codes.P_SIZE: len(c.data)}]
+                                    codes.P_DIGEST: dumps(digest(c.image)), codes.P_SIZE: len(c.data)}]
     if multi:
         shared += [codes.SET_INDEX, True]
     shared += [codes.COND_VENDOR, codes.REP_ALL, codes.COND_CLASS, codes.REP_ALL]
@@ -173,6 +221,8 @@ def sequences(r):
         if multi:
             install += [codes.SET_INDEX, i]
         params = {codes.P_URI: c.uri}
+        if c.encryption_info is not None:
+            params[codes.P_ENCRYPTION_INFO] = c.encryption_info
         if c.fetch_args is not None:
             params[codes.P_FETCH_ARGS] = c.fetch_args
         install += [codes.OVERRIDE, params]
@@ -218,7 +268,9 @@ def build(r, sever_install=False, inline_text=False):
         'envelope_size': len(env),
         'entries': entry_offsets(env),
         'components': [{'id': [p.decode(errors='replace') for p in c.id], 'uri': c.uri, 'size': len(c.data),
-                        'sha256': hashlib.sha256(c.data).hexdigest(), 'enclosed': c.enclose}
+                        'sha256': hashlib.sha256(c.image).hexdigest(), 'enclosed': c.enclose,
+                        'encrypted': c.encryption_info is not None,
+                        **({'plaintext_size': len(c.plain)} if c.plain is not None else {})}
                        for c in r.components],
     }
     return Built(env, manifest_bytes, info)

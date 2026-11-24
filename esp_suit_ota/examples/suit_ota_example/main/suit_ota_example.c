@@ -36,6 +36,22 @@ static const char *TAG = "suit_example";
 
 extern const uint8_t anchor_start[] asm("_binary_anchor_p256_bin_start");
 
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+/*
+ * The payload decryption key, embedded by main/CMakeLists.txt as a 32-byte P-256 private
+ * scalar. This is fine for an example and wrong for a product: anyone who reads the firmware
+ * reads the key. A product keeps the key in eFuse or in the Key Manager and sets
+ * cfg.decrypt_agree instead, so the key never enters memory. Make the pair with
+ *
+ *     esp-suit keygen main/keys/device_key.pem --anchor main/keys/device_pub.bin
+ *
+ * then raise the private scalar with the helper in the README, give device_pub.bin to the
+ * release description under encryption.recipient, and rebuild.
+ */
+extern const uint8_t device_key_start[] asm("_binary_device_key_bin_start");
+extern const uint8_t device_key_end[] asm("_binary_device_key_bin_end");
+#endif
+
 #define BUF_SIZE 4096
 
 #ifdef CONFIG_EXAMPLE_SKIP_COMMON_NAME_CHECK
@@ -65,6 +81,9 @@ static esp_suit_ota_config_t cfg = {
     .num_vendor_ids = 1,
     .class_ids = &class_uuid,
     .num_class_ids = 1,
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    .decrypt_key = device_key_start,
+#endif
 };
 
 static void suit_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data)

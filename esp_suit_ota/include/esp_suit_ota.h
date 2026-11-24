@@ -38,6 +38,15 @@ typedef struct {
 #define ESP_SUIT_OTA_UUID_LEN       16    /*!< Vendor, class and device identifiers are UUIDs */
 #define ESP_SUIT_OTA_DIGEST_LEN     32    /*!< SHA-256 */
 #define ESP_SUIT_OTA_KEY_POINT_LEN  65    /*!< Uncompressed P-256 public key: 0x04 || X || Y */
+#define ESP_SUIT_OTA_SHARED_LEN     32    /*!< X coordinate of an ECDH shared point */
+
+/* COSE algorithm identifiers an encryption policy may name, draft-ietf-suit-mti profiles */
+#define ESP_SUIT_OTA_ALG_A128GCM            1
+#define ESP_SUIT_OTA_ALG_A256GCM            3
+#define ESP_SUIT_OTA_ALG_A128CTR            (-65534)
+#define ESP_SUIT_OTA_ALG_A256CTR            (-65532)
+#define ESP_SUIT_OTA_ALG_ECDH_ES_A128KW     (-29)
+#define ESP_SUIT_OTA_ALG_ECDH_ES_A256KW     (-31)
 #define ESP_SUIT_OTA_ID_MAX         64    /*!< Component identifier as text, parts joined with '/' */
 #define ESP_SUIT_OTA_EVENT_URI_MAX  128   /*!< URI carried in a component event */
 #define ESP_SUIT_OTA_ETAG_MAX       64    /*!< Manifest ETag kept by a getter */
@@ -161,6 +170,19 @@ typedef struct {
     bool bulk_erase;                          /*!< Erase the whole target up front instead of sector by sector */
 } esp_suit_ota_map_entry_t;
 
+/**
+ * @brief Agree a shared secret with the ephemeral public key of a release.
+ *
+ * peer is an uncompressed P-256 point, 65 bytes starting with 0x04. Write the 32-byte X
+ * coordinate of the shared point to out. Return ESP_ERR_SUIT_OTA_DECRYPT when this device
+ * holds no key for the release; anything else is reported as it is.
+ *
+ * This exists so the private key can stay in hardware. A production build points it at eFuse
+ * or at the Key Manager, and the key never reaches the SUIT code.
+ */
+typedef esp_err_t (*esp_suit_ota_agree_fn)(void *user, const uint8_t peer[ESP_SUIT_OTA_KEY_POINT_LEN],
+                                           uint8_t out[ESP_SUIT_OTA_SHARED_LEN]);
+
 typedef struct {
     const esp_suit_ota_key_t *keys;
     size_t num_keys;
@@ -175,6 +197,30 @@ typedef struct {
     size_t map_len;
     const esp_suit_ota_slots_ops_t *slots_ops;  /*!< Slot selection, the flip and the rollback; NULL for none */
     const char *text_lang;                 /*!< Language tag of the kept update description, NULL for the Kconfig default */
+    /*
+     * Encrypted payloads, draft-ietf-suit-firmware-encryption. A release wraps its content key
+     * for this device with ECDH-ES, so the device needs its own P-256 private key. Give the raw
+     * 32-byte scalar in decrypt_key, or leave that NULL and set decrypt_agree, which lets the
+     * key stay in eFuse or in the Key Manager and never enter memory. Both NULL means the device
+     * takes plaintext payloads only, and an encrypted one fails with ESP_ERR_SUIT_OTA_DECRYPT.
+     */
+    const uint8_t *decrypt_key;            /*!< 32-byte P-256 private scalar, big endian */
+    esp_suit_ota_agree_fn decrypt_agree;   /*!< ECDH with the manifest's ephemeral key; preferred in production */
+    void *decrypt_user;                    /*!< Handed to decrypt_agree */
+    /*
+     * The algorithm policy of draft-ietf-suit-firmware-encryption section 11. The recipient
+     * verifies that the algorithms a release names are the ones it expects, and rejects the
+     * release otherwise, which stops a downgrade such as an AEAD cipher swapped for one with no
+     * integrity. Leave a list NULL to accept every algorithm this build supports.
+     *
+     * Example, to accept nothing but the suit-sha256-esp256-ecdh-a128gcm profile:
+     *   static const int64_t content[] = { ESP_SUIT_OTA_ALG_A128GCM };
+     *   static const int64_t kex[]     = { ESP_SUIT_OTA_ALG_ECDH_ES_A128KW };
+     */
+    const int64_t *content_algs;           /*!< Accepted content encryption algorithms */
+    size_t num_content_algs;
+    const int64_t *kex_algs;               /*!< Accepted key exchange algorithms */
+    size_t num_kex_algs;
 } esp_suit_ota_config_t;
 
 /* ---------- transport context ---------- */

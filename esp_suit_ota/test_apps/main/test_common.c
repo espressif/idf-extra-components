@@ -82,6 +82,17 @@ static const uint8_t s_class[1][16] = {
 };
 static const esp_suit_ota_key_t s_key = { .point = suit_spec_pubkey, .point_len = 65 };
 
+/*
+ * The payload decryption key of the encrypted vectors. gen_vectors.py holds the same scalar as
+ * DEVICE_KEY and wraps every content key for it. A real device never has its key in source.
+ */
+static const uint8_t s_device_key[32] = {
+    0x00, 0xd3, 0xf1, 0xce, 0x00, 0xd3, 0xf1, 0xce,
+    0x00, 0xd3, 0xf1, 0xce, 0x00, 0xd3, 0xf1, 0xce,
+    0x00, 0xd3, 0xf1, 0xce, 0x00, 0xd3, 0xf1, 0xce,
+    0x00, 0xd3, 0xf1, 0xce, 0x00, 0xd3, 0xf1, 0xce,
+};
+
 const esp_suit_ota_config_t g_cfg = {
     .keys = &s_key, .num_keys = 1,
     .vendor_ids = s_vendor, .num_vendor_ids = 1,
@@ -89,6 +100,7 @@ const esp_suit_ota_config_t g_cfg = {
     .class_ids = s_class, .num_class_ids = 1,
     .device_id = suit_cvec_device_id,
     .map = s_map, .map_len = 3,
+    .decrypt_key = s_device_key,
 };
 
 void test_reset_state(void)

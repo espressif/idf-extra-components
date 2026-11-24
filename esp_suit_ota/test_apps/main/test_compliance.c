@@ -218,6 +218,43 @@ TEST_CASE("setup: a release that flipped no pair has nothing to revert", "[setup
  * ESP_ERR_SUIT_OTA_SLOTS, so the log names the backend instead of a missing target. A failed
  * init is used here because it leaves the same state as a damaged record, without touching NVS.
  */
+/*
+ * draft-ietf-suit-firmware-encryption section 11: the recipient checks the algorithms a release
+ * names against its own policy and rejects anything else, which stops a downgrade such as an
+ * AEAD cipher swapped for one without integrity.
+ */
+TEST_CASE("encryption: an algorithm outside the device policy is refused", "[encryption]")
+{
+    test_reset_state();
+    const suit_cvec_t *gcm = cvec_find("good_encrypted_gcm");
+    const suit_cvec_t *ctr = cvec_find("good_encrypted_ctr");
+
+    /* with no policy, both profiles of this component are accepted */
+    TEST_ASSERT_EQUAL(ESP_SUIT_OTA_READY, run_cvec(gcm, 64));
+    test_reset_state();
+    TEST_ASSERT_EQUAL(ESP_SUIT_OTA_READY, run_cvec(ctr, 64));
+
+    /* pinned to AES-GCM: the AES-CTR release is refused before any key work */
+    static const int64_t only_gcm[] = { ESP_SUIT_OTA_ALG_A128GCM };
+    esp_suit_ota_config_t cfg = g_cfg;
+    cfg.content_algs = only_gcm;
+    cfg.num_content_algs = 1;
+    test_reset_state();
+    TEST_ASSERT_EQUAL(ESP_SUIT_OTA_READY, run_campaign(&cfg, cvec_data(gcm), gcm->len, 64, false));
+    test_reset_state();
+    TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_UNSUPPORTED,
+                      run_campaign(&cfg, cvec_data(ctr), ctr->len, 64, false));
+
+    /* a key exchange algorithm outside the policy is refused too */
+    static const int64_t no_kex[] = { ESP_SUIT_OTA_ALG_ECDH_ES_A256KW };
+    cfg = g_cfg;
+    cfg.kex_algs = no_kex;
+    cfg.num_kex_algs = 1;
+    test_reset_state();
+    TEST_ASSERT_EQUAL(ESP_ERR_SUIT_OTA_UNSUPPORTED,
+                      run_campaign(&cfg, cvec_data(gcm), gcm->len, 64, false));
+}
+
 TEST_CASE("campaign: a slots backend that is not usable stops the campaign", "[campaign]")
 {
     esp_suit_ota_config_t cfg = pair_setup();

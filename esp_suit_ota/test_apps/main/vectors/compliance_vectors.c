@@ -102,17 +102,24 @@ const suit_cvec_t suit_cvecs[] = {
     { "shared_sequence_indefinite", "RFC 8949 4.2.1: definite lengths only", 41821, 452, ESP_ERR_SUIT_OTA_FORMAT, 0 },
     { "parameters_duplicate_key", "RFC 8949 5.6: no duplicate keys", 42273, 490, ESP_ERR_SUIT_OTA_FORMAT, 0 },
     { "parameters_out_of_order", "8.1: canonical map order", 42763, 451, ESP_ERR_SUIT_OTA_FORMAT, 0 },
-    { "robust_small", "robustness: truncation and single-byte changes", 43214, 283, ESP_SUIT_OTA_READY, CVEC_MANUAL },
-    { "partition_pair", "default mapping to a declared pair", 43497, 773, ESP_SUIT_OTA_READY, CVEC_MANUAL },
-    { "sequence_9", "6.1: rollback protection", 44270, 781, ESP_SUIT_OTA_READY, CVEC_MANUAL },
-    { "sequence_10", "6.1: rollback protection", 45051, 781, ESP_SUIT_OTA_READY, CVEC_MANUAL },
-    { "sequence_11", "6.1: rollback protection", 45832, 781, ESP_SUIT_OTA_READY, CVEC_MANUAL },
+    { "good_encrypted_gcm", "5.2: ES-DH recipient, A128GCM content", 43214, 605, ESP_SUIT_OTA_READY, 0 },
+    { "good_encrypted_ctr", "6.2: ES-DH recipient, A128CTR content", 43819, 594, ESP_SUIT_OTA_READY, 0 },
+    { "encrypted_gcm_tag_changed", "11: an AEAD tag that does not match", 44413, 605, ESP_ERR_SUIT_OTA_DECRYPT, 0 },
+    { "encrypted_gcm_body_changed", "11: a ciphertext byte changed under the tag", 45018, 605, ESP_ERR_SUIT_OTA_DECRYPT, 0 },
+    { "encrypted_ctr_body_changed", "8: AES-CTR has no tag, so the image digest catches it", 45623, 594, ESP_ERR_SUIT_OTA_DIGEST, 0 },
+    { "good_encrypted_salted_kdf", "5.2.4: a salt in the recipient header is passed to the KDF", 46217, 623, ESP_SUIT_OTA_READY, 0 },
+    { "encrypted_for_another_device", "5.2: no recipient wraps a key for this device", 46840, 605, ESP_ERR_SUIT_OTA_DECRYPT, 0 },
+    { "robust_small", "robustness: truncation and single-byte changes", 47445, 283, ESP_SUIT_OTA_READY, CVEC_MANUAL },
+    { "partition_pair", "default mapping to a declared pair", 47728, 773, ESP_SUIT_OTA_READY, CVEC_MANUAL },
+    { "sequence_9", "6.1: rollback protection", 48501, 781, ESP_SUIT_OTA_READY, CVEC_MANUAL },
+    { "sequence_10", "6.1: rollback protection", 49282, 781, ESP_SUIT_OTA_READY, CVEC_MANUAL },
+    { "sequence_11", "6.1: rollback protection", 50063, 781, ESP_SUIT_OTA_READY, CVEC_MANUAL },
 };
 const size_t suit_cvecs_count = sizeof(suit_cvecs) / sizeof(suit_cvecs[0]);
 
 const suit_cpayload_t suit_cpayloads[] = {
-    { "https://test.local/p0.bin", 46613, 200 },
-    { "https://test.local/p1.bin", 46813, 120 },
-    { "https://test.local/p2.bin", 46933, 80 },
+    { "https://test.local/p0.bin", 50844, 200 },
+    { "https://test.local/p1.bin", 51044, 120 },
+    { "https://test.local/p2.bin", 51164, 80 },
 };
 const size_t suit_cpayloads_count = sizeof(suit_cpayloads) / sizeof(suit_cpayloads[0]);

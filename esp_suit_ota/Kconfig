@@ -14,6 +14,24 @@ menu "ESP SUIT OTA"
         default 512
         range 128 4096
 
+    config ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+        bool "Accept encrypted payloads"
+        default n
+        select MBEDTLS_CIPHER_MODE_CTR
+        select MBEDTLS_GCM_C
+        help
+            Payload encryption of draft-ietf-suit-firmware-encryption, for the profiles
+            suit-sha256-es256-ecdh-a128ctr and suit-sha256-es256-ecdh-a128gcm. The release
+            wraps a fresh content key for this device with ECDH-ES and AES key wrap, and the
+            device decrypts the payload as it writes it.
+
+            The device needs its own P-256 private key. Give the raw scalar in
+            esp_suit_ota_config_t.decrypt_key, or set decrypt_agree so the key can stay in
+            eFuse or in the Key Manager.
+
+            With this off, a manifest that carries suit-parameter-encryption-info is refused
+            with ESP_ERR_SUIT_OTA_UNSUPPORTED, as section 6.1 of the manifest draft requires.
+
     config ESP_SUIT_OTA_MAX_COMPONENTS
         int "Largest accepted component count per manifest"
         default 8

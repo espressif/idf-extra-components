@@ -49,11 +49,44 @@ CMD_NAMES = {1: 'condition-vendor-identifier', 2: 'condition-class-identifier', 
              23: 'directive-invoke', 24: 'condition-device-identifier', 31: 'directive-swap',
              32: 'directive-run-sequence'}
 PARAM_NAMES = {1: 'vendor-id', 2: 'class-id', 3: 'image-digest', 5: 'component-slot', 12: 'strict-order',
-               13: 'soft-failure', 14: 'image-size', 18: 'content', 21: 'uri', 22: 'source-component',
-               23: 'invoke-args', 24: 'device-id', 25: 'fetch-arguments'}
+               13: 'soft-failure', 14: 'image-size', 18: 'content', 19: 'encryption-info', 21: 'uri',
+               22: 'source-component', 23: 'invoke-args', 24: 'device-id', 25: 'fetch-arguments'}
 TEXT_NAMES = {1: 'manifest-description', 2: 'update-description', 3: 'manifest-json-source',
               4: 'manifest-yaml-source'}
-ALG_NAMES = {-16: 'sha-256', -7: 'ES256', -9: 'ESP256'}
+ALG_NAMES = {-16: 'sha-256', -7: 'ES256', -9: 'ESP256', 1: 'A128GCM', 3: 'A256GCM', -65534: 'A128CTR',
+             -65532: 'A256CTR', -3: 'A128KW', -5: 'A256KW', -29: 'ECDH-ES + A128KW', -31: 'ECDH-ES + A256KW'}
+
+# payload encryption, draft-ietf-suit-firmware-encryption
+P_ENCRYPTION_INFO = 19
+COSE_ENCRYPT_TAG = 96
+
+# COSE header labels
+HDR_ALG, HDR_KID, HDR_IV = 1, 4, 5
+HDR_SALT = -20                         # RFC 9053 table 11: the HKDF salt
+HDR_EPHEMERAL_KEY = -1
+
+# content encryption algorithms
+A128GCM, A256GCM = 1, 3
+A128CTR, A256CTR = -65534, -65532      # RFC 9459, the values the draft's examples use
+
+# key wrap and key agreement
+A128KW, A256KW = -3, -5
+ECDH_ES_A128KW, ECDH_ES_A256KW = -29, -31
+
+CONTENT_ALGS = {'A128GCM': A128GCM, 'A256GCM': A256GCM, 'A128CTR': A128CTR, 'A256CTR': A256CTR}
+KW_ALGS = {'A128KW': A128KW, 'A256KW': A256KW}
+ESDH_FOR_KW = {A128KW: ECDH_ES_A128KW, A256KW: ECDH_ES_A256KW}
+KEY_BYTES = {A128GCM: 16, A256GCM: 32, A128CTR: 16, A256CTR: 32, A128KW: 16, A256KW: 32}
+IV_BYTES = {A128GCM: 12, A256GCM: 12, A128CTR: 16, A256CTR: 16}
+AEAD_ALGS = (A128GCM, A256GCM)
+GCM_TAG_BYTES = 16
+
+# COSE_Key members of an EC2 ephemeral key
+KEY_KTY, KEY_CRV, KEY_X, KEY_Y = 1, -1, -2, -3
+KTY_EC2, CRV_P256 = 2, 1
+
+# draft section 5.2.4: the constant that goes in SuppPubInfo.other
+KDF_OTHER = b'SUIT Payload Encryption'
 
 # a command whose argument is a reporting policy, as opposed to a directive with its own argument
 CONDITIONS = (COND_VENDOR, COND_CLASS, COND_IMAGE_MATCH, COND_SLOT, COND_CHECK_CONTENT, COND_ABORT, COND_DEVICE)

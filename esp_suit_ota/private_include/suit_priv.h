@@ -53,6 +53,40 @@ extern "C" {
 #define SUIT_AUTH_MIN_ITEMS     2      /* the manifest digest and at least one signature block */
 #define SUIT_COSE_ALG_ES256     (-7)
 #define SUIT_COSE_ALG_ESP256    (-9)
+
+/* payload encryption, draft-ietf-suit-firmware-encryption */
+#define SUIT_COSE_ENCRYPT_TAG   96
+#define SUIT_COSE_ENCRYPT_ITEMS 4      /* [protected, unprotected, ciphertext, recipients] */
+#define SUIT_COSE_RECIPIENT_ITEMS 3    /* [protected, unprotected, wrapped key] */
+#define SUIT_COSE_HDR_IV        5      /* COSE header label: IV */
+#define SUIT_COSE_HDR_EPHEMERAL (-1)   /* COSE header label: ephemeral sender key */
+#define SUIT_COSE_HDR_SALT      (-20)  /* COSE header label: HKDF salt, RFC 9053 table 11 */
+#define SUIT_COSE_KEY_KTY       1
+#define SUIT_COSE_KEY_CRV       (-1)
+#define SUIT_COSE_KEY_X         (-2)
+#define SUIT_COSE_KEY_Y         (-3)
+#define SUIT_COSE_KTY_EC2       2
+#define SUIT_COSE_CRV_P256      1
+#define SUIT_COSE_ALG_A128GCM   1
+#define SUIT_COSE_ALG_A256GCM   3
+#define SUIT_COSE_ALG_A128CTR   (-65534)   /* RFC 9459 */
+#define SUIT_COSE_ALG_A256CTR   (-65532)
+#define SUIT_COSE_ALG_A128KW    (-3)
+#define SUIT_COSE_ALG_A256KW    (-5)
+#define SUIT_COSE_ALG_ECDH_ES_A128KW (-29)
+#define SUIT_COSE_ALG_ECDH_ES_A256KW (-31)
+#define SUIT_GCM_IV_LEN         12
+#define SUIT_CTR_IV_LEN         16
+#define SUIT_GCM_TAG_LEN        16
+#define SUIT_IV_MAX             16
+#define SUIT_CEK_MAX            32     /* the largest content or key encryption key */
+#define SUIT_P256_SCALAR_LEN    32     /* a private scalar, and a shared secret, are 32 bytes */
+#define SUIT_COSE_PROTECTED_MAX 32     /* a content protected header holds only the algorithm */
+#define SUIT_KDF_CONTEXT_OVERHEAD 32   /* the fixed part of COSE_KDF_Context */
+#define SUIT_KDF_CONTEXT_MAX    (SUIT_COSE_PROTECTED_MAX + 32 + SUIT_KDF_CONTEXT_OVERHEAD)
+#define SUIT_ENC_STRUCTURE_OVERHEAD 8
+#define SUIT_ENC_STRUCTURE_MAX  (SUIT_COSE_PROTECTED_MAX + 16 + SUIT_ENC_STRUCTURE_OVERHEAD)
+#define SUIT_DECRYPT_CHUNK      256    /* plaintext produced per pass, on the stack */
 #define SUIT_DIGEST_ALG_SHA256  (-16)
 #define SUIT_CBOR_TAG_PEN       112   /* RFC 9090 relative OID under the IANA PEN arc, 1.3.6.1.4.1 */
 #define SUIT_OID_ARC_BITS       7      /* RFC 9090: each byte of an arc carries 7 bits */
@@ -117,6 +151,7 @@ extern "C" {
 #define SUIT_PARAM_SOFT_FAILURE 13
 #define SUIT_PARAM_SIZE         14
 #define SUIT_PARAM_CONTENT      18
+#define SUIT_PARAM_ENCRYPTION   19
 #define SUIT_PARAM_URI          21
 #define SUIT_PARAM_SOURCE_COMP  22
 #define SUIT_PARAM_INVOKE_ARGS  23
@@ -203,6 +238,29 @@ typedef struct {
     bool bulk_erase;
 } suit_target_t;
 
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+/* a plaintext chunk is handed on by this, so the stream layer stays the only writer */
+typedef esp_err_t (*suit_decrypt_sink_fn)(void *user, const uint8_t *data, size_t len);
+
+typedef struct {
+    bool ready;                              /* the content key is unwrapped */
+    bool active;                             /* a cipher operation is running */
+    bool aead;                               /* AES-GCM, so the resource ends with a tag */
+    int64_t alg;                             /* COSE content encryption algorithm */
+    uint8_t iv[SUIT_IV_MAX];
+    size_t iv_len;
+    uint8_t prot[SUIT_COSE_PROTECTED_MAX];   /* protected header, signed into the AEAD input */
+    size_t prot_len;
+    uint8_t cek[SUIT_CEK_MAX];
+    size_t cek_len;
+    uint8_t tail[SUIT_GCM_TAG_LEN];          /* bytes held back in case they are the tag */
+    size_t tail_len;
+    psa_key_id_t key;
+    psa_aead_operation_t aead_op;
+    psa_cipher_operation_t cipher_op;
+} suit_decrypt_t;
+#endif
+
 typedef struct {
     suit_comp_state_t state;
     char id[SUIT_ID_MAX];
@@ -211,8 +269,14 @@ typedef struct {
     bool integrated;
     uint8_t digest[SUIT_DIGEST_LEN];
     bool has_digest;
-    uint32_t size;
+    uint32_t size;                           /* the fetched resource, tag included for an AEAD */
     bool has_size;
+    uint32_t plain_size;                     /* what lands in the slot, which the digest covers */
+    uint32_t bytes_fetched;                  /* resource bytes taken in, before decryption */
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    bool encrypted;
+    suit_decrypt_t decrypt;
+#endif
     const uint8_t *fetch_args;
     size_t fetch_args_len;
     suit_target_t target;
@@ -379,6 +443,23 @@ void suit_cid_to_string(const esp_suit_ota_span_t *parts, size_t n, char *out, s
 void suit_ctx_free(struct esp_suit_ota_ctx *ctx);
 void suit_close_getters(esp_suit_ota_transport_t *t);
 bool suit_cid_equal(const esp_suit_ota_span_t *a, size_t na, const esp_suit_ota_span_t *b, size_t nb);
+
+/* AES key unwrap, RFC 3394. out_len is the capacity on the way in and the key length on the way out. */
+esp_err_t suit_aes_key_unwrap(const uint8_t *kek, size_t kek_len, const uint8_t *in, size_t in_len,
+                              uint8_t *out, size_t *out_len);
+
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+bool suit_alg_allowed(const int64_t *allowed, size_t count, int64_t alg);
+size_t suit_kw_key_bytes(int64_t kw_alg);
+size_t suit_content_key_bytes(int64_t alg);
+esp_err_t suit_decrypt_init(struct esp_suit_ota_ctx *ctx, size_t index,
+                            const uint8_t *info, size_t info_len);
+esp_err_t suit_decrypt_start(suit_decrypt_t *d);
+esp_err_t suit_decrypt_write(suit_decrypt_t *d, const uint8_t *data, size_t len,
+                             suit_decrypt_sink_fn sink, void *user);
+esp_err_t suit_decrypt_finish(suit_decrypt_t *d, suit_decrypt_sink_fn sink, void *user);
+void suit_decrypt_abort(suit_decrypt_t *d);
+#endif
 
 #ifdef __cplusplus
 }

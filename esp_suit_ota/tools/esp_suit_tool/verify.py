@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from . import codes, cose
 from .cbor import DecodeError, Tag, dumps, is_deterministic, loads
+from .encrypt import EncryptError, decrypt_payload
 
 
 @dataclass
@@ -88,20 +89,20 @@ def _sequence_encoding(name, data, bad):
                 bad.append(f'{name} image-digest')
 
 
-def verify(env_bytes, public_keys=(), payloads=None, vendor=None, class_id=None):
+def verify(env_bytes, public_keys=(), payloads=None, vendor=None, class_id=None, recipient_private=None):
     """Report on env_bytes. payloads maps a URI to the bytes the device will fetch from it.
 
     Never raises on a malformed envelope: whatever cannot be decoded is a failed check.
     """
     r = Report()
     try:
-        _verify(r, env_bytes, public_keys, payloads, vendor, class_id)
+        _verify(r, env_bytes, public_keys, payloads, vendor, class_id, recipient_private)
     except (DecodeError, ValueError, TypeError, KeyError, IndexError, AttributeError) as e:
         r.add('structure', False, f'malformed: {e}')
     return r
 
 
-def _verify(r, env_bytes, public_keys, payloads, vendor, class_id):
+def _verify(r, env_bytes, public_keys, payloads, vendor, class_id, recipient_private=None):
     top = loads(env_bytes)
     tagged = isinstance(top, Tag) and top.tag == codes.ENVELOPE_TAG
     r.add('envelope tag 107', tagged, '' if tagged else 'a SUIT envelope is #6.107(map)')
@@ -192,14 +193,38 @@ def _verify(r, env_bytes, public_keys, payloads, vendor, class_id):
     for cid, p in zip(comps, params):
         dg = loads(p[codes.P_DIGEST]) if isinstance(p.get(codes.P_DIGEST), bytes) else None
         r.components.append({'id': [x.decode(errors='replace') for x in cid], 'uri': p.get(codes.P_URI),
-                             'size': p.get(codes.P_SIZE), 'digest': dg[1].hex() if dg else None})
+                             'size': p.get(codes.P_SIZE), 'digest': dg[1].hex() if dg else None,
+                             'encryption_info': p.get(codes.P_ENCRYPTION_INFO)})
     if vendor is not None:
         r.add('vendor identifier', all(p.get(codes.P_VENDOR) == vendor for p in params))
     if class_id is not None:
         r.add('class identifier', all(p.get(codes.P_CLASS) == class_id for p in params))
 
     def check_payload(label, data, comp):
-        ok = comp['size'] == len(data) and comp['digest'] == hashlib.sha256(data).hexdigest()
+        """Size covers the fetched bytes; the digest covers what lands in the slot.
+
+        For an encrypted payload those are different, so the digest can only be checked with the
+        device's private key. Without it the size is still checked and the digest is reported as
+        not checked, rather than silently passing.
+        """
+        size_ok = comp['size'] == len(data)
+        if comp['encryption_info'] is not None:
+            if recipient_private is None:
+                r.add(label, size_ok if size_ok else False,
+                      f'{len(data)} bytes, encrypted; pass --recipient-key to check the digest'
+                      if size_ok else f'{len(data)} bytes, manifest says {comp["size"]}')
+                return
+            try:
+                data = decrypt_payload(data, comp['encryption_info'], recipient_private)
+            except EncryptError as e:
+                r.add(label, False, str(e))
+                return
+            ok = size_ok and comp['digest'] == hashlib.sha256(data).hexdigest()
+            r.add(label, ok, f'{len(data)} bytes after decryption' if ok else
+                  f'decrypts to {len(data)} bytes sha256 {hashlib.sha256(data).hexdigest()[:16]}..., '
+                  f'manifest says {str(comp["digest"])[:16]}...')
+            return
+        ok = size_ok and comp['digest'] == hashlib.sha256(data).hexdigest()
         r.add(label, ok, f'{len(data)} bytes' if ok else
               f'{len(data)} bytes sha256 {hashlib.sha256(data).hexdigest()[:16]}..., '
               f'manifest says {comp["size"]} bytes {str(comp["digest"])[:16]}...')

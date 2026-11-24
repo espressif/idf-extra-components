@@ -11,7 +11,7 @@ static const char *TAG = SUIT_TAG;
 #define SUIT_RES_SOFT_STOP  ((esp_err_t)0x1F0FF)
 
 typedef struct {
-    bool has_vendor, has_class, has_device, has_digest, has_size, has_slot, has_uri;
+    bool has_vendor, has_class, has_device, has_digest, has_size, has_slot, has_uri, has_enc;
     bool vendor_is_pen;        /* the vendor id arrived as a relative OID, not as a UUID */
     uint32_t vendor_pen;
     uint8_t vendor[SUIT_UUID_LEN];
@@ -22,6 +22,7 @@ typedef struct {
     uint64_t slot;
     suit_span_t uri;
     suit_span_t fetch_args;
+    suit_span_t enc_info;      /* SUIT_Encryption_Info, when the payload is encrypted */
 } suit_params_t;
 
 typedef struct {
@@ -328,6 +329,12 @@ static esp_err_t apply_override(suit_exec_t *ex, suit_cbor_t *c, int depth, bool
             case SUIT_PARAM_FETCH_ARGS:
                 err = suit_cbor_get_bstr(&v, &p->fetch_args.ptr, &p->fetch_args.len);
                 break;
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+            case SUIT_PARAM_ENCRYPTION:
+                err = suit_cbor_get_bstr(&v, &p->enc_info.ptr, &p->enc_info.len);
+                p->has_enc = (err == ESP_OK);
+                break;
+#endif
             case SUIT_PARAM_CONTENT:
             case SUIT_PARAM_SOURCE_COMP:
             case SUIT_PARAM_INVOKE_ARGS:
@@ -372,6 +379,29 @@ static esp_err_t do_fetch(suit_exec_t *ex, size_t i)
     }
     c->size = (uint32_t)p->size;
     c->has_size = true;
+    c->plain_size = c->size;
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    /*
+     * An encrypted payload is unwrapped now, before a byte is fetched, so a release meant for
+     * another device fails at once instead of after the whole download. The image size covers
+     * the fetched resource, and an AEAD appends its tag to it, so what lands in the slot is
+     * shorter by the tag.
+     */
+    c->encrypted = p->has_enc;
+    if (c->encrypted) {
+        esp_err_t denc = suit_decrypt_init(ctx, i, p->enc_info.ptr, p->enc_info.len);
+        if (denc != ESP_OK) {
+            return denc;
+        }
+        if (c->decrypt.aead) {
+            if (c->size < SUIT_GCM_TAG_LEN) {
+                ESP_LOGE(TAG, "%s: the image size leaves no room for the tag", c->id);
+                return ESP_ERR_SUIT_OTA_SIZE;
+            }
+            c->plain_size = c->size - SUIT_GCM_TAG_LEN;
+        }
+    }
+#endif
     memcpy(c->digest, p->digest, SUIT_DIGEST_LEN);
     c->has_digest = true;
     memcpy(c->uri, p->uri.ptr, p->uri.len);
@@ -382,8 +412,8 @@ static esp_err_t do_fetch(suit_exec_t *ex, size_t i)
     c->fetch_args_len = p->fetch_args.len;
 
     suit_target_t *tg = &c->target;
-    if (tg->staging != NULL && c->size > tg->staging->size) {
-        ESP_LOGE(TAG, "%s: %lu bytes do not fit %s (%lu)", c->id, (unsigned long)c->size,
+    if (tg->staging != NULL && c->plain_size > tg->staging->size) {   /* the slot holds plaintext */
+        ESP_LOGE(TAG, "%s: %lu bytes do not fit %s (%lu)", c->id, (unsigned long)c->plain_size,
                  tg->staging->label, (unsigned long)tg->staging->size);
         return ESP_ERR_SUIT_OTA_SIZE;
     }

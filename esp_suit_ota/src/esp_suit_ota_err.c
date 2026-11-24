@@ -26,6 +26,7 @@ const char *esp_suit_ota_err_to_name(esp_err_t err)
     case ESP_ERR_SUIT_OTA_STATE: return "ESP_ERR_SUIT_OTA_STATE";
     case ESP_ERR_SUIT_OTA_NOT_MODIFIED: return "ESP_ERR_SUIT_OTA_NOT_MODIFIED";
     case ESP_ERR_SUIT_OTA_SLOTS: return "ESP_ERR_SUIT_OTA_SLOTS";
+    case ESP_ERR_SUIT_OTA_DECRYPT: return "ESP_ERR_SUIT_OTA_DECRYPT";
     default: return NULL;
     }
 }

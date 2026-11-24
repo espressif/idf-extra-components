@@ -19,7 +19,7 @@ static esp_err_t sink_open(suit_component_t *c)
 {
     esp_err_t err;
     if (c->target.sink != NULL) {
-        err = c->target.sink->open(c->target.sink->ctx, c->size);
+        err = c->target.sink->open(c->target.sink->ctx, c->plain_size);
     } else {
         err = suit_sink_part_open(c);
     }
@@ -50,7 +50,7 @@ static esp_err_t plain_write(struct esp_suit_ota_ctx *ctx, suit_component_t *c, 
         memcpy(c->header + c->header_len, data, take);
         c->header_len += take;
         c->bytes_written += take;
-        if (c->header_len < SUIT_HEADER_PROBE_LEN && c->bytes_written < c->size) {
+        if (c->header_len < SUIT_HEADER_PROBE_LEN && c->bytes_written < c->plain_size) {
             return ESP_OK;              /* keep collecting */
         }
         err = suit_sink_check_header(c);
@@ -90,6 +90,20 @@ static esp_err_t plain_write(struct esp_suit_ota_ctx *ctx, suit_component_t *c, 
     return ESP_OK;
 }
 
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+/* the plaintext side of a decryption: everything past this point is the ordinary write path */
+typedef struct {
+    struct esp_suit_ota_ctx *ctx;
+    suit_component_t *c;
+} decrypt_user_t;
+
+static esp_err_t decrypted_write(void *user, const uint8_t *data, size_t len)
+{
+    decrypt_user_t *u = user;
+    return plain_write(u->ctx, u->c, data, len);
+}
+#endif
+
 esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index)
 {
     suit_component_t *c = &ctx->comp[index];
@@ -97,6 +111,16 @@ esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index)
     if (err != ESP_OK) {
         return err;
     }
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    if (c->encrypted) {
+        err = suit_decrypt_start(&c->decrypt);
+        if (err != ESP_OK) {
+            suit_hash_abort(&ctx->stream_hash);
+            return err;
+        }
+    }
+#endif
+    c->bytes_fetched = 0;
     c->bytes_written = 0;
     c->header_len = 0;
     c->header_checked = false;
@@ -109,19 +133,47 @@ esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index)
 
 esp_err_t suit_stream_write(struct esp_suit_ota_ctx *ctx, size_t index, const uint8_t *data, size_t len)
 {
-    return plain_write(ctx, &ctx->comp[index], data, len);
+    suit_component_t *c = &ctx->comp[index];
+    c->bytes_fetched += (uint32_t)len;
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    if (c->encrypted) {
+        decrypt_user_t u = { .ctx = ctx, .c = c };
+        return suit_decrypt_write(&c->decrypt, data, len, decrypted_write, &u);
+    }
+#endif
+    return plain_write(ctx, c, data, len);
 }
 
 esp_err_t suit_stream_close(struct esp_suit_ota_ctx *ctx, size_t index)
 {
     suit_component_t *c = &ctx->comp[index];
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    /*
+     * The last plaintext, and for an AEAD the tag check, come before the digest. A tag that does
+     * not match stops the campaign here, with the staged slot left inert.
+     */
+    if (c->encrypted) {
+        decrypt_user_t u = { .ctx = ctx, .c = c };
+        esp_err_t denc = suit_decrypt_finish(&c->decrypt, decrypted_write, &u);
+        if (denc != ESP_OK) {
+            suit_hash_abort(&ctx->stream_hash);
+            return denc;
+        }
+    }
+#endif
     uint8_t actual[SUIT_DIGEST_LEN];
     esp_err_t err = suit_hash_finish(&ctx->stream_hash, actual);
     if (err != ESP_OK) {
         return err;
     }
-    if (c->bytes_written != c->size) {
-        ESP_LOGE(TAG, "%s: %lu of %lu bytes", c->id, (unsigned long)c->bytes_written, (unsigned long)c->size);
+    if (c->bytes_fetched != c->size) {
+        ESP_LOGE(TAG, "%s: %lu of %lu bytes", c->id, (unsigned long)c->bytes_fetched,
+                 (unsigned long)c->size);
+        return ESP_ERR_SUIT_OTA_INCOMPLETE;
+    }
+    if (c->bytes_written != c->plain_size) {
+        ESP_LOGE(TAG, "%s: decrypted to %lu bytes, the manifest says %lu", c->id,
+                 (unsigned long)c->bytes_written, (unsigned long)c->plain_size);
         return ESP_ERR_SUIT_OTA_INCOMPLETE;
     }
     if (memcmp(actual, c->digest, SUIT_DIGEST_LEN) != 0) {
@@ -154,11 +206,11 @@ esp_err_t suit_stream_close(struct esp_suit_ota_ctx *ctx, size_t index)
     }
     c->state = SUIT_COMP_STAGED;
     ctx->current = SIZE_MAX;
-    esp_suit_ota_event_component_t ev = { .index = (uint8_t)index, .size = c->size };
+    esp_suit_ota_event_component_t ev = { .index = (uint8_t)index, .size = c->plain_size };
     strlcpy(ev.id, c->id, sizeof(ev.id));
     strlcpy(ev.uri, c->uri, sizeof(ev.uri));
     suit_post_event(ESP_SUIT_OTA_EVENT_COMPONENT_STAGED, &ev, sizeof(ev));
-    ESP_LOGI(TAG, "%s staged and verified (%lu bytes)", c->id, (unsigned long)c->size);
+    ESP_LOGI(TAG, "%s staged and verified (%lu bytes)", c->id, (unsigned long)c->plain_size);
     return ESP_OK;
 }
 
@@ -166,6 +218,11 @@ esp_err_t suit_stream_abort(struct esp_suit_ota_ctx *ctx, size_t index)
 {
     suit_component_t *c = &ctx->comp[index];
     suit_hash_abort(&ctx->stream_hash);
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    if (c->encrypted) {
+        suit_decrypt_abort(&c->decrypt);   /* the content key leaves memory with the operation */
+    }
+#endif
     if (c->sink_open) {
         if (c->target.sink != NULL) {
             if (c->target.sink->abort != NULL) {
@@ -188,7 +245,7 @@ esp_err_t suit_stream_digest_of_target(struct esp_suit_ota_ctx *ctx, size_t inde
 {
     suit_component_t *c = &ctx->comp[index];
     const esp_partition_t *p = staging ? c->target.staging : c->target.active;
-    size_t size = c->size;
+    size_t size = c->plain_size;
     if (c->target.sink != NULL) {
         if (!staging || c->target.sink->read == NULL) {
             return ESP_ERR_NOT_SUPPORTED;

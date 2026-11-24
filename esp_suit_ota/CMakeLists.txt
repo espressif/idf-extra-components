@@ -10,6 +10,8 @@ set(srcs
     "src/suit_sink_partition.c"
     "src/suit_map.c"
     "src/suit_persist.c"
+    "src/suit_decrypt.c"
+    "src/suit_keywrap.c"
     "src/esp_suit_ota.c"
     "src/esp_suit_ota_err.c"
     "helpers/esp_suit_ota_activate.c"

@@ -38,6 +38,7 @@ extern "C" {
 #define ESP_ERR_SUIT_OTA_STATE           (ESP_ERR_SUIT_OTA_BASE + 0x11)   /*!< Call not allowed in this state */
 #define ESP_ERR_SUIT_OTA_NOT_MODIFIED    (ESP_ERR_SUIT_OTA_BASE + 0x12)   /*!< The server answered 304 for the manifest */
 #define ESP_ERR_SUIT_OTA_SLOTS           (ESP_ERR_SUIT_OTA_BASE + 0x13)   /*!< The slots backend is not usable, so no target can be selected */
+#define ESP_ERR_SUIT_OTA_DECRYPT         (ESP_ERR_SUIT_OTA_BASE + 0x14)   /*!< No key for this encrypted payload, or its tag does not match */
 
 /**
  * @brief Name of a component error code, or NULL when the code is not one of ours.
