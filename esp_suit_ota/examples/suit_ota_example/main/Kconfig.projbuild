@@ -1,0 +1,57 @@
+menu "Example Configuration"
+
+    config EXAMPLE_USE_OTA_SLOTS
+        bool "Use esp_ota_slots for A/B targets"
+        default y
+        help
+            With this option every target has two slots. The download goes to the spare slot and
+            activation flips the slots record, so a bad release goes back to the previous data.
+
+            Without it, the example installs no slots backend. An explicit map names one live
+            partition per component and the download is written straight into it. The app still
+            rolls back, because the bootloader owns that decision, but the data partitions have
+            no previous copy to return to. This shows what esp_suit_ota does on its own.
+
+    config EXAMPLE_MANIFEST_URL
+        string "Manifest URL"
+        default "FROM_STDIN"
+        help
+            URL of the SUIT envelope. FROM_STDIN reads it from the console.
+
+    config EXAMPLE_USE_CERT_BUNDLE
+        bool "Use the certificate bundle for the release server"
+        default y
+
+    config EXAMPLE_SKIP_COMMON_NAME_CHECK
+        bool "Skip the server certificate common name check"
+        default n
+
+    config EXAMPLE_HTTP_REQUEST_SIZE
+        int "Range chunk size for payload downloads (0 = whole resource per request)"
+        default 0
+
+    config EXAMPLE_ENABLE_BLE
+        bool "Offer a second transport for components with a ble:// URI"
+        depends on BT_NIMBLE_ENABLED
+        default y
+        help
+            The device advertises a GATT service. The OTA loop publishes the resource it needs in
+            the request characteristic, and a connected peer writes those bytes into the data
+            characteristic. Without this, a ble:// URI fails with ESP_ERR_SUIT_OTA_NO_TRANSPORT.
+
+    config EXAMPLE_BLE_DEVICE_NAME
+        string "Name the device advertises"
+        depends on EXAMPLE_ENABLE_BLE
+        default "suit-ota"
+
+    config EXAMPLE_BLE_RX_BUF
+        int "Bytes buffered between the BLE write callback and the OTA loop"
+        depends on EXAMPLE_ENABLE_BLE
+        default 4096
+
+    config EXAMPLE_BLE_TIMEOUT_MS
+        int "How long the getter waits for the next chunk from the peer"
+        depends on EXAMPLE_ENABLE_BLE
+        default 30000
+
+endmenu

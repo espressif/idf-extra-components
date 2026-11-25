@@ -1,0 +1,2 @@
+cbor2>=5.4
+cryptography>=44

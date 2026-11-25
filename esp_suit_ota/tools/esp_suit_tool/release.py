@@ -1,0 +1,315 @@
+# SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
+"""Build a signed envelope from a release description.
+
+release.json (paths are relative to the file). Keys are described in tools/docs/release_json.md:
+
+  {
+    "sequence_number": 42,                   or "auto-utc": seconds since 1970
+    "vendor": "espressif.com",               UUIDv5(DNS, domain); or "vendor_pen": 41381
+    "class": "my-product",                   UUIDv5(vendor UUID, class), section 8.4.8.2
+    "reference_uri": "https://ota.example.com/rel.suit",       optional
+    "text": { "en": { "update-description": "1.2.3: fixes" } } optional, severed by default
+    "components": [
+      { "id": ["esp32c5", "app"], "file": "build/app.bin", "uri": "app.bin",
+        "skip_if_installed": true },
+      { "id": ["esp32c5", "cfg"], "file": "cfg.bin", "uri": "#cfg" }   "#name": in the envelope
+    ],
+    "signing": {
+      "keys": ["keys/manifest.pem"],         one COSE_Sign1 per key; the device needs one
+      "alg": "ESP256",                       or "ES256"
+      "kid": "mfg01"                         optional
+    }
+  }
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import time
+from dataclasses import dataclass, field
+
+from . import codes, ids, keys
+from .cbor import dumps
+from .encrypt import encrypt_payload
+from .envelope import Signer, authentication, bstr_digest, digest, entry_offsets, envelope
+
+MAX_COMPONENTS = 16
+
+
+class ReleaseError(Exception):
+    pass
+
+
+@dataclass
+class Component:
+    id: list                            # list of bytes
+    data: bytes                         # what the device fetches: the ciphertext when encrypted
+    uri: str
+    skip_if_installed: bool = False
+    fetch_args: bytes | None = None
+    enclose: bool = False               # carry the payload in the envelope under its URI
+    plain: bytes | None = None          # what lands in the slot; the digest covers this
+    encryption_info: bytes | None = None   # SUIT_Encryption_Info when the payload is encrypted
+
+    @property
+    def image(self):
+        """The bytes the device ends up with, which is what suit-parameter-image-digest covers."""
+        return self.data if self.plain is None else self.plain
+
+
+@dataclass
+class Release:
+    sequence_number: int
+    vendor: object                      # 16 UUID bytes or a cbor-pen tag
+    class_id: bytes
+    components: list
+    reference_uri: str | None = None
+    text: dict | None = None            # {language: {text key: value}}
+    signers: list = field(default_factory=list)
+
+
+@dataclass
+class Built:
+    envelope: bytes
+    manifest: bytes
+    info: dict
+
+
+def read_floor(build_dir):
+    """CONFIG_ESP_SUIT_OTA_INITIAL_SEQ from a build directory, so a release never goes below it."""
+    if not build_dir:
+        return 0
+    for cfg in (os.path.join(build_dir, 'sdkconfig'), os.path.join(os.path.dirname(build_dir.rstrip('/')), 'sdkconfig')):
+        if os.path.exists(cfg):
+            m = re.search(r'^CONFIG_ESP_SUIT_OTA_INITIAL_SEQ=(\d+)', open(cfg).read(), re.M)
+            return int(m.group(1)) if m else 0
+    return 0
+
+
+def _part(p):
+    return p.encode() if isinstance(p, str) else bytes(p)
+
+
+def _encryption(block, path):
+    """The encryption settings of a release, or None when payloads travel in the clear.
+
+    encryption:
+      recipient: keys/device_pub.pem   # the device's public key, PEM or a 65-byte point
+      content: A128GCM                 # or A128CTR, A256GCM, A256CTR
+      key_wrap: A128KW                 # or A256KW
+      kid: device-01                   # optional, identifies the recipient key
+      salt: 16                         # optional, bytes of random HKDF salt to send
+    """
+    if not block:
+        return None
+    if 'recipient' not in block:
+        raise ReleaseError('the encryption block needs "recipient", the public key of the device')
+    content_name = block.get('content', 'A128GCM')
+    kw_name = block.get('key_wrap', 'A128KW')
+    if content_name not in codes.CONTENT_ALGS:
+        raise ReleaseError(f'encryption.content must be one of {", ".join(codes.CONTENT_ALGS)}')
+    if kw_name not in codes.KW_ALGS:
+        raise ReleaseError(f'encryption.key_wrap must be one of {", ".join(codes.KW_ALGS)}')
+    salt_len = int(block.get('salt', 0))
+    if salt_len < 0 or salt_len > 64:
+        raise ReleaseError('encryption.salt is a byte count between 0 and 64')
+    return {'recipient': keys.load_public(path(block['recipient'])),
+            'content_alg': codes.CONTENT_ALGS[content_name],
+            'kw_alg': codes.KW_ALGS[kw_name],
+            'kid': block.get('kid'),
+            'salt_len': salt_len}
+
+
+def from_spec(spec, base_dir='.', key_paths=None, alg=None, min_seq=0):
+    """A Release from a parsed release.json. Relative paths resolve against base_dir."""
+    def path(p):
+        return p if os.path.isabs(p) else os.path.join(base_dir, p)
+
+    for k in ('class', 'components'):
+        if k not in spec:
+            raise ReleaseError(f'release description has no "{k}"')
+    if not spec.get('vendor') and not spec.get('vendor_pen'):
+        raise ReleaseError('release description needs "vendor" (a domain) or "vendor_pen" (an enterprise number)')
+    # The identifiers are hashed from these words, so a value of another type would hash to
+    # something nobody meant. Quote a name a parser could read as a number or a boolean.
+    for k in ('vendor', 'class'):
+        if k in spec and spec[k] is not None and not isinstance(spec[k], str):
+            raise ReleaseError(f'"{k}" must be text, not {type(spec[k]).__name__}: quote it in the release file')
+    comps = spec['components'] or []
+    if not comps:
+        raise ReleaseError('no components')
+    if len(comps) > MAX_COMPONENTS:
+        raise ReleaseError(f'more than {MAX_COMPONENTS} components')
+    seq = spec.get('sequence_number', 'auto-utc')
+    seq = int(time.time()) if seq == 'auto-utc' else int(seq)
+    if seq < min_seq:
+        raise ReleaseError(f'sequence number {seq} is below the floor {min_seq}')
+
+    if spec.get('vendor_pen'):
+        vendor = ids.pen(int(spec['vendor_pen']))
+        klass = ids.pen_class_uuid(int(spec['vendor_pen']), spec['class'])
+    else:
+        vendor = ids.vendor_uuid(spec['vendor']).bytes
+        klass = ids.class_uuid(ids.vendor_uuid(spec['vendor']), spec['class'])
+    enc = _encryption(spec.get('encryption'), path)
+    components = []
+    for n, c in enumerate(comps):
+        if not isinstance(c, dict):
+            raise ReleaseError(f'component {n + 1} is not a mapping of keys to values')
+        for k in ('id', 'file', 'uri'):
+            if k not in c:
+                raise ReleaseError(f'component {n + 1} has no "{k}"')
+        uri = c['uri']
+        try:
+            plain = open(path(c['file']), 'rb').read()
+        except OSError as e:
+            raise ReleaseError(f'component {c["id"]}: cannot read {c["file"]} ({e.strerror})') from None
+        data, info = plain, None
+        if enc is not None and c.get('encrypt', True):
+            salt = os.urandom(enc['salt_len']) if enc['salt_len'] else None
+            out = encrypt_payload(plain, enc['recipient'], enc['content_alg'], enc['kw_alg'],
+                                  enc['kid'], salt=salt)
+            data, info = out.ciphertext, out.info
+        components.append(Component(
+            id=[_part(p) for p in c['id']],
+            data=data,
+            uri=uri,
+            skip_if_installed=bool(c.get('skip_if_installed', False)),
+            fetch_args=_part(c['fetch_args']) if 'fetch_args' in c else None,
+            enclose=uri.startswith('#') or bool(c.get('prefetch', False)),
+            plain=plain if info is not None else None,
+            encryption_info=info))
+    seen = set()
+    for c in components:
+        if tuple(c.id) in seen:
+            raise ReleaseError(f'component {c.id} is listed twice')
+        seen.add(tuple(c.id))
+
+    signing = spec.get('signing', {}) or {}
+    paths = key_paths or signing.get('keys') or ([signing['key']] if signing.get('key') else [])
+    if not paths:
+        raise ReleaseError('no signing key: set signing.keys in the release or pass --key')
+    alg_name = alg or signing.get('alg', 'ESP256')
+    if alg_name not in codes.SIGNATURE_ALGS:
+        raise ReleaseError(f'signing.alg must be one of {", ".join(codes.SIGNATURE_ALGS)}')
+    kid = signing.get('kid')
+    signers = [Signer(keys.load_private(path(p) if key_paths is None else p), codes.SIGNATURE_ALGS[alg_name],
+                      kid.encode() if isinstance(kid, str) else kid) for p in paths]
+
+    text = None
+    if spec.get('text'):
+        text = {lang: {codes.TEXT_KEYS.get(k, k): v for k, v in fields.items()} for lang, fields in spec['text'].items()}
+
+    return Release(sequence_number=seq,
+                   vendor=vendor,
+                   class_id=klass.bytes, components=components, reference_uri=spec.get('reference_uri'),
+                   text=text, signers=signers)
+
+
+def read_spec(path):
+    """A release description from a JSON file.
+
+    JSON is the only format. It is in the standard library, so the tool has one dependency
+    less, and every value means exactly what it looks like. A YAML 1.1 parser read the plain
+    word no as False, so `class: no` silently produced the identifier of an empty string, which
+    no device matched.
+    """
+    try:
+        text = open(path, encoding='utf-8').read()
+    except OSError as e:
+        raise ReleaseError(f'cannot read {path} ({e.strerror})') from None
+    try:
+        spec = json.loads(text)
+    except json.JSONDecodeError as e:
+        hint = ''
+        if path.lower().endswith(('.yml', '.yaml')):
+            hint = '. A release description is JSON, and YAML is no longer read'
+        raise ReleaseError(f'{path}: not valid JSON ({e}){hint}') from None
+    if not isinstance(spec, dict):
+        raise ReleaseError(f'{path}: not a release description')
+    return spec
+
+
+def load(path, key_paths=None, alg=None, min_seq=0):
+    return from_spec(read_spec(path), os.path.dirname(os.path.abspath(path)), key_paths, alg, min_seq)
+
+
+def sequences(r):
+    """The shared, install and validate command sequences for a release.
+
+    Draft section 6.3: with more than one component, every sequence begins with set-component-index.
+    The shared sequence sets each component's identity and image parameters, then checks vendor and
+    class for all of them. Install fetches each one, or skips it when the image already matches.
+    """
+    multi = len(r.components) > 1
+    shared = []
+    for i, c in enumerate(r.components):
+        if multi:
+            shared += [codes.SET_INDEX, i]
+        shared += [codes.OVERRIDE, {codes.P_VENDOR: r.vendor, codes.P_CLASS: r.class_id,
+                                    codes.P_DIGEST: dumps(digest(c.image)), codes.P_SIZE: len(c.data)}]
+    if multi:
+        shared += [codes.SET_INDEX, True]
+    shared += [codes.COND_VENDOR, codes.REP_ALL, codes.COND_CLASS, codes.REP_ALL]
+
+    install = []
+    for i, c in enumerate(r.components):
+        if multi:
+            install += [codes.SET_INDEX, i]
+        params = {codes.P_URI: c.uri}
+        if c.encryption_info is not None:
+            params[codes.P_ENCRYPTION_INFO] = c.encryption_info
+        if c.fetch_args is not None:
+            params[codes.P_FETCH_ARGS] = c.fetch_args
+        install += [codes.OVERRIDE, params]
+        fetch = [codes.FETCH, codes.REP_FAIL, codes.COND_IMAGE_MATCH, codes.REP_ALL]
+        if c.skip_if_installed:
+            install += [codes.TRY_EACH, [dumps([codes.COND_IMAGE_MATCH, codes.REP_ALL]), dumps(fetch)]]
+        else:
+            install += fetch
+
+    validate = ([codes.SET_INDEX, True] if multi else []) + [codes.COND_IMAGE_MATCH, codes.REP_ALL]
+    return shared, install, validate
+
+
+def build(r, sever_install=False, inline_text=False):
+    shared, install, validate = sequences(r)
+    common = dumps({codes.COMMON_COMPONENTS: [c.id for c in r.components], codes.COMMON_SHARED: dumps(shared)})
+    manifest = {codes.MAN_VERSION: 1, codes.MAN_SEQUENCE: r.sequence_number, codes.MAN_COMMON: common,
+                codes.MAN_VALIDATE: dumps(validate)}
+    if r.reference_uri:
+        manifest[codes.MAN_REFERENCE_URI] = r.reference_uri
+    severed = {}
+    install_bytes = dumps(install)
+    if sever_install:
+        manifest[codes.MAN_INSTALL] = bstr_digest(install_bytes)
+        severed[codes.ENV_INSTALL] = install_bytes
+    else:
+        manifest[codes.MAN_INSTALL] = install_bytes
+    if r.text:
+        text_bytes = dumps(r.text)
+        if inline_text:
+            manifest[codes.MAN_TEXT] = text_bytes
+        else:
+            manifest[codes.MAN_TEXT] = bstr_digest(text_bytes)
+            severed[codes.ENV_TEXT] = text_bytes
+    manifest_bytes = dumps(manifest)
+    integrated = {c.uri: c.data for c in r.components if c.enclose}
+    env = envelope(authentication(manifest_bytes, r.signers), manifest_bytes, severed, integrated)
+    vendor = r.vendor.hex() if isinstance(r.vendor, bytes) else f'pen:{r.vendor.value.hex()}'
+    info = {
+        'sequence_number': r.sequence_number,
+        'vendor_id': vendor,
+        'class_id': r.class_id.hex(),
+        'envelope_size': len(env),
+        'entries': entry_offsets(env),
+        'components': [{'id': [p.decode(errors='replace') for p in c.id], 'uri': c.uri, 'size': len(c.data),
+                        'sha256': hashlib.sha256(c.image).hexdigest(), 'enclosed': c.enclose,
+                        'encrypted': c.encryption_info is not None,
+                        **({'plaintext_size': len(c.plain)} if c.plain is not None else {})}
+                       for c in r.components],
+    }
+    return Built(env, manifest_bytes, info)

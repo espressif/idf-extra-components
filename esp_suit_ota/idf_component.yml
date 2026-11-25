@@ -1,0 +1,7 @@
+version: "0.1.0"
+description: SUIT manifest based OTA for ESP-IDF (multi-partition releases over the native app_update API)
+url: https://github.com/espressif/idf-extra-components/tree/master/esp_suit_ota
+repository: https://github.com/espressif/idf-extra-components.git
+issues: https://github.com/espressif/idf-extra-components/issues
+dependencies:
+  idf: ">=6.0"

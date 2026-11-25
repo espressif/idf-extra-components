@@ -1,0 +1,9 @@
+# Name,      Type, SubType,  Offset,   Size,  Flags
+nvs,         data, nvs,      0x9000,   24K,
+phy_init,    data, phy,      0xf000,   4K,
+factory,     app,  factory,  0x10000,  1500K,
+f1_0,        data, 0x41,     ,         64K,
+f1_1,        data, 0x41,     ,         64K,
+cfg,         data, 0x41,     ,         64K,
+cfg_staging, data, 0x41,     ,         64K,
+blob,        data, 0x41,     ,         64K,

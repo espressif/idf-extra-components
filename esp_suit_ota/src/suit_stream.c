@@ -1,0 +1,284 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#include <stdlib.h>
+#include "suit_priv.h"
+
+static const char *TAG = SUIT_TAG;
+
+#define READBACK_CHUNK 1024
+
+static bool needs_header_probe(const suit_component_t *c)
+{
+    return c->target.sink == NULL && c->target.verify == ESP_SUIT_VERIFY_APP_IMAGE;
+}
+
+static esp_err_t sink_open(suit_component_t *c)
+{
+    esp_err_t err;
+    if (c->target.sink != NULL) {
+        err = c->target.sink->open(c->target.sink->ctx, c->plain_size);
+    } else {
+        err = suit_sink_part_open(c);
+    }
+    if (err == ESP_OK) {
+        c->sink_open = true;
+    }
+    return err;
+}
+
+static esp_err_t sink_write(suit_component_t *c, const uint8_t *data, size_t len)
+{
+    if (c->target.sink != NULL) {
+        return c->target.sink->write(c->target.sink->ctx, c->bytes_written, data, len);
+    }
+    return suit_sink_part_write(c, data, len);
+}
+
+/* hashed, then written, with the app header probed first */
+static esp_err_t plain_write(struct esp_suit_ota_ctx *ctx, suit_component_t *c, const uint8_t *data, size_t len)
+{
+    esp_err_t err = suit_hash_update(&ctx->stream_hash, data, len);
+    if (err != ESP_OK) {
+        return err;
+    }
+    if (!c->header_checked && needs_header_probe(c)) {
+        size_t room = SUIT_HEADER_PROBE_LEN - c->header_len;
+        size_t take = len < room ? len : room;
+        memcpy(c->header + c->header_len, data, take);
+        c->header_len += take;
+        c->bytes_written += take;
+        if (c->header_len < SUIT_HEADER_PROBE_LEN && c->bytes_written < c->plain_size) {
+            return ESP_OK;              /* keep collecting */
+        }
+        err = suit_sink_check_header(c);
+        if (err != ESP_OK) {
+            return err;
+        }
+        c->header_checked = true;
+        c->bytes_written -= c->header_len;
+        if (!c->sink_open) {
+            err = sink_open(c);
+            if (err != ESP_OK) {
+                return err;
+            }
+        }
+        err = sink_write(c, c->header, c->header_len);
+        if (err != ESP_OK) {
+            return err;
+        }
+        c->bytes_written += c->header_len;
+        data += take;
+        len -= take;
+        if (len == 0) {
+            return ESP_OK;
+        }
+    }
+    if (!c->sink_open) {
+        err = sink_open(c);
+        if (err != ESP_OK) {
+            return err;
+        }
+    }
+    err = sink_write(c, data, len);
+    if (err != ESP_OK) {
+        return err;
+    }
+    c->bytes_written += len;
+    return ESP_OK;
+}
+
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+/* the plaintext side of a decryption: everything past this point is the ordinary write path */
+typedef struct {
+    struct esp_suit_ota_ctx *ctx;
+    suit_component_t *c;
+} decrypt_user_t;
+
+static esp_err_t decrypted_write(void *user, const uint8_t *data, size_t len)
+{
+    decrypt_user_t *u = user;
+    return plain_write(u->ctx, u->c, data, len);
+}
+#endif
+
+esp_err_t suit_stream_open(struct esp_suit_ota_ctx *ctx, size_t index)
+{
+    suit_component_t *c = &ctx->comp[index];
+    esp_err_t err = suit_hash_start(&ctx->stream_hash);
+    if (err != ESP_OK) {
+        return err;
+    }
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    if (c->encrypted) {
+        err = suit_decrypt_start(&c->decrypt);
+        if (err != ESP_OK) {
+            suit_hash_abort(&ctx->stream_hash);
+            return err;
+        }
+    }
+#endif
+    c->bytes_fetched = 0;
+    c->bytes_written = 0;
+    c->header_len = 0;
+    c->header_checked = false;
+    c->sink_open = false;
+    c->state = SUIT_COMP_WRITING;
+    ctx->current = index;
+    ctx->progress_mark = 0;
+    return ESP_OK;
+}
+
+esp_err_t suit_stream_write(struct esp_suit_ota_ctx *ctx, size_t index, const uint8_t *data, size_t len)
+{
+    suit_component_t *c = &ctx->comp[index];
+    c->bytes_fetched += (uint32_t)len;
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    if (c->encrypted) {
+        decrypt_user_t u = { .ctx = ctx, .c = c };
+        return suit_decrypt_write(&c->decrypt, data, len, decrypted_write, &u);
+    }
+#endif
+    return plain_write(ctx, c, data, len);
+}
+
+esp_err_t suit_stream_close(struct esp_suit_ota_ctx *ctx, size_t index)
+{
+    suit_component_t *c = &ctx->comp[index];
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    /*
+     * The last plaintext, and for an AEAD the tag check, come before the digest. A tag that does
+     * not match stops the campaign here, with the staged slot left inert.
+     */
+    if (c->encrypted) {
+        decrypt_user_t u = { .ctx = ctx, .c = c };
+        esp_err_t denc = suit_decrypt_finish(&c->decrypt, decrypted_write, &u);
+        if (denc != ESP_OK) {
+            suit_hash_abort(&ctx->stream_hash);
+            return denc;
+        }
+    }
+#endif
+    uint8_t actual[SUIT_DIGEST_LEN];
+    esp_err_t err = suit_hash_finish(&ctx->stream_hash, actual);
+    if (err != ESP_OK) {
+        return err;
+    }
+    if (c->bytes_fetched != c->size) {
+        ESP_LOGE(TAG, "%s: %lu of %lu bytes", c->id, (unsigned long)c->bytes_fetched,
+                 (unsigned long)c->size);
+        return ESP_ERR_SUIT_OTA_INCOMPLETE;
+    }
+    if (c->bytes_written != c->plain_size) {
+        ESP_LOGE(TAG, "%s: decrypted to %lu bytes, the manifest says %lu", c->id,
+                 (unsigned long)c->bytes_written, (unsigned long)c->plain_size);
+        return ESP_ERR_SUIT_OTA_INCOMPLETE;
+    }
+    if (memcmp(actual, c->digest, SUIT_DIGEST_LEN) != 0) {
+        ESP_LOGE(TAG, "%s: digest mismatch", c->id);
+        return ESP_ERR_SUIT_OTA_DIGEST;
+    }
+    if (c->target.sink != NULL) {
+        uint8_t remote[SUIT_DIGEST_LEN];
+        err = c->target.sink->close(c->target.sink->ctx, remote);
+        c->sink_open = false;
+        if (err == ESP_OK && memcmp(remote, actual, SUIT_DIGEST_LEN) != 0) {
+            ESP_LOGE(TAG, "%s: the sink computed a different digest", c->id);
+            return ESP_ERR_SUIT_OTA_DIGEST;
+        }
+        if (err != ESP_OK && err != ESP_ERR_NOT_SUPPORTED) {
+            return ESP_ERR_SUIT_OTA_IMAGE;
+        }
+    } else {
+        if (!c->sink_open) {
+            err = sink_open(c);       /* zero-length payload */
+            if (err != ESP_OK) {
+                return err;
+            }
+        }
+        err = suit_sink_part_close(c);
+        c->sink_open = false;
+        if (err != ESP_OK) {
+            return err;
+        }
+    }
+    c->state = SUIT_COMP_STAGED;
+    ctx->current = SIZE_MAX;
+    esp_suit_ota_event_component_t ev = { .index = (uint8_t)index, .size = c->plain_size };
+    strlcpy(ev.id, c->id, sizeof(ev.id));
+    strlcpy(ev.uri, c->uri, sizeof(ev.uri));
+    suit_post_event(ESP_SUIT_OTA_EVENT_COMPONENT_STAGED, &ev, sizeof(ev));
+    ESP_LOGI(TAG, "%s staged and verified (%lu bytes)", c->id, (unsigned long)c->plain_size);
+    return ESP_OK;
+}
+
+esp_err_t suit_stream_abort(struct esp_suit_ota_ctx *ctx, size_t index)
+{
+    suit_component_t *c = &ctx->comp[index];
+    suit_hash_abort(&ctx->stream_hash);
+#if CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD
+    if (c->encrypted) {
+        suit_decrypt_abort(&c->decrypt);   /* the content key leaves memory with the operation */
+    }
+#endif
+    if (c->sink_open) {
+        if (c->target.sink != NULL) {
+            if (c->target.sink->abort != NULL) {
+                c->target.sink->abort(c->target.sink->ctx);
+            }
+        } else {
+            suit_sink_part_abort(c);
+        }
+        c->sink_open = false;
+    }
+    if (c->state == SUIT_COMP_WRITING) {
+        c->state = SUIT_COMP_PENDING;
+    }
+    ctx->current = SIZE_MAX;
+    return ESP_OK;
+}
+
+esp_err_t suit_stream_digest_of_target(struct esp_suit_ota_ctx *ctx, size_t index, bool staging,
+                                       uint8_t out[SUIT_DIGEST_LEN])
+{
+    suit_component_t *c = &ctx->comp[index];
+    const esp_partition_t *p = staging ? c->target.staging : c->target.active;
+    size_t size = c->plain_size;
+    if (c->target.sink != NULL) {
+        if (!staging || c->target.sink->read == NULL) {
+            return ESP_ERR_NOT_SUPPORTED;
+        }
+    } else if (p == NULL) {
+        return ESP_ERR_NOT_SUPPORTED;
+    } else if (size > p->size) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    uint8_t *buf = malloc(READBACK_CHUNK);
+    if (buf == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    suit_hash_t h;
+    esp_err_t err = suit_hash_start(&h);
+    size_t off = 0;
+    while (err == ESP_OK && off < size) {
+        size_t n = size - off < READBACK_CHUNK ? size - off : READBACK_CHUNK;
+        if (c->target.sink != NULL) {
+            err = c->target.sink->read(c->target.sink->ctx, off, buf, n);
+        } else {
+            err = suit_sink_part_read(p, off, buf, n);
+        }
+        if (err == ESP_OK) {
+            err = suit_hash_update(&h, buf, n);
+        }
+        off += n;
+    }
+    if (err == ESP_OK) {
+        err = suit_hash_finish(&h, out);
+    } else {
+        suit_hash_abort(&h);
+    }
+    free(buf);
+    return err;
+}
