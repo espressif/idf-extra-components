@@ -47,7 +47,7 @@ Then make the release and put it, with its payloads, in one directory on a serve
 
 ```
 cd release
-esp-suit create release.yml
+esp-suit create release.json
 mkdir -p www
 cp release.suit www/
 cp ../build_v2/suit_ota_example.bin www/app.bin
@@ -55,13 +55,13 @@ cp f1_v2.bin www/f1.bin
 cp cfg_v1.bin www/cfg.bin
 ```
 
-`release/release.yml` lists the app, `f1` and `cfg`. The URIs are relative, so the device fetches each payload from the directory of `release.suit`. Serve `www` over HTTPS and type the URL of `release.suit` on the console. For a quick test on your own network, you can serve it over HTTP instead: set `CONFIG_ESP_SUIT_OTA_HTTPS_ALLOW_HTTP` and run `python -m http.server` in `www`.
+`release/release.json` lists the app, `f1` and `cfg`. The URIs are relative, so the device fetches each payload from the directory of `release.suit`. Serve `www` over HTTPS and type the URL of `release.suit` on the console. For a quick test on your own network, you can serve it over HTTP instead: set `CONFIG_ESP_SUIT_OTA_HTTPS_ALLOW_HTTP` and run `python -m http.server` in `www`.
 
-`release/partial_release.yml` updates `f1` without `app`. The device refuses it with `ESP_ERR_SUIT_OTA_GROUP`, because `f1` and `app` are in one group.
+`release/partial_release.json` updates `f1` without `app`. The device refuses it with `ESP_ERR_SUIT_OTA_GROUP`, because `f1` and `app` are in one group.
 
 ## Fetch a component over BLE
 
-Change the URI of a component in `release.yml` to `ble://f1.bin`, and make the release again. The device advertises as `suit-ota` (`CONFIG_EXAMPLE_BLE_DEVICE_NAME`). When the campaign reaches that component, the device notifies a connected peer on the request characteristic with one line of text:
+Change the URI of a component in `release.json` to `ble://f1.bin`, and make the release again. The device advertises as `suit-ota` (`CONFIG_EXAMPLE_BLE_DEVICE_NAME`). When the campaign reaches that component, the device notifies a connected peer on the request characteristic with one line of text:
 
 ```
 GET <uri> <offset> <length>

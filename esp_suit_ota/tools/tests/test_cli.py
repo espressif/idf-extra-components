@@ -47,10 +47,10 @@ def test_ids(tmp_path):
 
 
 def test_create_verify_inspect(workdir):
-    r = run_cli('create', 'release.yml', cwd=workdir)
+    r = run_cli('create', 'release.json', cwd=workdir)
     assert r.returncode == 0, r.stderr
     assert (workdir / 'release.suit').exists()
-    info = json.loads((workdir / 'release.json').read_text())
+    info = json.loads((workdir / 'release.info.json').read_text())
     assert info['sequence_number'] == 7 and len(info['components']) == 2
 
     r = run_cli('verify', 'release.suit', '--key', 'key.pem', '--payload', 'app.bin=app.bin',
@@ -65,31 +65,31 @@ def test_create_verify_inspect(workdir):
 
 
 def test_verify_fails_on_a_changed_payload(workdir):
-    run_cli('create', 'release.yml', cwd=workdir)
+    run_cli('create', 'release.json', cwd=workdir)
     (workdir / 'bad.bin').write_bytes((workdir / 'app.bin').read_bytes()[:-1])
     r = run_cli('verify', 'release.suit', '--key', 'key.pem', '--payload', 'app.bin=bad.bin', cwd=workdir)
     assert r.returncode == 1 and 'FAIL  payload "app.bin"' in r.stdout
 
 
 def test_verify_without_a_key_says_so(workdir):
-    run_cli('create', 'release.yml', cwd=workdir)
+    run_cli('create', 'release.json', cwd=workdir)
     r = run_cli('verify', 'release.suit', cwd=workdir)
     assert r.returncode == 0 and 'signature was not checked' in r.stdout
 
 
 def test_create_options(workdir):
-    r = run_cli('create', 'release.yml', '-o', 'x.suit', '--sever-install', '--inline-text', '--alg', 'ES256',
+    r = run_cli('create', 'release.json', '-o', 'x.suit', '--sever-install', '--inline-text', '--alg', 'ES256',
                 cwd=workdir)
     assert r.returncode == 0, r.stderr
-    assert (workdir / 'x.json').exists()
+    assert (workdir / 'x.info.json').exists()
     out = run_cli('inspect', 'x.suit', cwd=workdir).stdout
     assert '/ install / 20: [ -16' in out and 'ES256' in out
 
 
 def test_errors_exit_2_with_a_message(workdir):
-    r = run_cli('create', 'release.yml', '--key', 'missing.pem', cwd=workdir)
+    r = run_cli('create', 'release.json', '--key', 'missing.pem', cwd=workdir)
     assert r.returncode == 2 and r.stderr.startswith('esp-suit:')
-    r = run_cli('create', 'release.yml', '--min-seq', '100', cwd=workdir)
+    r = run_cli('create', 'release.json', '--min-seq', '100', cwd=workdir)
     assert r.returncode == 2 and 'below the floor' in r.stderr
 
 

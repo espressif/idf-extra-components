@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
+import json
 import os
 import subprocess
 import sys
@@ -31,19 +32,21 @@ def appendix_b():
 
 @pytest.fixture
 def workdir(tmp_path, spec_key):
-    """A release directory: a signing key, two payload files and a release.yml that uses them."""
+    """A release directory: a signing key, two payload files and a release.json that uses them."""
     keys.write_private(spec_key, str(tmp_path / 'key.pem'))
     (tmp_path / 'app.bin').write_bytes(bytes([0xE9]) + bytes(range(256)) * 8)
     (tmp_path / 'cfg.bin').write_bytes(b'CFG-v1' + bytes(100))
-    (tmp_path / 'release.yml').write_text(
-        'sequence_number: 7\n'
-        'vendor: espressif.com\n'
-        'class: tool-test\n'
-        'text: { en: { update-description: "tool test" } }\n'
-        'components:\n'
-        '  - { id: [esp32c5, app], file: app.bin, uri: app.bin, skip_if_installed: true }\n'
-        '  - { id: [esp32c5, cfg], file: cfg.bin, uri: "#cfg" }\n'
-        'signing: { keys: [key.pem] }\n')
+    (tmp_path / 'release.json').write_text(json.dumps({
+        'sequence_number': 7,
+        'vendor': 'espressif.com',
+        'class': 'tool-test',
+        'text': {'en': {'update-description': 'tool test'}},
+        'components': [
+            {'id': ['esp32c5', 'app'], 'file': 'app.bin', 'uri': 'app.bin', 'skip_if_installed': True},
+            {'id': ['esp32c5', 'cfg'], 'file': 'cfg.bin', 'uri': '#cfg'},
+        ],
+        'signing': {'keys': ['key.pem']},
+    }, indent=2))
     return tmp_path
 
 

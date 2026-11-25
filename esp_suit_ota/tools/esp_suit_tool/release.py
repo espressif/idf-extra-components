@@ -2,24 +2,30 @@
 # SPDX-License-Identifier: Apache-2.0
 """Build a signed envelope from a release description.
 
-release.yml (paths are relative to the YAML file):
+release.json (paths are relative to the file). Keys are described in tools/docs/release_json.md:
 
-  sequence_number: 42                  # or auto-utc: seconds since 1970
-  vendor: espressif.com                # UUIDv5(DNS, domain); or vendor_pen: 41381 to send cbor-pen
-  class: my-product                    # UUIDv5(vendor UUID, class), section 8.4.8.2
-  reference_uri: https://ota.example.com/rel.suit      # optional
-  text: { en: { update-description: "1.2.3: fixes" } } # optional, severed unless inline_text
-  components:
-    - { id: [esp32c5, app], file: build/app.bin, uri: app.bin, skip_if_installed: true }
-    - { id: [esp32c5, cfg], file: cfg.bin,       uri: "#cfg" }   # "#name": carried in the envelope
-  signing:
-    keys: [keys/manifest.pem]          # one COSE_Sign1 per key; the device needs one it trusts
-    alg: ESP256                        # or ES256
-    kid: mfg01                         # optional
+  {
+    "sequence_number": 42,                   or "auto-utc": seconds since 1970
+    "vendor": "espressif.com",               UUIDv5(DNS, domain); or "vendor_pen": 41381
+    "class": "my-product",                   UUIDv5(vendor UUID, class), section 8.4.8.2
+    "reference_uri": "https://ota.example.com/rel.suit",       optional
+    "text": { "en": { "update-description": "1.2.3: fixes" } } optional, severed by default
+    "components": [
+      { "id": ["esp32c5", "app"], "file": "build/app.bin", "uri": "app.bin",
+        "skip_if_installed": true },
+      { "id": ["esp32c5", "cfg"], "file": "cfg.bin", "uri": "#cfg" }   "#name": in the envelope
+    ],
+    "signing": {
+      "keys": ["keys/manifest.pem"],         one COSE_Sign1 per key; the device needs one
+      "alg": "ESP256",                       or "ES256"
+      "kid": "mfg01"                         optional
+    }
+  }
 """
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import time
@@ -118,7 +124,7 @@ def _encryption(block, path):
 
 
 def from_spec(spec, base_dir='.', key_paths=None, alg=None, min_seq=0):
-    """A Release from a parsed release.yml. Relative paths resolve against base_dir."""
+    """A Release from a parsed release.json. Relative paths resolve against base_dir."""
     def path(p):
         return p if os.path.isabs(p) else os.path.join(base_dir, p)
 
@@ -127,6 +133,11 @@ def from_spec(spec, base_dir='.', key_paths=None, alg=None, min_seq=0):
             raise ReleaseError(f'release description has no "{k}"')
     if not spec.get('vendor') and not spec.get('vendor_pen'):
         raise ReleaseError('release description needs "vendor" (a domain) or "vendor_pen" (an enterprise number)')
+    # The identifiers are hashed from these words, so a value of another type would hash to
+    # something nobody meant. Quote a name a parser could read as a number or a boolean.
+    for k in ('vendor', 'class'):
+        if k in spec and spec[k] is not None and not isinstance(spec[k], str):
+            raise ReleaseError(f'"{k}" must be text, not {type(spec[k]).__name__}: quote it in the release file')
     comps = spec['components'] or []
     if not comps:
         raise ReleaseError('no components')
@@ -145,9 +156,17 @@ def from_spec(spec, base_dir='.', key_paths=None, alg=None, min_seq=0):
         klass = ids.class_uuid(ids.vendor_uuid(spec['vendor']), spec['class'])
     enc = _encryption(spec.get('encryption'), path)
     components = []
-    for c in comps:
+    for n, c in enumerate(comps):
+        if not isinstance(c, dict):
+            raise ReleaseError(f'component {n + 1} is not a mapping of keys to values')
+        for k in ('id', 'file', 'uri'):
+            if k not in c:
+                raise ReleaseError(f'component {n + 1} has no "{k}"')
         uri = c['uri']
-        plain = open(path(c['file']), 'rb').read()
+        try:
+            plain = open(path(c['file']), 'rb').read()
+        except OSError as e:
+            raise ReleaseError(f'component {c["id"]}: cannot read {c["file"]} ({e.strerror})') from None
         data, info = plain, None
         if enc is not None and c.get('encrypt', True):
             salt = os.urandom(enc['salt_len']) if enc['salt_len'] else None
@@ -190,12 +209,32 @@ def from_spec(spec, base_dir='.', key_paths=None, alg=None, min_seq=0):
                    text=text, signers=signers)
 
 
-def load(yaml_path, key_paths=None, alg=None, min_seq=0):
-    import yaml
-    spec = yaml.safe_load(open(yaml_path))
+def read_spec(path):
+    """A release description from a JSON file.
+
+    JSON is the only format. It is in the standard library, so the tool has one dependency
+    less, and every value means exactly what it looks like. A YAML 1.1 parser read the plain
+    word no as False, so `class: no` silently produced the identifier of an empty string, which
+    no device matched.
+    """
+    try:
+        text = open(path, encoding='utf-8').read()
+    except OSError as e:
+        raise ReleaseError(f'cannot read {path} ({e.strerror})') from None
+    try:
+        spec = json.loads(text)
+    except json.JSONDecodeError as e:
+        hint = ''
+        if path.lower().endswith(('.yml', '.yaml')):
+            hint = '. A release description is JSON, and YAML is no longer read'
+        raise ReleaseError(f'{path}: not valid JSON ({e}){hint}') from None
     if not isinstance(spec, dict):
-        raise ReleaseError(f'{yaml_path}: not a release description')
-    return from_spec(spec, os.path.dirname(os.path.abspath(yaml_path)), key_paths, alg, min_seq)
+        raise ReleaseError(f'{path}: not a release description')
+    return spec
+
+
+def load(path, key_paths=None, alg=None, min_seq=0):
+    return from_spec(read_spec(path), os.path.dirname(os.path.abspath(path)), key_paths, alg, min_seq)
 
 
 def sequences(r):

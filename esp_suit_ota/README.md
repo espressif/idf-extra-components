@@ -17,7 +17,7 @@ depend on either of them.
 ## How a release works
 
 ```
-release.yml        build/app.bin     f1.bin
+release.json       build/app.bin     f1.bin
      │                   │             │
      └──── esp-suit create ────────────┘
                    │
@@ -34,7 +34,7 @@ idf.py add-dependency "espressif/esp_suit_ota"
 pip install -e path/to/esp_suit_ota/tools        # the esp-suit command
 ```
 
-The `esp-suit` tool needs Python 3.9 or later, with `cbor2`, `cryptography` 44 or later, and `PyYAML`. You can also run it without installing: `python tools/esp_suit.py <command>`. See [tools/README.md](tools/README.md).
+The `esp-suit` tool needs Python 3.9 or later, with `cbor2` and `cryptography` 44 or later. You can also run it without installing: `python tools/esp_suit.py <command>`. See [tools/README.md](tools/README.md).
 
 ## Quick start
 
@@ -145,21 +145,24 @@ The `esp-suit` tool needs Python 3.9 or later, with `cbor2`, `cryptography` 44 o
 
 5. Make the release on the build machine.
 
-   ```yaml
-   # release.yml
-   sequence_number: auto-utc
-   vendor: example.com
-   class: my-product-hw2
-   text: { en: { update-description: "1.2.3: fixes" } }
-   components:
-     - { id: [board, app], file: build/app.bin, uri: app.bin, skip_if_installed: true }
-     - { id: [board, f1],  file: f1.bin,        uri: f1.bin }
-   signing:
-     keys: [keys/manifest_key.pem]
+   ```json
+   {
+     "sequence_number": "auto-utc",
+     "vendor": "example.com",
+     "class": "my-product-hw2",
+     "text": { "en": { "update-description": "1.2.3: fixes" } },
+     "components": [
+       { "id": ["board", "app"], "file": "build/app.bin", "uri": "app.bin", "skip_if_installed": true },
+       { "id": ["board", "f1"],  "file": "f1.bin",        "uri": "f1.bin" }
+     ],
+     "signing": { "keys": ["keys/manifest_key.pem"] }
+   }
    ```
 
+   Every key is listed in [tools/docs/release_json.md](tools/docs/release_json.md).
+
    ```
-   esp-suit create release.yml --build-dir build
+   esp-suit create release.json --build-dir build
    esp-suit verify release.suit --key main/keys/anchor_p256.bin --payload app.bin=build/app.bin
    ```
 

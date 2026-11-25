@@ -10,7 +10,7 @@ from esp_suit_tool.envelope import Signer, authentication, envelope
 
 @pytest.fixture
 def built(workdir):
-    return release.build(release.load(str(workdir / 'release.yml')))
+    return release.build(release.load(str(workdir / 'release.json')))
 
 
 def _env(b):

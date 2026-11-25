@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Envelopes built from a release description follow the draft's structure rules."""
 import hashlib
+import json
 
 import pytest
 
@@ -22,14 +23,14 @@ def _sequences(env, man):
 
 
 def test_release_verifies(workdir, spec_pub):
-    built = release.build(release.load(str(workdir / 'release.yml')))
+    built = release.build(release.load(str(workdir / 'release.json')))
     r = verify(built.envelope, [spec_pub])
     assert r.ok, str(r)
     assert r.sequence_number == 7
 
 
 def test_manifest_structure(workdir):
-    env, man = _manifest(release.build(release.load(str(workdir / 'release.yml'))).envelope)
+    env, man = _manifest(release.build(release.load(str(workdir / 'release.json'))).envelope)
     assert man[codes.MAN_VERSION] == 1 and man[codes.MAN_SEQUENCE] == 7
     common = cbor.loads(man[codes.MAN_COMMON])
     assert common[codes.COMMON_COMPONENTS] == [[b'esp32c5', b'app'], [b'esp32c5', b'cfg']]
@@ -38,28 +39,29 @@ def test_manifest_structure(workdir):
 
 def test_every_sequence_begins_with_set_component_index(workdir):
     """Section 6.3: with more than one component, every command sequence begins with it."""
-    env, man = _manifest(release.build(release.load(str(workdir / 'release.yml'))).envelope)
+    env, man = _manifest(release.build(release.load(str(workdir / 'release.json'))).envelope)
     for name, seq in _sequences(env, man).items():
         assert seq[0] == codes.SET_INDEX, name
 
 
 def test_shared_sequence_checks_vendor_and_class(workdir):
     """Section 6.3: the shared sequence carries the vendor and class conditions."""
-    env, man = _manifest(release.build(release.load(str(workdir / 'release.yml'))).envelope)
+    env, man = _manifest(release.build(release.load(str(workdir / 'release.json'))).envelope)
     shared = _sequences(env, man)['shared']
     assert codes.COND_VENDOR in shared[0::2] and codes.COND_CLASS in shared[0::2]
 
 
 def test_single_component_needs_no_index(workdir):
-    y = workdir / 'one.yml'
-    y.write_text('sequence_number: 1\nvendor: espressif.com\nclass: c\n'
-                 'components: [ { id: [x], file: cfg.bin, uri: "#cfg" } ]\nsigning: { keys: [key.pem] }\n')
+    y = workdir / 'one.json'
+    y.write_text('{"sequence_number": 1, "vendor": "espressif.com", "class": "c",'
+                 ' "components": [{"id": ["x"], "file": "cfg.bin", "uri": "#cfg"}],'
+                 ' "signing": {"keys": ["key.pem"]}}')
     env, man = _manifest(release.build(release.load(str(y))).envelope)
     assert _sequences(env, man)['shared'][0] == codes.OVERRIDE
 
 
 def test_skip_if_installed_is_a_try_each(workdir):
-    env, man = _manifest(release.build(release.load(str(workdir / 'release.yml'))).envelope)
+    env, man = _manifest(release.build(release.load(str(workdir / 'release.json'))).envelope)
     install = _sequences(env, man)['install']
     i = install.index(codes.TRY_EACH)
     branches = install[i + 1]
@@ -68,12 +70,12 @@ def test_skip_if_installed_is_a_try_each(workdir):
 
 
 def test_integrated_payload_is_carried_under_its_uri(workdir):
-    env, _ = _manifest(release.build(release.load(str(workdir / 'release.yml'))).envelope)
+    env, _ = _manifest(release.build(release.load(str(workdir / 'release.json'))).envelope)
     assert env['#cfg'] == (workdir / 'cfg.bin').read_bytes()
 
 
 def test_text_is_severed_unless_inline(workdir, spec_pub):
-    r = release.load(str(workdir / 'release.yml'))
+    r = release.load(str(workdir / 'release.json'))
     env, man = _manifest(release.build(r).envelope)
     assert isinstance(man[codes.MAN_TEXT], list) and codes.ENV_TEXT in env
     env, man = _manifest(release.build(r, inline_text=True).envelope)
@@ -82,7 +84,7 @@ def test_text_is_severed_unless_inline(workdir, spec_pub):
 
 
 def test_sever_install(workdir, spec_pub):
-    built = release.build(release.load(str(workdir / 'release.yml')), sever_install=True)
+    built = release.build(release.load(str(workdir / 'release.json')), sever_install=True)
     env, man = _manifest(built.envelope)
     assert man[codes.MAN_INSTALL] == [codes.SHA256, hashlib.sha256(cbor.dumps(env[codes.ENV_INSTALL])).digest()]
     assert verify(built.envelope, [spec_pub]).ok
@@ -90,14 +92,14 @@ def test_sever_install(workdir, spec_pub):
 
 def test_algorithms(workdir, spec_pub):
     for name, alg in codes.SIGNATURE_ALGS.items():
-        built = release.build(release.load(str(workdir / 'release.yml'), alg=name))
+        built = release.build(release.load(str(workdir / 'release.json'), alg=name))
         auth = cbor.loads(cbor.loads(built.envelope).value[codes.ENV_AUTH])
         assert cbor.loads(cbor.loads(auth[1]).value[0]) == {1: alg}
         assert verify(built.envelope, [spec_pub]).ok
 
 
 def test_default_algorithm_is_esp256(workdir):
-    built = release.build(release.load(str(workdir / 'release.yml')))
+    built = release.build(release.load(str(workdir / 'release.json')))
     auth = cbor.loads(cbor.loads(built.envelope).value[codes.ENV_AUTH])
     assert cbor.loads(cbor.loads(auth[1]).value[0]) == {1: codes.ESP256}
 
@@ -105,7 +107,7 @@ def test_default_algorithm_is_esp256(workdir):
 def test_two_signers_each_verify(workdir, spec_pub):
     other = keys.generate()
     keys.write_private(other, str(workdir / 'other.pem'))
-    built = release.build(release.load(str(workdir / 'release.yml'),
+    built = release.build(release.load(str(workdir / 'release.json'),
                                        key_paths=[str(workdir / 'key.pem'), str(workdir / 'other.pem')]))
     auth = cbor.loads(cbor.loads(built.envelope).value[codes.ENV_AUTH])
     assert len(auth) == 3
@@ -114,15 +116,16 @@ def test_two_signers_each_verify(workdir, spec_pub):
 
 
 def test_builds_are_reproducible(workdir):
-    a = release.build(release.load(str(workdir / 'release.yml'))).envelope
-    b = release.build(release.load(str(workdir / 'release.yml'))).envelope
+    a = release.build(release.load(str(workdir / 'release.json'))).envelope
+    b = release.build(release.load(str(workdir / 'release.json'))).envelope
     assert a == b
 
 
 def test_vendor_pen_uses_tag_112_and_the_pen_class_rule(workdir, spec_pub):
-    y = workdir / 'pen.yml'
-    y.write_text('sequence_number: 1\nvendor_pen: 41381\nclass: c\n'
-                 'components: [ { id: [x], file: cfg.bin, uri: "#cfg" } ]\nsigning: { keys: [key.pem] }\n')
+    y = workdir / 'pen.json'
+    y.write_text('{"sequence_number": 1, "vendor_pen": 41381, "class": "c",'
+                 ' "components": [{"id": ["x"], "file": "cfg.bin", "uri": "#cfg"}],'
+                 ' "signing": {"keys": ["key.pem"]}}')
     env, man = _manifest(release.build(release.load(str(y))).envelope)
     params = cbor.loads(cbor.loads(man[codes.MAN_COMMON])[codes.COMMON_SHARED])[1]
     assert params[codes.P_VENDOR] == cbor.Tag(codes.PEN_TAG, bytes([0x82, 0xc3, 0x25]))
@@ -130,7 +133,7 @@ def test_vendor_pen_uses_tag_112_and_the_pen_class_rule(workdir, spec_pub):
 
 
 def test_entry_offsets_point_at_each_member(workdir):
-    built = release.build(release.load(str(workdir / 'release.yml')))
+    built = release.build(release.load(str(workdir / 'release.json')))
     env = cbor.loads(built.envelope).value
     for key, e in entry_offsets(built.envelope).items():
         k = int(key) if key.lstrip('-').isdigit() else key
@@ -138,20 +141,27 @@ def test_entry_offsets_point_at_each_member(workdir):
         assert built.envelope[e['offset']:e['offset'] + e['size']] == cbor.dumps(env[k])
 
 
-@pytest.mark.parametrize('yaml,message', [
-    ('vendor: v\nclass: c\ncomponents: []\nsigning: { keys: [key.pem] }\n', 'no components'),
-    ('class: c\ncomponents: [ { id: [x], file: cfg.bin, uri: a } ]\nsigning: { keys: [key.pem] }\n', 'vendor'),
-    ('vendor: v\nclass: c\ncomponents: [ { id: [x], file: cfg.bin, uri: a } ]\n', 'no signing key'),
-    ('vendor: v\nclass: c\ncomponents: [ { id: [x], file: cfg.bin, uri: a }, { id: [x], file: cfg.bin, uri: b } ]\n'
-     'signing: { keys: [key.pem] }\n', 'listed twice'),
-    ('vendor: v\nclass: c\ncomponents: [ { id: [x], file: cfg.bin, uri: a } ]\n'
-     'signing: { keys: [key.pem], alg: EdDSA }\n', 'signing.alg'),
-    ('sequence_number: 3\nvendor: v\nclass: c\ncomponents: [ { id: [x], file: cfg.bin, uri: a } ]\n'
-     'signing: { keys: [key.pem] }\n', 'below the floor'),
+ONE = [{'id': ['x'], 'file': 'cfg.bin', 'uri': 'a'}]
+SIGN = {'keys': ['key.pem']}
+
+
+@pytest.mark.parametrize('spec,message', [
+    ({'vendor': 'v', 'class': 'c', 'components': [], 'signing': SIGN}, 'no components'),
+    ({'class': 'c', 'components': ONE, 'signing': SIGN}, 'vendor'),
+    ({'vendor': 'v', 'class': 'c', 'components': ONE}, 'no signing key'),
+    ({'vendor': 'v', 'class': 'c', 'signing': SIGN,
+      'components': ONE + [{'id': ['x'], 'file': 'cfg.bin', 'uri': 'b'}]}, 'listed twice'),
+    ({'vendor': 'v', 'class': 'c', 'components': ONE,
+      'signing': {'keys': ['key.pem'], 'alg': 'EdDSA'}}, 'signing.alg'),
+    ({'sequence_number': 3, 'vendor': 'v', 'class': 'c', 'components': ONE, 'signing': SIGN}, 'below the floor'),
+    ({'vendor': 'v', 'class': 'c', 'signing': SIGN,
+      'components': [{'id': ['x'], 'file': 'cfg.bin'}]}, 'component 1 has no "uri"'),
+    ({'vendor': 'v', 'class': 'c', 'signing': SIGN,
+      'components': [{'id': ['x'], 'file': 'gone.bin', 'uri': 'a'}]}, 'cannot read'),
 ])
-def test_bad_release_is_refused(workdir, yaml, message):
-    y = workdir / 'bad.yml'
-    y.write_text(yaml)
+def test_bad_release_is_refused(workdir, spec, message):
+    y = workdir / 'bad.json'
+    y.write_text(json.dumps(spec))
     with pytest.raises(release.ReleaseError, match=message):
         release.load(str(y), min_seq=5)
 
@@ -163,7 +173,7 @@ def test_rsa_key_is_refused(workdir):
     (workdir / 'rsa.pem').write_bytes(k.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                                       serialization.NoEncryption()))
     with pytest.raises(keys.KeyFileError, match='P-256'):
-        release.load(str(workdir / 'release.yml'), key_paths=[str(workdir / 'rsa.pem')])
+        release.load(str(workdir / 'release.json'), key_paths=[str(workdir / 'rsa.pem')])
 
 
 def test_floor_from_sdkconfig(tmp_path):

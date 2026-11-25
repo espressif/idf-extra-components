@@ -16,6 +16,7 @@ Run it:
 import contextlib
 import functools
 import http.server
+import json
 import os
 import shutil
 import socket
@@ -38,16 +39,16 @@ def esp_suit(*args: str) -> None:
 
 def make_release(work: str, name: str, seq: int, components: list) -> None:
     """components: (pair name, payload file, skip_if_installed). Writes <name>.suit next to the payloads."""
-    lines = [f'sequence_number: {seq}', 'vendor: espressif.com', 'class: suit-ota-example', 'components:']
+    spec = {'sequence_number': seq, 'vendor': 'espressif.com', 'class': 'suit-ota-example',
+            'components': [], 'signing': {'keys': [KEY]}}
     for pair, path, skip in components:
         shutil.copyfile(path, os.path.join(work, f'{pair}.bin'))
-        lines.append(f'  - {{ id: [esp32c5, {pair}], file: "{pair}.bin", uri: {pair}.bin, '
-                     f'skip_if_installed: {str(skip).lower()} }}')
-    lines += ['signing:', f'  keys: ["{KEY}"]', '']
-    yml = os.path.join(work, f'{name}.yml')
-    with open(yml, 'w') as f:
-        f.write('\n'.join(lines))
-    esp_suit('create', yml)
+        spec['components'].append({'id': ['esp32c5', pair], 'file': f'{pair}.bin',
+                                   'uri': f'{pair}.bin', 'skip_if_installed': skip})
+    spec_path = os.path.join(work, f'{name}.json')
+    with open(spec_path, 'w') as f:
+        json.dump(spec, f, indent=2)
+    esp_suit('create', spec_path)
     esp_suit('verify', os.path.join(work, f'{name}.suit'), '--key', KEY,
              '--vendor', 'espressif.com', '--class', 'suit-ota-example')
 

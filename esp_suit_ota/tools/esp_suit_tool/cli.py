@@ -5,7 +5,7 @@
   esp-suit keygen  manifest.pem --anchor anchor_p256.bin   new signing key and the device's trust anchor
   esp-suit anchor  manifest.pem -o anchor_p256.bin         trust anchor of an existing key
   esp-suit ids     --vendor espressif.com --class my-board  vendor and class UUIDs as a C header
-  esp-suit create  release.yml                             signed envelope from a release description
+  esp-suit create  release.json                            signed envelope from a release description
   esp-suit verify  release.suit --key anchor_p256.bin      check it the way the device will
   esp-suit inspect release.suit                            print it with every field named
 
@@ -79,16 +79,26 @@ def cmd_ids(a):
     return 0
 
 
+def _same_file(a, b):
+    return os.path.realpath(a) == os.path.realpath(b)
+
+
 def cmd_create(a):
     floor = max(a.min_seq, release.read_floor(a.build_dir))
     r = release.load(a.release, key_paths=a.key, alg=a.alg, min_seq=floor)
     built = release.build(r, sever_install=a.sever_install, inline_text=a.inline_text)
     out = a.output or os.path.splitext(a.release)[0] + '.suit'
+    # The summary is .info.json, not .json, because .json is the release description itself.
+    info = a.info or os.path.splitext(out)[0] + '.info.json'
+    if _same_file(info, a.release):
+        return _fail(f'--info {a.info} is the release description itself')
+    if _same_file(out, a.release):
+        return _fail(f'the envelope would overwrite the release description {a.release}; '
+                     'give another name with -o')
     open(out, 'wb').write(built.envelope)
     report = verify(built.envelope, [s.key.public_key() for s in r.signers])
     if not report.ok:
         return _fail('the envelope just built does not verify:\n' + str(report))
-    info = a.info or os.path.splitext(out)[0] + '.json'
     json.dump(built.info, open(info, 'w'), indent=2)
     print(f'wrote {out} ({len(built.envelope)} bytes, sequence {r.sequence_number}, '
           f'{len(r.components)} components) and {info}')
@@ -152,10 +162,10 @@ def parser():
     p.add_argument('-o', '--output', metavar='FILE', help='write the header to FILE')
     p.set_defaults(func=cmd_ids)
 
-    p = sub.add_parser('create', help='signed envelope from a release YAML')
-    p.add_argument('release', help='release description (YAML)')
+    p = sub.add_parser('create', help='signed envelope from a release description')
+    p.add_argument('release', help='release description (JSON)')
     p.add_argument('-o', '--output', metavar='FILE', help='envelope path (default: release name + .suit)')
-    p.add_argument('--info', metavar='FILE', help='JSON summary path (default: envelope name + .json)')
+    p.add_argument('--info', metavar='FILE', help='summary path (default: envelope name + .info.json)')
     p.add_argument('--key', action='append', metavar='PEM', help='signing key, repeatable; replaces signing.keys')
     p.add_argument('--alg', choices=sorted(codes.SIGNATURE_ALGS), help='signature algorithm (default ESP256)')
     p.add_argument('--sever-install', action='store_true', help='carry the install sequence outside the manifest')
