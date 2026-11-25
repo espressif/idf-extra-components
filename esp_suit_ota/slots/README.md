@@ -1,16 +1,19 @@
-# esp_ota_slots
-
-[![Component Registry](https://components.espressif.com/components/espressif/esp_ota_slots/badge.svg)](https://components.espressif.com/components/espressif/esp_ota_slots)
+# The slots backend
 
 Partition pairs with a power-safe record of which slot is live.
 
-An OTA update of the app has two app partitions and a boot selector. This component gives the same
-treatment to any partition. You declare a logical name, the two partitions behind it, and the kind
-of pair. The component keeps one record in NVS that says which slot of each pair is live now, which
-slot was live before, and whether the last change is settled.
+This directory is part of [esp_suit_ota](../README.md), kept apart from the update engine. It
+holds two files. `esp_ota_slots.c` owns the pairs and the record, and knows nothing about SUIT,
+manifests or downloads. `esp_suit_ota_slots.c` is the adapter that hands those pairs to the update
+engine, and it is the only file here that mentions SUIT.
 
-The component knows nothing about SUIT, about manifests or about downloads. It only owns the
-record and the flip.
+An OTA update of the app has two app partitions and a boot selector. `esp_ota_slots.c` gives the
+same treatment to any partition. You declare a logical name, the two partitions behind it, and the
+kind of pair. It keeps one record in NVS that says which slot of each pair is live now, which slot
+was live before, and whether the last change is settled.
+
+Neither file is required. An application that leaves `cfg.slots_ops` at `NULL` maps every
+component to a fixed partition instead, and the linker leaves both files out of the image.
 
 ## Kinds of pair
 
@@ -57,8 +60,17 @@ After the release is live, the application decides. Call `esp_ota_slots_confirm(
 `esp_ota_slots_revert()` to send every pair back. Call `esp_ota_slots_revert_group("f1")` to send
 one pair and the rest of its group back, and leave the other pairs live.
 
-## With esp_suit_ota
+## With the update engine
 
-The `esp_suit_ota_slots` component turns these pairs into the slots backend of `esp_suit_ota`. Add
-it, call `esp_ota_slots_init()`, and put `esp_suit_ota_slots_ops()` in
-`esp_suit_ota_config_t.slots_ops`.
+Call `esp_ota_slots_init()` with your declarations, then put `esp_suit_ota_slots_ops()` in
+`esp_suit_ota_config_t.slots_ops`. Nothing is added to `idf_component.yml`, because both files
+come with `esp_suit_ota`.
+
+```c
+#include "esp_ota_slots.h"
+#include "esp_suit_ota_slots.h"
+
+nvs_flash_init();
+esp_ota_slots_init(slots, 2);
+cfg.slots_ops = esp_suit_ota_slots_ops();
+```

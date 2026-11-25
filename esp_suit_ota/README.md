@@ -10,9 +10,9 @@ Supported: ESP-IDF 6.0 and later. Tested on ESP32-C5 and ESP32-P4.
 
 The component owns the manifest, the verification, the downloads and the digests. It does not own
 the partition layout. Where each component is written, and how a bad release goes back, come from a
-slots backend that you supply. [esp_ota_slots](../esp_ota_slots) with
-[esp_suit_ota_slots](../esp_suit_ota_slots) is the ready-made one, and this component does not
-depend on either of them.
+slots backend that you supply. The ready-made one is in [slots/](slots): `esp_ota_slots.c` owns
+the partition pairs and the record in NVS, and `esp_suit_ota_slots.c` joins it to the update
+engine. Neither is needed. With `cfg.slots_ops` left at `NULL` the linker leaves both out.
 
 ## How a release works
 
@@ -84,9 +84,10 @@ The `esp-suit` tool needs Python 3.9 or later, with `cbor2` and `cryptography` 4
    const esp_partition_t *f1 = esp_ota_slots_get_active("f1");
    ```
 
-   Add `espressif/esp_ota_slots` and `espressif/esp_suit_ota_slots` to `idf_component.yml`. Without
-   a backend, `cfg.slots_ops` stays `NULL`, every component needs a map entry that names a fixed
-   partition or a sink, and there are no A/B slots and no rollback for data.
+   Nothing is added to `idf_component.yml` for this. Both files are part of this component, in
+   [slots/](slots). Without a backend, `cfg.slots_ops` stays `NULL`, every component needs a map
+   entry that names a fixed partition or a sink, and there are no A/B slots and no rollback for
+   data.
 
    Set `CONFIG_BOOTLOADER_APP_ROLLBACK_CONFIRM_BY_APP=y`. In the default mode, the bootloader confirms the new app before `app_main()` runs, and your self-test cannot stop a bad app.
 
@@ -189,7 +190,7 @@ For a stream that another engine delivers, for example a UART or a Matter BDX tr
 
 ## Slot pairs
 
-Pairs come from the `esp_ota_slots` component. Its README has the full reference. The short form:
+Pairs come from `slots/esp_ota_slots.c`. [slots/README.md](slots/README.md) has the full reference. The short form:
 
 - `AB` keeps two slots. The slots record says which slot is live.
 - `COPY` writes the new data to a staging partition and verifies it there. Activation copies it into the live partition and verifies the copy, so the live address never moves.

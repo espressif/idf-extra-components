@@ -12,9 +12,11 @@ extern "C" {
 #endif
 
 /**
- * @brief The esp_suit_ota backend built on the declared pairs of this component.
+ * @brief The esp_suit_ota backend built on the declared pairs of esp_ota_slots.
  *
- * Put the result in esp_suit_ota_config_t.slots_ops. Call esp_ota_slots_init() first.
+ * This header is part of esp_suit_ota, and it is on the include path only when esp_ota_slots is
+ * in the build. Put the result in esp_suit_ota_config_t.slots_ops. Call esp_ota_slots_init()
+ * first.
  */
 const esp_suit_ota_slots_ops_t *esp_suit_ota_slots_ops(void);
 

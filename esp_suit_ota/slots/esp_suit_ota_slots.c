@@ -5,11 +5,12 @@
  */
 
 /*
- * The adapter that lets esp_suit_ota use the declared pairs of this component.
+ * The adapter that lets esp_suit_ota use the declared pairs of esp_ota_slots.
  *
  * esp_suit_ota knows nothing about pairs, records or groups. It asks a backend for the
  * partitions of a named target, and at the end of activate() it asks the backend to record the
- * new indices. This file is that backend. It compiles only when esp_suit_ota is in the build.
+ * new indices. This file is that backend. It is part of esp_suit_ota, and the build system
+ * compiles it only when esp_ota_slots is in the build.
  */
 
 #include <string.h>

@@ -5,3 +5,7 @@ CONFIG_ESP_TASK_WDT_EN=n
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
 CONFIG_ESP_SUIT_OTA_PROGRESS_KB=4
 CONFIG_ESP_SUIT_OTA_MAX_COMPONENTS=4
+
+# The vector table includes encrypted payloads, so the test app needs the feature that
+# reads them. Without this, parameter 19 is unsupported and seven vectors fail.
+CONFIG_ESP_SUIT_OTA_ENCRYPTED_PAYLOAD=y
