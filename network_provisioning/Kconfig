@@ -13,6 +13,18 @@ menu "Network Provisioning Manager"
             bool "Network Type - Thread"
             depends on OPENTHREAD_ENABLED
 
+        config NETWORK_PROV_NETWORK_TYPE_NONE
+            bool "Network Type - None (transport only; e.g. Amazon Sidewalk over BLE)"
+            help
+                No Wi-Fi/Thread provisioning. The manager runs transport-only: it
+                brings up the BLE transport, the prov-session (SEC2/PoP) and any
+                application endpoints registered with
+                network_prov_mgr_endpoint_register(), and makes no esp_wifi_* /
+                Thread calls (no wifi/thread endpoints, capabilities or state
+                machine). Session-only behaviour is implied, so the manager's mode
+                field is ignored. Intended for a BLE data transport such as Amazon
+                Sidewalk.
+
     endchoice
 
     config NETWORK_PROV_SCAN_MAX_ENTRIES

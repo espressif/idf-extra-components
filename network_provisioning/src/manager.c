@@ -461,7 +461,7 @@ static void network_prov_write_info_json(json_gen_str_t *jstr)
     }
 
     /* Provisioning capabilities — only when provisioning endpoints are active.
-     * In SESSION_ONLY mode without enable_provisioning(), these are absent. */
+     * Absent in SESSION_ONLY and in NETWORK_TYPE_NONE (no Wi-Fi/Thread). */
     if (prov_ctx->prov_endpoints_enabled) {
 #ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_WIFI
         /* Indicate capability for performing Wi-Fi provision */
@@ -2199,8 +2199,19 @@ esp_err_t network_prov_mgr_init(network_prov_mgr_config_t config)
         return ESP_ERR_NO_MEM;
     }
 
+#ifdef CONFIG_NETWORK_PROV_NETWORK_TYPE_NONE
+    /* No network to provision: force session-only regardless of the caller's mode, so the
+     * BLE transport + protocomm session stay alive for the application's own endpoints
+     * (see keep_transport_on_stop) and no network prov-config/scan/ctrl endpoints run.
+     * This makes "NONE implies session-only" true for every mode check (keep_transport_on_stop
+     * and network_prov_mgr_get_mode too), so callers need not set config.mode themselves. */
+    config.mode = NETWORK_PROV_MODE_SESSION_ONLY;
+    prov_ctx->mgr_config = config;
+    prov_ctx->prov_endpoints_enabled = false;
+#else
     prov_ctx->mgr_config = config;
     prov_ctx->prov_endpoints_enabled = (config.mode == NETWORK_PROV_MODE_FULL);
+#endif
     prov_ctx->prov_state = NETWORK_PROV_STATE_IDLE;
     prov_ctx->mgr_info.version = NETWORK_PROV_MGR_VERSION;
 
