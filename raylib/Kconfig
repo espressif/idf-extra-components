@@ -46,6 +46,20 @@ menu "Raylib"
         default "R8G8B8A8" if RAYLIB_FRAMEBUFFER_FORMAT_RGBA8888
         default "R3G3B2" if RAYLIB_FRAMEBUFFER_FORMAT_RGB332
 
+    config RAYLIB_USE_ESP_DSP
+        bool "Accelerate matrix math with esp-dsp"
+        default y
+        help
+            Route the software renderer's 4x4 matrix multiply and per-vertex
+            transform through esp-dsp's hand-vectorized kernels instead of
+            rlsw's scalar code.
+
+            Each target gets its own kernel: LX7 SIMD on ESP32-S3, a
+            dedicated LX6 assembly routine on ESP32, the RISC-V vector
+            extension on ESP32-P4. Chips without an optimized kernel fall
+            back to plain C inside esp-dsp: correct, but no faster than the
+            scalar code, so disabling it there saves the dependency.
+
     menu "Resource loaders"
 
         config RAYLIB_FILEFORMAT_QOI

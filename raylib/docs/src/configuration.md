@@ -22,6 +22,14 @@ Run `idf.py menuconfig` and open **Component config → Raylib**.
 
 The pixel format must agree with what your panel expects. If colors look striped or shifted, check this option and the [swap_bytes](api.md#struct-esp_raylib_display_config_t) flag first.
 
+## Renderer acceleration
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `CONFIG_RAYLIB_USE_ESP_DSP` | on | Route the software renderer's 4x4 matrix multiply and per-vertex transform through [esp-dsp](https://github.com/espressif/esp-dsp)'s hand-vectorized kernels instead of rlsw's scalar code. |
+
+Each target gets its own kernel: LX7 SIMD on ESP32-S3, a dedicated LX6 assembly routine on ESP32, the RISC-V vector extension on ESP32-P4. Chips without an optimized kernel fall back to plain C inside esp-dsp: correct, but no faster than the scalar code, so disabling it there saves the dependency.
+
 ## Resource loaders
 
 Loaders are independently combinable and all off by default — with all off, assets come from memory, for example data embedded in the binary.

@@ -101,6 +101,13 @@ set(_raylib_defs
     RL_DEFAULT_BATCH_MAX_TEXTURE_UNITS=2
 
     RLSW_FRAMEBUFFER_COLOR_TYPE=${CONFIG_RAYLIB_FRAMEBUFFER_COLOR_TYPE}
+)
+
+if(CONFIG_RAYLIB_USE_ESP_DSP)
+    list(APPEND _raylib_defs SW_USE_ESP_DSP=1)
+endif()
+
+list(APPEND _raylib_defs
 
     # Only 3D drawing through BeginMode3D()/rlgl touches the depth buffer,
     # and this component is 2D-first.
