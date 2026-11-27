@@ -1364,10 +1364,11 @@ static esp_err_t process_bin(esp_encrypted_img_t *handle, pre_enc_decrypt_arg_t 
 
         if ((handle->cache_buf_len + (data_len - curr_index)) - (handle->cache_buf_len + (data_len - curr_index)) % CACHE_BUF_SIZE > 0) {
             data_out_size = (handle->cache_buf_len + (data_len - curr_index)) - (handle->cache_buf_len + (data_len - curr_index)) % CACHE_BUF_SIZE;
-            args->data_out = realloc(args->data_out, data_out_size);
-            if (!args->data_out) {
+            void *grown = realloc(args->data_out, data_out_size);
+            if (!grown) {
                 return ESP_ERR_NO_MEM;
             }
+            args->data_out = grown;
         }
         if (handle->cache_buf_len != 0) {
             copy_len = MIN(CACHE_BUF_SIZE - handle->cache_buf_len, data_len - curr_index);
