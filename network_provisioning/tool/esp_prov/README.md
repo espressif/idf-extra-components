@@ -128,5 +128,19 @@ For ESP-IDF v6.0 or later:
 ```shell
 bash install.sh --enable-ci
 ```
-
+or
+1) Create Virtual env.
+```
+python -m venv .venv
+```
+2) Activate virtual env
+```
+source .venv/Scripts/activate  (Linux)
+.venv\Scripts\activate.bat (windows)
+```
+3) Install dependencies
+```
+pip install -r requirements.txt
+```
 **Note:** For troubleshooting errors with Bluetooth LE transport, please refer this [link](https://bleak.readthedocs.io/en/latest/troubleshooting.html).
+
