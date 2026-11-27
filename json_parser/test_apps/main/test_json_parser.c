@@ -99,14 +99,14 @@ TEST_CASE("a buffer too small for the decoded string is refused", "[json_parser]
 {
     char tiny[4];
     PARSE("{\"k\":\"\\u00e9\\u00e9\"}");   /* 4 bytes decoded, needs 5 */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_string(&jctx, "k", tiny, sizeof(tiny)));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_string(&jctx, "k", tiny, sizeof(tiny)));
     char fit[5];
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_string(&jctx, "k", fit, sizeof(fit)));
     TEST_ASSERT_EQUAL_STRING("\xc3\xa9\xc3\xa9", fit);
     END();
     /* even an empty string needs room for its terminator */
     PARSE("{\"e\":\"\"}");
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_string(&jctx, "e", tiny, 0));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_string(&jctx, "e", tiny, 0));
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_string(&jctx, "e", tiny, 1));
     TEST_ASSERT_EQUAL_STRING("", tiny);
     END();
@@ -117,13 +117,13 @@ TEST_CASE("lone surrogate escapes and U+0000 cannot be decoded", "[json_parser]"
     int len;
     /* syntactically valid (RFC 8259 leaves it to the implementation), but not decodable */
     PARSE("{\"hi\":\"\\ud800\",\"lo\":\"\\udc00x\",\"pair\":\"\\ud83d\\u0041\",\"nul\":\"a\\u0000b\"}");   /* codespell:ignore nul */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_string(&jctx, "hi", sbuf, sizeof(sbuf)));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_strlen(&jctx, "hi", &len));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_string(&jctx, "lo", sbuf, sizeof(sbuf)));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_string(&jctx, "pair", sbuf, sizeof(sbuf)));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_string(&jctx, "hi", sbuf, sizeof(sbuf)));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_strlen(&jctx, "hi", &len));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_string(&jctx, "lo", sbuf, sizeof(sbuf)));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_string(&jctx, "pair", sbuf, sizeof(sbuf)));
     /* a C string cannot carry U+0000: fail rather than return a truncated value */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_string(&jctx, "nul", sbuf, sizeof(sbuf)));   /* codespell:ignore nul */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_strlen(&jctx, "nul", &len));                 /* codespell:ignore nul */
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_string(&jctx, "nul", sbuf, sizeof(sbuf)));   /* codespell:ignore nul */
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_strlen(&jctx, "nul", &len));                 /* codespell:ignore nul */
     END();
 }
 
@@ -140,9 +140,9 @@ TEST_CASE("names are matched decoded", "[json_parser]")
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_int(&jctx, "", &v));
     TEST_ASSERT_EQUAL_INT(4, v);
     /* the raw spelling of an escaped name is not a match */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_int(&jctx, "r\\u00e9sum\\u00e9", &v));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_int(&jctx, "r\\u00e9sum\\u00e9", &v));
     /* a prefix is not a match either */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_int(&jctx, "r\xc3\xa9sum", &v));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_int(&jctx, "r\xc3\xa9sum", &v));
     END();
 }
 
@@ -171,15 +171,15 @@ TEST_CASE("numbers are range checked per type", "[json_parser]")
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_int(&jctx, "neg", &i));
     TEST_ASSERT_EQUAL_INT(-1, i);
     /* does not fit an int: an error, not a wrapped value */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_int(&jctx, "over", &i));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_int(&jctx, "under", &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_int(&jctx, "over", &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_int(&jctx, "under", &i));
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_int64(&jctx, "over", &l));
     TEST_ASSERT_TRUE(l == 2147483648LL);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_int64(&jctx, "l", &l));
     TEST_ASSERT_TRUE(l == 9223372036854775807LL);
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_int64(&jctx, "lover", &l));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_int64(&jctx, "lover", &l));
     /* a real number is not an int */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_int(&jctx, "f", &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_int(&jctx, "f", &i));
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_double(&jctx, "f", &d));
     TEST_ASSERT_TRUE(d == 1.5);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_double(&jctx, "e", &d));
@@ -191,8 +191,8 @@ TEST_CASE("numbers are range checked per type", "[json_parser]")
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_double(&jctx, "z", &d));
     TEST_ASSERT_TRUE(d == 0.0);
     /* beyond the type's range */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_double(&jctx, "huge", &d));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_float(&jctx, "fhuge", &f));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_double(&jctx, "huge", &d));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_float(&jctx, "fhuge", &f));
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_float(&jctx, "f", &f));
     TEST_ASSERT_TRUE(f == 1.5f);
     END();
@@ -207,13 +207,13 @@ TEST_CASE("booleans are only true and false, null has its own accessor", "[json_
     TEST_ASSERT_TRUE(b);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_bool(&jctx, "f", &b));
     TEST_ASSERT_FALSE(b);
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_bool(&jctx, "one", &b));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_bool(&jctx, "s", &b));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_int(&jctx, "t", &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_bool(&jctx, "one", &b));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_bool(&jctx, "s", &b));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_int(&jctx, "t", &i));
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_null(&jctx, "n"));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_null(&jctx, "t"));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_null(&jctx, "missing"));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_obj_get_string(&jctx, "n", sbuf, sizeof(sbuf)));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_null(&jctx, "t"));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_null(&jctx, "missing"));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_obj_get_string(&jctx, "n", sbuf, sizeof(sbuf)));
     END();
 }
 
@@ -237,7 +237,7 @@ TEST_CASE("array elements of every type", "[json_parser]")
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_arr_get_bool(&jctx, 4, &b));
     TEST_ASSERT_TRUE(b);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_arr_get_null(&jctx, 5));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_arr_get_null(&jctx, 4));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_arr_get_null(&jctx, 4));
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_arr_get_array(&jctx, 6));
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_arr_get_int(&jctx, 0, &i));
     TEST_ASSERT_EQUAL_INT(1, i);
@@ -246,7 +246,7 @@ TEST_CASE("array elements of every type", "[json_parser]")
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_obj_get_string(&jctx, "k", sbuf, sizeof(sbuf)));
     TEST_ASSERT_EQUAL_STRING("v", sbuf);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_arr_leave_object(&jctx));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_arr_get_int(&jctx, 8, &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_arr_get_int(&jctx, 8, &i));
     END();
 }
 
@@ -261,7 +261,7 @@ TEST_CASE("a JSON text that is a single value", "[json_parser]")
     TEST_ASSERT_EQUAL_STRING("asd", sbuf);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_root_get_strlen(&jctx, &n));
     TEST_ASSERT_EQUAL_INT(3, n);
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_root_get_int(&jctx, &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_root_get_int(&jctx, &i));
     END();
     /* a number that ends the text is read from a buffer that is not NUL
      * terminated: the byte after it must not be looked at */
@@ -276,7 +276,7 @@ TEST_CASE("a JSON text that is a single value", "[json_parser]")
     TEST_ASSERT_TRUE(l == 42);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_root_get_double(&jctx, &d));
     TEST_ASSERT_TRUE(d == 42.0);
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_root_get_string(&jctx, sbuf, sizeof(sbuf)));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_root_get_string(&jctx, sbuf, sizeof(sbuf)));
     END();
     /* a long number that ends the text is still converted whole */
     char small[90] = "0.";
@@ -287,7 +287,7 @@ TEST_CASE("a JSON text that is a single value", "[json_parser]")
     TEST_ASSERT_TRUE(d > 0.9e-81 && d < 1.1e-81);
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_root_get_float(&jctx, &f));
     TEST_ASSERT_EQUAL_FLOAT(0.0f, f);   /* underflows to zero, which is not an error */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_root_get_int(&jctx, &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_root_get_int(&jctx, &i));
     END();
     PARSE(" -0.5 ");
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_root_get_double(&jctx, &d));
@@ -299,12 +299,12 @@ TEST_CASE("a JSON text that is a single value", "[json_parser]")
     END();
     PARSE("null");
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_root_get_null(&jctx));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_root_get_bool(&jctx, &b));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_root_get_bool(&jctx, &b));
     END();
     /* root accessors do not apply to an object or array document */
     PARSE("{\"a\":1}");
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_root_get_int(&jctx, &i));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_root_get_null(&jctx));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_root_get_int(&jctx, &i));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_root_get_null(&jctx));
     END();
 }
 
@@ -320,10 +320,10 @@ TEST_CASE("invalid documents are rejected", "[json_parser]")
         "[\xc3\xa9]", "{\"a\":1}\xef\xbb\xbf", "[1]\f", "\f[1]",
     };
     for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
-        TEST_ASSERT_EQUAL_INT_MESSAGE(-OS_FAIL, json_parse_start(&jctx, bad[i], strlen(bad[i])), bad[i]);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(OS_FAIL, json_parse_start(&jctx, bad[i], strlen(bad[i])), bad[i]);
     }
     /* a NUL byte inside the given length is not an end-of-text marker */
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_parse_start(&jctx, "[1]\0", 4));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_parse_start(&jctx, "[1]\0", 4));
 }
 
 TEST_CASE("valid documents are accepted", "[json_parser]")
@@ -400,6 +400,6 @@ TEST_CASE("static token buffer", "[json_parser]")
     TEST_ASSERT_EQUAL_INT(OS_SUCCESS, json_arr_get_int(&jctx, 2, &i));
     TEST_ASSERT_EQUAL_INT(3, i);
     json_parse_end_static(&jctx);
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_parse_start_static(&jctx, doc, strlen(doc), toks, 5));
-    TEST_ASSERT_EQUAL_INT(-OS_FAIL, json_parse_start_static(&jctx, "[1,]", 4, toks, 8));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_parse_start_static(&jctx, doc, strlen(doc), toks, 5));
+    TEST_ASSERT_EQUAL_INT(OS_FAIL, json_parse_start_static(&jctx, "[1,]", 4, toks, 8));
 }
