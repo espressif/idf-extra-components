@@ -6,6 +6,8 @@ documentation: https://espressif.github.io/idf-extra-components/latest/raylib/in
 issues: https://github.com/espressif/idf-extra-components/issues
 dependencies:
   idf: ">=5.3"
+  # Software-renderer matrix kernels
+  espressif/esp-dsp: "^1.8.2"
 files:
   exclude:
     - "raylib/examples/**/*"
